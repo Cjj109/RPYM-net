@@ -677,45 +677,64 @@ const SAMPLE_DATA: Omit<Product, 'precioBs' | 'descripcionCorta' | 'masVendido' 
 
 /**
  * Obtiene la tasa del dolar BCV del dia
- * Usa la API de pydolarve.org (gratuita y confiable)
+ * Usa múltiples APIs con fallback para mayor confiabilidad
  */
 export async function getBCVRate(): Promise<BCVRate> {
+  // Intentar con ve.dolarapi.com primero (más estable)
   try {
-    // API publica de tasas de cambio Venezuela
+    const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial', {
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.promedio) {
+        const fecha = data.fechaActualizacion
+          ? new Date(data.fechaActualizacion).toLocaleDateString('es-VE')
+          : new Date().toLocaleDateString('es-VE');
+        return {
+          rate: data.promedio,
+          date: fecha,
+          source: 'BCV',
+        };
+      }
+    }
+  } catch (error) {
+    console.error('Error con ve.dolarapi.com:', error);
+  }
+
+  // Fallback: pydolarve.org
+  try {
     const response = await fetch('https://pydolarve.org/api/v1/dollar?page=bcv', {
       headers: {
         'Accept': 'application/json',
       },
     });
 
-    if (!response.ok) {
-      throw new Error(`Error fetching BCV rate: ${response.status}`);
+    if (response.ok) {
+      const data = await response.json();
+      const bcvData = data.monitors?.usd;
+      if (bcvData?.price) {
+        return {
+          rate: bcvData.price,
+          date: bcvData.last_update || new Date().toLocaleDateString('es-VE'),
+          source: 'BCV',
+        };
+      }
     }
-
-    const data = await response.json();
-
-    // La API devuelve: { monitors: { usd: { price: number, last_update: string } } }
-    const bcvData = data.monitors?.usd;
-
-    if (bcvData?.price) {
-      return {
-        rate: bcvData.price,
-        date: bcvData.last_update || new Date().toLocaleDateString('es-VE'),
-        source: 'BCV',
-      };
-    }
-
-    throw new Error('Datos de BCV no disponibles');
   } catch (error) {
-    console.error('Error al obtener tasa BCV:', error);
-
-    // Fallback: tasa aproximada (actualizar manualmente si falla la API)
-    return {
-      rate: 52.50, // Tasa de respaldo
-      date: new Date().toLocaleDateString('es-VE'),
-      source: 'Referencial',
-    };
+    console.error('Error con pydolarve.org:', error);
   }
+
+  // Último fallback: tasa de respaldo
+  console.warn('⚠️ Usando tasa de respaldo - APIs no disponibles');
+  return {
+    rate: 70.00, // Tasa de respaldo actualizada
+    date: new Date().toLocaleDateString('es-VE'),
+    source: 'Referencial',
+  };
 }
 
 /**
