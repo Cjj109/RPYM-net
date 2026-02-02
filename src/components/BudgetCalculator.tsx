@@ -21,6 +21,8 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
   const [selectedItems, setSelectedItems] = useState<Map<string, SelectedItem>>(new Map());
   const [isCartExpanded, setIsCartExpanded] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>(categories[0]?.name || '');
+  // Estado para inputs que están siendo editados (evita que se cierre al borrar)
+  const [editingInputs, setEditingInputs] = useState<Map<string, string>>(new Map());
 
   // Calcular totales
   const totals = useMemo(() => {
@@ -110,6 +112,63 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
     return 0.1;
   };
 
+  // Manejar inicio de edición del input
+  const handleInputFocus = (productId: string, currentQty: number) => {
+    setEditingInputs(prev => {
+      const next = new Map(prev);
+      next.set(productId, formatQuantity(currentQty));
+      return next;
+    });
+  };
+
+  // Manejar cambio mientras se escribe
+  const handleInputChange = (productId: string, value: string) => {
+    setEditingInputs(prev => {
+      const next = new Map(prev);
+      next.set(productId, value);
+      return next;
+    });
+  };
+
+  // Manejar fin de edición (blur)
+  const handleInputBlur = (product: Product) => {
+    const editValue = editingInputs.get(product.id);
+    const val = parseFloat(editValue || '0') || 0;
+    const minQty = getMinQuantity(product);
+
+    // Limpiar el estado de edición
+    setEditingInputs(prev => {
+      const next = new Map(prev);
+      next.delete(product.id);
+      return next;
+    });
+
+    // Actualizar cantidad
+    if (val <= 0) {
+      updateQuantity(product, 0);
+    } else if (product.entradaLibre) {
+      updateQuantity(product, val < minQty ? minQty : val);
+    } else {
+      const rounded = Math.round(val / product.incremento) * product.incremento;
+      updateQuantity(product, rounded < minQty ? minQty : rounded);
+    }
+  };
+
+  // Obtener valor a mostrar en el input
+  const getInputValue = (productId: string, quantity: number): string => {
+    // Si está siendo editado, mostrar el valor de edición
+    if (editingInputs.has(productId)) {
+      return editingInputs.get(productId) || '';
+    }
+    // Si no, mostrar la cantidad formateada
+    return formatQuantity(quantity);
+  };
+
+  // Verificar si un producto está seleccionado o siendo editado
+  const isProductActive = (productId: string, quantity: number): boolean => {
+    return quantity > 0 || editingInputs.has(productId);
+  };
+
   // Scroll a categoría
   const scrollToCategory = (categoryName: string) => {
     setActiveCategory(categoryName);
@@ -179,7 +238,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
               <div className="space-y-2">
                 {category.products.filter(p => p.disponible).map((product) => {
                   const quantity = getQuantity(product.id);
-                  const isSelected = quantity > 0;
+                  const isSelected = isProductActive(product.id, quantity);
 
                   return (
                     <div
@@ -241,25 +300,10 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                               </button>
                               <input
                                 type="number"
-                                value={formatQuantity(quantity)}
-                                onChange={(e) => {
-                                  const val = parseFloat(e.target.value) || 0;
-                                  const minQty = getMinQuantity(product);
-                                  if (product.entradaLibre) {
-                                    if (val > 0 && val < minQty) {
-                                      updateQuantity(product, minQty);
-                                    } else {
-                                      updateQuantity(product, val);
-                                    }
-                                  } else {
-                                    const rounded = Math.round(val / product.incremento) * product.incremento;
-                                    if (rounded > 0 && rounded < minQty) {
-                                      updateQuantity(product, minQty);
-                                    } else {
-                                      updateQuantity(product, rounded);
-                                    }
-                                  }
-                                }}
+                                value={getInputValue(product.id, quantity)}
+                                onFocus={() => handleInputFocus(product.id, quantity)}
+                                onChange={(e) => handleInputChange(product.id, e.target.value)}
+                                onBlur={() => handleInputBlur(product)}
                                 step={product.entradaLibre ? "0.001" : product.incremento}
                                 min="0"
                                 className="w-12 text-center bg-transparent text-ocean-900 font-medium text-sm
@@ -281,8 +325,8 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                         </div>
                       </div>
 
-                      {/* Subtotal si hay cantidad */}
-                      {isSelected && (
+                      {/* Subtotal si hay cantidad real */}
+                      {quantity > 0 && (
                         <div className="mt-2 pt-2 border-t border-ocean-100 flex items-center justify-between">
                           <span className="text-xs text-ocean-500">
                             {formatQuantity(quantity)} {product.unidad}
