@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { Product, Category, BCVRate } from '../lib/sheets';
+import { savePresupuesto, isConfigured } from '../lib/presupuesto-storage';
 
 interface Props {
   categories: Category[];
@@ -55,6 +56,8 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
   const [showDeliveryNote, setShowDeliveryNote] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
+  const [presupuestoId, setPresupuestoId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Calcular totales
   const totals = useMemo(() => {
@@ -96,6 +99,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
   const clearSelection = () => {
     setSelectedItems(new Map());
     setIsCartExpanded(false);
+    setPresupuestoId(null); // Resetear ID para nuevo presupuesto
   };
 
   // Generar mensaje de WhatsApp con el pedido detallado
@@ -452,8 +456,54 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
     }, 250);
   };
 
-  // Generar número de nota basado en fecha
+  // Mostrar presupuesto y guardarlo automáticamente
+  const handleShowDeliveryNote = async () => {
+    // Mostrar el presupuesto inmediatamente
+    setShowDeliveryNote(true);
+
+    // Si ya se guardó este presupuesto, no volver a guardarlo
+    if (presupuestoId) return;
+
+    // Solo guardar si hay productos seleccionados y el módulo está configurado
+    if (selectedItems.size === 0 || !isConfigured()) return;
+
+    // Guardar en segundo plano (silencioso)
+    setIsSaving(true);
+    try {
+      const items = Array.from(selectedItems.values()).map(({ product, quantity }) => ({
+        nombre: product.nombre,
+        cantidad: quantity,
+        unidad: product.unidad,
+        precioUSD: product.precioUSD,
+        precioBs: product.precioBs,
+        subtotalUSD: product.precioUSD * quantity,
+        subtotalBs: product.precioBs * quantity
+      }));
+
+      const result = await savePresupuesto({
+        items,
+        totalUSD: totals.usd,
+        totalBs: totals.bs,
+        customerName,
+        customerAddress
+      });
+
+      if (result.success && result.id) {
+        setPresupuestoId(result.id);
+      }
+    } catch (error) {
+      // Silencioso - no mostrar errores al usuario
+      console.error('Error guardando presupuesto:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Generar número de nota (usa el ID guardado si existe)
   const getDeliveryNoteNumber = () => {
+    if (presupuestoId) {
+      return presupuestoId;
+    }
     const now = new Date();
     return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
   };
@@ -1011,7 +1061,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                   </button>
 
                   <button
-                    onClick={() => setShowDeliveryNote(true)}
+                    onClick={handleShowDeliveryNote}
                     className="w-full mt-2 py-2.5 border border-ocean-200 text-ocean-700 hover:bg-ocean-50
                       rounded-xl transition-colors flex items-center justify-center gap-2 text-sm font-medium"
                   >
@@ -1177,7 +1227,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                 </button>
 
                 <button
-                  onClick={() => setShowDeliveryNote(true)}
+                  onClick={handleShowDeliveryNote}
                   className="w-full mt-2 py-3 border border-ocean-200 text-ocean-700 hover:bg-ocean-50
                     rounded-xl transition-colors flex items-center justify-center gap-2 text-sm font-medium"
                 >
