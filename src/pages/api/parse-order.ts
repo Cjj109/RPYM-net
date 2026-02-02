@@ -32,9 +32,11 @@ interface ParseResponse {
   error?: string;
 }
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   try {
-    const apiKey = import.meta.env.CLAUDE_API_KEY;
+    // En Cloudflare Pages, las env vars se acceden via locals.runtime.env
+    const runtime = (locals as any).runtime;
+    const apiKey = runtime?.env?.CLAUDE_API_KEY || import.meta.env.CLAUDE_API_KEY;
 
     if (!apiKey) {
       return new Response(JSON.stringify({
