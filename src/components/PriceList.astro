@@ -58,6 +58,37 @@ const categoryIcons: Record<string, string> = {
             </span>
           </h3>
 
+          {/* Micro-guía de tallas - solo para Camarones */}
+          {category.name === 'Camarones' && (
+            <div class="mb-4 md:mb-6 bg-gradient-to-r from-ocean-100 to-coral-50 rounded-lg p-3 md:p-4 border border-ocean-200">
+              <p class="text-sm md:text-base font-medium text-ocean-800 mb-2">
+                🦐 ¿No sabes qué camarón elegir?
+              </p>
+              <div class="flex flex-wrap gap-2 md:gap-3 text-xs md:text-sm">
+                <span class="inline-flex items-center gap-1.5 bg-white/80 px-2.5 py-1 rounded-full border border-ocean-200">
+                  <span class="font-bold text-ocean-700">61/70</span>
+                  <span class="text-ocean-600">Rendidor</span>
+                </span>
+                <span class="inline-flex items-center gap-1.5 bg-coral-100 px-2.5 py-1 rounded-full border border-coral-200">
+                  <span class="font-bold text-coral-600">41/50</span>
+                  <span class="text-coral-700">El más usado</span>
+                  <span class="text-[10px]">⭐</span>
+                </span>
+                <span class="inline-flex items-center gap-1.5 bg-white/80 px-2.5 py-1 rounded-full border border-ocean-200">
+                  <span class="font-bold text-ocean-700">36/40</span>
+                  <span class="text-ocean-600">Grande</span>
+                </span>
+                <span class="inline-flex items-center gap-1.5 bg-white/80 px-2.5 py-1 rounded-full border border-ocean-200">
+                  <span class="font-bold text-ocean-700">26/30</span>
+                  <span class="text-ocean-600">Premium</span>
+                </span>
+              </div>
+              <p class="text-[10px] md:text-xs text-ocean-500 mt-2">
+                El número indica cuántos camarones vienen por libra. Menor número = camarón más grande.
+              </p>
+            </div>
+          )}
+
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
             {category.products.map((product) => (
               <ProductCard product={product} />

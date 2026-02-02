@@ -76,6 +76,37 @@ export function PriceListInteractive({ categories, masVendidos, bcvRate }: Price
                 </span>
               </h3>
 
+              {/* Micro-guía de tallas - solo para Camarones */}
+              {category.name === 'Camarones' && (
+                <div className="mb-4 md:mb-6 bg-gradient-to-r from-ocean-100 to-coral-50 rounded-lg p-3 md:p-4 border border-ocean-200">
+                  <p className="text-sm md:text-base font-medium text-ocean-800 mb-2">
+                    🦐 ¿No sabes qué camarón elegir?
+                  </p>
+                  <div className="flex flex-wrap gap-2 md:gap-3 text-xs md:text-sm">
+                    <span className="inline-flex items-center gap-1.5 bg-white/80 px-2.5 py-1 rounded-full border border-ocean-200">
+                      <span className="font-bold text-ocean-700">61/70</span>
+                      <span className="text-ocean-600">Rendidor</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 bg-coral-100 px-2.5 py-1 rounded-full border border-coral-200">
+                      <span className="font-bold text-coral-600">41/50</span>
+                      <span className="text-coral-700">El más usado</span>
+                      <span className="text-[10px]">⭐</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 bg-white/80 px-2.5 py-1 rounded-full border border-ocean-200">
+                      <span className="font-bold text-ocean-700">36/40</span>
+                      <span className="text-ocean-600">Grande</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 bg-white/80 px-2.5 py-1 rounded-full border border-ocean-200">
+                      <span className="font-bold text-ocean-700">26/30</span>
+                      <span className="text-ocean-600">Premium</span>
+                    </span>
+                  </div>
+                  <p className="text-[10px] md:text-xs text-ocean-500 mt-2">
+                    El número indica cuántos camarones vienen por libra. Menor número = camarón más grande.
+                  </p>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 {category.products.map((product) => (
                   <ProductCardInteractive key={product.id} product={product} />
