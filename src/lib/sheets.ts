@@ -57,6 +57,28 @@ function generarDescripcionCorta(descripcion: string, nombre: string): string {
     return 'Más grande, más presencia. Perfecto para parrilla y pastas.';
   }
 
+  // Camarón Jumbo (sin especificar concha) - en concha de primera
+  if (nombreLower.includes('camar') && nombreLower.includes('jumbo') && !nombreLower.includes('desven')) {
+    return 'Camarón grande en concha de primera. Ideal para parrilla, ajillo y platos especiales.';
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // CAMARONES POR TALLA (61/70, 51/60, etc.)
+  // ═══════════════════════════════════════════════════════════════════
+
+  // Detectar camarones por talla (con o sin "caja")
+  if (nombreLower.includes('camar')) {
+    const tallaMatch = nombre.match(/(\d+\/\d+)/);
+    if (tallaMatch) {
+      const talla = tallaMatch[1];
+      if (talla === '61/70') return 'Camarón pequeño y rendidor. Ideal para arroces, pastas y salteados.';
+      if (talla === '51/60') return 'Tamaño medio-pequeño muy versátil. Perfecto para pastas, arroces y cócteles.';
+      if (talla === '41/50') return 'La talla más balanceada y usada. Ideal para casi cualquier receta con camarón.';
+      if (talla === '36/40') return 'Camarón grande que se nota en el plato. Perfecto para ajillo, parrilla y platos especiales.';
+      if (talla === '31/35') return 'Camarón grande estilo premium. Ideal para parrilla y presentaciones gourmet.';
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════════════
   // CAMARONES PELADOS Y DESVENADOS
   // ═══════════════════════════════════════════════════════════════════
@@ -71,23 +93,6 @@ function generarDescripcionCorta(descripcion: string, nombre: string): string {
 
   if (nombreLower.includes('desvenado') && !nombreLower.includes('jumbo')) {
     return 'El "rey" para cocinar sin complicaciones. Perfecto para ajillo y pastas.';
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // CAJAS DE CAMARÓN (por talla)
-  // ═══════════════════════════════════════════════════════════════════
-
-  if (nombreLower.includes('caja') && nombreLower.includes('camar')) {
-    const tallaMatch = nombre.match(/(\d+\/\d+)/);
-    if (tallaMatch) {
-      const talla = tallaMatch[1];
-      if (talla === '61/70') return 'Camarón pequeño y rendidor. Ideal para arroces, pastas y salteados.';
-      if (talla === '51/60') return 'Tamaño medio-pequeño, muy versátil. Perfecto para pastas, arroces y cócteles.';
-      if (talla === '41/50') return 'La talla más balanceada y usada. Ideal para casi cualquier receta.';
-      if (talla === '36/40') return 'Camarón grande que se nota en el plato. Perfecto para ajillo y parrilla.';
-      if (talla === '31/35') return 'Camarón grande estilo premium. Ideal para parrilla y platos protagonistas.';
-    }
-    return 'Caja 2kg · Desvenado listo para cocinar';
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -236,24 +241,28 @@ function generarDescripcionHome(nombre: string): string {
   if (nombreLower.includes('vivito')) return 'Súper fresco, sabor real';
   if (nombreLower.includes('jumbo') && nombreLower.includes('concha')) return 'Tamaño grande que se luce';
 
+  // Camarón Jumbo (sin especificar concha)
+  if (nombreLower.includes('camar') && nombreLower.includes('jumbo') && !nombreLower.includes('desven')) {
+    return 'Grande y llamativo';
+  }
+
+  // Camarones por talla (con o sin "caja")
+  if (nombreLower.includes('camar')) {
+    const tallaMatch = nombre.match(/(\d+\/\d+)/);
+    if (tallaMatch) {
+      const talla = tallaMatch[1];
+      if (talla === '61/70') return 'Pequeño y rendidor';
+      if (talla === '51/60') return 'Versátil para todo';
+      if (talla === '41/50') return 'La talla más usada';
+      if (talla === '36/40') return 'Grande y protagonista';
+      if (talla === '31/35') return 'Nivel premium';
+    }
+  }
+
   // Camarones pelados y desvenados
   if (nombreLower.includes('pelado') && !nombreLower.includes('desven')) return 'Práctico y rendidor';
   if (nombreLower.includes('desvenado') && nombreLower.includes('jumbo')) return 'Más grande, más impacto';
   if (nombreLower.includes('desvenado') && !nombreLower.includes('jumbo')) return 'El favorito para cocinar fácil';
-
-  // Cajas de camarón
-  if (nombreLower.includes('caja') && nombreLower.includes('camar')) {
-    const tallaMatch = nombre.match(/(\d+\/\d+)/);
-    if (tallaMatch) {
-      const talla = tallaMatch[1];
-      if (talla === '61/70') return 'Ideal para recetas rendidoras';
-      if (talla === '51/60') return 'Versátil para todo';
-      if (talla === '41/50') return 'La talla más usada';
-      if (talla === '36/40') return 'Grande y llamativo';
-      if (talla === '31/35') return 'Casi langostino premium';
-    }
-    return 'Caja desvenado';
-  }
 
   // Camarón precocido y langostino
   if (nombreLower.includes('precocido') || nombreLower.includes('pre cocido')) return 'Listo para servir';
