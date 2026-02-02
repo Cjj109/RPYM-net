@@ -140,12 +140,30 @@ Analiza la lista e identifica cada producto con su cantidad. Haz el mejor match 
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Error de API Claude:', errorText);
+      console.error('Error de API Claude:', response.status, errorText);
+
+      // Parsear el error para dar mejor feedback
+      let errorMessage = 'Error al procesar la lista. Intenta de nuevo.';
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error?.type === 'authentication_error') {
+          errorMessage = 'Error de autenticación con la API. Verifica la API key.';
+        } else if (errorJson.error?.type === 'invalid_api_key') {
+          errorMessage = 'API key inválida. Contacta al administrador.';
+        } else if (errorJson.error?.type === 'rate_limit_error') {
+          errorMessage = 'Demasiadas solicitudes. Espera un momento e intenta de nuevo.';
+        } else if (errorJson.error?.message) {
+          errorMessage = `Error: ${errorJson.error.message}`;
+        }
+      } catch {
+        // Si no es JSON, usar el mensaje genérico
+      }
+
       return new Response(JSON.stringify({
         success: false,
         items: [],
         unmatched: [],
-        error: 'Error al procesar la lista. Intenta de nuevo.'
+        error: errorMessage
       }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' }

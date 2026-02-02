@@ -975,18 +975,18 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
 
       {/* Modal de Presupuesto */}
       {showDeliveryNote && (
-        <div className="fixed inset-0 z-[100] overflow-auto print:overflow-visible print:relative print:inset-auto">
+        <div className="fixed inset-0 z-[100] overflow-auto print-container">
           {/* Overlay - se oculta al imprimir */}
           <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm print:hidden"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm no-print"
             onClick={() => setShowDeliveryNote(false)}
           />
 
           {/* Contenedor del modal */}
-          <div className="min-h-screen flex items-center justify-center p-4 print:p-0 print:min-h-0 print:block">
-            <div className="relative bg-white w-full max-w-2xl rounded-lg shadow-2xl print:shadow-none print:max-w-none print:rounded-none">
+          <div className="min-h-screen flex items-center justify-center p-4 no-print-wrapper">
+            <div className="relative bg-white w-full max-w-2xl rounded-lg shadow-2xl">
               {/* Botones de control - se ocultan al imprimir */}
-              <div className="flex items-center justify-between p-4 border-b border-ocean-200 print:hidden">
+              <div className="flex items-center justify-between p-4 border-b border-ocean-200 no-print">
                 <h3 className="text-lg font-semibold text-ocean-900">Vista previa de Presupuesto</h3>
                 <div className="flex items-center gap-2">
                   <button
@@ -1176,28 +1176,6 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
         </div>
       )}
 
-      {/* Estilos de impresión */}
-      <style>{`
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          #delivery-note-content,
-          #delivery-note-content * {
-            visibility: visible;
-          }
-          #delivery-note-content {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-          }
-          @page {
-            size: A4;
-            margin: 1cm;
-          }
-        }
-      `}</style>
     </div>
   );
 }
