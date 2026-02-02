@@ -1,0 +1,36 @@
+---
+interface Props {
+  position: 'top' | 'bottom';
+  class?: string;
+}
+
+const { position, class: className = '' } = Astro.props;
+
+const isTop = position === 'top';
+---
+
+<div class={`absolute ${isTop ? 'top-0 rotate-180' : 'bottom-0'} left-0 right-0 overflow-hidden pointer-events-none ${className}`}>
+  <svg
+    class="relative block w-full h-12 md:h-16"
+    viewBox="0 0 1200 120"
+    preserveAspectRatio="none"
+  >
+    <!-- Ola trasera (mas clara) -->
+    <path
+      d="M0,40 C150,80 350,0 500,40 C650,80 850,0 1000,40 C1050,50 1150,30 1200,40 L1200,120 L0,120 Z"
+      class="fill-ocean-100/30 animate-wave-slow"
+    />
+
+    <!-- Ola del medio -->
+    <path
+      d="M0,60 C200,100 400,20 600,60 C800,100 1000,20 1200,60 L1200,120 L0,120 Z"
+      class="fill-ocean-50/50 animate-wave"
+    />
+
+    <!-- Ola frontal (la mas definida) -->
+    <path
+      d="M0,80 C300,120 600,40 900,80 C1050,100 1150,70 1200,80 L1200,120 L0,120 Z"
+      class={isTop ? 'fill-ocean-800' : 'fill-ocean-50'}
+    />
+  </svg>
+</div>

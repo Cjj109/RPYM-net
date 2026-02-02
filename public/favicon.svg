@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Fondo circular oceano -->
+  <circle cx="32" cy="32" r="30" fill="#0c4a6e"/>
+
+  <!-- Pez estilizado -->
+  <g transform="translate(8, 16)">
+    <!-- Cuerpo -->
+    <path
+      d="M40 16C40 22 34 28 22 28C12 28 6 22 6 16C6 10 12 4 22 4C34 4 40 10 40 16Z"
+      fill="#38bdf8"
+    />
+    <!-- Cola -->
+    <path
+      d="M6 16L0 8L0 24L6 16Z"
+      fill="#38bdf8"
+    />
+    <!-- Ojo -->
+    <circle cx="32" cy="14" r="3" fill="white"/>
+    <circle cx="33" cy="13" r="1.5" fill="#0c4a6e"/>
+
+    <!-- Corona dorada -->
+    <path
+      d="M26 2L28 6L30 1L32 7L34 2"
+      stroke="#f97316"
+      stroke-width="2.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      fill="none"
+    />
+  </g>
+
+  <!-- Burbujas decorativas -->
+  <circle cx="52" cy="20" r="2" fill="#7dd3fc" opacity="0.6"/>
+  <circle cx="48" cy="14" r="1.5" fill="#7dd3fc" opacity="0.4"/>
+  <circle cx="54" cy="28" r="1" fill="#7dd3fc" opacity="0.5"/>
+</svg>

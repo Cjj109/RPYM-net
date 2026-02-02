@@ -1,0 +1,31 @@
+# Cache control for static assets
+/*.webp
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.svg
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.ico
+  Cache-Control: public, max-age=31536000, immutable
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/chunks/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/entry/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# HTML pages - short cache for updates
+/*.html
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+
+/
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+
+# Security headers
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin

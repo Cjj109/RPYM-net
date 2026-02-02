@@ -1,0 +1,137 @@
+@import "tailwindcss";
+
+/* Variables CSS personalizadas */
+@theme {
+  --color-ocean-50: #f0f9ff;
+  --color-ocean-100: #e0f2fe;
+  --color-ocean-200: #bae6fd;
+  --color-ocean-300: #7dd3fc;
+  --color-ocean-400: #38bdf8;
+  --color-ocean-500: #0ea5e9;
+  --color-ocean-600: #0284c7;
+  --color-ocean-700: #0369a1;
+  --color-ocean-800: #075985;
+  --color-ocean-900: #0c4a6e;
+  --color-ocean-950: #082f49;
+
+  --color-sand-50: #fffbeb;
+  --color-sand-100: #fef3c7;
+  --color-sand-200: #fde68a;
+  --color-sand-300: #fcd34d;
+
+  --color-coral-100: #ffedd5;
+  --color-coral-300: #fdba74;
+  --color-coral-400: #fb923c;
+  --color-coral-500: #f97316;
+  --color-coral-600: #ea580c;
+
+  --color-foam: #f8fafc;
+
+  --font-display: 'Playfair Display', serif;
+  --font-body: 'Inter', sans-serif;
+}
+
+/* Estilos base */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  background: linear-gradient(180deg, var(--color-ocean-50) 0%, var(--color-foam) 100%);
+  min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+}
+
+/* Animacion de olas */
+@keyframes wave {
+  0%, 100% {
+    transform: translateX(0) translateY(0);
+  }
+  50% {
+    transform: translateX(-25px) translateY(5px);
+  }
+}
+
+@keyframes wave-slow {
+  0%, 100% {
+    transform: translateX(0) translateY(0);
+  }
+  50% {
+    transform: translateX(25px) translateY(-3px);
+  }
+}
+
+.animate-wave {
+  animation: wave 8s ease-in-out infinite;
+}
+
+.animate-wave-slow {
+  animation: wave-slow 12s ease-in-out infinite;
+}
+
+/* Animación flotante para la mascota */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-8px) rotate(2deg);
+  }
+  75% {
+    transform: translateY(4px) rotate(-1deg);
+  }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* Animación de camarón nadando */
+@keyframes shrimp-swim {
+  0%, 100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  25% {
+    transform: translateX(2px) rotate(3deg);
+  }
+  50% {
+    transform: translateX(0) rotate(0deg);
+  }
+  75% {
+    transform: translateX(-2px) rotate(-3deg);
+  }
+}
+
+.animate-shrimp {
+  animation: shrimp-swim 2s ease-in-out infinite;
+}
+
+/* Patron de agua sutil */
+.water-pattern {
+  background-image:
+    radial-gradient(ellipse at 50% 50%, rgba(14, 165, 233, 0.03) 0%, transparent 70%),
+    radial-gradient(ellipse at 80% 20%, rgba(14, 165, 233, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 20% 80%, rgba(14, 165, 233, 0.04) 0%, transparent 60%);
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-ocean-100);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-ocean-400);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ocean-500);
+}

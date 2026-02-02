@@ -1,0 +1,155 @@
+---
+// Sección de información: Delivery y Horario
+---
+
+<section class="py-8 md:py-12 px-4 bg-gradient-to-b from-white to-ocean-50/50">
+  <div class="container mx-auto max-w-5xl">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+
+      <!-- Delivery -->
+      <div class="bg-white rounded-2xl md:rounded-3xl p-5 md:p-8 shadow-lg border border-ocean-100 relative overflow-hidden">
+        <!-- Decoración -->
+        <div class="absolute -top-6 -right-6 w-24 h-24 bg-coral-100/40 rounded-full blur-2xl"></div>
+
+        <div class="flex items-start gap-4 md:gap-6 relative">
+          <!-- Imagen delivery -->
+          <div class="flex-shrink-0">
+            <picture>
+              <source srcset="/delivery-sm.webp" media="(max-width: 400px)" />
+              <img
+                src="/delivery-md.webp"
+                alt="Delivery disponible"
+                class="w-20 h-auto md:w-28 drop-shadow-lg"
+                width="300"
+                height="300"
+                loading="lazy"
+                decoding="async"
+              />
+            </picture>
+          </div>
+
+          <!-- Contenido -->
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-2">
+              <svg class="w-5 h-5 text-coral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/>
+              </svg>
+              <h3 class="text-lg md:text-xl font-display font-bold text-ocean-900">
+                Hacemos Delivery
+              </h3>
+            </div>
+
+            <div class="space-y-2">
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center justify-center w-6 h-6 bg-ocean-100 rounded-full">
+                  <svg class="w-3.5 h-3.5 text-ocean-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                  </svg>
+                </span>
+                <span class="text-sm md:text-base text-ocean-700">
+                  <strong class="text-coral-500">$5</strong> - La Guaira (casi toda)
+                </span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center justify-center w-6 h-6 bg-ocean-100 rounded-full">
+                  <svg class="w-3.5 h-3.5 text-ocean-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                  </svg>
+                </span>
+                <span class="text-sm md:text-base text-ocean-700">
+                  <strong class="text-coral-500">$20</strong> - Caracas
+                </span>
+              </div>
+            </div>
+
+            <p class="text-xs text-ocean-500 mt-3">
+              Consulta disponibilidad por WhatsApp
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Horario -->
+      <div class="bg-white rounded-2xl md:rounded-3xl p-5 md:p-8 shadow-lg border border-ocean-100 relative overflow-hidden">
+        <!-- Decoración -->
+        <div class="absolute -top-6 -left-6 w-24 h-24 bg-ocean-100/40 rounded-full blur-2xl"></div>
+
+        <div class="flex items-start gap-3 md:gap-5 relative">
+          <!-- Imágenes: pesca (trabajo) y cerrado (descanso) -->
+          <div class="flex-shrink-0 flex flex-col gap-2">
+            <!-- Pesca - trabajando -->
+            <picture>
+              <source srcset="/pesca-sm.webp" media="(max-width: 400px)" />
+              <img
+                src="/pesca-md.webp"
+                alt="Trabajando en el muelle"
+                class="w-14 h-auto md:w-20 drop-shadow-lg"
+                width="300"
+                height="300"
+                loading="lazy"
+                decoding="async"
+              />
+            </picture>
+            <!-- Cerrado - descansando -->
+            <picture>
+              <source srcset="/cerrado-sm.webp" media="(max-width: 400px)" />
+              <img
+                src="/cerrado-md.webp"
+                alt="Día de descanso"
+                class="w-14 h-auto md:w-20 drop-shadow-lg"
+                width="300"
+                height="310"
+                loading="lazy"
+                decoding="async"
+              />
+            </picture>
+          </div>
+
+          <!-- Contenido -->
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-2">
+              <svg class="w-5 h-5 text-ocean-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <h3 class="text-lg md:text-xl font-display font-bold text-ocean-900">
+                Horario de Atención
+              </h3>
+            </div>
+
+            <div class="space-y-2">
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center justify-center px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium">
+                  Abierto
+                </span>
+                <span class="text-sm md:text-base text-ocean-700">
+                  Martes a Domingo
+                </span>
+              </div>
+              <div class="flex items-center gap-2 pl-1">
+                <svg class="w-4 h-4 text-ocean-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3"/>
+                </svg>
+                <span class="text-sm md:text-base text-ocean-800 font-semibold">
+                  6:00 AM - 2:30 PM
+                </span>
+              </div>
+              <div class="flex items-center gap-2 mt-2">
+                <span class="inline-flex items-center justify-center px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-medium">
+                  Cerrado
+                </span>
+                <span class="text-sm md:text-base text-ocean-700">
+                  Lunes
+                </span>
+              </div>
+            </div>
+
+            <p class="text-xs text-ocean-500 mt-3">
+              Llegamos tempranito con lo más fresco
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>

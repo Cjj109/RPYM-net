@@ -1,0 +1,177 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { PriceListInteractive } from '../components/PriceListInteractive';
+import NoFiado from '../components/NoFiado.astro';
+import InfoSection from '../components/InfoSection.astro';
+import { getProducts, groupByCategory, getBCVRate, getMasVendidos } from '../lib/sheets';
+
+// Obtener tasa BCV y productos
+const bcvRate = await getBCVRate();
+const products = await getProducts(bcvRate.rate);
+const categories = groupByCategory(products);
+const masVendidos = getMasVendidos(products);
+---
+
+<Layout title="RPYM - El Rey de los Pescados y Mariscos">
+  <!-- Hero Section - Optimizado para móvil -->
+  <section class="relative py-10 md:py-20 px-4 overflow-hidden">
+    <!-- Decoración de fondo -->
+    <div class="absolute inset-0 pointer-events-none">
+      <div class="absolute top-10 left-5 w-24 md:w-32 h-24 md:h-32 bg-ocean-200/30 rounded-full blur-3xl"></div>
+      <div class="absolute bottom-10 right-5 w-32 md:w-48 h-32 md:h-48 bg-coral-300/20 rounded-full blur-3xl"></div>
+    </div>
+
+    <div class="container mx-auto max-w-5xl relative">
+      <div class="flex flex-col md:flex-row items-center gap-6 md:gap-12">
+        <!-- Mascota José - visible en móvil arriba -->
+        <div class="flex-shrink-0 order-first md:order-last">
+          <picture>
+            <source srcset="/jose-sm.webp" media="(max-width: 400px)" />
+            <source srcset="/jose-md.webp" media="(max-width: 768px)" />
+            <img
+              src="/jose-lg.webp"
+              alt="José el Camarón - Mascota de RPYM"
+              class="w-32 h-auto md:w-64 lg:w-80 drop-shadow-2xl animate-float"
+              width="500"
+              height="750"
+              loading="eager"
+              fetchpriority="high"
+              decoding="async"
+            />
+          </picture>
+        </div>
+
+        <!-- Contenido principal -->
+        <div class="flex-1 text-center md:text-left space-y-4 md:space-y-6">
+          <!-- Badge de tradición -->
+          <div class="inline-flex items-center gap-2 bg-ocean-100 text-ocean-700 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium">
+            <svg class="w-3.5 h-3.5 md:w-4 md:h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            Más de 30 años de tradición
+          </div>
+
+          <!-- Título principal -->
+          <h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-bold text-ocean-900 leading-tight">
+            Del mar a tu mesa,<br/>
+            <span class="text-coral-500">fresco cada día</span>
+          </h1>
+
+          <!-- Descripción -->
+          <p class="text-base md:text-lg lg:text-xl text-ocean-600 max-w-xl leading-relaxed">
+            Los mejores mariscos del Litoral Central, directamente
+            desde el Muelle Pesquero "El Mosquero", <strong class="text-coral-500">Puesto 3 y 4</strong>, Maiquetía.
+          </p>
+
+          <!-- CTAs - Stack en móvil, row en desktop -->
+          <div class="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-3 pt-2">
+            <a
+              href="#precios"
+              class="w-full sm:w-auto bg-ocean-600 hover:bg-ocean-700 text-white px-6 py-3 md:px-8 md:py-4 rounded-full font-semibold text-base md:text-lg transition-all active:scale-95 md:hover:scale-105 shadow-lg shadow-ocean-600/30 text-center"
+            >
+              Ver Precios
+            </a>
+            <a
+              href="/presupuesto"
+              class="w-full sm:w-auto bg-coral-500 hover:bg-coral-600 text-white px-6 py-3 md:px-8 md:py-4 rounded-full font-semibold text-base md:text-lg transition-all active:scale-95 md:hover:scale-105 shadow-lg shadow-coral-500/30 text-center"
+            >
+              Arma tu Pedido
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Características - Optimizado para móvil -->
+  <section class="py-8 md:py-12 px-4 bg-white/50">
+    <div class="container mx-auto max-w-5xl">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-8">
+        <div class="flex sm:flex-col items-center sm:text-center gap-4 sm:gap-0 p-4 md:p-6 bg-white/80 rounded-2xl">
+          <div class="w-12 h-12 md:w-14 md:h-14 bg-ocean-100 rounded-xl md:rounded-2xl flex items-center justify-center flex-shrink-0 sm:mx-auto sm:mb-4">
+            <svg class="w-6 h-6 md:w-7 md:h-7 text-ocean-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="font-display font-semibold text-ocean-900 text-base md:text-lg mb-1 md:mb-2">Producto del Día</h3>
+            <p class="text-ocean-600 text-sm">Recibimos mariscos frescos cada mañana directamente del mar.</p>
+          </div>
+        </div>
+
+        <div class="flex sm:flex-col items-center sm:text-center gap-4 sm:gap-0 p-4 md:p-6 bg-white/80 rounded-2xl">
+          <div class="w-12 h-12 md:w-14 md:h-14 bg-coral-100 rounded-xl md:rounded-2xl flex items-center justify-center flex-shrink-0 sm:mx-auto sm:mb-4">
+            <svg class="w-6 h-6 md:w-7 md:h-7 text-coral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="font-display font-semibold text-ocean-900 text-base md:text-lg mb-1 md:mb-2">Calidad Garantizada</h3>
+            <p class="text-ocean-600 text-sm">Más de 30 años de experiencia seleccionando lo mejor del mar.</p>
+          </div>
+        </div>
+
+        <div class="flex sm:flex-col items-center sm:text-center gap-4 sm:gap-0 p-4 md:p-6 bg-white/80 rounded-2xl">
+          <div class="w-12 h-12 md:w-14 md:h-14 bg-sand-100 rounded-xl md:rounded-2xl flex items-center justify-center flex-shrink-0 sm:mx-auto sm:mb-4">
+            <svg class="w-6 h-6 md:w-7 md:h-7 text-ocean-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="font-display font-semibold text-ocean-900 text-base md:text-lg mb-1 md:mb-2">Ubicación Privilegiada</h3>
+            <p class="text-ocean-600 text-sm">Muelle "El Mosquero", Puesto 3 y 4, Maiquetía.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Lista de Precios -->
+  <PriceListInteractive
+    categories={categories}
+    masVendidos={masVendidos}
+    bcvRate={bcvRate}
+    client:load
+  />
+
+  <!-- Delivery y Horario -->
+  <InfoSection />
+
+  <!-- Sección humorística No Fiado -->
+  <NoFiado />
+
+  <!-- CTA Final con José -->
+  <section class="py-10 md:py-16 px-4">
+    <div class="container mx-auto max-w-3xl">
+      <div class="bg-gradient-to-br from-ocean-600 to-ocean-800 rounded-2xl md:rounded-3xl p-6 md:p-12 text-center text-white relative overflow-hidden">
+        <!-- Burbujas decorativas -->
+        <div class="absolute top-4 right-8 w-6 md:w-8 h-6 md:h-8 bg-white/10 rounded-full"></div>
+        <div class="absolute top-10 right-16 w-3 md:w-4 h-3 md:h-4 bg-white/15 rounded-full"></div>
+        <div class="absolute bottom-6 left-8 w-4 md:w-6 h-4 md:h-6 bg-white/10 rounded-full"></div>
+
+        <h2 class="text-xl md:text-2xl lg:text-3xl font-display font-bold mb-3 md:mb-4 relative">
+          Calcula tu presupuesto fácilmente
+        </h2>
+        <p class="text-ocean-100 mb-6 md:mb-8 max-w-lg mx-auto relative text-sm md:text-base">
+          Selecciona los productos que necesitas y obtén un estimado
+          al instante con nuestra calculadora de presupuesto.
+        </p>
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 relative">
+          <a
+            href="/presupuesto"
+            class="inline-block bg-white text-ocean-700 hover:bg-ocean-50 px-6 py-3 md:px-8 md:py-4 rounded-full font-semibold text-base md:text-lg transition-all active:scale-95 md:hover:scale-105 shadow-lg"
+          >
+            Arma tu Pedido
+          </a>
+          <a
+            href="/lista"
+            class="inline-block bg-transparent border-2 border-white/70 text-white hover:bg-white/10 px-6 py-3 md:px-8 md:py-4 rounded-full font-semibold text-base md:text-lg transition-all active:scale-95"
+          >
+            Ver Lista de Precios
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+</Layout>

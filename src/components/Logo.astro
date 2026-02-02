@@ -1,0 +1,102 @@
+---
+interface Props {
+  class?: string;
+  size?: 'sm' | 'md' | 'lg';
+}
+
+const { class: className = '', size = 'md' } = Astro.props;
+
+const sizes = {
+  sm: 'h-10',
+  md: 'h-14',
+  lg: 'h-18'
+};
+
+const textSizes = {
+  sm: { title: 'text-lg', subtitle: 'text-[8px]' },
+  md: { title: 'text-2xl', subtitle: 'text-[10px]' },
+  lg: { title: 'text-3xl', subtitle: 'text-xs' }
+};
+---
+
+<a href="/" class={`flex items-center gap-2 group ${className}`}>
+  <!-- Camarón con corona animado -->
+  <svg
+    class={`${sizes[size]} w-auto animate-shrimp`}
+    viewBox="0 0 50 60"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <!-- Corona dorada -->
+    <path
+      d="M15 12L18 6L22 10L26 4L30 10L34 6L37 12Z"
+      fill="#f59e0b"
+      stroke="#d97706"
+      stroke-width="1"
+    />
+    <!-- Bolitas de la corona -->
+    <circle cx="18" cy="6" r="2" fill="#fbbf24" />
+    <circle cx="26" cy="4" r="2.5" fill="#fbbf24" />
+    <circle cx="34" cy="6" r="2" fill="#fbbf24" />
+
+    <!-- Cabeza del camarón -->
+    <ellipse cx="26" cy="22" rx="12" ry="10" fill="#ea580c" />
+
+    <!-- Ojos -->
+    <ellipse cx="22" cy="19" rx="4" ry="4.5" fill="#fef3c7" />
+    <ellipse cx="30" cy="19" rx="4" ry="4.5" fill="#fef3c7" />
+    <circle cx="22" cy="19" r="2" fill="#0c4a6e" />
+    <circle cx="30" cy="19" r="2" fill="#0c4a6e" />
+    <!-- Brillo en ojos -->
+    <circle cx="21" cy="18" r="0.8" fill="white" />
+    <circle cx="29" cy="18" r="0.8" fill="white" />
+
+    <!-- Sonrisa -->
+    <path
+      d="M22 26C24 28 28 28 30 26"
+      stroke="#7c2d12"
+      stroke-width="1.5"
+      stroke-linecap="round"
+      fill="none"
+    />
+
+    <!-- Cuerpo segmentado -->
+    <path
+      d="M20 30C18 32 16 38 18 46C20 50 26 52 30 50C34 48 36 42 34 36C32 32 30 30 28 30Z"
+      fill="#ea580c"
+    />
+
+    <!-- Segmentos del cuerpo (barriga) -->
+    <path d="M20 33C22 34 28 34 30 33" stroke="#fed7aa" stroke-width="2" stroke-linecap="round" />
+    <path d="M19 37C22 38 28 38 31 37" stroke="#fed7aa" stroke-width="2" stroke-linecap="round" />
+    <path d="M19 41C22 42 28 42 30 41" stroke="#fed7aa" stroke-width="2" stroke-linecap="round" />
+    <path d="M20 45C23 46 27 46 29 45" stroke="#fed7aa" stroke-width="2" stroke-linecap="round" />
+
+    <!-- Cola -->
+    <ellipse cx="24" cy="54" rx="6" ry="3" fill="#ea580c" />
+    <path d="M18 54L14 58L18 56" fill="#ea580c" />
+    <path d="M30 54L34 58L30 56" fill="#ea580c" />
+
+    <!-- Patita saludando (lado derecho) -->
+    <path
+      d="M38 20C42 18 44 14 46 16"
+      stroke="#ea580c"
+      stroke-width="2.5"
+      stroke-linecap="round"
+    />
+  </svg>
+
+  <!-- Texto del logo -->
+  <div class="flex flex-col leading-none">
+    <span
+      class={`font-display font-bold text-ocean-900 tracking-tight ${textSizes[size].title}`}
+    >
+      RPYM
+    </span>
+    <span
+      class={`text-ocean-600 font-medium leading-tight whitespace-nowrap ${textSizes[size].subtitle}`}
+    >
+      El Rey de los Pescados y Mariscos
+    </span>
+  </div>
+</a>

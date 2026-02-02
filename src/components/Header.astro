@@ -1,0 +1,70 @@
+---
+import Logo from './Logo.astro';
+import WaveDecoration from './WaveDecoration.astro';
+---
+
+<header class="relative bg-gradient-to-b from-ocean-900 to-ocean-800 text-white">
+  <div class="container mx-auto px-4 py-3 md:py-4">
+    <nav class="flex items-center justify-between">
+      <Logo size="sm" class="md:hidden text-white [&_span]:text-white [&_span]:text-ocean-200 [&_svg]:text-ocean-300" />
+      <Logo size="md" class="hidden md:flex text-white [&_span]:text-white [&_span]:text-ocean-200 [&_svg]:text-ocean-300" />
+
+      <div class="hidden md:flex items-center gap-8">
+        <a href="/" class="text-ocean-100 hover:text-white transition-colors font-medium">
+          Inicio
+        </a>
+        <a href="/#precios" class="text-ocean-100 hover:text-white transition-colors font-medium">
+          Precios
+        </a>
+        <a href="/presupuesto" class="bg-coral-500 hover:bg-coral-600 text-white px-5 py-2 rounded-full font-semibold transition-all hover:scale-105 shadow-lg">
+          Arma tu Pedido
+        </a>
+      </div>
+
+      <!-- Menú móvil -->
+      <button
+        id="mobile-menu-btn"
+        class="md:hidden p-2 text-ocean-100 hover:text-white active:bg-ocean-700 rounded-lg transition-colors"
+        aria-label="Menú"
+      >
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Menú móvil expandido -->
+  <div id="mobile-menu" class="hidden md:hidden bg-ocean-800 border-t border-ocean-700">
+    <div class="container mx-auto px-4 py-3 flex flex-col gap-2">
+      <a href="/" class="text-ocean-100 hover:text-white active:bg-ocean-700 transition-colors font-medium py-3 px-3 rounded-lg">
+        Inicio
+      </a>
+      <a href="/#precios" class="text-ocean-100 hover:text-white active:bg-ocean-700 transition-colors font-medium py-3 px-3 rounded-lg">
+        Precios
+      </a>
+      <a href="/presupuesto" class="bg-coral-500 active:bg-coral-600 text-white px-5 py-3 rounded-full font-semibold transition-all text-center mt-2">
+        Arma tu Pedido
+      </a>
+    </div>
+  </div>
+
+  <!-- Olas decorativas en la parte inferior -->
+  <WaveDecoration position="bottom" />
+</header>
+
+<script>
+  const btn = document.getElementById('mobile-menu-btn');
+  const menu = document.getElementById('mobile-menu');
+
+  btn?.addEventListener('click', () => {
+    menu?.classList.toggle('hidden');
+  });
+
+  // Cerrar menú al hacer click en un enlace
+  menu?.querySelectorAll('a').forEach(link => {
+    link.addEventListener('click', () => {
+      menu?.classList.add('hidden');
+    });
+  });
+</script>
