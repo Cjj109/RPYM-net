@@ -17,12 +17,18 @@
 /entry/*
   Cache-Control: public, max-age=31536000, immutable
 
-# HTML pages - short cache for updates
+# HTML pages - always check for updates (important for price changes)
 /*.html
-  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+  Cache-Control: public, no-cache
 
 /
-  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+  Cache-Control: public, no-cache
+
+/presupuesto
+  Cache-Control: public, no-cache
+
+/lista
+  Cache-Control: public, no-cache
 
 # Security headers
 /*
