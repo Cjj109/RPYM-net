@@ -265,7 +265,8 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
 
     parseResult.items.forEach(item => {
       if (item.matched && item.productId) {
-        const product = allProducts.find(p => p.id === item.productId);
+        // Comparar IDs como strings para evitar problemas de tipo
+        const product = allProducts.find(p => String(p.id) === String(item.productId));
         if (product) {
           const existingQty = newItems.get(product.id)?.quantity || 0;
           newItems.set(product.id, {
@@ -290,9 +291,105 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
     setParseError(null);
   };
 
-  // Imprimir nota de entrega
+  // Imprimir nota de entrega en ventana nueva
   const printDeliveryNote = () => {
-    window.print();
+    const content = document.getElementById('delivery-note-content');
+    if (!content) return;
+
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Presupuesto RPYM</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            padding: 1cm;
+            background: white;
+            color: #0c4a6e;
+          }
+          .border-2 { border: 2px solid #075985; }
+          .border { border: 1px solid #7dd3fc; }
+          .border-r { border-right: 1px solid #7dd3fc; }
+          .border-r-2 { border-right: 2px solid #075985; }
+          .border-b { border-bottom: 1px solid #7dd3fc; }
+          .border-b-2 { border-bottom: 2px solid #075985; }
+          .border-t-2 { border-top: 2px solid #075985; }
+          .bg-ocean-100 { background: #e0f2fe; }
+          .bg-ocean-50 { background: #f0f9ff; }
+          .text-ocean-900 { color: #0c4a6e; }
+          .text-ocean-700 { color: #0369a1; }
+          .text-ocean-600 { color: #0284c7; }
+          .text-ocean-500 { color: #0ea5e9; }
+          .text-coral-600 { color: #ea580c; }
+          .flex { display: flex; }
+          .flex-1 { flex: 1; }
+          .items-center { align-items: center; }
+          .justify-between { justify-content: space-between; }
+          .gap-3 { gap: 0.75rem; }
+          .gap-4 { gap: 1rem; }
+          .p-3 { padding: 0.75rem; }
+          .p-4 { padding: 1rem; }
+          .mb-2 { margin-bottom: 0.5rem; }
+          .mb-4 { margin-bottom: 1rem; }
+          .mt-6 { margin-top: 1.5rem; }
+          .mt-8 { margin-top: 2rem; }
+          .pt-2 { padding-top: 0.5rem; }
+          .pt-4 { padding-top: 1rem; }
+          .pb-1 { padding-bottom: 0.25rem; }
+          .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+          .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+          .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+          .mx-8 { margin-left: 2rem; margin-right: 2rem; }
+          .w-12 { width: 3rem; }
+          .h-12 { height: 3rem; }
+          .w-48 { width: 12rem; }
+          .w-20 { width: 5rem; }
+          .w-24 { width: 6rem; }
+          .rounded-full { border-radius: 9999px; }
+          .text-center { text-align: center; }
+          .text-right { text-align: right; }
+          .text-left { text-align: left; }
+          .text-xl { font-size: 1.25rem; }
+          .text-lg { font-size: 1.125rem; }
+          .text-sm { font-size: 0.875rem; }
+          .text-xs { font-size: 0.75rem; }
+          .text-2xl { font-size: 1.5rem; }
+          .font-bold { font-weight: 700; }
+          .font-semibold { font-weight: 600; }
+          .font-medium { font-weight: 500; }
+          .font-mono { font-family: monospace; }
+          .space-y-0\\.5 > * + * { margin-top: 0.125rem; }
+          .space-y-2 > * + * { margin-top: 0.5rem; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { padding: 0.5rem 0.75rem; }
+          .grid { display: grid; }
+          .grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+          .col-span-2 { grid-column: span 2; }
+          input { border: none; background: transparent; width: 100%; padding: 0.25rem 0; }
+          @media print {
+            body { padding: 0; }
+            @page { size: A4; margin: 1cm; }
+          }
+        </style>
+      </head>
+      <body>
+        ${content.innerHTML}
+      </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+
+    // Esperar a que cargue y luego imprimir
+    setTimeout(() => {
+      printWindow.print();
+    }, 250);
   };
 
   // Generar número de nota basado en fecha
@@ -508,7 +605,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                         {item.matched && item.productId && (
                           <span className="block text-xs text-coral-600 font-medium">
                             {formatUSD(
-                              (allProducts.find(p => p.id === item.productId)?.precioUSD || 0) * item.quantity
+                              (allProducts.find(p => String(p.id) === String(item.productId))?.precioUSD || 0) * item.quantity
                             )}
                           </span>
                         )}
@@ -535,7 +632,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                         parseResult.items
                           .filter(i => i.matched && i.productId)
                           .reduce((sum, item) => {
-                            const product = allProducts.find(p => p.id === item.productId);
+                            const product = allProducts.find(p => String(p.id) === String(item.productId));
                             return sum + (product?.precioUSD || 0) * item.quantity;
                           }, 0)
                       )}
