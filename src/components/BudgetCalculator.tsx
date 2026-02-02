@@ -365,17 +365,18 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            padding: 1cm;
+            padding: 0.5cm;
             background: white;
             color: #0c4a6e;
+            font-size: 11px;
           }
-          .border-2 { border: 2px solid #075985; }
+          .border-2 { border: 1.5px solid #075985; }
           .border { border: 1px solid #7dd3fc; }
           .border-r { border-right: 1px solid #7dd3fc; }
-          .border-r-2 { border-right: 2px solid #075985; }
+          .border-r-2 { border-right: 1.5px solid #075985; }
           .border-b { border-bottom: 1px solid #7dd3fc; }
-          .border-b-2 { border-bottom: 2px solid #075985; }
-          .border-t-2 { border-top: 2px solid #075985; }
+          .border-b-2 { border-bottom: 1.5px solid #075985; }
+          .border-t-2 { border-top: 1.5px solid #075985; }
           .bg-ocean-100 { background: #e0f2fe; }
           .bg-ocean-50 { background: #f0f9ff; }
           .text-ocean-900 { color: #0c4a6e; }
@@ -387,50 +388,52 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
           .flex-1 { flex: 1; }
           .items-center { align-items: center; }
           .justify-between { justify-content: space-between; }
-          .gap-3 { gap: 0.75rem; }
-          .gap-4 { gap: 1rem; }
-          .p-3 { padding: 0.75rem; }
-          .p-4 { padding: 1rem; }
-          .mb-2 { margin-bottom: 0.5rem; }
-          .mb-4 { margin-bottom: 1rem; }
-          .mt-6 { margin-top: 1.5rem; }
-          .mt-8 { margin-top: 2rem; }
-          .pt-2 { padding-top: 0.5rem; }
-          .pt-4 { padding-top: 1rem; }
-          .pb-1 { padding-bottom: 0.25rem; }
-          .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
-          .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
-          .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
-          .mx-8 { margin-left: 2rem; margin-right: 2rem; }
-          .w-12 { width: 3rem; }
-          .h-12 { height: 3rem; }
-          .w-48 { width: 12rem; }
-          .w-20 { width: 5rem; }
-          .w-24 { width: 6rem; }
+          .gap-3 { gap: 0.5rem; }
+          .gap-4 { gap: 0.5rem; }
+          .p-3 { padding: 0.4rem; }
+          .p-4 { padding: 0.5rem; }
+          .mb-2 { margin-bottom: 0.3rem; }
+          .mb-4 { margin-bottom: 0.5rem; }
+          .mt-6 { margin-top: 0.8rem; }
+          .mt-8 { margin-top: 1rem; }
+          .pt-2 { padding-top: 0.3rem; }
+          .pt-4 { padding-top: 0.5rem; }
+          .pb-1 { padding-bottom: 0.15rem; }
+          .px-3 { padding-left: 0.4rem; padding-right: 0.4rem; }
+          .py-1 { padding-top: 0.15rem; padding-bottom: 0.15rem; }
+          .py-2 { padding-top: 0.3rem; padding-bottom: 0.3rem; }
+          .mx-8 { margin-left: 1rem; margin-right: 1rem; }
+          .w-12 { width: 2.5rem; }
+          .h-12 { height: 2.5rem; }
+          .w-48 { width: 9rem; }
+          .w-20 { width: 4rem; }
+          .w-24 { width: 5rem; }
           .rounded-full { border-radius: 9999px; }
           .text-center { text-align: center; }
           .text-right { text-align: right; }
           .text-left { text-align: left; }
-          .text-xl { font-size: 1.25rem; }
-          .text-lg { font-size: 1.125rem; }
-          .text-sm { font-size: 0.875rem; }
-          .text-xs { font-size: 0.75rem; }
-          .text-2xl { font-size: 1.5rem; }
+          .text-xl { font-size: 1rem; }
+          .text-lg { font-size: 0.9rem; }
+          .text-sm { font-size: 0.75rem; }
+          .text-xs { font-size: 0.65rem; }
+          .text-2xl { font-size: 1.1rem; }
           .font-bold { font-weight: 700; }
           .font-semibold { font-weight: 600; }
           .font-medium { font-weight: 500; }
           .font-mono { font-family: monospace; }
-          .space-y-0\\.5 > * + * { margin-top: 0.125rem; }
-          .space-y-2 > * + * { margin-top: 0.5rem; }
+          .space-y-0\\.5 > * + * { margin-top: 0.1rem; }
+          .space-y-2 > * + * { margin-top: 0.3rem; }
           table { width: 100%; border-collapse: collapse; }
-          th, td { padding: 0.5rem 0.75rem; }
+          th, td { padding: 0.25rem 0.4rem; font-size: 0.7rem; }
           .grid { display: grid; }
           .grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
           .col-span-2 { grid-column: span 2; }
-          input { border: none; background: transparent; width: 100%; padding: 0.25rem 0; }
+          input { border: none; background: transparent; width: 100%; padding: 0.15rem 0; font-size: 0.75rem; }
+          /* Ocultar filas vacías en impresión para ahorrar espacio */
+          tr:has(td:first-child:empty) { display: none; }
           @media print {
             body { padding: 0; }
-            @page { size: A4; margin: 1cm; }
+            @page { size: A4; margin: 0.5cm; }
           }
         </style>
       </head>
@@ -545,12 +548,12 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
         <div className="bg-white rounded-2xl p-4 md:p-6 shadow-lg border border-coral-200">
           <div className="flex items-start gap-3 mb-4">
             <div className="w-10 h-10 bg-coral-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              <span className="text-xl">🤖</span>
+              <span className="text-xl">✨</span>
             </div>
             <div>
-              <h3 className="font-semibold text-ocean-900">Pega tu lista de WhatsApp</h3>
+              <h3 className="font-semibold text-ocean-900">Pega tu lista</h3>
               <p className="text-sm text-ocean-600">
-                La IA interpretará tu lista y calculará el presupuesto automáticamente
+                Copia tu lista de WhatsApp y calculamos el presupuesto al instante
               </p>
             </div>
           </div>
@@ -593,7 +596,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                      Interpretando...
+                      Calculando...
                     </>
                   ) : (
                     <>
@@ -731,14 +734,14 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                         </svg>
-                        Re-interpretando...
+                        Recalculando...
                       </>
                     ) : (
                       <>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
-                        Re-interpretar con correcciones
+                        Recalcular con correcciones
                       </>
                     )}
                   </button>
