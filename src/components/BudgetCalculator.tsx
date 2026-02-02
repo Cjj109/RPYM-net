@@ -433,6 +433,15 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
           .grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
           .col-span-2 { grid-column: span 2; }
           input { border: none; background: transparent; width: 100%; padding: 0.15rem 0; font-size: 0.75rem; }
+          /* Estilos para aviso no fiscal */
+          .bg-amber-50 { background: #fffbeb; }
+          .border-amber-200 { border-color: #fde68a; }
+          .text-amber-700 { color: #b45309; }
+          .rounded { border-radius: 0.25rem; }
+          .p-2 { padding: 0.3rem; }
+          .mt-4 { margin-top: 0.5rem; }
+          .mt-3 { margin-top: 0.4rem; }
+          .pt-3 { padding-top: 0.4rem; }
           /* Ocultar filas vacías en impresión para ahorrar espacio */
           tr:has(td:first-child:empty) { display: none; }
           @media print {
@@ -1437,10 +1446,17 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                   </div>
                 </div>
 
+                {/* Aviso no fiscal */}
+                <div className="mt-4 p-2 bg-amber-50 border border-amber-200 rounded text-center">
+                  <p className="text-xs text-amber-700 font-medium">
+                    Este documento no tiene validez fiscal - Solo para referencia
+                  </p>
+                </div>
+
                 {/* Footer */}
-                <div className="mt-6 pt-4 border-t border-ocean-200 text-center">
+                <div className="mt-3 pt-3 border-t border-ocean-200 text-center">
                   <p className="text-xs text-ocean-500">
-                    ¡Gracias por su compra! • www.rpym.net • WhatsApp: +58 414-214-5202
+                    www.rpym.net • WhatsApp: +58 414-214-5202
                   </p>
                 </div>
               </div>

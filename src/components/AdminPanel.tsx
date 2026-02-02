@@ -11,8 +11,8 @@ import {
   type PresupuestoStats
 } from '../lib/presupuesto-storage';
 
-// Password de administrador
-const ADMIN_PASSWORD = 'rpym2026';
+// Password de administrador (cambiar por una más segura en producción)
+const ADMIN_PASSWORD = 'Rpym@Admin2026!';
 
 export default function AdminPanel() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -112,6 +112,272 @@ export default function AdminPanel() {
   // Formatear moneda
   const formatUSD = (amount: number) => `$${Number(amount).toFixed(2)}`;
   const formatBs = (amount: number) => `Bs. ${Number(amount).toFixed(2)}`;
+
+  // Imprimir nota de entrega pagada
+  const printPaidNote = (presupuesto: Presupuesto) => {
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) return;
+
+    const itemsHtml = presupuesto.items.map(item => `
+      <tr>
+        <td style="padding: 8px; border-bottom: 1px solid #e0f2fe;">${item.nombre}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e0f2fe; text-align: center;">${item.cantidad} ${item.unidad}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e0f2fe; text-align: right;">${formatUSD(item.precioUSD)}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e0f2fe; text-align: right; font-weight: 600; color: #ea580c;">${formatUSD(item.subtotalUSD)}</td>
+      </tr>
+    `).join('');
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Nota de Entrega - ${presupuesto.id}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            padding: 1cm;
+            background: white;
+            color: #0c4a6e;
+            font-size: 12px;
+            position: relative;
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #075985;
+          }
+          .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+          }
+          .logo {
+            width: 50px;
+            height: 50px;
+            background: #0284c7;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+          }
+          .company-name {
+            font-size: 24px;
+            font-weight: 700;
+            color: #0c4a6e;
+          }
+          .company-tagline {
+            font-size: 11px;
+            color: #0369a1;
+          }
+          .doc-info {
+            text-align: right;
+          }
+          .doc-number {
+            font-family: monospace;
+            font-size: 14px;
+            font-weight: 700;
+            color: #0c4a6e;
+          }
+          .doc-date {
+            font-size: 11px;
+            color: #0369a1;
+          }
+          .client-section {
+            background: #f0f9ff;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+          }
+          .client-label {
+            font-size: 10px;
+            color: #0369a1;
+            margin-bottom: 4px;
+          }
+          .client-name {
+            font-weight: 600;
+            color: #0c4a6e;
+          }
+          .client-address {
+            font-size: 11px;
+            color: #0369a1;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+          }
+          th {
+            background: #e0f2fe;
+            padding: 10px 8px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 600;
+            color: #0c4a6e;
+            border-bottom: 2px solid #075985;
+          }
+          .totals {
+            background: #fff7ed;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+          }
+          .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+          }
+          .total-label {
+            color: #0369a1;
+          }
+          .total-usd {
+            font-size: 20px;
+            font-weight: 700;
+            color: #ea580c;
+          }
+          .total-bs {
+            font-size: 14px;
+            font-weight: 600;
+            color: #0c4a6e;
+          }
+          .footer {
+            text-align: center;
+            padding-top: 15px;
+            border-top: 1px solid #e0f2fe;
+            font-size: 10px;
+            color: #0369a1;
+          }
+          .paid-stamp {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-15deg);
+            border: 6px solid #16a34a;
+            border-radius: 12px;
+            padding: 15px 40px;
+            color: #16a34a;
+            font-size: 36px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            opacity: 0.35;
+            pointer-events: none;
+          }
+          .paid-date {
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 1px;
+          }
+          .thank-you {
+            background: #dcfce7;
+            color: #166534;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 15px;
+            font-weight: 600;
+          }
+          .non-fiscal {
+            background: #fef3c7;
+            color: #92400e;
+            padding: 8px;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 10px;
+            font-weight: 500;
+            margin-bottom: 15px;
+          }
+          @media print {
+            body { padding: 0.5cm; }
+            @page { size: A4; margin: 0.5cm; }
+          }
+        </style>
+      </head>
+      <body>
+        <!-- Sello de PAGADO -->
+        <div class="paid-stamp">
+          PAGADO
+          <div class="paid-date">${presupuesto.fechaPago ? formatDate(presupuesto.fechaPago) : formatDate(new Date().toISOString())}</div>
+        </div>
+
+        <!-- Header -->
+        <div class="header">
+          <div class="logo-section">
+            <div class="logo">🦐</div>
+            <div>
+              <div class="company-name">RPYM</div>
+              <div class="company-tagline">El Rey de los Pescados y Mariscos</div>
+            </div>
+          </div>
+          <div class="doc-info">
+            <div class="doc-number">${presupuesto.id}</div>
+            <div class="doc-date">${formatDate(presupuesto.fecha)}</div>
+          </div>
+        </div>
+
+        <!-- Cliente -->
+        ${presupuesto.customerName || presupuesto.customerAddress ? `
+          <div class="client-section">
+            <div class="client-label">CLIENTE</div>
+            ${presupuesto.customerName ? `<div class="client-name">${presupuesto.customerName}</div>` : ''}
+            ${presupuesto.customerAddress ? `<div class="client-address">${presupuesto.customerAddress}</div>` : ''}
+          </div>
+        ` : ''}
+
+        <!-- Productos -->
+        <table>
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th style="text-align: center;">Cantidad</th>
+              <th style="text-align: right;">Precio Unit.</th>
+              <th style="text-align: right;">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHtml}
+          </tbody>
+        </table>
+
+        <!-- Totales -->
+        <div class="totals">
+          <div class="total-row">
+            <span class="total-label">Total USD:</span>
+            <span class="total-usd">${formatUSD(presupuesto.totalUSD)}</span>
+          </div>
+          <div class="total-row">
+            <span class="total-label">Total Bolívares:</span>
+            <span class="total-bs">${formatBs(presupuesto.totalBs)}</span>
+          </div>
+        </div>
+
+        <!-- Mensaje de agradecimiento (solo en nota pagada) -->
+        <div class="thank-you">
+          ¡Gracias por su compra! 🦐
+        </div>
+
+        <!-- Aviso no fiscal -->
+        <div class="non-fiscal">
+          📋 ESTE DOCUMENTO NO TIENE VALIDEZ FISCAL - Solo para control interno
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+          <p>Muelle Pesquero "El Mosquero" • Puesto 3 y 4, Maiquetía</p>
+          <p>www.rpym.net • WhatsApp: +58 414-214-5202</p>
+        </div>
+      </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => printWindow.print(), 250);
+  };
 
   if (!isAuthenticated) {
     return (
@@ -252,6 +518,15 @@ export default function AdminPanel() {
                               {actionLoading === p.id ? '...' : '✅'}
                             </button>
                           )}
+                          {p.estado === 'pagado' && (
+                            <button
+                              onClick={() => printPaidNote(p)}
+                              className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                              title="Imprimir nota pagada"
+                            >
+                              🖨️
+                            </button>
+                          )}
                           <button
                             onClick={() => setSelectedPresupuesto(p)}
                             className="p-1.5 text-ocean-600 hover:bg-ocean-50 rounded-lg transition-colors"
@@ -370,6 +645,15 @@ export default function AdminPanel() {
                     className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-500"
                   >
                     Marcar como Pagado
+                  </button>
+                )}
+
+                {selectedPresupuesto.estado === 'pagado' && (
+                  <button
+                    onClick={() => printPaidNote(selectedPresupuesto)}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-500 flex items-center gap-2"
+                  >
+                    🖨️ Imprimir Nota Pagada
                   </button>
                 )}
               </div>

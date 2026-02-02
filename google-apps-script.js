@@ -1,32 +1,28 @@
-/**
- * RPYM - Sistema de Gestión de Presupuestos
- * Google Apps Script para backend
- *
- * INSTRUCCIONES:
- * 1. Ir a https://script.google.com/
- * 2. Crear nuevo proyecto
- * 3. Pegar este código
- * 4. Configurar SHEET_ID con el ID de tu Google Sheet
- * 5. Deploy > New deployment > Web app
- * 6. Ejecutar como: Tu cuenta
- * 7. Acceso: Cualquier persona
- * 8. Copiar la URL generada
- */
+// RPYM - Sistema de Gestión de Presupuestos
+// Google Apps Script para backend
+//
+// INSTRUCCIONES:
+// 1. Ir a https://script.google.com/
+// 2. Crear nuevo proyecto
+// 3. Pegar este código
+// 4. Configurar SHEET_ID con el ID de tu Google Sheet
+// 5. Deploy > New deployment > Web app
+// 6. Ejecutar como: Tu cuenta
+// 7. Acceso: Cualquier persona
+// 8. Copiar la URL generada
 
 // ============================================
 // CONFIGURACIÓN - EDITAR AQUÍ
 // ============================================
-const SHEET_ID = 'TU_SHEET_ID_AQUI'; // <-- Reemplazar con el ID de tu Google Sheet
-const SHEET_NAME = 'Presupuestos';
+var SHEET_ID = 'TU_SHEET_ID_AQUI'; // <-- Reemplazar con el ID de tu Google Sheet
+var SHEET_NAME = 'Presupuestos';
 
 // ============================================
 // FUNCIONES PRINCIPALES
 // ============================================
 
-/**
- * Maneja peticiones GET
- * Soporta: listar todos, obtener por ID, estadísticas
- */
+// Maneja peticiones GET
+// Soporta: listar todos, obtener por ID, estadísticas
 function doGet(e) {
   const params = e.parameter;
   const action = params.action || 'list';
@@ -54,10 +50,8 @@ function doGet(e) {
   }
 }
 
-/**
- * Maneja peticiones POST
- * Soporta: crear, actualizar estado, eliminar
- */
+// Maneja peticiones POST
+// Soporta: crear, actualizar estado, eliminar
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
@@ -89,9 +83,7 @@ function doPost(e) {
 // OPERACIONES CRUD
 // ============================================
 
-/**
- * Crea un nuevo presupuesto
- */
+// Crea un nuevo presupuesto
 function createPresupuesto(data) {
   const sheet = getSheet();
 
@@ -122,9 +114,7 @@ function createPresupuesto(data) {
   };
 }
 
-/**
- * Lista todos los presupuestos, opcionalmente filtrados por estado
- */
+// Lista todos los presupuestos, opcionalmente filtrados por estado
 function listPresupuestos(statusFilter) {
   const sheet = getSheet();
   const data = sheet.getDataRange().getValues();
@@ -162,9 +152,7 @@ function listPresupuestos(statusFilter) {
   };
 }
 
-/**
- * Obtiene un presupuesto por ID
- */
+// Obtiene un presupuesto por ID
 function getPresupuesto(id) {
   const sheet = getSheet();
   const data = sheet.getDataRange().getValues();
@@ -193,9 +181,7 @@ function getPresupuesto(id) {
   return { success: false, error: 'Presupuesto no encontrado' };
 }
 
-/**
- * Actualiza el estado de un presupuesto
- */
+// Actualiza el estado de un presupuesto
 function updateStatus(id, newStatus) {
   const sheet = getSheet();
   const data = sheet.getDataRange().getValues();
@@ -218,9 +204,7 @@ function updateStatus(id, newStatus) {
   return { success: false, error: 'Presupuesto no encontrado' };
 }
 
-/**
- * Elimina un presupuesto
- */
+// Elimina un presupuesto
 function deletePresupuesto(id) {
   const sheet = getSheet();
   const data = sheet.getDataRange().getValues();
@@ -236,9 +220,7 @@ function deletePresupuesto(id) {
   return { success: false, error: 'Presupuesto no encontrado' };
 }
 
-/**
- * Obtiene estadísticas
- */
+// Obtiene estadísticas
 function getStats() {
   const sheet = getSheet();
   const data = sheet.getDataRange().getValues();
@@ -295,9 +277,7 @@ function getStats() {
 // UTILIDADES
 // ============================================
 
-/**
- * Obtiene o crea la hoja de presupuestos
- */
+// Obtiene o crea la hoja de presupuestos
 function getSheet() {
   const ss = SpreadsheetApp.openById(SHEET_ID);
   let sheet = ss.getSheetByName(SHEET_NAME);
@@ -326,10 +306,8 @@ function getSheet() {
   return sheet;
 }
 
-/**
- * Genera un ID único
- * Formato: RPYM-AAMMDD-XXX (XXX = contador de 3 dígitos)
- */
+// Genera un ID único
+// Formato: RPYM-AAMMDD-XXX (XXX = contador de 3 dígitos)
 function generateId() {
   const now = new Date();
   const year = String(now.getFullYear()).slice(-2);
@@ -353,9 +331,7 @@ function generateId() {
   return `${datePrefix}-${sequence}`;
 }
 
-/**
- * Parsea JSON de forma segura
- */
+// Parsea JSON de forma segura
 function safeJsonParse(str, defaultValue) {
   try {
     return JSON.parse(str);
@@ -364,9 +340,7 @@ function safeJsonParse(str, defaultValue) {
   }
 }
 
-/**
- * Crea respuesta JSON con CORS habilitado
- */
+// Crea respuesta JSON con CORS habilitado
 function createJsonResponse(data) {
   return ContentService
     .createTextOutput(JSON.stringify(data))
@@ -377,10 +351,8 @@ function createJsonResponse(data) {
 // FUNCIÓN DE PRUEBA
 // ============================================
 
-/**
- * Función para probar localmente
- * Ejecutar desde el editor de Apps Script
- */
+// Función para probar localmente
+// Ejecutar desde el editor de Apps Script
 function testCreate() {
   const testData = {
     action: 'create',

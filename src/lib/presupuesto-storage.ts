@@ -11,7 +11,7 @@
 
 // URL del Google Apps Script desplegado
 // IMPORTANTE: Reemplazar después del deploy del script
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/TU_DEPLOYMENT_ID/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxq9yoSKmAFMbVsVAcN3yURQXh24jit3Nhl8RR5yQW81va7lfXw2DjQbdguTaiMVbx2RA/exec';
 
 // ============================================
 // TIPOS
@@ -78,6 +78,8 @@ export async function savePresupuesto(data: SavePresupuestoData): Promise<{ succ
 
     const response = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
+      mode: 'cors',
+      redirect: 'follow',
       headers: {
         'Content-Type': 'text/plain', // Apps Script requiere text/plain para CORS
       },
@@ -148,6 +150,8 @@ export async function updatePresupuestoStatus(
   try {
     const response = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
+      mode: 'cors',
+      redirect: 'follow',
       headers: {
         'Content-Type': 'text/plain',
       },
@@ -173,6 +177,8 @@ export async function deletePresupuesto(id: string): Promise<boolean> {
   try {
     const response = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
+      mode: 'cors',
+      redirect: 'follow',
       headers: {
         'Content-Type': 'text/plain',
       },
