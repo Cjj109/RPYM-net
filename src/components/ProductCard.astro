@@ -22,7 +22,7 @@ const { product } = Astro.props;
         {product.nombre}
       </h3>
       {product.descripcion && (
-        <p class="text-[11px] md:text-xs text-ocean-500 mt-1 line-clamp-2">
+        <p class="text-[11px] md:text-xs text-ocean-600 mt-1 line-clamp-2">
           {product.descripcion}
         </p>
       )}
@@ -35,7 +35,7 @@ const { product } = Astro.props;
       <span class="text-xs md:text-sm text-ocean-600 block">
         {formatPriceBs(product.precioBs)}
       </span>
-      <span class="text-[10px] md:text-xs text-ocean-400 block">
+      <span class="text-[10px] md:text-xs text-ocean-600 block">
         /{product.unidad}
       </span>
     </div>

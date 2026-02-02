@@ -43,12 +43,12 @@ export function ProductCardInteractive({ product, compact = false }: ProductCard
               )}
             </div>
             {product.descripcionCorta && !compact && (
-              <p className="text-[11px] md:text-xs text-ocean-500 mt-1 line-clamp-1">
+              <p className="text-[11px] md:text-xs text-ocean-600 mt-1 line-clamp-1">
                 {product.descripcionCorta}
               </p>
             )}
             {product.descripcion && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] text-ocean-400 mt-1">
+              <span className="inline-flex items-center gap-0.5 text-[10px] text-ocean-600 mt-1">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
@@ -64,7 +64,7 @@ export function ProductCardInteractive({ product, compact = false }: ProductCard
             <span className="text-xs md:text-sm text-ocean-600 block">
               {formatBs(product.precioBs)}
             </span>
-            <span className="text-[10px] md:text-xs text-ocean-400 block">
+            <span className="text-[10px] md:text-xs text-ocean-600 block">
               /{product.unidad}
             </span>
           </div>

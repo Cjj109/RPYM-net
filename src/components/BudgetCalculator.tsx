@@ -232,7 +232,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
               <h3 className="text-lg font-semibold text-ocean-800 mb-3 flex items-center gap-2 sticky top-28 bg-ocean-50/95 backdrop-blur-sm py-2 -mx-4 px-4 z-30">
                 <span className="text-xl">{categoryIcons[category.name] || '🐠'}</span>
                 {category.name}
-                <span className="text-sm font-normal text-ocean-500">({category.products.length})</span>
+                <span className="text-sm font-normal text-ocean-600">({category.products.length})</span>
               </h3>
 
               <div className="space-y-2">
@@ -263,12 +263,12 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                             )}
                           </div>
                           {product.descripcionCorta && (
-                            <p className="text-xs text-ocean-500 mb-1.5 line-clamp-1">{product.descripcionCorta}</p>
+                            <p className="text-xs text-ocean-600 mb-1.5 line-clamp-1">{product.descripcionCorta}</p>
                           )}
                           <div className="flex items-baseline gap-2">
                             <span className="text-coral-500 font-bold text-base">{formatUSD(product.precioUSD)}</span>
-                            <span className="text-ocean-400 text-xs">({formatBs(product.precioBs)})</span>
-                            <span className="text-ocean-400 text-xs">/{product.unidad}</span>
+                            <span className="text-ocean-600 text-xs">({formatBs(product.precioBs)})</span>
+                            <span className="text-ocean-600 text-xs">/{product.unidad}</span>
                           </div>
                         </div>
 
@@ -328,7 +328,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                       {/* Subtotal si hay cantidad real */}
                       {quantity > 0 && (
                         <div className="mt-2 pt-2 border-t border-ocean-100 flex items-center justify-between">
-                          <span className="text-xs text-ocean-500">
+                          <span className="text-xs text-ocean-600">
                             {formatQuantity(quantity)} {product.unidad}
                           </span>
                           <span className="text-sm font-semibold text-coral-500">
@@ -355,7 +355,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
             </h3>
 
             {selectedItems.size === 0 ? (
-              <div className="text-center py-8 text-ocean-500">
+              <div className="text-center py-8 text-ocean-600">
                 <svg className="w-16 h-16 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                 </svg>
@@ -379,7 +379,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                         </button>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-ocean-500 text-xs">{formatQuantity(quantity)} {product.unidad}</span>
+                        <span className="text-ocean-600 text-xs">{formatQuantity(quantity)} {product.unidad}</span>
                         <span className="font-semibold text-coral-500 text-sm">{formatUSD(product.precioUSD * quantity)}</span>
                       </div>
                     </div>
@@ -419,7 +419,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
               </>
             )}
 
-            <p className="text-xs text-ocean-500 mt-4 text-center">
+            <p className="text-xs text-ocean-600 mt-4 text-center">
               * Precios calculados con tasa BCV
             </p>
           </div>
@@ -491,7 +491,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                   <h3 className="text-lg font-semibold text-ocean-900">Tu Pedido</h3>
                   <button
                     onClick={clearSelection}
-                    className="text-sm text-ocean-500 hover:text-ocean-700"
+                    className="text-sm text-ocean-600 hover:text-ocean-800"
                   >
                     Limpiar todo
                   </button>
@@ -532,7 +532,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                           >
                             +
                           </button>
-                          <span className="text-ocean-500 text-xs ml-1">{product.unidad}</span>
+                          <span className="text-ocean-600 text-xs ml-1">{product.unidad}</span>
                         </div>
                         <span className="font-bold text-coral-500">{formatUSD(product.precioUSD * quantity)}</span>
                       </div>
@@ -563,7 +563,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                   Enviar Pedido por WhatsApp
                 </button>
 
-                <p className="text-xs text-ocean-500 mt-3 text-center">
+                <p className="text-xs text-ocean-600 mt-3 text-center">
                   Tasa BCV: Bs. {bcvRate.rate.toFixed(2)} / USD
                 </p>
               </div>

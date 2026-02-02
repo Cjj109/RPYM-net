@@ -38,7 +38,7 @@ export function PriceListInteractive({ categories, masVendidos, bcvRate }: Price
             <span className="text-base md:text-lg font-bold text-ocean-900">
               Bs. {bcvRate.rate.toFixed(2)}
             </span>
-            <span className="text-[10px] md:text-xs text-ocean-500">
+            <span className="text-[10px] md:text-xs text-ocean-600">
               / USD
             </span>
           </div>
@@ -51,7 +51,7 @@ export function PriceListInteractive({ categories, masVendidos, bcvRate }: Price
               <h3 className="text-lg md:text-xl lg:text-2xl font-display font-semibold text-ocean-800 mb-4 md:mb-6 flex items-center gap-2 md:gap-3">
                 <span className="text-xl md:text-2xl">🔥</span>
                 Los Mas Vendidos
-                <span className="text-xs md:text-sm font-normal text-ocean-500 font-body">
+                <span className="text-xs md:text-sm font-normal text-ocean-600 font-body">
                   ({masVendidos.length})
                 </span>
               </h3>
@@ -70,7 +70,7 @@ export function PriceListInteractive({ categories, masVendidos, bcvRate }: Price
               <h3 className="text-lg md:text-xl lg:text-2xl font-display font-semibold text-ocean-800 mb-4 md:mb-6 flex items-center gap-2 md:gap-3">
                 <span className="text-xl md:text-2xl">{categoryIcons[category.name] || '🐠'}</span>
                 {category.name}
-                <span className="text-xs md:text-sm font-normal text-ocean-500 font-body">
+                <span className="text-xs md:text-sm font-normal text-ocean-600 font-body">
                   ({category.products.length})
                 </span>
               </h3>
@@ -84,7 +84,7 @@ export function PriceListInteractive({ categories, masVendidos, bcvRate }: Price
           ))}
         </div>
 
-        <p className="text-center text-xs md:text-sm text-ocean-500 mt-6 md:mt-8">
+        <p className="text-center text-xs md:text-sm text-ocean-600 mt-6 md:mt-8">
           Tasa {bcvRate.source} actualizada: {bcvRate.date}.
           Consulta disponibilidad por WhatsApp.
         </p>

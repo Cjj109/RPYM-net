@@ -1,0 +1,6 @@
+# robots.txt para rpym.net
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://www.rpym.net/sitemap-index.xml
