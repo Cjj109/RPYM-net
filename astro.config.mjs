@@ -13,18 +13,6 @@ export default defineConfig({
 
   vite: {
     plugins: [tailwindcss()],
-    build: {
-      // Optimizar chunks
-      cssCodeSplit: true,
-      rollupOptions: {
-        output: {
-          // Mejores nombres para cache
-          assetFileNames: 'assets/[name].[hash][extname]',
-          chunkFileNames: 'chunks/[name].[hash].js',
-          entryFileNames: 'entry/[name].[hash].js',
-        },
-      },
-    },
   },
 
   integrations: [react(), sitemap()],
