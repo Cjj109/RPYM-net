@@ -257,7 +257,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                       <span className="text-ocean-600">Grande</span>
                     </span>
                     <span className="inline-flex items-center gap-1 bg-white/80 px-2 py-1 rounded-full border border-ocean-200">
-                      <span className="font-bold text-ocean-700">26/30</span>
+                      <span className="font-bold text-ocean-700">31/35</span>
                       <span className="text-ocean-600">Premium</span>
                     </span>
                   </div>

@@ -97,7 +97,7 @@ export function PriceListInteractive({ categories, masVendidos, bcvRate }: Price
                       <span className="text-ocean-600">Grande</span>
                     </span>
                     <span className="inline-flex items-center gap-1.5 bg-white/80 px-2.5 py-1 rounded-full border border-ocean-200">
-                      <span className="font-bold text-ocean-700">26/30</span>
+                      <span className="font-bold text-ocean-700">31/35</span>
                       <span className="text-ocean-600">Premium</span>
                     </span>
                   </div>
