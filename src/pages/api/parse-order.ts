@@ -126,7 +126,7 @@ Analiza la lista e identifica cada producto con su cantidad. Haz el mejor match 
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-3-5-haiku-20241022',
+        model: 'claude-3-haiku-20240307',
         max_tokens: 2048,
         messages: [
           {
