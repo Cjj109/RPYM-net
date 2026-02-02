@@ -42,9 +42,9 @@ export function ProductCardInteractive({ product, compact = false }: ProductCard
                 </svg>
               )}
             </div>
-            {product.descripcionCorta && !compact && (
+            {product.descripcionHome && !compact && (
               <p className="text-[11px] md:text-xs text-ocean-600 mt-1 line-clamp-1">
-                {product.descripcionCorta}
+                {product.descripcionHome}
               </p>
             )}
             {product.descripcion && (

@@ -10,6 +10,7 @@ export interface Product {
   nombre: string;
   descripcion: string;
   descripcionCorta: string;
+  descripcionHome: string; // Descripción ultra-corta (5-7 palabras) para la home
   categoria: string;
   precioUSD: number;
   precioBs: number;
@@ -223,6 +224,75 @@ function generarDescripcionCorta(descripcion: string, nombre: string): string {
   const textoCorto = descripcion.substring(0, 45);
   const ultimoEspacio = textoCorto.lastIndexOf(' ');
   return ultimoEspacio > 15 ? textoCorto.substring(0, ultimoEspacio) : textoCorto;
+}
+
+/**
+ * Genera descripción ultra-corta (5-7 palabras) para la home
+ */
+function generarDescripcionHome(nombre: string): string {
+  const nombreLower = nombre.toLowerCase();
+
+  // Camarones en concha
+  if (nombreLower.includes('vivito')) return 'Súper fresco, sabor real';
+  if (nombreLower.includes('jumbo') && nombreLower.includes('concha')) return 'Tamaño grande que se luce';
+
+  // Camarones pelados y desvenados
+  if (nombreLower.includes('pelado') && !nombreLower.includes('desven')) return 'Práctico y rendidor';
+  if (nombreLower.includes('desvenado') && nombreLower.includes('jumbo')) return 'Más grande, más impacto';
+  if (nombreLower.includes('desvenado') && !nombreLower.includes('jumbo')) return 'El favorito para cocinar fácil';
+
+  // Cajas de camarón
+  if (nombreLower.includes('caja') && nombreLower.includes('camar')) {
+    const tallaMatch = nombre.match(/(\d+\/\d+)/);
+    if (tallaMatch) {
+      const talla = tallaMatch[1];
+      if (talla === '61/70') return 'Ideal para recetas rendidoras';
+      if (talla === '51/60') return 'Versátil para todo';
+      if (talla === '41/50') return 'La talla más usada';
+      if (talla === '36/40') return 'Grande y llamativo';
+      if (talla === '31/35') return 'Casi langostino premium';
+    }
+    return 'Caja desvenado';
+  }
+
+  // Camarón precocido y langostino
+  if (nombreLower.includes('precocido') || nombreLower.includes('pre cocido')) return 'Listo para servir';
+  if (nombreLower.includes('langostino')) return 'Nivel premium';
+
+  // Calamares
+  if (nombreLower.includes('calamar pota') || nombreLower.includes('pota')) return 'Rinde bien todos los días';
+  if (nombreLower.includes('calamar nacional') && nombreLower.includes('grande')) return 'Más grande, mejor presentación';
+  if (nombreLower.includes('calamar nacional')) return 'Sabor premium nacional';
+  if (nombreLower.includes('cuerpo') && nombreLower.includes('calamar')) return 'Limpio y listo para usar';
+  if (nombreLower.includes('tentáculo') || nombreLower.includes('tentaculo')) return 'Alternativa al pulpo';
+
+  // Pulpos
+  if (nombreLower.includes('pulpo pequeño')) return 'Tierno y fácil de preparar';
+  if (nombreLower.includes('pulpo mediano')) return 'Equilibrio perfecto';
+  if (nombreLower.includes('pulpo grande')) return 'Para impresionar';
+
+  // Vieras
+  if (nombreLower.includes('viera') && nombreLower.includes('verdadera')) return 'Vieira auténtica';
+  if (nombreLower.includes('viera')) return 'Presentación bonita';
+
+  // Moluscos
+  if (nombreLower.includes('pepitona') && nombreLower.includes('caja')) return 'Formato negocio';
+  if (nombreLower.includes('pepitona')) return 'Sabor intenso a mar';
+  if ((nombreLower.includes('mejillón') || nombreLower.includes('mejillon')) && nombreLower.includes('pelado')) return 'Sin concha, sin trabajo';
+  if (nombreLower.includes('mejillón') || nombreLower.includes('mejillon')) return 'Clásico para paellas';
+  if (nombreLower.includes('guacuco')) return 'Rinde muchísimo';
+  if (nombreLower.includes('almeja')) return 'Toque gourmet marino';
+  if (nombreLower.includes('kigua')) return 'Ideal para vinagretas';
+  if (nombreLower.includes('vaquita')) return 'Perfecto para recetas frías';
+
+  // Cangrejos y especiales
+  if (nombreLower.includes('jaiba')) return 'Sabor que levanta platos';
+  if (nombreLower.includes('pulpa de cangrejo') || nombreLower.includes('pulpa cangrejo')) return 'Listo para usar';
+  if (nombreLower.includes('tinta')) return 'Color y sabor intenso';
+  if (nombreLower.includes('salmon') || nombreLower.includes('salmón')) return 'Salmón premium';
+
+  // Fallback
+  return '';
 }
 
 /**
@@ -751,6 +821,7 @@ export async function getProducts(bcvRate: number): Promise<Product[]> {
       ...p,
       precioBs: p.precioUSD * bcvRate,
       descripcionCorta: generarDescripcionCorta(p.descripcion, p.nombre),
+      descripcionHome: generarDescripcionHome(p.nombre),
       masVendido: esMasVendido(p.nombre),
       incremento: determinarIncremento(p.nombre, p.unidad),
       esCaja: esProductoCaja(p.nombre, p.unidad),
@@ -794,6 +865,7 @@ export async function getProducts(bcvRate: number): Promise<Product[]> {
           nombre,
           descripcion,
           descripcionCorta: generarDescripcionCorta(descripcion, nombre),
+          descripcionHome: generarDescripcionHome(nombre),
           categoria: String(row.c[5]?.v || 'General'),
           precioUSD,
           precioBs: precioUSD * bcvRate,
@@ -815,6 +887,7 @@ export async function getProducts(bcvRate: number): Promise<Product[]> {
       ...p,
       precioBs: p.precioUSD * bcvRate,
       descripcionCorta: generarDescripcionCorta(p.descripcion, p.nombre),
+      descripcionHome: generarDescripcionHome(p.nombre),
       masVendido: esMasVendido(p.nombre),
       incremento: determinarIncremento(p.nombre, p.unidad),
       esCaja: esProductoCaja(p.nombre, p.unidad),
