@@ -9,7 +9,8 @@ interface PriceListInteractiveProps {
 
 const categoryIcons: Record<string, string> = {
   'Camarones': '🦐',
-  'Mariscos': '🦑',
+  'Calamares': '🦑',
+  'Mariscos': '🦀',
   'Especiales': '👑',
 };
 

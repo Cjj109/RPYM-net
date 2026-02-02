@@ -13,7 +13,8 @@ interface SelectedItem {
 
 const categoryIcons: Record<string, string> = {
   'Camarones': '🦐',
-  'Mariscos': '🦑',
+  'Calamares': '🦑',
+  'Mariscos': '🦀',
   'Especiales': '👑',
 };
 

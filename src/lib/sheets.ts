@@ -37,90 +37,92 @@ const MAS_VENDIDOS_KEYWORDS = [
 
 /**
  * Genera una descripción corta enfocada en lo esencial del producto
- * Cada descripción destaca: uso recomendado, tamaño, o característica especial
+ * Descripciones personalizadas con enfoque comercial
  */
 function generarDescripcionCorta(descripcion: string, nombre: string): string {
   if (!descripcion) return '';
 
-  const descLower = descripcion.toLowerCase();
   const nombreLower = nombre.toLowerCase();
 
   // ═══════════════════════════════════════════════════════════════════
-  // CAMARONES
+  // CAMARONES EN CONCHA
   // ═══════════════════════════════════════════════════════════════════
 
-  // Camarón Vivito - el más popular
   if (nombreLower.includes('vivito')) {
-    return '60-70 por libra · Con concha · El favorito';
+    return 'Súper fresco con sabor a mar. Ideal para sopas, arroces y guisos.';
   }
 
-  // Camarón Jumbo en concha
   if (nombreLower.includes('jumbo') && nombreLower.includes('concha')) {
-    return '40-60 por libra · Grande · Ideal parrilla';
+    return 'Más grande, más presencia. Perfecto para parrilla y pastas.';
   }
 
-  // Camarón pelado sin devenar
+  // ═══════════════════════════════════════════════════════════════════
+  // CAMARONES PELADOS Y DESVENADOS
+  // ═══════════════════════════════════════════════════════════════════
+
   if (nombreLower.includes('pelado') && !nombreLower.includes('desven')) {
-    return 'Sin concha · Listo para sazonar';
+    return 'Listo para rellenar y resolver. Ideal para arepas y empanadas.';
   }
 
-  // Camarón desvenado regular
-  if (nombreLower.includes('desvenado') && !nombreLower.includes('jumbo')) {
-    return '41-50 por libra · Listo para cocinar';
-  }
-
-  // Camarón desvenado jumbo
   if (nombreLower.includes('desvenado') && nombreLower.includes('jumbo')) {
-    return '31-40 por libra · Extra grande · Premium';
+    return 'Talla grande para quienes quieren que se note. Ideal para parrilla.';
   }
 
-  // Cajas de camarón
+  if (nombreLower.includes('desvenado') && !nombreLower.includes('jumbo')) {
+    return 'El "rey" para cocinar sin complicaciones. Perfecto para ajillo y pastas.';
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // CAJAS DE CAMARÓN (por talla)
+  // ═══════════════════════════════════════════════════════════════════
+
   if (nombreLower.includes('caja') && nombreLower.includes('camar')) {
     const tallaMatch = nombre.match(/(\d+\/\d+)/);
     if (tallaMatch) {
       const talla = tallaMatch[1];
-      // Describir según talla
-      if (talla === '61/70') return 'Caja 2kg · Pequeño · Para arroces';
-      if (talla === '51/60') return 'Caja 2kg · Mediano · Versátil';
-      if (talla === '41/50') return 'Caja 2kg · Buena relación precio-tamaño';
-      if (talla === '36/40') return 'Caja 2kg · Grande · Para platos fuertes';
-      if (talla === '31/35') return 'Caja 2kg · Jumbo · El más grande';
+      if (talla === '61/70') return 'Camarón pequeño para recetas rendidoras. Ideal para arroz y salteados.';
+      if (talla === '51/60') return 'Tamaño medio-pequeño súper versátil. Perfecto para pastas y cocteles.';
+      if (talla === '41/50') return 'La talla "todoterreno" para casi todo. Ideal para 99% de recetas.';
+      if (talla === '36/40') return 'Grande y llamativo en el plato. Perfecto para parrilla y ajillo.';
+      if (talla === '31/35') return 'Casi langostino: grande y premium. Ideal para impresionar.';
     }
-    return 'Caja 2kg · Desvenado';
+    return 'Caja 2kg · Desvenado listo para cocinar';
   }
 
-  // Camarón precocido
-  if (nombreLower.includes('precocido') || descLower.includes('precocido')) {
-    return 'Ya cocido · Listo para servir';
+  // ═══════════════════════════════════════════════════════════════════
+  // CAMARÓN PRECOCIDO Y LANGOSTINO
+  // ═══════════════════════════════════════════════════════════════════
+
+  if (nombreLower.includes('precocido') || nombreLower.includes('pre cocido')) {
+    return 'Para cuando quieres comer ya: abre y sirve. Ideal para cocteles y ensaladas.';
   }
 
-  // Langostino
   if (nombreLower.includes('langostino')) {
-    return 'Sabor suave y dulce · A la plancha';
+    return 'Nivel premium: más grande y más sabor. Ideal para parrilla e impresionar.';
   }
 
   // ═══════════════════════════════════════════════════════════════════
   // CALAMARES
   // ═══════════════════════════════════════════════════════════════════
 
-  if (nombreLower.includes('calamar pota')) {
-    return 'Importado · Textura firme · Para frituras';
+  if (nombreLower.includes('calamar pota') || nombreLower.includes('pota')) {
+    return 'La mejor opción calidad/precio. Rinde perfecto en guisos y anillos.';
   }
 
   if (nombreLower.includes('calamar nacional') && nombreLower.includes('grande')) {
-    return 'Fresco · Grande · Para rellenar o plancha';
+    return 'Más grande para una presentación superior. Perfecto para parrilla y rellenos.';
   }
 
   if (nombreLower.includes('calamar nacional')) {
-    return 'Fresco del día · Mediano · Versátil';
+    return 'Sabor premium que opaca al importado. Ideal para frituras y recetas gourmet.';
   }
 
   if (nombreLower.includes('cuerpo') && nombreLower.includes('calamar')) {
-    return 'Tubo limpio · Cortar en aros o rellenar';
+    return 'Ahorra tiempo: limpio y listo para cortar. Ideal para anillos y salteados.';
   }
 
   if (nombreLower.includes('tentáculo') || nombreLower.includes('tentaculo')) {
-    return 'Textura única · Parrilla o fritos';
+    return 'La alternativa económica al pulpo, con buena textura. Ideal para parrilla.';
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -128,27 +130,27 @@ function generarDescripcionCorta(descripcion: string, nombre: string): string {
   // ═══════════════════════════════════════════════════════════════════
 
   if (nombreLower.includes('pulpo pequeño')) {
-    return 'Tierno · Ideal ensaladas y tapas';
+    return 'Pulpo tierno y fácil de porcionar. Perfecto para ceviches y entradas.';
   }
 
   if (nombreLower.includes('pulpo mediano')) {
-    return 'Versátil · El más solicitado';
+    return 'Equilibrio perfecto de tamaño y suavidad. Ideal para parrilla y ceviches.';
   }
 
   if (nombreLower.includes('pulpo grande')) {
-    return 'El más carnoso · Para platos principales';
+    return 'Pulpo protagonista para eventos. Ideal para impresionar y rendir en grande.';
   }
 
   // ═══════════════════════════════════════════════════════════════════
   // VIERAS
   // ═══════════════════════════════════════════════════════════════════
 
-  if (nombreLower.includes('viera') && (descLower.includes('verdadera') || descLower.includes('auténtica') || nombreLower.includes('verdadera'))) {
-    return 'Auténticas · Producto gourmet';
+  if (nombreLower.includes('viera') && nombreLower.includes('verdadera')) {
+    return 'La vieira auténtica volvió: sabor superior. Ideal para platos gourmet.';
   }
 
   if (nombreLower.includes('viera')) {
-    return 'Cortes de calamar · Para gratinar';
+    return 'Forma de vieira a precio inteligente. Ideal para pastas y cremas.';
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -156,34 +158,35 @@ function generarDescripcionCorta(descripcion: string, nombre: string): string {
   // ═══════════════════════════════════════════════════════════════════
 
   if (nombreLower.includes('pepitona') && nombreLower.includes('caja')) {
-    return 'Caja 10kg · Para negocios';
+    return 'Para negocios o verdaderos fanáticos. Ideal para cocina industrial.';
   }
 
   if (nombreLower.includes('pepitona')) {
-    return 'La clásica venezolana · Para arroces';
+    return 'Sabor marino intenso para fanáticos del marisco. Ideal para arroces.';
+  }
+
+  if ((nombreLower.includes('mejillón') || nombreLower.includes('mejillon')) && nombreLower.includes('pelado')) {
+    return 'Listo para usar sin concha y sin trabajo. Perfecto para pastas y arroz.';
   }
 
   if (nombreLower.includes('mejillón') || nombreLower.includes('mejillon')) {
-    if (nombreLower.includes('pelado')) {
-      return 'Ya pelados · Listos para cocinar';
-    }
-    return 'Con concha · Al vapor o gratinados';
+    return 'El clásico que levanta cualquier paella. Ideal para vapor y mediterráneos.';
   }
 
   if (nombreLower.includes('guacuco')) {
-    return 'Almeja del Caribe · Pelada · Sopas y arroces';
+    return 'La "carne molida" del mar: rinde muchísimo. Ideal para arepas y empanadas.';
   }
 
   if (nombreLower.includes('almeja')) {
-    return 'Frescas · Pastas, arroces, al vapor';
+    return 'Toque gourmet para sopas y pastas marinas. Ideal para arroces y cremas.';
   }
 
   if (nombreLower.includes('kigua')) {
-    return 'Caracol venezolano · Sabor del Caribe';
+    return 'Caracol de mar perfecto para vinagretas. Ideal para cocteles y "7 potencias".';
   }
 
   if (nombreLower.includes('vaquita')) {
-    return 'Para sopas y caldos tradicionales';
+    return 'Caracol de mar ideal para vinagretas y cocteles. Perfecto con limón.';
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -191,34 +194,33 @@ function generarDescripcionCorta(descripcion: string, nombre: string): string {
   // ═══════════════════════════════════════════════════════════════════
 
   if (nombreLower.includes('jaiba')) {
-    return 'Cangrejo azul · Sopas y asopados';
+    return 'El cangrejo que da sabor y color al plato. Ideal para sopas y guisos.';
   }
 
   if (nombreLower.includes('pulpa de cangrejo') || nombreLower.includes('pulpa cangrejo')) {
-    return 'Pura pulpa 250g · Pasapalos y ensaladas';
+    return 'Perfecta para ensaladas y curtidos en minutos. Ideal para rellenos y dips.';
   }
 
   if (nombreLower.includes('tinta')) {
-    return 'Para arroces negros · Sabor intenso';
+    return 'El secreto del arroz negro perfecto. Ideal para pastas y risottos.';
   }
 
   if (nombreLower.includes('salmon') || nombreLower.includes('salmón')) {
-    return 'Importado premium · Plancha, horno o crudo';
+    return 'Salmón premium con explosión de Omega 3. Ideal para plancha y horno.';
   }
 
   // ═══════════════════════════════════════════════════════════════════
   // FALLBACK
   // ═══════════════════════════════════════════════════════════════════
 
-  // Fallback: primera oración corta
-  if (descripcion.length <= 40) return descripcion;
+  if (descripcion.length <= 50) return descripcion;
 
   const primerPunto = descripcion.indexOf('.');
-  if (primerPunto > 0 && primerPunto <= 45) {
+  if (primerPunto > 0 && primerPunto <= 55) {
     return descripcion.substring(0, primerPunto);
   }
 
-  const textoCorto = descripcion.substring(0, 35);
+  const textoCorto = descripcion.substring(0, 45);
   const ultimoEspacio = textoCorto.lastIndexOf(' ');
   return ultimoEspacio > 15 ? textoCorto.substring(0, ultimoEspacio) : textoCorto;
 }
@@ -830,7 +832,7 @@ export function groupByCategory(products: Product[]): Category[] {
   const categoryMap = new Map<string, Product[]>();
 
   // Orden preferido de categorías
-  const categoryOrder = ['Camarones', 'Mariscos', 'Especiales'];
+  const categoryOrder = ['Camarones', 'Calamares', 'Mariscos', 'Especiales'];
 
   products.forEach(product => {
     const existing = categoryMap.get(product.categoria) || [];
