@@ -81,11 +81,11 @@ function generarDescripcionCorta(descripcion: string, nombre: string): string {
     const tallaMatch = nombre.match(/(\d+\/\d+)/);
     if (tallaMatch) {
       const talla = tallaMatch[1];
-      if (talla === '61/70') return 'Camarón pequeño para recetas rendidoras. Ideal para arroz y salteados.';
-      if (talla === '51/60') return 'Tamaño medio-pequeño súper versátil. Perfecto para pastas y cocteles.';
-      if (talla === '41/50') return 'La talla "todoterreno" para casi todo. Ideal para 99% de recetas.';
-      if (talla === '36/40') return 'Grande y llamativo en el plato. Perfecto para parrilla y ajillo.';
-      if (talla === '31/35') return 'Casi langostino: grande y premium. Ideal para impresionar.';
+      if (talla === '61/70') return 'Camarón pequeño y rendidor. Ideal para arroces, pastas y salteados.';
+      if (talla === '51/60') return 'Tamaño medio-pequeño, muy versátil. Perfecto para pastas, arroces y cócteles.';
+      if (talla === '41/50') return 'La talla más balanceada y usada. Ideal para casi cualquier receta.';
+      if (talla === '36/40') return 'Camarón grande que se nota en el plato. Perfecto para ajillo y parrilla.';
+      if (talla === '31/35') return 'Camarón grande estilo premium. Ideal para parrilla y platos protagonistas.';
     }
     return 'Caja 2kg · Desvenado listo para cocinar';
   }
