@@ -11,6 +11,24 @@ interface SelectedItem {
   quantity: number;
 }
 
+// Tipos para el parsing con IA
+interface ParsedItem {
+  productId: string | null;
+  productName: string | null;
+  requestedName: string;
+  quantity: number;
+  unit: string;
+  matched: boolean;
+  confidence: 'high' | 'medium' | 'low';
+}
+
+interface ParseResponse {
+  success: boolean;
+  items: ParsedItem[];
+  unmatched: string[];
+  error?: string;
+}
+
 const categoryIcons: Record<string, string> = {
   'Camarones': '🦐',
   'Calamares': '🦑',
@@ -24,6 +42,18 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
   const [activeCategory, setActiveCategory] = useState<string>(categories[0]?.name || '');
   // Estado para inputs que están siendo editados (evita que se cierre al borrar)
   const [editingInputs, setEditingInputs] = useState<Map<string, string>>(new Map());
+
+  // Estados para el modo de pegar lista con IA
+  const [inputMode, setInputMode] = useState<'manual' | 'paste'>('manual');
+  const [pastedText, setPastedText] = useState('');
+  const [isParsing, setIsParsing] = useState(false);
+  const [parseResult, setParseResult] = useState<ParseResponse | null>(null);
+  const [parseError, setParseError] = useState<string | null>(null);
+
+  // Estado para la nota de entrega
+  const [showDeliveryNote, setShowDeliveryNote] = useState(false);
+  const [customerName, setCustomerName] = useState('');
+  const [customerAddress, setCustomerAddress] = useState('');
 
   // Calcular totales
   const totals = useMemo(() => {
@@ -182,6 +212,105 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
     }
   };
 
+  // Obtener todos los productos de todas las categorías
+  const allProducts = useMemo(() => {
+    return categories.flatMap(cat => cat.products);
+  }, [categories]);
+
+  // Procesar texto con IA
+  const parseTextWithAI = async () => {
+    if (!pastedText.trim()) return;
+
+    setIsParsing(true);
+    setParseError(null);
+    setParseResult(null);
+
+    try {
+      const productInfo = allProducts.map(p => ({
+        id: p.id,
+        nombre: p.nombre,
+        unidad: p.unidad,
+        precioUSD: p.precioUSD
+      }));
+
+      const response = await fetch('/api/parse-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: pastedText,
+          products: productInfo
+        })
+      });
+
+      const result: ParseResponse = await response.json();
+
+      if (result.success) {
+        setParseResult(result);
+      } else {
+        setParseError(result.error || 'Error al procesar la lista');
+      }
+    } catch (error) {
+      console.error('Error parseando:', error);
+      setParseError('Error de conexión. Intenta de nuevo.');
+    } finally {
+      setIsParsing(false);
+    }
+  };
+
+  // Aplicar productos parseados al presupuesto
+  const applyParsedItems = () => {
+    if (!parseResult) return;
+
+    const newItems = new Map(selectedItems);
+
+    parseResult.items.forEach(item => {
+      if (item.matched && item.productId) {
+        const product = allProducts.find(p => p.id === item.productId);
+        if (product) {
+          const existingQty = newItems.get(product.id)?.quantity || 0;
+          newItems.set(product.id, {
+            product,
+            quantity: existingQty + item.quantity
+          });
+        }
+      }
+    });
+
+    setSelectedItems(newItems);
+    // Limpiar y volver al modo manual
+    setPastedText('');
+    setParseResult(null);
+    setInputMode('manual');
+  };
+
+  // Limpiar el parsing
+  const clearParsing = () => {
+    setPastedText('');
+    setParseResult(null);
+    setParseError(null);
+  };
+
+  // Imprimir nota de entrega
+  const printDeliveryNote = () => {
+    window.print();
+  };
+
+  // Generar número de nota basado en fecha
+  const getDeliveryNoteNumber = () => {
+    const now = new Date();
+    return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+  };
+
+  // Obtener fecha actual formateada
+  const getCurrentDate = () => {
+    const now = new Date();
+    return now.toLocaleDateString('es-VE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
   return (
     <div className="space-y-4">
       {/* Header con tasa BCV - Sticky en móvil */}
@@ -202,29 +331,246 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
           )}
         </div>
 
-        {/* Navegación de categorías - Scrollable horizontal */}
-        <div className="mt-3 -mx-4 px-4">
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {categories.map((category) => (
-              <button
-                key={category.name}
-                onClick={() => scrollToCategory(category.name)}
-                className={`
-                  flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all
-                  ${activeCategory === category.name
-                    ? 'bg-ocean-600 text-white shadow-md'
-                    : 'bg-white text-ocean-700 border border-ocean-200'
-                  }
-                `}
-              >
-                <span className="mr-1.5">{categoryIcons[category.name] || '🐠'}</span>
-                {category.name}
-              </button>
-            ))}
-          </div>
+        {/* Tabs: Manual vs Pegar Lista */}
+        <div className="mt-3 flex gap-2">
+          <button
+            onClick={() => setInputMode('manual')}
+            className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2
+              ${inputMode === 'manual'
+                ? 'bg-ocean-600 text-white shadow-md'
+                : 'bg-white text-ocean-700 border border-ocean-200 hover:border-ocean-300'
+              }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Seleccionar
+          </button>
+          <button
+            onClick={() => setInputMode('paste')}
+            className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2
+              ${inputMode === 'paste'
+                ? 'bg-coral-500 text-white shadow-md'
+                : 'bg-white text-ocean-700 border border-ocean-200 hover:border-ocean-300'
+              }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            Pegar Lista
+          </button>
         </div>
+
+        {/* Navegación de categorías - Solo visible en modo manual */}
+        {inputMode === 'manual' && (
+          <div className="mt-3 -mx-4 px-4">
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              {categories.map((category) => (
+                <button
+                  key={category.name}
+                  onClick={() => scrollToCategory(category.name)}
+                  className={`
+                    flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all
+                    ${activeCategory === category.name
+                      ? 'bg-ocean-600 text-white shadow-md'
+                      : 'bg-white text-ocean-700 border border-ocean-200'
+                    }
+                  `}
+                >
+                  <span className="mr-1.5">{categoryIcons[category.name] || '🐠'}</span>
+                  {category.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
+      {/* Sección de Pegar Lista con IA */}
+      {inputMode === 'paste' && (
+        <div className="bg-white rounded-2xl p-4 md:p-6 shadow-lg border border-coral-200">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="w-10 h-10 bg-coral-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <span className="text-xl">🤖</span>
+            </div>
+            <div>
+              <h3 className="font-semibold text-ocean-900">Pega tu lista de WhatsApp</h3>
+              <p className="text-sm text-ocean-600">
+                La IA interpretará tu lista y calculará el presupuesto automáticamente
+              </p>
+            </div>
+          </div>
+
+          {!parseResult ? (
+            <>
+              <textarea
+                value={pastedText}
+                onChange={(e) => setPastedText(e.target.value)}
+                placeholder={`Ejemplo:
+1kg jaiba
+1/2kg camarones 41/50
+500gr langostino
+2 cajas camarón 61/70`}
+                className="w-full h-40 p-4 border border-ocean-200 rounded-xl text-sm resize-none
+                  focus:outline-none focus:ring-2 focus:ring-coral-500 focus:border-transparent
+                  placeholder:text-ocean-400"
+                disabled={isParsing}
+              />
+
+              {parseError && (
+                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-start gap-2">
+                  <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {parseError}
+                </div>
+              )}
+
+              <div className="mt-4 flex gap-3">
+                <button
+                  onClick={parseTextWithAI}
+                  disabled={!pastedText.trim() || isParsing}
+                  className="flex-1 py-3 bg-coral-500 hover:bg-coral-600 disabled:bg-ocean-200 disabled:cursor-not-allowed
+                    text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  {isParsing ? (
+                    <>
+                      <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Interpretando...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      Calcular Presupuesto
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <p className="mt-3 text-xs text-ocean-500 text-center">
+                Tip: Puedes copiar la lista directamente de WhatsApp
+              </p>
+            </>
+          ) : (
+            /* Resultado del parsing */
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold text-ocean-900">Productos identificados</h4>
+                <button
+                  onClick={clearParsing}
+                  className="text-sm text-ocean-600 hover:text-ocean-800"
+                >
+                  Editar lista
+                </button>
+              </div>
+
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {parseResult.items.map((item, index) => (
+                  <div
+                    key={index}
+                    className={`p-3 rounded-xl border ${
+                      item.matched
+                        ? 'bg-green-50 border-green-200'
+                        : 'bg-orange-50 border-orange-200'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          {item.matched ? (
+                            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                          )}
+                          <span className="font-medium text-ocean-900 text-sm">
+                            {item.matched ? item.productName : item.requestedName}
+                          </span>
+                        </div>
+                        {!item.matched && (
+                          <p className="text-xs text-orange-700 mt-1 ml-6">
+                            No encontrado en el catálogo
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <span className="text-sm font-semibold text-ocean-900">
+                          {item.quantity} {item.unit}
+                        </span>
+                        {item.matched && item.productId && (
+                          <span className="block text-xs text-coral-600 font-medium">
+                            {formatUSD(
+                              (allProducts.find(p => p.id === item.productId)?.precioUSD || 0) * item.quantity
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {parseResult.unmatched.length > 0 && (
+                <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                  <p className="text-sm font-medium text-orange-800 mb-1">No se pudieron identificar:</p>
+                  <p className="text-xs text-orange-700">{parseResult.unmatched.join(', ')}</p>
+                </div>
+              )}
+
+              {/* Total estimado */}
+              {parseResult.items.some(i => i.matched) && (
+                <div className="p-4 bg-ocean-50 rounded-xl">
+                  <div className="flex justify-between items-center">
+                    <span className="text-ocean-700">Total estimado:</span>
+                    <span className="text-2xl font-bold text-coral-500">
+                      {formatUSD(
+                        parseResult.items
+                          .filter(i => i.matched && i.productId)
+                          .reduce((sum, item) => {
+                            const product = allProducts.find(p => p.id === item.productId);
+                            return sum + (product?.precioUSD || 0) * item.quantity;
+                          }, 0)
+                      )}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={clearParsing}
+                  className="flex-1 py-3 border border-ocean-200 text-ocean-700 font-semibold rounded-xl
+                    hover:bg-ocean-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={applyParsedItems}
+                  disabled={!parseResult.items.some(i => i.matched)}
+                  className="flex-1 py-3 bg-green-600 hover:bg-green-500 disabled:bg-ocean-200
+                    text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Agregar al Presupuesto
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Grid de productos - Solo en modo manual */}
+      {inputMode === 'manual' && (
       <div className="grid lg:grid-cols-3 gap-4 md:gap-8">
         {/* Lista de productos */}
         <div className={`lg:col-span-2 space-y-6 ${selectedItems.size > 0 ? 'pb-44 lg:pb-0' : ''}`}>
@@ -442,6 +788,17 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                   </button>
 
                   <button
+                    onClick={() => setShowDeliveryNote(true)}
+                    className="w-full mt-2 py-2.5 border border-ocean-200 text-ocean-700 hover:bg-ocean-50
+                      rounded-xl transition-colors flex items-center justify-center gap-2 text-sm font-medium"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Ver Presupuesto
+                  </button>
+
+                  <button
                     onClick={clearSelection}
                     className="w-full mt-2 py-2 text-ocean-600 hover:text-ocean-800 text-sm transition-colors"
                   >
@@ -457,6 +814,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
           </div>
         </div>
       </div>
+      )}
 
       {/* Bottom Sheet móvil - Mejorado */}
       {selectedItems.size > 0 && (
@@ -595,6 +953,17 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                   Enviar Pedido por WhatsApp
                 </button>
 
+                <button
+                  onClick={() => setShowDeliveryNote(true)}
+                  className="w-full mt-2 py-3 border border-ocean-200 text-ocean-700 hover:bg-ocean-50
+                    rounded-xl transition-colors flex items-center justify-center gap-2 text-sm font-medium"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Ver Presupuesto
+                </button>
+
                 <p className="text-xs text-ocean-600 mt-3 text-center">
                   Tasa BCV: Bs. {bcvRate.rate.toFixed(2)} / USD
                 </p>
@@ -603,6 +972,232 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
           </div>
         </div>
       )}
+
+      {/* Modal de Presupuesto */}
+      {showDeliveryNote && (
+        <div className="fixed inset-0 z-[100] overflow-auto print:overflow-visible print:relative print:inset-auto">
+          {/* Overlay - se oculta al imprimir */}
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm print:hidden"
+            onClick={() => setShowDeliveryNote(false)}
+          />
+
+          {/* Contenedor del modal */}
+          <div className="min-h-screen flex items-center justify-center p-4 print:p-0 print:min-h-0 print:block">
+            <div className="relative bg-white w-full max-w-2xl rounded-lg shadow-2xl print:shadow-none print:max-w-none print:rounded-none">
+              {/* Botones de control - se ocultan al imprimir */}
+              <div className="flex items-center justify-between p-4 border-b border-ocean-200 print:hidden">
+                <h3 className="text-lg font-semibold text-ocean-900">Vista previa de Presupuesto</h3>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={printDeliveryNote}
+                    className="px-4 py-2 bg-ocean-600 hover:bg-ocean-700 text-white rounded-lg font-medium
+                      flex items-center gap-2 transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    Imprimir
+                  </button>
+                  <button
+                    onClick={() => setShowDeliveryNote(false)}
+                    className="p-2 text-ocean-600 hover:text-ocean-800 hover:bg-ocean-50 rounded-lg transition-colors"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Contenido de la nota de entrega */}
+              <div className="p-6 print:p-8" id="delivery-note-content">
+                {/* Header de la nota */}
+                <div className="border-2 border-ocean-800 mb-4">
+                  <div className="flex">
+                    {/* Logo y nombre del negocio */}
+                    <div className="flex-1 p-4 border-r-2 border-ocean-800">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-12 h-12 bg-ocean-100 rounded-full flex items-center justify-center">
+                          <span className="text-2xl">🦐</span>
+                        </div>
+                        <div>
+                          <h1 className="text-xl font-bold text-ocean-900">RPYM</h1>
+                          <p className="text-xs text-ocean-600">El Rey de los Pescados y Mariscos</p>
+                        </div>
+                      </div>
+                      <div className="text-xs text-ocean-700 space-y-0.5">
+                        <p>Muelle Pesquero "El Mosquero"</p>
+                        <p>Puesto 3 y 4, Maiquetía</p>
+                        <p>WhatsApp: +58 414-214-5202</p>
+                      </div>
+                    </div>
+                    {/* Nota de Entrega número y fecha */}
+                    <div className="w-48 p-4 flex flex-col justify-between">
+                      <div>
+                        <h2 className="text-center font-bold text-ocean-900 text-lg border-b border-ocean-300 pb-1 mb-2">
+                          PRESUPUESTO
+                        </h2>
+                        <p className="text-xs text-ocean-600">
+                          Nº: <span className="font-mono font-medium text-ocean-900">{getDeliveryNoteNumber()}</span>
+                        </p>
+                      </div>
+                      <p className="text-xs text-ocean-600">
+                        Fecha: <span className="font-medium text-ocean-900">{getCurrentDate()}</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Datos del cliente - Campos editables solo en pantalla */}
+                <div className="border-2 border-ocean-800 mb-4 p-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2">
+                      <label className="text-xs font-medium text-ocean-600">Cliente:</label>
+                      <input
+                        type="text"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        placeholder="Nombre del cliente"
+                        className="w-full border-b border-ocean-300 py-1 text-sm text-ocean-900
+                          focus:outline-none focus:border-ocean-600 bg-transparent print:border-none"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-xs font-medium text-ocean-600">Dirección:</label>
+                      <input
+                        type="text"
+                        value={customerAddress}
+                        onChange={(e) => setCustomerAddress(e.target.value)}
+                        placeholder="Dirección de entrega"
+                        className="w-full border-b border-ocean-300 py-1 text-sm text-ocean-900
+                          focus:outline-none focus:border-ocean-600 bg-transparent print:border-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tabla de productos */}
+                <div className="border-2 border-ocean-800 mb-4">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-ocean-100">
+                        <th className="border-b-2 border-r border-ocean-800 px-3 py-2 text-left font-semibold text-ocean-900 w-20">
+                          CANT.
+                        </th>
+                        <th className="border-b-2 border-r border-ocean-800 px-3 py-2 text-left font-semibold text-ocean-900">
+                          CONCEPTO / REFERENCIA
+                        </th>
+                        <th className="border-b-2 border-r border-ocean-800 px-3 py-2 text-right font-semibold text-ocean-900 w-24">
+                          PRECIO
+                        </th>
+                        <th className="border-b-2 border-ocean-800 px-3 py-2 text-right font-semibold text-ocean-900 w-24">
+                          TOTAL
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Array.from(selectedItems.values()).map(({ product, quantity }, index) => (
+                        <tr key={product.id} className={index % 2 === 0 ? 'bg-white' : 'bg-ocean-50/50'}>
+                          <td className="border-r border-ocean-300 px-3 py-2 text-ocean-900">
+                            {formatQuantity(quantity)} {product.unidad}
+                          </td>
+                          <td className="border-r border-ocean-300 px-3 py-2 text-ocean-900">
+                            {product.nombre}
+                          </td>
+                          <td className="border-r border-ocean-300 px-3 py-2 text-right text-ocean-900">
+                            {formatUSD(product.precioUSD)}
+                          </td>
+                          <td className="px-3 py-2 text-right font-medium text-ocean-900">
+                            {formatUSD(product.precioUSD * quantity)}
+                          </td>
+                        </tr>
+                      ))}
+                      {/* Filas vacías para completar la nota */}
+                      {Array.from({ length: Math.max(0, 8 - selectedItems.size) }).map((_, i) => (
+                        <tr key={`empty-${i}`} className={((selectedItems.size + i) % 2 === 0) ? 'bg-white' : 'bg-ocean-50/50'}>
+                          <td className="border-r border-ocean-300 px-3 py-2">&nbsp;</td>
+                          <td className="border-r border-ocean-300 px-3 py-2"></td>
+                          <td className="border-r border-ocean-300 px-3 py-2"></td>
+                          <td className="px-3 py-2"></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Totales */}
+                <div className="border-2 border-ocean-800 mb-4">
+                  <div className="flex">
+                    <div className="flex-1 p-3 border-r-2 border-ocean-800">
+                      <p className="text-xs font-medium text-ocean-600 mb-1">OBSERVACIONES:</p>
+                      <p className="text-xs text-ocean-700">
+                        Tasa BCV del día: Bs. {bcvRate.rate.toFixed(2)} por USD
+                      </p>
+                    </div>
+                    <div className="w-48 p-3">
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-ocean-600">Total USD:</span>
+                          <span className="font-bold text-ocean-900">{formatUSD(totals.usd)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm border-t border-ocean-300 pt-2">
+                          <span className="text-ocean-600">Total Bs.:</span>
+                          <span className="font-bold text-coral-600">{formatBs(totals.bs)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Firmas */}
+                <div className="grid grid-cols-2 gap-4 mt-8">
+                  <div className="text-center">
+                    <div className="border-t-2 border-ocean-800 pt-2 mx-8">
+                      <p className="text-xs font-medium text-ocean-700">CONFORME CLIENTE</p>
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="border-t-2 border-ocean-800 pt-2 mx-8">
+                      <p className="text-xs font-medium text-ocean-700">ENTREGADO POR</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="mt-6 pt-4 border-t border-ocean-200 text-center">
+                  <p className="text-xs text-ocean-500">
+                    ¡Gracias por su compra! • www.rpym.net • WhatsApp: +58 414-214-5202
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Estilos de impresión */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #delivery-note-content,
+          #delivery-note-content * {
+            visibility: visible;
+          }
+          #delivery-note-content {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
+          @page {
+            size: A4;
+            margin: 1cm;
+          }
+        }
+      `}</style>
     </div>
   );
 }

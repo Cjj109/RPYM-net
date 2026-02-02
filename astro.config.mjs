@@ -8,7 +8,8 @@ import sitemap from '@astrojs/sitemap';
 // https://astro.build/config
 export default defineConfig({
   site: 'https://www.rpym.net',
-  output: 'static', // SSG para máximo rendimiento
+  output: 'static', // SSG por defecto, endpoints con prerender=false son dinámicos
+  adapter: cloudflare(), // Necesario para los endpoints dinámicos
 
   vite: {
     plugins: [tailwindcss()],
