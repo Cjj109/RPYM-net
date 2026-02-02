@@ -49,6 +49,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
   const [isParsing, setIsParsing] = useState(false);
   const [parseResult, setParseResult] = useState<ParseResponse | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [corrections, setCorrections] = useState(''); // Para aclaraciones del usuario
 
   // Estado para la nota de entrega
   const [showDeliveryNote, setShowDeliveryNote] = useState(false);
@@ -289,6 +290,62 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
     setPastedText('');
     setParseResult(null);
     setParseError(null);
+    setCorrections('');
+  };
+
+  // Eliminar un item del resultado del parsing
+  const removeParseItem = (indexToRemove: number) => {
+    if (!parseResult) return;
+
+    const updatedItems = parseResult.items.filter((_, index) => index !== indexToRemove);
+    setParseResult({
+      ...parseResult,
+      items: updatedItems
+    });
+  };
+
+  // Re-procesar con correcciones
+  const reprocessWithCorrections = async () => {
+    if (!corrections.trim()) return;
+
+    // Combinar texto original con correcciones
+    const combinedText = `${pastedText}\n\nACLARACIONES DEL CLIENTE:\n${corrections}`;
+
+    setIsParsing(true);
+    setParseError(null);
+    setParseResult(null);
+
+    try {
+      const productInfo = allProducts.map(p => ({
+        id: p.id,
+        nombre: p.nombre,
+        unidad: p.unidad,
+        precioUSD: p.precioUSD
+      }));
+
+      const response = await fetch('/api/parse-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: combinedText,
+          products: productInfo
+        })
+      });
+
+      const result: ParseResponse = await response.json();
+
+      if (result.success) {
+        setParseResult(result);
+        setCorrections(''); // Limpiar correcciones después de re-procesar
+      } else {
+        setParseError(result.error || 'Error al procesar la lista');
+      }
+    } catch (error) {
+      console.error('Error parseando:', error);
+      setParseError('Error de conexión. Intenta de nuevo.');
+    } finally {
+      setIsParsing(false);
+    }
   };
 
   // Imprimir nota de entrega en ventana nueva
@@ -592,23 +649,41 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                             {item.matched ? item.productName : item.requestedName}
                           </span>
                         </div>
+                        {item.matched && item.requestedName !== item.productName && (
+                          <p className="text-xs text-ocean-500 mt-0.5 ml-6">
+                            Pedido: "{item.requestedName}"
+                          </p>
+                        )}
                         {!item.matched && (
                           <p className="text-xs text-orange-700 mt-1 ml-6">
                             No encontrado en el catálogo
                           </p>
                         )}
                       </div>
-                      <div className="text-right">
-                        <span className="text-sm font-semibold text-ocean-900">
-                          {item.quantity} {item.unit}
-                        </span>
-                        {item.matched && item.productId && (
-                          <span className="block text-xs text-coral-600 font-medium">
-                            {formatUSD(
-                              (allProducts.find(p => String(p.id) === String(item.productId))?.precioUSD || 0) * item.quantity
-                            )}
+                      <div className="flex items-start gap-2">
+                        <div className="text-right">
+                          <span className="text-sm font-semibold text-ocean-900">
+                            {item.quantity} {item.unit}
                           </span>
-                        )}
+                          {item.matched && item.productId && (
+                            <span className="block text-xs text-coral-600 font-medium">
+                              {formatUSD(
+                                (allProducts.find(p => String(p.id) === String(item.productId))?.precioUSD || 0) * item.quantity
+                              )}
+                            </span>
+                          )}
+                        </div>
+                        {/* Botón eliminar */}
+                        <button
+                          onClick={() => removeParseItem(index)}
+                          className="flex-shrink-0 w-6 h-6 rounded-full bg-red-100 hover:bg-red-200 text-red-600
+                            flex items-center justify-center transition-colors"
+                          title="Eliminar este producto"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -621,6 +696,54 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                   <p className="text-xs text-orange-700">{parseResult.unmatched.join(', ')}</p>
                 </div>
               )}
+
+              {/* Campo de correcciones/aclaraciones */}
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                <div className="flex items-start gap-2 mb-2">
+                  <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-blue-800">¿Algo no está bien?</p>
+                    <p className="text-xs text-blue-600">
+                      Escribe correcciones como: "el camarón es con concha, no pelado"
+                    </p>
+                  </div>
+                </div>
+                <textarea
+                  value={corrections}
+                  onChange={(e) => setCorrections(e.target.value)}
+                  placeholder="Ej: el camarón 41/50 es con concha, no desvenado..."
+                  className="w-full h-20 p-2 text-sm border border-blue-200 rounded-lg resize-none
+                    focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent
+                    placeholder:text-blue-400"
+                />
+                {corrections.trim() && (
+                  <button
+                    onClick={reprocessWithCorrections}
+                    disabled={isParsing}
+                    className="mt-2 w-full py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-300
+                      text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
+                  >
+                    {isParsing ? (
+                      <>
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Re-interpretando...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Re-interpretar con correcciones
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
 
               {/* Total estimado */}
               {parseResult.items.some(i => i.matched) && (

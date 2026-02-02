@@ -93,6 +93,12 @@ VARIACIONES COMUNES:
 - "calamar" puede ser "Calamar Pota" o "Calamar Nacional"
 - "desvenado" = "Pelado y Desvenado"
 
+ACLARACIONES DEL CLIENTE:
+- Si el texto incluye una sección "ACLARACIONES DEL CLIENTE", usa esas correcciones para ajustar tu interpretación
+- Las aclaraciones tienen PRIORIDAD sobre tu interpretación inicial
+- Ejemplo: si dice "el camarón es con concha, no pelado", busca variantes "con concha" o "en concha" en lugar de "desvenado"
+- Si dice "es X, no Y", asegúrate de buscar X en el catálogo
+
 Responde SOLO con un JSON válido con esta estructura:
 {
   "items": [
