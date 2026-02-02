@@ -1,0 +1,17 @@
+name: Daily Rebuild - Actualizar Tasa BCV
+
+on:
+  schedule:
+    # 5 AM Venezuela (UTC-4) = 9 AM UTC
+    - cron: '0 9 * * *'
+  workflow_dispatch: # Permite ejecutar manualmente
+
+jobs:
+  trigger-rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Cloudflare Pages Rebuild
+        run: |
+          curl -X POST "${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}"
+        env:
+          CLOUDFLARE_DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}
