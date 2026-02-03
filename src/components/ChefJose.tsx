@@ -128,39 +128,70 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
   // Find products mentioned in José's response using keyword matching
   const findMentionedProducts = (text: string): Product[] => {
     const normalizedText = normalize(text);
-    const matched: Product[] = [];
-    const stopWords = new Set(['en', 'de', 'con', 'la', 'el', 'las', 'los', 'y', 'o', 'a', 'kg', 'por', 'caja']);
+    const stopWords = new Set(['en', 'de', 'con', 'la', 'el', 'las', 'los', 'y', 'o', 'a', 'kg', 'por']);
+
+    // Score each product: higher = more specific match
+    const scored: { product: Product; score: number; family: string }[] = [];
 
     for (const product of products) {
       if (!product.disponible) continue;
-      // Skip bulk/box products — not typical for recipe recommendations
       if (product.esCaja) continue;
 
-      // Try full name match first
+      const cleanName = product.nombre.replace(/\(.*?\)/g, '').replace(/\d+[\/\d]*/g, '').trim();
+      const words = normalize(cleanName).split(/\s+/).filter(w => w.length > 2 && !stopWords.has(w));
+      if (words.length === 0) continue;
+
+      // Family = first meaningful word (camaron, calamar, pulpo, etc.)
+      const family = words[0];
+
+      // Full name match = highest score
       const normalizedName = normalize(product.nombre);
       if (normalizedText.includes(normalizedName)) {
-        matched.push(product);
+        scored.push({ product, score: 10, family });
         continue;
       }
 
-      // Keyword matching: remove parenthetical info and numbers, extract meaningful words
-      const cleanName = product.nombre.replace(/\(.*?\)/g, '').replace(/\d+[\/\d]*/g, '').trim();
-      const words = normalize(cleanName).split(/\s+/).filter(w => w.length > 2 && !stopWords.has(w));
-
-      if (words.length === 0) continue;
-
-      // Check how many keywords appear in the text (substring match handles plural forms:
-      // "camaron" matches "camarones", "pelado" matches "pelados", etc.)
       const matchCount = words.filter(word => normalizedText.includes(word)).length;
 
       if (words.length === 1 && matchCount === 1) {
-        matched.push(product);
+        // Single-word product (almeja, pepitona, jaiba) — direct match
+        scored.push({ product, score: 5, family });
       } else if (words.length >= 2 && matchCount >= 2) {
-        matched.push(product);
+        // Specific match: "camaron pelado" both words found
+        scored.push({ product, score: matchCount, family });
+      } else if (words.length >= 2 && matchCount === 1 && normalizedText.includes(family)) {
+        // Generic category mention: José said "calamar" but not "pota" or "nacional"
+        // Low score — will only be used if no specific match exists for this family
+        scored.push({ product, score: 0.5, family });
       }
     }
 
-    return matched;
+    // For each family, keep only the best match(es)
+    const familyBest = new Map<string, typeof scored>();
+    for (const entry of scored) {
+      const existing = familyBest.get(entry.family) || [];
+      existing.push(entry);
+      familyBest.set(entry.family, existing);
+    }
+
+    const result: Product[] = [];
+    for (const [, entries] of familyBest) {
+      // Sort by score descending
+      entries.sort((a, b) => b.score - a.score);
+      const bestScore = entries[0].score;
+
+      if (bestScore >= 2) {
+        // Has specific matches — only keep those (not generic 0.5 fallbacks)
+        const specific = entries.filter(e => e.score >= 2);
+        result.push(...specific.slice(0, 2).map(e => e.product));
+      } else {
+        // Only generic category mention — show first available product
+        result.push(entries[0].product);
+      }
+    }
+
+    // Cap total recommendations
+    return result.slice(0, 5);
   };
 
   // Build order summary for review
