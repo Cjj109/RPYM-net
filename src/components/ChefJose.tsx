@@ -109,6 +109,7 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [reviewPending, setReviewPending] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -124,17 +125,35 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
     setTimeout(() => inputRef.current?.focus(), 300);
   }, []);
 
-  // Find products mentioned in José's response
+  // Find products mentioned in José's response using keyword matching
   const findMentionedProducts = (text: string): Product[] => {
     const normalizedText = normalize(text);
     const matched: Product[] = [];
+    const stopWords = new Set(['en', 'de', 'con', 'la', 'el', 'las', 'los', 'y', 'o', 'a', 'kg', 'por', 'caja']);
 
     for (const product of products) {
       if (!product.disponible) continue;
-      // Match product name in the response
+
+      // Try full name match first
       const normalizedName = normalize(product.nombre);
-      // Check both full name and key parts
       if (normalizedText.includes(normalizedName)) {
+        matched.push(product);
+        continue;
+      }
+
+      // Keyword matching: remove parenthetical info and numbers, extract meaningful words
+      const cleanName = product.nombre.replace(/\(.*?\)/g, '').replace(/\d+[\/\d]*/g, '').trim();
+      const words = normalize(cleanName).split(/\s+/).filter(w => w.length > 2 && !stopWords.has(w));
+
+      if (words.length === 0) continue;
+
+      // Check how many keywords appear in the text (substring match handles plural forms:
+      // "camaron" matches "camarones", "pelado" matches "pelados", etc.)
+      const matchCount = words.filter(word => normalizedText.includes(word)).length;
+
+      if (words.length === 1 && matchCount === 1) {
+        matched.push(product);
+      } else if (words.length >= 2 && matchCount >= 2) {
         matched.push(product);
       }
     }
@@ -155,6 +174,14 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
   const handleSubmit = async (overrideQuestion?: string) => {
     const question = (overrideQuestion || input).trim();
     if (!question || question.length < 3 || isLoading) return;
+
+    // If waiting for review context, redirect to submitReview
+    if (reviewPending && !overrideQuestion) {
+      setMessages(prev => [...prev, { role: 'user', text: question }]);
+      setInput('');
+      submitReview(question);
+      return;
+    }
 
     // Add user message
     setMessages(prev => [...prev, { role: 'user', text: question }]);
@@ -219,7 +246,19 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
       }]);
       return;
     }
-    const question = `Tengo en mi pedido: ${summary}. Revisa si esta bien, si me falta algo o si me recomiendas algun cambio.`;
+    // Ask for context before reviewing
+    setReviewPending(true);
+    setMessages(prev => [...prev, {
+      role: 'jose',
+      text: 'Que vas a preparar con eso? Asi te digo si te falta algo o te recomiendo cambios.'
+    }]);
+    setTimeout(() => inputRef.current?.focus(), 100);
+  };
+
+  const submitReview = (context: string) => {
+    const summary = buildOrderSummary();
+    setReviewPending(false);
+    const question = `Voy a preparar: ${context}. Tengo en mi pedido: ${summary}. Revisa si esta bien para lo que quiero hacer, si me falta algo o si me recomiendas algun cambio.`;
     handleSubmit(question);
   };
 
