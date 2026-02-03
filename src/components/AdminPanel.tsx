@@ -196,10 +196,15 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) return;
 
+    const fmtQty = (qty: number): string => {
+      const rounded = Math.round(qty * 1000) / 1000;
+      return rounded.toFixed(3).replace(/\.?0+$/, '');
+    };
+
     const itemsHtml = presupuesto.items.map(item => `
       <tr>
         <td style="padding: 8px; border-bottom: 1px solid #e0f2fe;">${item.nombre}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #e0f2fe; text-align: center;">${item.cantidad} ${item.unidad}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e0f2fe; text-align: center;">${fmtQty(item.cantidad)} ${item.unidad}</td>
         <td style="padding: 8px; border-bottom: 1px solid #e0f2fe; text-align: right;">${formatUSD(item.precioUSD)}</td>
         <td style="padding: 8px; border-bottom: 1px solid #e0f2fe; text-align: right; font-weight: 600; color: #ea580c;">${formatUSD(item.subtotalUSD)}</td>
       </tr>
@@ -717,7 +722,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                     <div key={idx} className="flex justify-between items-center py-2 border-b border-ocean-100 gap-3">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-ocean-900">{item.nombre}</p>
-                        <p className="text-xs text-ocean-600">{item.cantidad} {item.unidad}</p>
+                        <p className="text-xs text-ocean-600">{Math.round(item.cantidad * 1000) / 1000} {item.unidad}</p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <div className="relative">
