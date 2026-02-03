@@ -3,12 +3,29 @@ import type { APIRoute } from 'astro';
 export const prerender = false;
 
 const FOOD_KEYWORDS = [
-  'cocin', 'receta', 'prepar', 'maris', 'camaron', 'pescado',
-  'pulpo', 'calamar', 'salsa', 'frit', 'herv', 'hornear', 'parrilla',
-  'arroz', 'ceviche', 'sopa', 'comer', 'comida', 'plato', 'ingrediente',
-  'langost', 'almeja', 'mejill', 'pepitona', 'como hago', 'como se hace',
-  'cuanto', 'persona', 'porcion', 'kilo', 'filete', 'salmon', 'viera',
-  'guacuco', 'jaiba', 'cangrejo', 'tinta'
+  // Cocina y preparación
+  'cocin', 'receta', 'prepar', 'hacer', 'hago', 'haga',
+  'frit', 'herv', 'hornear', 'parrilla', 'asado', 'asar', 'guisar',
+  'sazon', 'condiment', 'adob', 'marin',
+  // Productos del mar
+  'maris', 'camaron', 'pescado', 'pulpo', 'calamar', 'langost',
+  'almeja', 'mejill', 'pepitona', 'guacuco', 'jaiba', 'cangrejo',
+  'viera', 'salmon', 'filete', 'merluza', 'tinta', 'tentacul',
+  'atun', 'pargo', 'mero', 'trucha', 'bacalao', 'bacalhau',
+  // Platos y comida
+  'salsa', 'arroz', 'ceviche', 'sopa', 'comer', 'comida', 'plato',
+  'ingrediente', 'paella', 'pasta', 'risotto', 'crema', 'ensalad',
+  'tacos', 'empanada', 'arepa', 'croqueta', 'cazuela', 'estofado',
+  'menu', 'cena', 'almuerzo', 'desayuno',
+  // Cantidades y pedidos
+  'cuanto', 'persona', 'porcion', 'kilo', 'gramo',
+  'como hago', 'como se hace', 'como se cocin',
+  'recomien', 'sugier', 'consejo', 'tip',
+  // Pedido / revisar
+  'pedido', 'pedir', 'revisa', 'comprar', 'llevar',
+  'precio', 'product', 'disponib',
+  // Saludos comunes (dejar que José responda en personaje)
+  'hola', 'jose', 'chef', 'buenas', 'buen dia', 'buenos dia'
 ];
 
 function isFoodRelated(question: string): boolean {
