@@ -761,7 +761,34 @@ const SAMPLE_DATA: Omit<Product, 'precioBs' | 'descripcionCorta' | 'masVendido' 
  * Usa múltiples APIs con fallback para mayor confiabilidad
  */
 export async function getBCVRate(): Promise<BCVRate> {
-  // Intentar con ve.dolarapi.com primero (más estable)
+  // API 1: exchangedyn.com (más rápida en actualizar la tasa BCV)
+  try {
+    const response = await fetch('https://api.exchangedyn.com/markets/quotes/usdves/bcv', {
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      const bcvData = data.sources?.BCV;
+      if (bcvData?.quote) {
+        const rate = parseFloat(bcvData.quote);
+        const fecha = bcvData.last_retrieved
+          ? new Date(bcvData.last_retrieved).toLocaleDateString('es-VE')
+          : new Date().toLocaleDateString('es-VE');
+        return {
+          rate,
+          date: fecha,
+          source: 'BCV',
+        };
+      }
+    }
+  } catch (error) {
+    console.error('Error con exchangedyn.com:', error);
+  }
+
+  // API 2: ve.dolarapi.com (fallback)
   try {
     const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial', {
       headers: {
@@ -784,29 +811,6 @@ export async function getBCVRate(): Promise<BCVRate> {
     }
   } catch (error) {
     console.error('Error con ve.dolarapi.com:', error);
-  }
-
-  // Fallback: pydolarve.org
-  try {
-    const response = await fetch('https://pydolarve.org/api/v1/dollar?page=bcv', {
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      const bcvData = data.monitors?.usd;
-      if (bcvData?.price) {
-        return {
-          rate: bcvData.price,
-          date: bcvData.last_update || new Date().toLocaleDateString('es-VE'),
-          source: 'BCV',
-        };
-      }
-    }
-  } catch (error) {
-    console.error('Error con pydolarve.org:', error);
   }
 
   // Último fallback: tasa de respaldo
