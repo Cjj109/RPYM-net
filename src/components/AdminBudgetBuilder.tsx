@@ -68,6 +68,12 @@ export default function AdminBudgetBuilder({ categories, bcvRate }: Props) {
   // Editing delivery input (string-based to allow clearing)
   const [editingDelivery, setEditingDelivery] = useState<string | null>(null);
 
+  // Solo divisas mode (hide Bs)
+  const [soloDivisas, setSoloDivisas] = useState(false);
+
+  // Editing prices in summary panel
+  const [editingSummaryPrices, setEditingSummaryPrices] = useState<Map<string, string>>(new Map());
+
   // Save state
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -486,7 +492,7 @@ export default function AdminBudgetBuilder({ categories, bcvRate }: Props) {
   <div style="border:2px solid #075985;margin-bottom:16px;display:flex;">
     <div style="flex:1;padding:10px 16px;border-right:2px solid #075985;">
       <div style="font-size:10px;font-weight:600;color:#0369a1;margin-bottom:4px;">OBSERVACIONES:</div>
-      <div style="font-size:10px;color:#0369a1;">Tasa BCV del dia: Bs. ${bcvRate.rate.toFixed(2)} por USD</div>
+      ${soloDivisas ? '<div style="font-size:10px;color:#0369a1;">Precios en USD</div>' : `<div style="font-size:10px;color:#0369a1;">Tasa BCV del dia: Bs. ${bcvRate.rate.toFixed(2)} por USD</div>`}
     </div>
     <div style="width:200px;padding:10px 16px;">
       ${deliveryCost > 0 ? `
@@ -503,10 +509,10 @@ export default function AdminBudgetBuilder({ categories, bcvRate }: Props) {
         <span style="color:#0369a1;font-weight:600;">Total USD:</span>
         <span style="font-weight:800;color:#0c4a6e;">${formatUSD(totals.totalUSD)}</span>
       </div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;border-top:1px solid #7dd3fc;padding-top:4px;">
+      ${soloDivisas ? '' : `<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;border-top:1px solid #7dd3fc;padding-top:4px;">
         <span style="color:#0369a1;">Total Bs.:</span>
         <span style="font-weight:700;color:#ea580c;">${formatBs(totals.totalBs)}</span>
-      </div>
+      </div>`}
     </div>
   </div>
 
@@ -603,10 +609,10 @@ export default function AdminBudgetBuilder({ categories, bcvRate }: Props) {
         <span style="font-size:14px;font-weight:600;color:#0369a1;">Total USD</span>
         <span style="font-size:20px;font-weight:800;color:#0c4a6e;">${formatUSD(totals.totalUSD)}</span>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px;">
+      ${soloDivisas ? '' : `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px;">
         <span style="font-size:12px;color:#0369a1;">Total Bs.</span>
         <span style="font-size:15px;font-weight:700;color:#ea580c;">${formatBs(totals.totalBs)}</span>
-      </div>
+      </div>`}
     </div>
 
     <!-- Footer -->
@@ -1258,22 +1264,73 @@ export default function AdminBudgetBuilder({ categories, bcvRate }: Props) {
                             </svg>
                           </button>
                         </div>
-                        <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center justify-between text-xs gap-2">
                           <span className="text-ocean-600">
-                            {formatQuantity(item.quantity)} {item.product.unidad}
-                            {' x '}
-                            {hasCustomPrice && (
-                              <span className="line-through text-ocean-400 mr-1">{formatUSD(item.product.precioUSD)}</span>
-                            )}
-                            <span className={hasCustomPrice ? 'text-coral-600 font-medium' : ''}>
-                              {formatUSD(effectivePrice)}
-                            </span>
+                            {formatQuantity(item.quantity)} {item.product.unidad} x{' '}
                           </span>
-                          <span className="font-semibold text-coral-500">{formatUSD(effectivePrice * item.quantity)}</span>
+                          <div className="flex items-center gap-1.5">
+                            {hasCustomPrice && (
+                              <span className="line-through text-ocean-400 text-[10px]">{formatUSD(item.product.precioUSD)}</span>
+                            )}
+                            <div className="relative">
+                              <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[10px] text-ocean-400">$</span>
+                              <input
+                                type="number"
+                                value={editingSummaryPrices.has(item.product.id) ? editingSummaryPrices.get(item.product.id) : effectivePrice}
+                                onFocus={() => {
+                                  setEditingSummaryPrices(prev => {
+                                    const next = new Map(prev);
+                                    next.set(item.product.id, String(effectivePrice));
+                                    return next;
+                                  });
+                                }}
+                                onChange={(e) => {
+                                  setEditingSummaryPrices(prev => {
+                                    const next = new Map(prev);
+                                    next.set(item.product.id, e.target.value);
+                                    return next;
+                                  });
+                                }}
+                                onBlur={() => {
+                                  const editValue = editingSummaryPrices.get(item.product.id);
+                                  const val = parseFloat(editValue || '0') || 0;
+                                  if (val === item.product.precioUSD) {
+                                    updateCustomPrice(item.product.id, null);
+                                  } else {
+                                    updateCustomPrice(item.product.id, val);
+                                  }
+                                  setEditingSummaryPrices(prev => {
+                                    const next = new Map(prev);
+                                    next.delete(item.product.id);
+                                    return next;
+                                  });
+                                }}
+                                step="0.01"
+                                min="0"
+                                className="w-16 pl-3 pr-0.5 py-0.5 text-[11px] text-right border border-ocean-200 rounded
+                                  focus:ring-1 focus:ring-ocean-500 focus:border-transparent outline-none
+                                  [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
+                                  text-ocean-900 bg-white"
+                              />
+                            </div>
+                            <span className="font-semibold text-coral-500 whitespace-nowrap">{formatUSD(effectivePrice * item.quantity)}</span>
+                          </div>
                         </div>
                       </div>
                     );
                   })}
+                </div>
+
+                {/* Solo divisas toggle */}
+                <div className="flex items-center justify-between py-2 mb-2">
+                  <label htmlFor="solo-divisas" className="text-xs text-ocean-600 cursor-pointer">Solo divisas (ocultar Bs.)</label>
+                  <button
+                    id="solo-divisas"
+                    onClick={() => setSoloDivisas(!soloDivisas)}
+                    className={`relative w-9 h-5 rounded-full transition-colors ${soloDivisas ? 'bg-coral-500' : 'bg-ocean-200'}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${soloDivisas ? 'translate-x-4' : ''}`} />
+                  </button>
                 </div>
 
                 {/* Totals */}
@@ -1294,10 +1351,12 @@ export default function AdminBudgetBuilder({ categories, bcvRate }: Props) {
                     <span className="text-sm text-ocean-600">Total USD</span>
                     <span className="text-2xl font-bold text-coral-500">{formatUSD(totals.totalUSD)}</span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-ocean-600">Total Bs.</span>
-                    <span className="text-lg font-semibold text-ocean-700">{formatBs(totals.totalBs)}</span>
-                  </div>
+                  {!soloDivisas && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-ocean-600">Total Bs.</span>
+                      <span className="text-lg font-semibold text-ocean-700">{formatBs(totals.totalBs)}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Action buttons */}
