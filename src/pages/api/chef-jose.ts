@@ -17,6 +17,10 @@ const FOOD_KEYWORDS = [
   'ingrediente', 'paella', 'pasta', 'risotto', 'crema', 'ensalad',
   'tacos', 'empanada', 'arepa', 'croqueta', 'cazuela', 'estofado',
   'menu', 'cena', 'almuerzo', 'desayuno',
+  // Platos específicos y acompañamientos
+  'fideua', 'fidegua', 'potencia', 'sancocho', 'fosforera', 'encurtid',
+  'escabech', 'gratina', 'tartar', 'carpaccio', 'caldo', 'fumet',
+  'cocktail', 'coctel',
   // Cantidades y pedidos
   'cuanto', 'persona', 'porcion', 'kilo', 'gramo',
   'como hago', 'como se hace', 'como se cocin',
