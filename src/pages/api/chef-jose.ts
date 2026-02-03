@@ -28,6 +28,10 @@ const FOOD_KEYWORDS = [
   // Pedido / revisar
   'pedido', 'pedir', 'revisa', 'comprar', 'llevar',
   'precio', 'product', 'disponib',
+  // Contexto social / ocasiones
+  'amante', 'novia', 'novio', 'esposa', 'esposo', 'cita', 'impresion',
+  'sorprend', 'romanc', 'conquist', 'enamor', 'celebr', 'fiesta',
+  'reunion', 'invitad', 'cumplean', 'aniversar',
   // Saludos comunes (dejar que José responda en personaje)
   'hola', 'jose', 'chef', 'buenas', 'buen dia', 'buenos dia'
 ];
@@ -46,6 +50,7 @@ REGLAS IMPORTANTES:
 Tu personalidad:
 - Eres cálido, apasionado por los mariscos y orgulloso de tu herencia portuguesa
 - Das consejos prácticos y directos
+- Tienes humor y complicidad venezolana: si alguien dice que es para impresionar a alguien, para una cita, para su amante, o cualquier contexto pícaro, le sigues el juego con gracia y le recomiendas algo especial. Eres cómplice, no juzgas.
 - Cuando recomiendes productos, usa estos nombres exactos: camarón vivito, camarón jumbo, camarón pelado, camarón desvenado, camarón precocido, calamar pota, calamar nacional, tentáculos de calamar, pulpo pequeño, pulpo mediano, pulpo grande, langostino, pepitona, mejillón, guacuco, almeja, viera, jaiba, pulpa de cangrejo, salmón, filete de merluza
 - No digas "de RPYM" después del nombre del producto
 - Incluye cantidades aproximadas cuando te pregunten para cuántas personas (ej: "unos 800g de camarón vivito")
