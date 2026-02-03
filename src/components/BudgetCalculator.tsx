@@ -41,6 +41,7 @@ const categoryIcons: Record<string, string> = {
 export default function BudgetCalculator({ categories, bcvRate }: Props) {
   const [selectedItems, setSelectedItems] = useState<Map<string, SelectedItem>>(new Map());
   const [isCartExpanded, setIsCartExpanded] = useState(false);
+  const [showInlineSummary, setShowInlineSummary] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>(categories[0]?.name || '');
   // Estado para inputs que están siendo editados (evita que se cierre al borrar)
   const [editingInputs, setEditingInputs] = useState<Map<string, string>>(new Map());
@@ -532,7 +533,10 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
     <div className="space-y-4">
       {/* Header con tasa BCV - Sticky en móvil */}
       <div className="sticky top-0 z-40 bg-gradient-to-b from-ocean-50 via-ocean-50 to-transparent pt-2 pb-4 -mx-4 px-4">
-        <div className="flex items-center justify-between gap-3 bg-white rounded-2xl p-3 shadow-sm border border-ocean-100">
+        <div
+          className={`flex items-center justify-between gap-3 bg-white rounded-2xl p-3 shadow-sm border border-ocean-100 ${selectedItems.size > 0 ? 'cursor-pointer hover:border-ocean-300 transition-colors' : ''}`}
+          onClick={() => { if (selectedItems.size > 0) setShowInlineSummary(!showInlineSummary); }}
+        >
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></span>
             <div>
@@ -541,12 +545,49 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
             </div>
           </div>
           {selectedItems.size > 0 && (
-            <div className="text-right">
-              <span className="text-xs text-ocean-600 block">{selectedItems.size} productos</span>
-              <span className="text-lg font-bold text-coral-500">{formatUSD(totals.usd)}</span>
+            <div className="flex items-center gap-2">
+              <div className="text-right">
+                <span className="text-xs text-ocean-600 block">{selectedItems.size} productos</span>
+                <span className="text-lg font-bold text-coral-500">{formatUSD(totals.usd)}</span>
+              </div>
+              <svg className={`w-4 h-4 text-ocean-400 transition-transform ${showInlineSummary ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
             </div>
           )}
         </div>
+
+        {/* Resumen desplegable del pedido */}
+        {showInlineSummary && selectedItems.size > 0 && (
+          <div className="mt-2 bg-white rounded-2xl border border-ocean-100 shadow-sm overflow-hidden">
+            <div className="p-3 space-y-2 max-h-60 overflow-y-auto">
+              {Array.from(selectedItems.values()).map(({ product, quantity }) => (
+                <div key={product.id} className="flex items-center justify-between text-sm py-1.5 border-b border-ocean-50 last:border-0">
+                  <span className="text-ocean-800 truncate flex-1 mr-2">{product.nombre}</span>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <span className="text-ocean-600 text-xs">{formatQuantity(quantity)} {product.unidad}</span>
+                    <span className="font-semibold text-coral-500 w-16 text-right">{formatUSD(product.precioUSD * quantity)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-ocean-100 p-3 bg-ocean-50/50 flex items-center justify-between">
+              <div>
+                <span className="text-sm font-bold text-coral-500">{formatUSD(totals.usd)}</span>
+                <span className="text-xs text-ocean-600 ml-2">({formatBs(totals.bs)})</span>
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); openWhatsApp(); }}
+                className="px-4 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+              >
+                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
+                </svg>
+                Pedir
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Tabs: Manual vs Pegar Lista */}
         <div className="mt-3 flex gap-2">

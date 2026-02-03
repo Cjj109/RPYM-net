@@ -133,6 +133,8 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
 
     for (const product of products) {
       if (!product.disponible) continue;
+      // Skip bulk/box products — not typical for recipe recommendations
+      if (product.esCaja) continue;
 
       // Try full name match first
       const normalizedName = normalize(product.nombre);
@@ -166,7 +168,9 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
     if (selectedItems.size === 0) return '';
     const items: string[] = [];
     selectedItems.forEach(({ product, quantity }) => {
-      items.push(`${product.nombre} ${quantity} ${product.unidad}`);
+      // Round to avoid floating point display issues (0.49999... → 0.5)
+      const qty = Math.round(quantity * 100) / 100;
+      items.push(`${product.nombre} ${qty} ${product.unidad}`);
     });
     return items.join(', ');
   };
