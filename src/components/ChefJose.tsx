@@ -128,7 +128,19 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
   // Find products mentioned in José's response using keyword matching
   const findMentionedProducts = (text: string): Product[] => {
     const normalizedText = normalize(text);
-    const stopWords = new Set(['en', 'de', 'con', 'la', 'el', 'las', 'los', 'y', 'o', 'a', 'kg', 'por']);
+    const stopWords = new Set([
+      'en', 'de', 'con', 'la', 'el', 'las', 'los', 'y', 'o', 'a', 'kg', 'por',
+      // Structural/descriptor words that shouldn't define product families
+      'cuerpo', 'tentaculo', 'tentaculos', 'pulpa', 'limpio', 'grande', 'mediano',
+      'pequeno', 'pre', 'cocido', 'precocido', 'desvenado', 'pelado'
+    ]);
+
+    // Known product families for correct grouping
+    const familyKeywords = new Set([
+      'camaron', 'calamar', 'pulpo', 'langostino', 'pepitona', 'mejillon',
+      'guacuco', 'almeja', 'viera', 'jaiba', 'cangrejo', 'salmon',
+      'merluza', 'filete', 'pargo', 'mero', 'trucha', 'atun', 'bacalao'
+    ]);
 
     // Score each product: higher = more specific match
     const scored: { product: Product; score: number; family: string }[] = [];
@@ -138,11 +150,11 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
       if (product.esCaja) continue;
 
       const cleanName = product.nombre.replace(/\(.*?\)/g, '').replace(/\d+[\/\d]*/g, '').trim();
-      const words = normalize(cleanName).split(/\s+/).filter(w => w.length > 2 && !stopWords.has(w));
+      const words = normalize(cleanName).split(/\s+/).filter(w => w.length > 3 && !stopWords.has(w));
       if (words.length === 0) continue;
 
-      // Family = first meaningful word (camaron, calamar, pulpo, etc.)
-      const family = words[0];
+      // Family = first word that matches a known family keyword, or fallback to first word
+      const family = words.find(w => familyKeywords.has(w)) || words[0];
 
       // Full name match = highest score
       const normalizedName = normalize(product.nombre);
@@ -158,7 +170,9 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
         scored.push({ product, score: 5, family });
       } else if (words.length >= 2 && matchCount >= 2) {
         // Specific match: "camaron pelado" both words found
-        scored.push({ product, score: matchCount, family });
+        // Bonus if ALL words match (complete product name found)
+        const bonus = matchCount === words.length ? 1 : 0;
+        scored.push({ product, score: matchCount + bonus, family });
       } else if (words.length >= 2 && matchCount === 1 && normalizedText.includes(family)) {
         // Generic category mention: José said "calamar" but not "pota" or "nacional"
         // Low score — will only be used if no specific match exists for this family
@@ -191,7 +205,7 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
     }
 
     // Cap total recommendations
-    return result.slice(0, 5);
+    return result.slice(0, 6);
   };
 
   // Build order summary for review
