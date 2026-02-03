@@ -788,9 +788,9 @@ export async function getBCVRate(): Promise<BCVRate> {
     console.error('Error con exchangedyn.com:', error);
   }
 
-  // API 2: ve.dolarapi.com (fallback)
+  // API 2: bcvapi.tech (fallback)
   try {
-    const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial', {
+    const response = await fetch('https://bcvapi.tech/api/v1/dolar/public', {
       headers: {
         'Accept': 'application/json',
       },
@@ -798,19 +798,16 @@ export async function getBCVRate(): Promise<BCVRate> {
 
     if (response.ok) {
       const data = await response.json();
-      if (data.promedio) {
-        const fecha = data.fechaActualizacion
-          ? new Date(data.fechaActualizacion).toLocaleDateString('es-VE')
-          : new Date().toLocaleDateString('es-VE');
+      if (data.tasa) {
         return {
-          rate: data.promedio,
-          date: fecha,
+          rate: data.tasa,
+          date: data.fecha || new Date().toLocaleDateString('es-VE'),
           source: 'BCV',
         };
       }
     }
   } catch (error) {
-    console.error('Error con ve.dolarapi.com:', error);
+    console.error('Error con bcvapi.tech:', error);
   }
 
   // Último fallback: tasa de respaldo
