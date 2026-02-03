@@ -1,7 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import BudgetCalculator from '../components/BudgetCalculator';
-import ChefJose from '../components/ChefJose';
 import { getProducts, groupByCategory, getBCVRate } from '../lib/sheets';
 
 // Obtener tasa BCV y productos
@@ -74,5 +73,4 @@ const categories = groupByCategory(products);
       </div>
     </div>
   </section>
-  <ChefJose client:idle />
 </Layout>

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import type { Product, Category, BCVRate } from '../lib/sheets';
 import { savePresupuesto, isConfigured } from '../lib/presupuesto-storage';
+import ChefJose from './ChefJose';
 
 interface Props {
   categories: Category[];
@@ -45,7 +46,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
   const [editingInputs, setEditingInputs] = useState<Map<string, string>>(new Map());
 
   // Estados para el modo de pegar lista con IA
-  const [inputMode, setInputMode] = useState<'manual' | 'paste'>('manual');
+  const [inputMode, setInputMode] = useState<'manual' | 'paste' | 'chef'>('manual');
   const [pastedText, setPastedText] = useState('');
   const [isParsing, setIsParsing] = useState(false);
   const [parseResult, setParseResult] = useState<ParseResponse | null>(null);
@@ -575,6 +576,17 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
             </svg>
             Pegar Lista
           </button>
+          <button
+            onClick={() => setInputMode('chef')}
+            className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2
+              ${inputMode === 'chef'
+                ? 'bg-ocean-800 text-white shadow-md'
+                : 'bg-white text-ocean-700 border border-ocean-200 hover:border-ocean-300'
+              }`}
+          >
+            <img src="/camaronchef-sm.webp" alt="" className="w-5 h-5 rounded-full object-cover object-top" />
+            Chef Jose
+          </button>
         </div>
 
         {/* Navegación de categorías - Solo visible en modo manual */}
@@ -849,6 +861,11 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
             </div>
           )}
         </div>
+      )}
+
+      {/* Chef José - Consulta culinaria */}
+      {inputMode === 'chef' && (
+        <ChefJose />
       )}
 
       {/* Grid de productos - Solo en modo manual */}

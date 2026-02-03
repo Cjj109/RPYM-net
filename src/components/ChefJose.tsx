@@ -104,7 +104,6 @@ interface Message {
 
 // --- Component ---
 export default function ChefJose() {
-  const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -118,12 +117,10 @@ export default function ChefJose() {
     }
   }, [messages, isLoading]);
 
-  // Focus input when panel opens
+  // Focus input on mount
   useEffect(() => {
-    if (isOpen && inputRef.current) {
-      setTimeout(() => inputRef.current?.focus(), 300);
-    }
-  }, [isOpen]);
+    setTimeout(() => inputRef.current?.focus(), 300);
+  }, []);
 
   const handleSubmit = async () => {
     const question = input.trim();
@@ -188,122 +185,117 @@ export default function ChefJose() {
   };
 
   return (
-    <>
-      {/* Chat panel */}
-      {isOpen && (
-        <div className="fixed bottom-24 right-6 z-50 w-80 max-h-[70vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-ocean-200 overflow-hidden">
-          {/* Header */}
-          <div className="bg-ocean-800 px-4 py-3 flex items-center gap-3 flex-shrink-0">
-            <img
-              src="/camaronchef-sm.webp"
-              alt="Chef Jose"
-              className="w-10 h-10 rounded-full object-cover object-top border-2 border-coral-400 scale-125"
-            />
-            <div className="flex-1 min-w-0">
-              <h3 className="text-white font-semibold text-sm leading-tight">Consulta a Jose</h3>
-              <p className="text-ocean-300 text-xs">Chef de mariscos</p>
-            </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="w-8 h-8 flex items-center justify-center text-ocean-300 hover:text-white rounded-lg hover:bg-ocean-700 transition-colors"
-              aria-label="Cerrar chat"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+    <div className="bg-white rounded-2xl shadow-lg border border-ocean-200 overflow-hidden">
+      {/* Header */}
+      <div className="bg-ocean-800 px-4 py-3 flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-coral-400 flex-shrink-0">
+          <img
+            src="/camaronchef-sm.webp"
+            alt="Chef Jose"
+            className="w-[130%] h-[130%] object-cover object-top"
+          />
+        </div>
+        <div>
+          <h3 className="text-white font-semibold text-sm leading-tight">Consulta a Jose</h3>
+          <p className="text-ocean-300 text-xs">Chef de mariscos — preguntale sobre recetas y preparaciones</p>
+        </div>
+      </div>
 
-          {/* Messages area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[200px] max-h-[calc(70vh-140px)]">
-            {messages.length === 0 && !isLoading && (
-              <div className="text-center py-8 px-2">
-                <img
-                  src="/camaronchef-sm.webp"
-                  alt="Chef Jose"
-                  className="w-16 h-16 rounded-full mx-auto mb-3 border-2 border-coral-200 object-cover object-top scale-110"
-                />
-                <p className="text-ocean-700 text-sm font-medium">
-                  Hola! Soy Jose
-                </p>
-                <p className="text-ocean-500 text-xs mt-1">
-                  Preguntame sobre cocina y mariscos
-                </p>
-              </div>
-            )}
-
-            {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm leading-relaxed ${
-                    msg.role === 'user'
-                      ? 'bg-ocean-600 text-white rounded-br-md'
-                      : 'bg-ocean-50 text-ocean-900 rounded-bl-md'
-                  }`}
-                >
-                  {msg.text}
-                </div>
-              </div>
-            ))}
-
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="bg-ocean-50 text-ocean-600 px-3 py-2 rounded-2xl rounded-bl-md text-sm animate-pulse">
-                  Jose esta pensando...
-                </div>
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input area */}
-          <div className="border-t border-ocean-100 p-3 flex-shrink-0">
-            <div className="flex gap-2">
-              <input
-                ref={inputRef}
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Pregunta sobre mariscos..."
-                disabled={isLoading}
-                className="flex-1 px-3 py-2 text-sm border border-ocean-200 rounded-xl
-                  focus:outline-none focus:ring-2 focus:ring-coral-400 focus:border-transparent
-                  disabled:bg-ocean-50 disabled:cursor-not-allowed
-                  placeholder:text-ocean-400"
+      {/* Messages area */}
+      <div className="overflow-y-auto p-4 space-y-3 min-h-[200px] max-h-[350px]">
+        {messages.length === 0 && !isLoading && (
+          <div className="text-center py-6 px-2">
+            <div className="w-16 h-16 rounded-full mx-auto mb-3 border-2 border-coral-200 overflow-hidden">
+              <img
+                src="/camaronchef-sm.webp"
+                alt="Chef Jose"
+                className="w-[130%] h-[130%] object-cover object-top"
               />
+            </div>
+            <p className="text-ocean-700 text-sm font-medium">
+              Hola! Soy Jose
+            </p>
+            <p className="text-ocean-500 text-xs mt-1">
+              Preguntame sobre cocina y mariscos
+            </p>
+            <div className="mt-3 flex flex-wrap justify-center gap-2">
               <button
-                onClick={handleSubmit}
-                disabled={!input.trim() || input.trim().length < 3 || isLoading}
-                className="px-4 py-2 bg-coral-500 hover:bg-coral-600 disabled:bg-ocean-200
-                  disabled:cursor-not-allowed text-white font-medium text-sm rounded-xl
-                  transition-colors flex-shrink-0"
+                onClick={() => { setInput('Como preparo camarones al ajillo?'); }}
+                className="text-xs bg-ocean-50 text-ocean-700 px-3 py-1.5 rounded-full hover:bg-ocean-100 transition-colors"
               >
-                Enviar
+                Camarones al ajillo
+              </button>
+              <button
+                onClick={() => { setInput('Como hago un ceviche de pescado?'); }}
+                className="text-xs bg-ocean-50 text-ocean-700 px-3 py-1.5 rounded-full hover:bg-ocean-100 transition-colors"
+              >
+                Ceviche de pescado
+              </button>
+              <button
+                onClick={() => { setInput('Cuanto pulpo necesito para 6 personas?'); }}
+                className="text-xs bg-ocean-50 text-ocean-700 px-3 py-1.5 rounded-full hover:bg-ocean-100 transition-colors"
+              >
+                Porciones de pulpo
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Floating button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full bg-coral-500 hover:bg-coral-600
-          shadow-lg shadow-coral-500/30 transition-transform hover:scale-110
-          flex items-center justify-center overflow-hidden border-2 border-white"
-        aria-label="Consulta a Jose - Chef de mariscos"
-      >
-        <img
-          src="/camaronchef-sm.webp"
-          alt="Chef Jose"
-          className="w-[130%] h-[130%] object-cover object-top"
-        />
-      </button>
-    </>
+        {messages.map((msg, i) => (
+          <div
+            key={i}
+            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div
+              className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm leading-relaxed ${
+                msg.role === 'user'
+                  ? 'bg-ocean-600 text-white rounded-br-md'
+                  : 'bg-ocean-50 text-ocean-900 rounded-bl-md'
+              }`}
+            >
+              {msg.text}
+            </div>
+          </div>
+        ))}
+
+        {isLoading && (
+          <div className="flex justify-start">
+            <div className="bg-ocean-50 text-ocean-600 px-3 py-2 rounded-2xl rounded-bl-md text-sm animate-pulse">
+              Jose esta pensando...
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input area */}
+      <div className="border-t border-ocean-100 p-3">
+        <div className="flex gap-2">
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Pregunta sobre mariscos..."
+            disabled={isLoading}
+            className="flex-1 px-3 py-2 text-sm border border-ocean-200 rounded-xl
+              focus:outline-none focus:ring-2 focus:ring-coral-400 focus:border-transparent
+              disabled:bg-ocean-50 disabled:cursor-not-allowed
+              placeholder:text-ocean-400"
+          />
+          <button
+            onClick={handleSubmit}
+            disabled={!input.trim() || input.trim().length < 3 || isLoading}
+            className="px-4 py-2 bg-coral-500 hover:bg-coral-600 disabled:bg-ocean-200
+              disabled:cursor-not-allowed text-white font-medium text-sm rounded-xl
+              transition-colors flex-shrink-0"
+          >
+            Enviar
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
