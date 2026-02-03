@@ -82,20 +82,6 @@ function trackUsage(): void {
   }
 }
 
-// --- Food validation ---
-const FOOD_KEYWORDS = [
-  'cocin', 'receta', 'prepar', 'maris', 'camaron', 'pescado',
-  'pulpo', 'calamar', 'salsa', 'frit', 'herv', 'hornear', 'parrilla',
-  'arroz', 'ceviche', 'sopa', 'comer', 'comida', 'plato', 'ingrediente',
-  'langost', 'almeja', 'mejill', 'pepitona', 'como hago', 'como se hace',
-  'cuanto', 'persona', 'porcion', 'kilo'
-];
-
-function isFoodRelated(question: string): boolean {
-  const normalized = question.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  return FOOD_KEYWORDS.some(keyword => normalized.includes(keyword));
-}
-
 // --- Types ---
 interface Message {
   role: 'user' | 'jose';
@@ -129,15 +115,6 @@ export default function ChefJose() {
     // Add user message
     setMessages(prev => [...prev, { role: 'user', text: question }]);
     setInput('');
-
-    // Client-side food validation
-    if (!isFoodRelated(question)) {
-      setMessages(prev => [...prev, {
-        role: 'jose',
-        text: 'Epa, yo soy chef de mariscos, mi fuerte es la cocina. Preguntame sobre recetas, preparaciones o cualquier duda con pescados y mariscos y con gusto te ayudo.'
-      }]);
-      return;
-    }
 
     // Check cache
     const cached = getCachedAnswer(question);
