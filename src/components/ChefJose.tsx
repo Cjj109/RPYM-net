@@ -125,9 +125,26 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
     setTimeout(() => inputRef.current?.focus(), 300);
   }, []);
 
+  // Map Portuguese seafood terms to Spanish equivalents for matching
+  const portugueseToSpanish: Record<string, string> = {
+    'camarao': 'camaron', 'camaroes': 'camaron',
+    'mexilhao': 'mejillon', 'mexilhoes': 'mejillon',
+    'polvo': 'pulpo', 'lula': 'calamar',
+    'salmao': 'salmon', 'lagosta': 'langostino',
+    'amêijoa': 'almeja', 'ameijoa': 'almeja',
+    'vieira': 'viera', 'caranguejo': 'cangrejo',
+    'lagostim': 'langostino', 'bacalhau': 'bacalao',
+    'peixe': 'pescado', 'marisco': 'marisco',
+  };
+
   // Find products mentioned in José's response using keyword matching
   const findMentionedProducts = (text: string): Product[] => {
-    const normalizedText = normalize(text);
+    let normalizedText = normalize(text);
+
+    // Replace Portuguese terms with Spanish equivalents
+    for (const [pt, es] of Object.entries(portugueseToSpanish)) {
+      normalizedText = normalizedText.replace(new RegExp(normalize(pt), 'g'), es);
+    }
     const stopWords = new Set([
       'en', 'de', 'con', 'la', 'el', 'las', 'los', 'y', 'o', 'a', 'kg', 'por',
       // Structural/descriptor words that shouldn't define product families
