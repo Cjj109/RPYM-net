@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import BudgetCalculator from '../components/BudgetCalculator';
+import ChefJose from '../components/ChefJose';
 import { getProducts, groupByCategory, getBCVRate } from '../lib/sheets';
 
 // Obtener tasa BCV y productos
@@ -19,7 +20,7 @@ const categories = groupByCategory(products);
       <div class="text-center mb-6 md:mb-10">
         <a
           href="/"
-          class="inline-flex items-center gap-1.5 md:gap-2 text-ocean-600 hover:text-ocean-800 mb-4 md:mb-6 transition-colors text-sm md:text-base"
+          class="inline-flex items-center gap-1.5 md:gap-2 text-ocean-700 hover:text-ocean-800 mb-4 md:mb-6 transition-colors text-sm md:text-base"
         >
           <svg class="w-3.5 h-3.5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
@@ -30,7 +31,7 @@ const categories = groupByCategory(products);
         <h1 class="text-2xl md:text-3xl lg:text-4xl font-display font-bold text-ocean-900 mb-2 md:mb-4">
           Arma tu Pedido
         </h1>
-        <p class="text-ocean-600 max-w-2xl mx-auto text-sm md:text-base">
+        <p class="text-ocean-700 max-w-2xl mx-auto text-sm md:text-base">
           Selecciona los productos que necesitas y la cantidad. El total se
           calculará automáticamente en dólares y bolívares.
         </p>
@@ -46,8 +47,8 @@ const categories = groupByCategory(products);
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
           Nota importante
-        </h3>
-        <ul class="text-ocean-600 text-xs md:text-sm space-y-1.5 md:space-y-2">
+        </h2>
+        <ul class="text-ocean-700 text-xs md:text-sm space-y-1.5 md:space-y-2">
           <li>• Los precios en bolívares se calculan con la tasa BCV del día.</li>
           <li>• La disponibilidad depende de la pesca del día.</li>
           <li>• Los productos se venden por peso (kg).</li>
@@ -66,11 +67,12 @@ const categories = groupByCategory(products);
             </svg>
             Escríbenos al WhatsApp
           </a>
-          <p class="text-ocean-600 text-xs mt-2">
+          <p class="text-ocean-700 text-xs mt-2">
             Muelle Pesquero "El Mosquero" - Puesto 3 y 4, Maiquetía
           </p>
         </div>
       </div>
     </div>
   </section>
+  <ChefJose client:idle />
 </Layout>

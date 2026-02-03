@@ -22,7 +22,7 @@ export function PriceListInteractive({ categories, masVendidos, bcvRate }: Price
           <h2 className="text-2xl md:text-3xl lg:text-4xl font-display font-bold text-ocean-900 mb-3 md:mb-4">
             Lista de Precios
           </h2>
-          <p className="text-ocean-600 max-w-2xl mx-auto text-sm md:text-base">
+          <p className="text-ocean-700 max-w-2xl mx-auto text-sm md:text-base">
             Productos frescos del dia, directamente del muelle a tu mesa.
             Los precios pueden variar segun disponibilidad.
           </p>
@@ -39,7 +39,7 @@ export function PriceListInteractive({ categories, masVendidos, bcvRate }: Price
             <span className="text-base md:text-lg font-bold text-ocean-900">
               Bs. {bcvRate.rate.toFixed(2)}
             </span>
-            <span className="text-[10px] md:text-xs text-ocean-600">
+            <span className="text-[10px] md:text-xs text-ocean-700">
               / USD
             </span>
           </div>
@@ -52,7 +52,7 @@ export function PriceListInteractive({ categories, masVendidos, bcvRate }: Price
               <h3 className="text-lg md:text-xl lg:text-2xl font-display font-semibold text-ocean-800 mb-4 md:mb-6 flex items-center gap-2 md:gap-3">
                 <span className="text-xl md:text-2xl">🔥</span>
                 Los Mas Vendidos
-                <span className="text-xs md:text-sm font-normal text-ocean-600 font-body">
+                <span className="text-xs md:text-sm font-normal text-ocean-700 font-body">
                   ({masVendidos.length})
                 </span>
               </h3>
@@ -71,7 +71,7 @@ export function PriceListInteractive({ categories, masVendidos, bcvRate }: Price
               <h3 className="text-lg md:text-xl lg:text-2xl font-display font-semibold text-ocean-800 mb-4 md:mb-6 flex items-center gap-2 md:gap-3">
                 <span className="text-xl md:text-2xl">{categoryIcons[category.name] || '🐠'}</span>
                 {category.name}
-                <span className="text-xs md:text-sm font-normal text-ocean-600 font-body">
+                <span className="text-xs md:text-sm font-normal text-ocean-700 font-body">
                   ({category.products.length})
                 </span>
               </h3>
@@ -85,7 +85,7 @@ export function PriceListInteractive({ categories, masVendidos, bcvRate }: Price
                   <div className="flex flex-wrap gap-2 md:gap-3 text-xs md:text-sm">
                     <span className="inline-flex items-center gap-1.5 bg-white/80 px-2.5 py-1 rounded-full border border-ocean-200">
                       <span className="font-bold text-ocean-700">61/70</span>
-                      <span className="text-ocean-600">Rendidor</span>
+                      <span className="text-ocean-700">Rendidor</span>
                     </span>
                     <span className="inline-flex items-center gap-1.5 bg-coral-100 px-2.5 py-1 rounded-full border border-coral-200">
                       <span className="font-bold text-coral-600">41/50</span>
@@ -94,11 +94,11 @@ export function PriceListInteractive({ categories, masVendidos, bcvRate }: Price
                     </span>
                     <span className="inline-flex items-center gap-1.5 bg-white/80 px-2.5 py-1 rounded-full border border-ocean-200">
                       <span className="font-bold text-ocean-700">36/40</span>
-                      <span className="text-ocean-600">Grande</span>
+                      <span className="text-ocean-700">Grande</span>
                     </span>
                     <span className="inline-flex items-center gap-1.5 bg-white/80 px-2.5 py-1 rounded-full border border-ocean-200">
                       <span className="font-bold text-ocean-700">31/35</span>
-                      <span className="text-ocean-600">Premium</span>
+                      <span className="text-ocean-700">Premium</span>
                     </span>
                   </div>
                   <p className="text-[10px] md:text-xs text-ocean-500 mt-2">
@@ -116,7 +116,7 @@ export function PriceListInteractive({ categories, masVendidos, bcvRate }: Price
           ))}
         </div>
 
-        <p className="text-center text-xs md:text-sm text-ocean-600 mt-6 md:mt-8">
+        <p className="text-center text-xs md:text-sm text-ocean-700 mt-6 md:mt-8">
           Tasa {bcvRate.source} actualizada: {bcvRate.date}.
           Consulta disponibilidad por WhatsApp.
         </p>

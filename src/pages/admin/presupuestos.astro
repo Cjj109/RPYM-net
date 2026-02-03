@@ -1,11 +1,16 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import AdminPanel from '../../components/AdminPanel';
+import { getProducts, groupByCategory, getBCVRate } from '../../lib/sheets';
+
+const bcvRate = await getBCVRate();
+const products = await getProducts(bcvRate.rate);
+const categories = groupByCategory(products);
 ---
 
 <Layout
   title="Admin - Presupuestos | RPYM"
   description="Panel de administración de presupuestos RPYM"
 >
-  <AdminPanel client:load />
+  <AdminPanel categories={categories} bcvRate={bcvRate} client:load />
 </Layout>

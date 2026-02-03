@@ -19,6 +19,23 @@ import WaveDecoration from './WaveDecoration.astro';
         <a href="/presupuesto" class="bg-coral-500 hover:bg-coral-600 text-white px-5 py-2 rounded-full font-semibold transition-all hover:scale-105 shadow-lg">
           Arma tu Pedido
         </a>
+        <!-- Admin dropdown (visible solo si autenticado) -->
+        <div id="admin-dropdown" class="relative hidden">
+          <button id="admin-dropdown-btn" class="text-ocean-200 hover:text-white transition-colors font-medium flex items-center gap-1">
+            Admin
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          <div id="admin-dropdown-menu" class="hidden absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-ocean-100 overflow-hidden z-50">
+            <a href="/admin/presupuestos" class="block px-4 py-2.5 text-sm text-ocean-700 hover:bg-ocean-50 transition-colors">
+              Ver Presupuestos
+            </a>
+            <a href="/admin/presupuestos" class="block px-4 py-2.5 text-sm text-ocean-700 hover:bg-ocean-50 transition-colors border-t border-ocean-100">
+              Crear Presupuesto
+            </a>
+          </div>
+        </div>
       </div>
 
       <!-- Menú móvil -->
@@ -46,6 +63,12 @@ import WaveDecoration from './WaveDecoration.astro';
       <a href="/presupuesto" class="bg-coral-500 active:bg-coral-600 text-white px-5 py-3 rounded-full font-semibold transition-all text-center mt-2">
         Arma tu Pedido
       </a>
+      <!-- Admin mobile (visible solo si autenticado) -->
+      <div id="admin-mobile-links" class="hidden border-t border-ocean-700 pt-2 mt-2">
+        <a href="/admin/presupuestos" class="text-ocean-200 hover:text-white active:bg-ocean-700 transition-colors font-medium py-3 px-3 rounded-lg block">
+          Admin: Presupuestos
+        </a>
+      </div>
     </div>
   </div>
 
@@ -66,5 +89,28 @@ import WaveDecoration from './WaveDecoration.astro';
     link.addEventListener('click', () => {
       menu?.classList.add('hidden');
     });
+  });
+
+  // Admin dropdown visibility
+  const isAdmin = sessionStorage.getItem('rpym_admin_auth') === 'true';
+  if (isAdmin) {
+    document.getElementById('admin-dropdown')?.classList.remove('hidden');
+    document.getElementById('admin-mobile-links')?.classList.remove('hidden');
+  }
+
+  // Admin dropdown toggle
+  const dropdownBtn = document.getElementById('admin-dropdown-btn');
+  const dropdownMenu = document.getElementById('admin-dropdown-menu');
+
+  dropdownBtn?.addEventListener('click', () => {
+    dropdownMenu?.classList.toggle('hidden');
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    if (!target.closest('#admin-dropdown')) {
+      dropdownMenu?.classList.add('hidden');
+    }
   });
 </script>

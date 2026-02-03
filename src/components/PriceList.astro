@@ -24,7 +24,7 @@ const categoryIcons: Record<string, string> = {
       <h2 class="text-2xl md:text-3xl lg:text-4xl font-display font-bold text-ocean-900 mb-3 md:mb-4">
         Lista de Precios
       </h2>
-      <p class="text-ocean-600 max-w-2xl mx-auto text-sm md:text-base">
+      <p class="text-ocean-700 max-w-2xl mx-auto text-sm md:text-base">
         Productos frescos del día, directamente del muelle a tu mesa.
         Los precios pueden variar según disponibilidad.
       </p>
@@ -41,7 +41,7 @@ const categoryIcons: Record<string, string> = {
         <span class="text-base md:text-lg font-bold text-ocean-900">
           Bs. {bcvRate.rate.toFixed(2)}
         </span>
-        <span class="text-[10px] md:text-xs text-ocean-600">
+        <span class="text-[10px] md:text-xs text-ocean-700">
           / USD
         </span>
       </div>
@@ -53,7 +53,7 @@ const categoryIcons: Record<string, string> = {
           <h3 class="text-lg md:text-xl lg:text-2xl font-display font-semibold text-ocean-800 mb-4 md:mb-6 flex items-center gap-2 md:gap-3">
             <span class="text-xl md:text-2xl">{categoryIcons[category.name] || '🐠'}</span>
             {category.name}
-            <span class="text-xs md:text-sm font-normal text-ocean-600 font-body">
+            <span class="text-xs md:text-sm font-normal text-ocean-700 font-body">
               ({category.products.length})
             </span>
           </h3>
@@ -67,7 +67,7 @@ const categoryIcons: Record<string, string> = {
               <div class="flex flex-wrap gap-2 md:gap-3 text-xs md:text-sm">
                 <span class="inline-flex items-center gap-1.5 bg-white/80 px-2.5 py-1 rounded-full border border-ocean-200">
                   <span class="font-bold text-ocean-700">61/70</span>
-                  <span class="text-ocean-600">Rendidor</span>
+                  <span class="text-ocean-700">Rendidor</span>
                 </span>
                 <span class="inline-flex items-center gap-1.5 bg-coral-100 px-2.5 py-1 rounded-full border border-coral-200">
                   <span class="font-bold text-coral-600">41/50</span>
@@ -76,11 +76,11 @@ const categoryIcons: Record<string, string> = {
                 </span>
                 <span class="inline-flex items-center gap-1.5 bg-white/80 px-2.5 py-1 rounded-full border border-ocean-200">
                   <span class="font-bold text-ocean-700">36/40</span>
-                  <span class="text-ocean-600">Grande</span>
+                  <span class="text-ocean-700">Grande</span>
                 </span>
                 <span class="inline-flex items-center gap-1.5 bg-white/80 px-2.5 py-1 rounded-full border border-ocean-200">
                   <span class="font-bold text-ocean-700">31/35</span>
-                  <span class="text-ocean-600">Premium</span>
+                  <span class="text-ocean-700">Premium</span>
                 </span>
               </div>
               <p class="text-[10px] md:text-xs text-ocean-500 mt-2">
@@ -98,7 +98,7 @@ const categoryIcons: Record<string, string> = {
       ))}
     </div>
 
-    <p class="text-center text-xs md:text-sm text-ocean-600 mt-6 md:mt-8">
+    <p class="text-center text-xs md:text-sm text-ocean-700 mt-6 md:mt-8">
       Tasa {bcvRate.source} actualizada: {bcvRate.date}.
       Consulta disponibilidad por WhatsApp.
     </p>

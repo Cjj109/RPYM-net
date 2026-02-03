@@ -1,7 +1,10 @@
 /**
  * RPYM - Panel de Administración de Presupuestos
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+
+const AdminBudgetBuilder = lazy(() => import('./AdminBudgetBuilder'));
+
 import {
   listPresupuestos,
   updatePresupuestoStatus,
@@ -14,7 +17,24 @@ import {
 // Password de administrador (cambiar por una más segura en producción)
 const ADMIN_PASSWORD = 'Rpym@Admin2026!';
 
-export default function AdminPanel() {
+interface Category {
+  name: string;
+  products: any[];
+}
+
+interface BCVRateData {
+  rate: number;
+  date: string;
+  source: string;
+}
+
+interface AdminPanelProps {
+  categories?: Category[];
+  bcvRate?: BCVRateData;
+}
+
+export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}) {
+  const [activeTab, setActiveTab] = useState<'ver' | 'crear'>('ver');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([]);
   const [stats, setStats] = useState<PresupuestoStats | null>(null);
@@ -156,23 +176,26 @@ export default function AdminPanel() {
             gap: 12px;
           }
           .logo {
-            width: 50px;
-            height: 50px;
-            background: #0284c7;
+            width: 48px;
+            height: 48px;
             border-radius: 50%;
+            border: 2px solid #7dd3fc;
+            overflow: hidden;
+            flex-shrink: 0;
+            background: white;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 28px;
+          }
+          .logo img {
+            width: 140%;
+            height: 140%;
+            object-fit: contain;
           }
           .company-name {
             font-size: 24px;
             font-weight: 700;
             color: #0c4a6e;
-          }
-          .company-tagline {
-            font-size: 11px;
-            color: #0369a1;
           }
           .doc-info {
             text-align: right;
@@ -307,11 +330,8 @@ export default function AdminPanel() {
         <!-- Header -->
         <div class="header">
           <div class="logo-section">
-            <div class="logo">🦐</div>
-            <div>
-              <div class="company-name">RPYM</div>
-              <div class="company-tagline">El Rey de los Pescados y Mariscos</div>
-            </div>
+            <div class="logo"><img src="/camaronlogo-sm.webp" alt="RPYM" /></div>
+            <div class="company-name">RPYM</div>
           </div>
           <div class="doc-info">
             <div class="doc-number">${presupuesto.id}</div>
@@ -367,7 +387,7 @@ export default function AdminPanel() {
 
         <!-- Footer -->
         <div class="footer">
-          <p>Muelle Pesquero "El Mosquero" • Puesto 3 y 4, Maiquetía</p>
+          <p><a href="https://www.google.com/maps/search/?api=1&query=Mercado+El+Mosquero%2C+Maiquet%C3%ADa" target="_blank" style="text-decoration:underline">Muelle Pesquero "El Mosquero"</a> • Puesto 3 y 4, Maiquetía</p>
           <p>www.rpym.net • WhatsApp: +58 414-214-5202</p>
         </div>
       </body>
@@ -394,7 +414,7 @@ export default function AdminPanel() {
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-2xl">🦐</span>
+              <img src="/camaronlogo-sm.webp" alt="RPYM" className="w-8 h-8 object-contain" />
               <div>
                 <h1 className="text-lg font-bold">RPYM Admin</h1>
                 <p className="text-xs text-ocean-300">Gestión de Presupuestos</p>
@@ -410,8 +430,40 @@ export default function AdminPanel() {
               Cerrar sesión
             </button>
           </div>
+
+          {/* Tabs */}
+          <div className="flex gap-1 mt-3 bg-ocean-900/50 rounded-lg p-1">
+            <button
+              onClick={() => setActiveTab('ver')}
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'ver'
+                  ? 'bg-white text-ocean-900'
+                  : 'text-ocean-200 hover:text-white'
+              }`}
+            >
+              Ver Presupuestos
+            </button>
+            <button
+              onClick={() => setActiveTab('crear')}
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'crear'
+                  ? 'bg-white text-ocean-900'
+                  : 'text-ocean-200 hover:text-white'
+              }`}
+            >
+              Crear Presupuesto
+            </button>
+          </div>
         </div>
       </header>
+
+      {activeTab === 'crear' && categories && bcvRate ? (
+        <main className="max-w-7xl mx-auto p-4">
+          <Suspense fallback={<div className="text-center py-12 text-ocean-700">Cargando...</div>}>
+            <AdminBudgetBuilder categories={categories} bcvRate={bcvRate} />
+          </Suspense>
+        </main>
+      ) : (
 
       <main className="max-w-7xl mx-auto p-4">
         {/* Estadísticas */}
@@ -566,6 +618,7 @@ export default function AdminPanel() {
           Se actualiza automáticamente cada 30 segundos
         </p>
       </main>
+      )}
 
       {/* Modal de detalle */}
       {selectedPresupuesto && (

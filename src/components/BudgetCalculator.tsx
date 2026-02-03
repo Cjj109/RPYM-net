@@ -1300,16 +1300,13 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                     {/* Logo y nombre del negocio */}
                     <div className="flex-1 p-4 border-r-2 border-ocean-800">
                       <div className="flex items-center gap-3 mb-2">
-                        <div className="w-12 h-12 bg-ocean-100 rounded-full flex items-center justify-center">
-                          <span className="text-2xl">🦐</span>
+                        <div className="flex-shrink-0 bg-white" style={{width:'48px',height:'48px',borderRadius:'50%',border:'2px solid #7dd3fc',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                          <img src="/camaronlogo-sm.webp" alt="RPYM" style={{width:'67px',height:'67px',objectFit:'contain'}} />
                         </div>
-                        <div>
-                          <h1 className="text-xl font-bold text-ocean-900">RPYM</h1>
-                          <p className="text-xs text-ocean-600">El Rey de los Pescados y Mariscos</p>
-                        </div>
+                        <h1 className="text-xl font-bold text-ocean-900">RPYM</h1>
                       </div>
                       <div className="text-xs text-ocean-700 space-y-0.5">
-                        <p>Muelle Pesquero "El Mosquero"</p>
+                        <p><a href="https://www.google.com/maps/search/?api=1&query=Mercado+El+Mosquero%2C+Maiquet%C3%ADa" target="_blank" rel="noopener noreferrer" className="underline hover:text-ocean-900">Muelle Pesquero "El Mosquero"</a></p>
                         <p>Puesto 3 y 4, Maiquetía</p>
                         <p>WhatsApp: +58 414-214-5202</p>
                       </div>

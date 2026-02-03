@@ -22,27 +22,27 @@ const { product } = Astro.props;
         {product.nombre}
       </h3>
       {product.descripcion && (
-        <p class="text-[11px] md:text-xs text-ocean-600 mt-1 line-clamp-2">
+        <p class="text-[11px] md:text-xs text-ocean-700 mt-1 line-clamp-2">
           {product.descripcion}
         </p>
       )}
     </div>
 
     <div class="text-right flex-shrink-0">
-      <span class="text-base md:text-lg font-bold text-coral-500">
+      <span class="text-base md:text-lg font-bold text-coral-600">
         {formatPriceUSD(product.precioUSD)}
       </span>
-      <span class="text-xs md:text-sm text-ocean-600 block">
+      <span class="text-xs md:text-sm text-ocean-700 block">
         {formatPriceBs(product.precioBs)}
       </span>
-      <span class="text-[10px] md:text-xs text-ocean-600 block">
+      <span class="text-[10px] md:text-xs text-ocean-700 block">
         /{product.unidad}
       </span>
     </div>
   </div>
 
   {!product.disponible && (
-    <span class="inline-block mt-2 text-xs bg-ocean-100 text-ocean-600 px-2 py-0.5 rounded-full">
+    <span class="inline-block mt-2 text-xs bg-ocean-100 text-ocean-700 px-2 py-0.5 rounded-full">
       No disponible
     </span>
   )}

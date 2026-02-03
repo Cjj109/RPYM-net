@@ -12,10 +12,13 @@ const images = [
   { input: 'delivery.jpeg', name: 'delivery' },
   { input: 'cerrado.png', name: 'cerrado' },
   { input: 'pesca.jpeg', name: 'pesca' },
+  { input: 'camaronlogo.jpeg', name: 'camaronlogo' },
+  { input: 'camaronchef.jpeg', name: 'camaronchef' },
 ];
 
 // Tamaños de salida
 const sizes = [
+  { suffix: '-lg', width: 500 }, // Grande (para hero)
   { suffix: '', width: 400 },    // Tamaño por defecto
   { suffix: '-md', width: 300 }, // Mediano
   { suffix: '-sm', width: 200 }, // Pequeño
