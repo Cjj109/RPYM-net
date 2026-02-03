@@ -585,7 +585,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
               }`}
           >
             <img src="/camaronchef-sm.webp" alt="" className="w-5 h-5 rounded-full object-cover object-top" />
-            Chef Jose
+            Consultar al Chef Jose
           </button>
         </div>
 
