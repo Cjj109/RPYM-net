@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import type { Product } from '../lib/sheets';
 
 // --- Cache ---
 const CACHE_KEY = 'rpym_chef_jose_cache';
@@ -18,7 +19,6 @@ function getCachedAnswer(question: string): string | null {
     const entries: CacheEntry[] = JSON.parse(raw);
     const now = Date.now();
 
-    // Clean expired entries
     const valid = entries.filter(e => now - e.timestamp < CACHE_TTL);
     if (valid.length !== entries.length) {
       localStorage.setItem(CACHE_KEY, JSON.stringify(valid));
@@ -38,7 +38,6 @@ function setCachedAnswer(question: string, answer: string): void {
     const entries: CacheEntry[] = raw ? JSON.parse(raw) : [];
     const now = Date.now();
 
-    // Clean expired and add new
     const valid = entries.filter(e => now - e.timestamp < CACHE_TTL);
     valid.push({
       question: question.trim().toLowerCase(),
@@ -82,24 +81,41 @@ function trackUsage(): void {
   }
 }
 
+// --- Normalize for matching ---
+function normalize(text: string): string {
+  return text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
 // --- Types ---
 interface Message {
   role: 'user' | 'jose';
   text: string;
+  matchedProducts?: Product[];
+}
+
+interface SelectedItem {
+  product: Product;
+  quantity: number;
+}
+
+interface Props {
+  products: Product[];
+  selectedItems: Map<string, SelectedItem>;
+  onAddItem: (product: Product) => void;
 }
 
 // --- Component ---
-export default function ChefJose() {
+export default function ChefJose({ products, selectedItems, onAddItem }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll within the chat container only (not the whole page)
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
   }, [messages, isLoading]);
 
@@ -108,19 +124,51 @@ export default function ChefJose() {
     setTimeout(() => inputRef.current?.focus(), 300);
   }, []);
 
-  const handleSubmit = async () => {
-    const question = input.trim();
+  // Find products mentioned in José's response
+  const findMentionedProducts = (text: string): Product[] => {
+    const normalizedText = normalize(text);
+    const matched: Product[] = [];
+
+    for (const product of products) {
+      if (!product.disponible) continue;
+      // Match product name in the response
+      const normalizedName = normalize(product.nombre);
+      // Check both full name and key parts
+      if (normalizedText.includes(normalizedName)) {
+        matched.push(product);
+      }
+    }
+
+    return matched;
+  };
+
+  // Build order summary for review
+  const buildOrderSummary = (): string => {
+    if (selectedItems.size === 0) return '';
+    const items: string[] = [];
+    selectedItems.forEach(({ product, quantity }) => {
+      items.push(`${product.nombre} ${quantity} ${product.unidad}`);
+    });
+    return items.join(', ');
+  };
+
+  const handleSubmit = async (overrideQuestion?: string) => {
+    const question = (overrideQuestion || input).trim();
     if (!question || question.length < 3 || isLoading) return;
 
     // Add user message
     setMessages(prev => [...prev, { role: 'user', text: question }]);
-    setInput('');
+    if (!overrideQuestion) setInput('');
 
-    // Check cache
-    const cached = getCachedAnswer(question);
-    if (cached) {
-      setMessages(prev => [...prev, { role: 'jose', text: cached }]);
-      return;
+    // Check cache (skip for review questions that include order data)
+    const isReview = question.includes('Tengo en mi pedido:');
+    if (!isReview) {
+      const cached = getCachedAnswer(question);
+      if (cached) {
+        const matchedProducts = findMentionedProducts(cached);
+        setMessages(prev => [...prev, { role: 'jose', text: cached, matchedProducts }]);
+        return;
+      }
     }
 
     // Call API
@@ -135,8 +183,9 @@ export default function ChefJose() {
       const data = await response.json();
 
       if (data.success && data.answer) {
-        setMessages(prev => [...prev, { role: 'jose', text: data.answer }]);
-        setCachedAnswer(question, data.answer);
+        const matchedProducts = findMentionedProducts(data.answer);
+        setMessages(prev => [...prev, { role: 'jose', text: data.answer, matchedProducts }]);
+        if (!isReview) setCachedAnswer(question, data.answer);
         trackUsage();
       } else {
         setMessages(prev => [...prev, {
@@ -161,6 +210,19 @@ export default function ChefJose() {
     }
   };
 
+  const handleReviewOrder = () => {
+    const summary = buildOrderSummary();
+    if (!summary) {
+      setMessages(prev => [...prev, {
+        role: 'jose',
+        text: 'No tienes productos en tu pedido todavia. Agrega algunos productos y luego me pides que lo revise.'
+      }]);
+      return;
+    }
+    const question = `Tengo en mi pedido: ${summary}. Revisa si esta bien, si me falta algo o si me recomiendas algun cambio.`;
+    handleSubmit(question);
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-ocean-200 overflow-hidden">
       {/* Header */}
@@ -172,14 +234,23 @@ export default function ChefJose() {
             className="w-[130%] h-[130%] object-cover object-top"
           />
         </div>
-        <div>
+        <div className="flex-1">
           <h3 className="text-white font-semibold text-sm leading-tight">Consulta a Jose</h3>
-          <p className="text-ocean-300 text-xs">Chef de mariscos — preguntale sobre recetas y preparaciones</p>
+          <p className="text-ocean-300 text-xs">Chef de mariscos — recetas, porciones y recomendaciones</p>
         </div>
+        {selectedItems.size > 0 && (
+          <button
+            onClick={handleReviewOrder}
+            disabled={isLoading}
+            className="px-3 py-1.5 bg-coral-500 hover:bg-coral-600 disabled:bg-ocean-600 text-white text-xs font-medium rounded-lg transition-colors flex-shrink-0"
+          >
+            Revisar pedido
+          </button>
+        )}
       </div>
 
       {/* Messages area */}
-      <div className="overflow-y-auto p-4 space-y-3 min-h-[200px] max-h-[350px]">
+      <div ref={containerRef} className="overflow-y-auto p-4 space-y-3 min-h-[200px] max-h-[350px]">
         {messages.length === 0 && !isLoading && (
           <div className="text-center py-6 px-2">
             <div className="w-16 h-16 rounded-full mx-auto mb-3 border-2 border-coral-200 overflow-hidden">
@@ -193,45 +264,92 @@ export default function ChefJose() {
               Hola! Soy Jose
             </p>
             <p className="text-ocean-500 text-xs mt-1">
-              Preguntame sobre cocina y mariscos
+              Preguntame sobre recetas y te recomiendo que agregar a tu pedido
             </p>
             <div className="mt-3 flex flex-wrap justify-center gap-2">
               <button
-                onClick={() => { setInput('Como preparo camarones al ajillo?'); }}
+                onClick={() => handleSubmit('Como preparo camarones al ajillo?')}
+                disabled={isLoading}
                 className="text-xs bg-ocean-50 text-ocean-700 px-3 py-1.5 rounded-full hover:bg-ocean-100 transition-colors"
               >
                 Camarones al ajillo
               </button>
               <button
-                onClick={() => { setInput('Como hago un ceviche de pescado?'); }}
+                onClick={() => handleSubmit('Como hago un ceviche de pescado?')}
+                disabled={isLoading}
                 className="text-xs bg-ocean-50 text-ocean-700 px-3 py-1.5 rounded-full hover:bg-ocean-100 transition-colors"
               >
                 Ceviche de pescado
               </button>
               <button
-                onClick={() => { setInput('Cuanto pulpo necesito para 6 personas?'); }}
+                onClick={() => handleSubmit('Cuanto pulpo necesito para 6 personas?')}
+                disabled={isLoading}
                 className="text-xs bg-ocean-50 text-ocean-700 px-3 py-1.5 rounded-full hover:bg-ocean-100 transition-colors"
               >
                 Porciones de pulpo
               </button>
+              {selectedItems.size > 0 && (
+                <button
+                  onClick={handleReviewOrder}
+                  disabled={isLoading}
+                  className="text-xs bg-coral-50 text-coral-700 px-3 py-1.5 rounded-full hover:bg-coral-100 transition-colors font-medium"
+                >
+                  Revisar mi pedido
+                </button>
+              )}
             </div>
           </div>
         )}
 
         {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm leading-relaxed ${
-                msg.role === 'user'
-                  ? 'bg-ocean-600 text-white rounded-br-md'
-                  : 'bg-ocean-50 text-ocean-900 rounded-bl-md'
-              }`}
-            >
-              {msg.text}
+          <div key={i}>
+            <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div
+                className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm leading-relaxed ${
+                  msg.role === 'user'
+                    ? 'bg-ocean-600 text-white rounded-br-md'
+                    : 'bg-ocean-50 text-ocean-900 rounded-bl-md'
+                }`}
+              >
+                {msg.text}
+              </div>
             </div>
+            {/* Product action buttons for José's recommendations */}
+            {msg.role === 'jose' && msg.matchedProducts && msg.matchedProducts.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2 ml-1">
+                {msg.matchedProducts.map(product => {
+                  const isInCart = selectedItems.has(product.id);
+                  return (
+                    <button
+                      key={product.id}
+                      onClick={() => { if (!isInCart) onAddItem(product); }}
+                      disabled={isInCart}
+                      className={`text-xs px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 ${
+                        isInCart
+                          ? 'bg-green-100 text-green-700 cursor-default'
+                          : 'bg-coral-50 text-coral-700 hover:bg-coral-100'
+                      }`}
+                    >
+                      {isInCart ? (
+                        <>
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          {product.nombre}
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          Agregar {product.nombre}
+                        </>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ))}
 
@@ -242,8 +360,6 @@ export default function ChefJose() {
             </div>
           </div>
         )}
-
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Input area */}
@@ -263,7 +379,7 @@ export default function ChefJose() {
               placeholder:text-ocean-400"
           />
           <button
-            onClick={handleSubmit}
+            onClick={() => handleSubmit()}
             disabled={!input.trim() || input.trim().length < 3 || isLoading}
             className="px-4 py-2 bg-coral-500 hover:bg-coral-600 disabled:bg-ocean-200
               disabled:cursor-not-allowed text-white font-medium text-sm rounded-xl

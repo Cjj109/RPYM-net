@@ -865,7 +865,11 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
 
       {/* Chef José - Consulta culinaria */}
       {inputMode === 'chef' && (
-        <ChefJose />
+        <ChefJose
+          products={allProducts}
+          selectedItems={selectedItems}
+          onAddItem={quickAdd}
+        />
       )}
 
       {/* Grid de productos - Solo en modo manual */}
