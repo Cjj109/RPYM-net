@@ -8,9 +8,11 @@ const AdminBudgetBuilder = lazy(() => import('./AdminBudgetBuilder'));
 import {
   listPresupuestos,
   updatePresupuestoStatus,
+  updatePresupuesto,
   deletePresupuesto,
   getPresupuestoStats,
   type Presupuesto,
+  type PresupuestoItem,
   type PresupuestoStats
 } from '../lib/presupuesto-storage';
 
@@ -42,6 +44,11 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPresupuesto, setSelectedPresupuesto] = useState<Presupuesto | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Estado para edición de precios en el modal
+  const [editedItems, setEditedItems] = useState<PresupuestoItem[] | null>(null);
+  const [editingPrices, setEditingPrices] = useState<Map<number, string>>(new Map());
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // Verificar autenticación al cargar
   useEffect(() => {
@@ -115,6 +122,57 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
       alert('Error al eliminar');
     }
     setActionLoading(null);
+  };
+
+  // Obtener tasa BCV para recalcular Bs
+  const bcvRateValue = bcvRate?.rate || 1;
+
+  // Items actuales del modal (editados o originales)
+  const currentItems = editedItems || selectedPresupuesto?.items || [];
+  const currentTotalUSD = currentItems.reduce((sum, item) => sum + item.subtotalUSD, 0);
+  const currentTotalBs = currentTotalUSD * bcvRateValue;
+  const hasEdits = editedItems !== null;
+
+  // Guardar cambios de precios
+  const handleSaveEdits = async () => {
+    if (!selectedPresupuesto || !editedItems) return;
+
+    setIsSavingEdit(true);
+    const success = await updatePresupuesto(
+      selectedPresupuesto.id,
+      editedItems,
+      currentTotalUSD,
+      currentTotalBs
+    );
+
+    if (success) {
+      // Actualizar el presupuesto local
+      const updated = {
+        ...selectedPresupuesto,
+        items: editedItems,
+        totalUSD: currentTotalUSD,
+        totalBs: currentTotalBs
+      };
+      setSelectedPresupuesto(updated);
+      setEditedItems(null);
+      setEditingPrices(new Map());
+      loadData();
+    } else {
+      alert('Error al guardar los cambios');
+    }
+    setIsSavingEdit(false);
+  };
+
+  // Actualizar precio de un item
+  const updateItemPrice = (idx: number, newPrice: number) => {
+    const items = [...(editedItems || selectedPresupuesto?.items || [])];
+    const item = { ...items[idx] };
+    item.precioUSD = newPrice;
+    item.subtotalUSD = newPrice * item.cantidad;
+    item.precioBs = newPrice * bcvRateValue;
+    item.subtotalBs = item.subtotalUSD * bcvRateValue;
+    items[idx] = item;
+    setEditedItems(items);
   };
 
   // Formatear fecha
@@ -630,7 +688,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                 <p className="text-xs text-ocean-600">{formatDate(selectedPresupuesto.fecha)}</p>
               </div>
               <button
-                onClick={() => setSelectedPresupuesto(null)}
+                onClick={() => { setSelectedPresupuesto(null); setEditedItems(null); setEditingPrices(new Map()); }}
                 className="p-2 text-ocean-600 hover:bg-ocean-50 rounded-lg"
               >
                 ✕
@@ -651,17 +709,55 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                 </div>
               )}
 
-              {/* Items */}
+              {/* Items con precios editables */}
               <div>
                 <p className="text-xs text-ocean-600 mb-2">Productos</p>
                 <div className="space-y-2">
-                  {selectedPresupuesto.items.map((item, idx) => (
-                    <div key={idx} className="flex justify-between items-center py-2 border-b border-ocean-100">
-                      <div>
+                  {currentItems.map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-center py-2 border-b border-ocean-100 gap-3">
+                      <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-ocean-900">{item.nombre}</p>
                         <p className="text-xs text-ocean-600">{item.cantidad} {item.unidad}</p>
                       </div>
-                      <p className="font-semibold text-coral-600">{formatUSD(item.subtotalUSD)}</p>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="relative">
+                          <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-xs text-ocean-400">$</span>
+                          <input
+                            type="number"
+                            value={editingPrices.has(idx) ? editingPrices.get(idx) : item.precioUSD}
+                            onFocus={() => {
+                              setEditingPrices(prev => {
+                                const next = new Map(prev);
+                                next.set(idx, String(item.precioUSD));
+                                return next;
+                              });
+                            }}
+                            onChange={(e) => {
+                              setEditingPrices(prev => {
+                                const next = new Map(prev);
+                                next.set(idx, e.target.value);
+                                return next;
+                              });
+                            }}
+                            onBlur={() => {
+                              const val = parseFloat(editingPrices.get(idx) || '0') || 0;
+                              updateItemPrice(idx, val);
+                              setEditingPrices(prev => {
+                                const next = new Map(prev);
+                                next.delete(idx);
+                                return next;
+                              });
+                            }}
+                            step="0.01"
+                            min="0"
+                            className="w-20 pl-4 pr-1 py-1 text-xs text-right border border-ocean-200 rounded-md
+                              focus:ring-1 focus:ring-ocean-500 focus:border-transparent outline-none
+                              [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
+                              text-ocean-900 bg-ocean-50"
+                          />
+                        </div>
+                        <p className="font-semibold text-coral-600 w-20 text-right text-sm">{formatUSD(item.subtotalUSD)}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -671,13 +767,24 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
               <div className="bg-coral-50 rounded-lg p-3">
                 <div className="flex justify-between items-center">
                   <span className="text-ocean-700">Total USD:</span>
-                  <span className="text-xl font-bold text-coral-600">{formatUSD(selectedPresupuesto.totalUSD)}</span>
+                  <span className="text-xl font-bold text-coral-600">{formatUSD(currentTotalUSD)}</span>
                 </div>
                 <div className="flex justify-between items-center mt-1">
                   <span className="text-ocean-700">Total Bs:</span>
-                  <span className="font-semibold text-ocean-900">{formatBs(selectedPresupuesto.totalBs)}</span>
+                  <span className="font-semibold text-ocean-900">{formatBs(currentTotalBs)}</span>
                 </div>
               </div>
+
+              {/* Guardar cambios de precios */}
+              {hasEdits && (
+                <button
+                  onClick={handleSaveEdits}
+                  disabled={isSavingEdit}
+                  className="w-full py-2.5 bg-ocean-600 hover:bg-ocean-500 disabled:bg-ocean-300 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  {isSavingEdit ? 'Guardando...' : 'Guardar cambios de precios'}
+                </button>
+              )}
 
               {/* Estado */}
               <div className="flex items-center justify-between">

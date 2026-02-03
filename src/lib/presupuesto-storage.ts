@@ -171,6 +171,40 @@ export async function updatePresupuestoStatus(
 }
 
 /**
+ * Actualiza los items y totales de un presupuesto existente
+ */
+export async function updatePresupuesto(
+  id: string,
+  items: PresupuestoItem[],
+  totalUSD: number,
+  totalBs: number
+): Promise<boolean> {
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'cors',
+      redirect: 'follow',
+      headers: {
+        'Content-Type': 'text/plain',
+      },
+      body: JSON.stringify({
+        action: 'update',
+        id: id,
+        items: items,
+        totalUSD: totalUSD,
+        totalBs: totalBs
+      })
+    });
+
+    const result = await response.json();
+    return result.success || false;
+  } catch (error) {
+    console.error('Error actualizando presupuesto:', error);
+    return false;
+  }
+}
+
+/**
  * Elimina un presupuesto
  */
 export async function deletePresupuesto(id: string): Promise<boolean> {
