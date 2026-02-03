@@ -106,7 +106,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       },
       body: JSON.stringify({
         model: 'claude-3-haiku-20240307',
-        max_tokens: 150,
+        max_tokens: 200,
         messages: [
           {
             role: 'user',
