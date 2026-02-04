@@ -284,13 +284,9 @@ export default function AdminBudgetBuilder({ categories, bcvRate, editingPresupu
     const effectivePrice = getEffectivePrice(item);
     if (effectivePrice <= 0) return;
 
-    let qty = dollars / effectivePrice;
-    // Round to nearest increment
-    const inc = item.product.incremento || 0.1;
-    qty = Math.round(qty / inc) * inc;
-    // Ensure at least minimum
-    const minQty = getMinQuantity(item.product);
-    if (qty < minQty) qty = minQty;
+    // Calculate exact quantity for the dollar amount (2 decimal precision)
+    let qty = Math.round((dollars / effectivePrice) * 100) / 100;
+    if (qty <= 0) qty = 0.01;
 
     updateQuantity(item.product, qty);
     setDollarInputMode(prev => {
@@ -1463,6 +1459,69 @@ export default function AdminBudgetBuilder({ categories, bcvRate, editingPresupu
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                 </svg>
                 <p className="text-sm">Agrega productos para construir el presupuesto</p>
+                {/* Custom product - also available when empty */}
+                {!showCustomForm ? (
+                  <button
+                    onClick={() => setShowCustomForm(true)}
+                    className="w-full mt-4 py-2 border-2 border-dashed border-ocean-200 text-ocean-500 hover:border-ocean-400 hover:text-ocean-700 rounded-xl text-sm transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Producto personalizado
+                  </button>
+                ) : (
+                  <div className="mt-4 p-3 border border-ocean-200 rounded-xl space-y-2 bg-ocean-50 text-left">
+                    <p className="text-xs font-medium text-ocean-700">Nuevo producto</p>
+                    <input
+                      type="text"
+                      value={customName}
+                      onChange={(e) => setCustomName(e.target.value)}
+                      placeholder="Nombre del producto"
+                      className="w-full px-2.5 py-1.5 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500 text-ocean-900 bg-white"
+                    />
+                    <div className="flex gap-2">
+                      <select
+                        value={customUnit}
+                        onChange={(e) => setCustomUnit(e.target.value)}
+                        className="flex-1 px-2 py-1.5 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500 text-ocean-900 bg-white"
+                      >
+                        <option value="kg">kg</option>
+                        <option value="unidad">unidad</option>
+                        <option value="paquete">paquete</option>
+                      </select>
+                      <div className="relative flex-1">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-ocean-400">$</span>
+                        <input
+                          type="number"
+                          value={customPriceUSD}
+                          onChange={(e) => setCustomPriceUSD(e.target.value)}
+                          placeholder="Precio"
+                          step="0.01"
+                          min="0"
+                          className="w-full pl-5 pr-2 py-1.5 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500
+                            [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
+                            text-ocean-900 bg-white"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setShowCustomForm(false); setCustomName(''); setCustomPriceUSD(''); }}
+                        className="flex-1 py-1.5 text-sm text-ocean-600 hover:bg-ocean-100 rounded-lg transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={addCustomProduct}
+                        disabled={!customName.trim() || !customPriceUSD || parseFloat(customPriceUSD) <= 0}
+                        className="flex-1 py-1.5 text-sm bg-coral-500 text-white rounded-lg hover:bg-coral-600 disabled:bg-ocean-200 disabled:text-ocean-400 transition-colors"
+                      >
+                        Agregar
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <>

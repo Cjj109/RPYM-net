@@ -79,31 +79,38 @@ export async function savePresupuesto(data: SavePresupuestoData): Promise<{ succ
       // Si falla obtener IP, continuar sin ella
     }
 
+    const payload = {
+      action: 'create',
+      items: data.items,
+      totalUSD: data.totalUSD,
+      totalBs: data.totalBs,
+      customerName: data.customerName || '',
+      customerAddress: data.customerAddress || '',
+      clientIP: clientIP,
+      status: data.status || 'pendiente',
+      source: data.source || 'cliente',
+    };
+
     const response = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      mode: 'cors',
       redirect: 'follow',
       headers: {
-        'Content-Type': 'text/plain', // Apps Script requiere text/plain para CORS
+        'Content-Type': 'text/plain',
       },
-      body: JSON.stringify({
-        action: 'create',
-        items: data.items,
-        totalUSD: data.totalUSD,
-        totalBs: data.totalBs,
-        customerName: data.customerName || '',
-        customerAddress: data.customerAddress || '',
-        clientIP: clientIP,
-        status: data.status || 'pendiente',
-        source: data.source || 'cliente',
-      })
+      body: JSON.stringify(payload)
     });
 
-    const result = await response.json();
-    return {
-      success: result.success || false,
-      id: result.id
-    };
+    const text = await response.text();
+    try {
+      const result = JSON.parse(text);
+      return {
+        success: result.success || false,
+        id: result.id
+      };
+    } catch {
+      console.error('savePresupuesto: respuesta no es JSON:', text.substring(0, 200));
+      return { success: false };
+    }
   } catch (error) {
     // Silencioso - no bloquear la experiencia del usuario
     console.error('Error guardando presupuesto:', error);
