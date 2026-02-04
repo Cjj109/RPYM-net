@@ -229,6 +229,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
+            gap: 20px;
             margin-bottom: 20px;
             padding-bottom: 15px;
             border-bottom: 2px solid #075985;
@@ -262,18 +263,24 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
           }
           .doc-info {
             text-align: right;
-            flex-shrink: 0;
+          }
+          .doc-label {
+            font-size: 9px;
+            color: #0369a1;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
           }
           .doc-number {
             font-family: monospace;
-            font-size: 14px;
+            font-size: 12px;
             font-weight: 700;
             color: #0c4a6e;
+            word-break: break-all;
           }
           .doc-date {
             font-size: 11px;
             color: #0369a1;
-            white-space: nowrap;
+            margin-top: 4px;
           }
           .client-section {
             background: #f0f9ff;
@@ -399,9 +406,9 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
             <div class="company-name">RPYM</div>
           </div>
           <div class="doc-info">
+            <div class="doc-label">Nº Presupuesto</div>
             <div class="doc-number">${presupuesto.id}</div>
-            <div class="doc-date">${new Date(presupuesto.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
-            <div class="doc-date">${new Date(presupuesto.fecha).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}</div>
+            <div class="doc-date">${new Date(presupuesto.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${new Date(presupuesto.fecha).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}</div>
           </div>
         </div>
 
