@@ -48,6 +48,9 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   // Estado para edición de precios en el modal
   const [editedItems, setEditedItems] = useState<PresupuestoItem[] | null>(null);
   const [editingPrices, setEditingPrices] = useState<Map<number, string>>(new Map());
+
+  // Estado para editar presupuesto existente
+  const [editingPresupuesto, setEditingPresupuesto] = useState<Presupuesto | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // Verificar autenticación al cargar
@@ -191,10 +194,13 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   const formatUSD = (amount: number) => `$${Number(amount).toFixed(2)}`;
   const formatBs = (amount: number) => `Bs. ${Number(amount).toFixed(2)}`;
 
-  // Imprimir nota de entrega pagada
-  const printPaidNote = (presupuesto: Presupuesto) => {
+  // Imprimir nota de entrega (con o sin sello de pagado)
+  const printNote = (presupuesto: Presupuesto, showPaid: boolean) => {
     const printWindow = window.open('', '_blank', 'width=800,height=600');
-    if (!printWindow) return;
+    if (!printWindow) {
+      alert('No se pudo abrir la ventana de impresion. Verifica que no esten bloqueados los popups.');
+      return;
+    }
 
     const fmtQty = (qty: number): string => {
       const rounded = Math.round(qty * 1000) / 1000;
@@ -393,11 +399,13 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
         </style>
       </head>
       <body>
+        ${showPaid ? `
         <!-- Sello de PAGADO -->
         <div class="paid-stamp">
           PAGADO
           <div class="paid-date">${presupuesto.fechaPago ? formatDate(presupuesto.fechaPago) : formatDate(new Date().toISOString())}</div>
         </div>
+        ` : ''}
 
         <!-- Header -->
         <div class="header">
@@ -448,10 +456,12 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
           </div>
         </div>
 
+        ${showPaid ? `
         <!-- Mensaje de agradecimiento (solo en nota pagada) -->
         <div class="thank-you">
           ¡Gracias por su compra! 🦐
         </div>
+        ` : ''}
 
         <!-- Aviso no fiscal -->
         <div class="non-fiscal">
@@ -470,6 +480,111 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => printWindow.print(), 250);
+  };
+
+  // Vista WhatsApp compacta del presupuesto
+  const handleWhatsAppView = (presupuesto: Presupuesto) => {
+    const isPaid = presupuesto.estado === 'pagado';
+    const fmtQty = (qty: number): string => {
+      const rounded = Math.round(qty * 1000) / 1000;
+      return rounded.toFixed(3).replace(/\.?0+$/, '');
+    };
+
+    const whatsappWindow = window.open('', '_blank', 'width=380,height=700');
+    if (!whatsappWindow) {
+      alert('No se pudo abrir la ventana. Verifica que no estén bloqueados los popups.');
+      return;
+    }
+
+    const itemsHtml = presupuesto.items.map(item => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#fff;border-radius:8px;margin-bottom:4px;">
+        <div>
+          <div style="font-weight:600;font-size:13px;color:#0c4a6e;">${item.nombre}</div>
+          <div style="font-size:11px;color:#64748b;">${fmtQty(item.cantidad)} ${item.unidad} × ${formatUSD(item.precioUSD)}</div>
+        </div>
+        <div style="font-weight:700;font-size:14px;color:#ea580c;">${formatUSD(item.subtotalUSD)}</div>
+      </div>
+    `).join('');
+
+    whatsappWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>RPYM - ${presupuesto.id}</title>
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <style>
+          * { margin:0; padding:0; box-sizing:border-box; }
+          body { font-family:'Inter',-apple-system,sans-serif; background:#e5ddd5; min-height:100vh; }
+          .chat-header { background:#075e54; color:white; padding:12px 16px; display:flex; align-items:center; gap:10px; position:sticky; top:0; }
+          .avatar { width:36px; height:36px; border-radius:50%; background:white; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+          .avatar img { width:130%; height:130%; object-fit:contain; }
+          .chat-name { font-weight:600; font-size:15px; }
+          .chat-status { font-size:11px; opacity:0.8; }
+          .bubble { background:white; margin:12px; border-radius:0 8px 8px 8px; padding:12px; box-shadow:0 1px 2px rgba(0,0,0,0.1); }
+          .bubble-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+          .bubble-id { font-weight:700; font-size:14px; color:#0c4a6e; }
+          .bubble-date { font-size:11px; color:#64748b; }
+          .paid-badge { display:inline-flex; align-items:center; gap:4px; background:#dcfce7; color:#166534; font-size:11px; font-weight:600; padding:2px 8px; border-radius:9999px; margin-left:6px; }
+          .items-section { margin-bottom:10px; }
+          .totals-section { background:#fff7ed; border-radius:8px; padding:10px 12px; margin-top:8px; }
+          .total-row { display:flex; justify-content:space-between; margin-bottom:4px; }
+          .total-label { color:#0369a1; font-size:13px; }
+          .total-usd { font-weight:700; font-size:18px; color:#ea580c; }
+          .total-bs { font-weight:600; font-size:13px; color:#0c4a6e; }
+          .client-info { background:#f0f9ff; border-radius:6px; padding:8px 10px; margin-bottom:10px; font-size:12px; color:#0c4a6e; }
+          .footer-bubble { background:#dcfce7; margin:0 12px 12px; border-radius:8px; padding:8px 12px; text-align:center; font-size:11px; color:#166534; }
+          .timestamp { text-align:right; font-size:10px; color:#64748b; margin-top:6px; }
+        </style>
+      </head>
+      <body>
+        <div class="chat-header">
+          <div class="avatar"><img src="/camaronlogo-sm.webp" alt="RPYM" /></div>
+          <div>
+            <div class="chat-name">RPYM Mariscos</div>
+            <div class="chat-status">en línea</div>
+          </div>
+        </div>
+
+        <div class="bubble">
+          <div class="bubble-header">
+            <span class="bubble-id">${presupuesto.id}${isPaid ? '<span class="paid-badge">✅ PAGADO</span>' : ''}</span>
+          </div>
+
+          ${presupuesto.customerName ? `
+          <div class="client-info">
+            <strong>${presupuesto.customerName}</strong>
+            ${presupuesto.customerAddress ? `<br/>${presupuesto.customerAddress}` : ''}
+          </div>
+          ` : ''}
+
+          <div class="items-section">
+            ${itemsHtml}
+          </div>
+
+          <div class="totals-section">
+            <div class="total-row">
+              <span class="total-label">Total USD</span>
+              <span class="total-usd">${formatUSD(presupuesto.totalUSD)}</span>
+            </div>
+            <div class="total-row">
+              <span class="total-label">Total Bs.</span>
+              <span class="total-bs">${formatBs(presupuesto.totalBs)}</span>
+            </div>
+          </div>
+
+          <div class="timestamp">${new Date(presupuesto.fecha).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}</div>
+        </div>
+
+        ${isPaid ? `
+        <div class="footer-bubble">
+          ¡Gracias por su compra! 🦐
+        </div>
+        ` : ''}
+      </body>
+      </html>
+    `);
+
+    whatsappWindow.document.close();
   };
 
   if (!isAuthenticated) {
@@ -533,7 +648,15 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
       {activeTab === 'crear' && categories && bcvRate ? (
         <main className="max-w-7xl mx-auto p-4">
           <Suspense fallback={<div className="text-center py-12 text-ocean-700">Cargando...</div>}>
-            <AdminBudgetBuilder categories={categories} bcvRate={bcvRate} />
+            <AdminBudgetBuilder
+              categories={categories}
+              bcvRate={bcvRate}
+              editingPresupuesto={editingPresupuesto}
+              onEditComplete={() => {
+                setEditingPresupuesto(null);
+                loadData();
+              }}
+            />
           </Suspense>
         </main>
       ) : (
@@ -610,6 +733,9 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                     <tr key={p.id} className="hover:bg-ocean-50/50">
                       <td className="px-4 py-3">
                         <span className="font-mono text-sm text-ocean-900">{p.id}</span>
+                        {p.source === 'admin' && (
+                          <span className="ml-1.5 text-[10px] bg-ocean-100 text-ocean-600 px-1.5 py-0.5 rounded-full font-medium">Admin</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-sm text-ocean-700">
                         {formatDate(p.fecha)}
@@ -633,6 +759,20 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => printNote(p, p.estado === 'pagado')}
+                            className="p-1.5 text-ocean-600 hover:bg-ocean-50 rounded-lg transition-colors"
+                            title={p.estado === 'pagado' ? 'Imprimir (con sello pagado)' : 'Imprimir presupuesto'}
+                          >
+                            🖨️
+                          </button>
+                          <button
+                            onClick={() => handleWhatsAppView(p)}
+                            className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                            title={p.estado === 'pagado' ? 'Vista WhatsApp (pagado)' : 'Vista WhatsApp'}
+                          >
+                            📱
+                          </button>
                           {p.estado === 'pendiente' && (
                             <button
                               onClick={() => handleMarkPaid(p.id)}
@@ -643,15 +783,6 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                               {actionLoading === p.id ? '...' : '✅'}
                             </button>
                           )}
-                          {p.estado === 'pagado' && (
-                            <button
-                              onClick={() => printPaidNote(p)}
-                              className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                              title="Imprimir nota pagada"
-                            >
-                              🖨️
-                            </button>
-                          )}
                           <button
                             onClick={() => setSelectedPresupuesto(p)}
                             className="p-1.5 text-ocean-600 hover:bg-ocean-50 rounded-lg transition-colors"
@@ -659,15 +790,6 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                           >
                             👁️
                           </button>
-                          <a
-                            href={`/presupuesto/ver?id=${p.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Abrir vista pública"
-                          >
-                            🔗
-                          </a>
                           <button
                             onClick={() => handleDelete(p.id)}
                             disabled={actionLoading === p.id}
@@ -811,26 +933,42 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                   {selectedPresupuesto.estado === 'pagado' ? '✅ Pagado' : '⏳ Pendiente'}
                 </span>
 
-                {selectedPresupuesto.estado === 'pendiente' && (
+                <div className="flex flex-wrap gap-2">
+                  {selectedPresupuesto.estado === 'pendiente' && (
+                    <button
+                      onClick={async () => {
+                        await handleMarkPaid(selectedPresupuesto.id);
+                        setSelectedPresupuesto({ ...selectedPresupuesto, estado: 'pagado', fechaPago: new Date().toISOString() });
+                        loadData();
+                      }}
+                      className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-500"
+                    >
+                      Marcar Pagado
+                    </button>
+                  )}
+                  <button
+                    onClick={() => printNote(selectedPresupuesto, selectedPresupuesto.estado === 'pagado')}
+                    className="px-3 py-1.5 bg-ocean-600 text-white rounded-lg text-xs font-medium hover:bg-ocean-500 flex items-center gap-1"
+                  >
+                    🖨️ Imprimir
+                  </button>
+                  <button
+                    onClick={() => handleWhatsAppView(selectedPresupuesto)}
+                    className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-500 flex items-center gap-1"
+                  >
+                    📱 WhatsApp
+                  </button>
                   <button
                     onClick={() => {
-                      handleMarkPaid(selectedPresupuesto.id);
+                      setEditingPresupuesto(selectedPresupuesto);
                       setSelectedPresupuesto(null);
+                      setActiveTab('crear');
                     }}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-500"
+                    className="px-3 py-1.5 bg-coral-500 text-white rounded-lg text-xs font-medium hover:bg-coral-600 flex items-center gap-1"
                   >
-                    Marcar como Pagado
+                    ✏️ Editar
                   </button>
-                )}
-
-                {selectedPresupuesto.estado === 'pagado' && (
-                  <button
-                    onClick={() => printPaidNote(selectedPresupuesto)}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-500 flex items-center gap-2"
-                  >
-                    🖨️ Imprimir Nota Pagada
-                  </button>
-                )}
+                </div>
               </div>
             </div>
           </div>

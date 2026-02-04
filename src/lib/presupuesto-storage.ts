@@ -38,6 +38,7 @@ export interface Presupuesto {
   fechaPago?: string;
   customerName?: string;
   customerAddress?: string;
+  source?: 'admin' | 'cliente';
 }
 
 export interface SavePresupuestoData {
@@ -46,6 +47,8 @@ export interface SavePresupuestoData {
   totalBs: number;
   customerName?: string;
   customerAddress?: string;
+  status?: 'pendiente' | 'pagado';
+  source?: 'admin' | 'cliente';
 }
 
 export interface PresupuestoStats {
@@ -90,7 +93,9 @@ export async function savePresupuesto(data: SavePresupuestoData): Promise<{ succ
         totalBs: data.totalBs,
         customerName: data.customerName || '',
         customerAddress: data.customerAddress || '',
-        clientIP: clientIP
+        clientIP: clientIP,
+        status: data.status || 'pendiente',
+        source: data.source || 'cliente',
       })
     });
 
@@ -173,12 +178,14 @@ export async function updatePresupuestoStatus(
 /**
  * Actualiza los items y totales de un presupuesto existente
  */
-export async function updatePresupuesto(
-  id: string,
-  items: PresupuestoItem[],
-  totalUSD: number,
-  totalBs: number
-): Promise<boolean> {
+export async function updatePresupuesto(data: {
+  id: string;
+  items: PresupuestoItem[];
+  totalUSD: number;
+  totalBs: number;
+  customerName?: string;
+  customerAddress?: string;
+}): Promise<{ success: boolean }> {
   try {
     const response = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
@@ -189,18 +196,20 @@ export async function updatePresupuesto(
       },
       body: JSON.stringify({
         action: 'update',
-        id: id,
-        items: items,
-        totalUSD: totalUSD,
-        totalBs: totalBs
+        id: data.id,
+        items: data.items,
+        totalUSD: data.totalUSD,
+        totalBs: data.totalBs,
+        customerName: data.customerName || '',
+        customerAddress: data.customerAddress || '',
       })
     });
 
     const result = await response.json();
-    return result.success || false;
+    return { success: result.success || false };
   } catch (error) {
     console.error('Error actualizando presupuesto:', error);
-    return false;
+    return { success: false };
   }
 }
 

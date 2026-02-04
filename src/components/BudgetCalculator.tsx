@@ -85,11 +85,15 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
     });
   };
 
-  // Agregar rápidamente con cantidad mínima
-  const quickAdd = (product: Product) => {
-    const minQty = getMinQuantity(product);
-    const current = selectedItems.get(product.id)?.quantity || 0;
-    updateQuantity(product, current + (current === 0 ? minQty : product.incremento));
+  // Agregar rápidamente con cantidad mínima o cantidad específica
+  const quickAdd = (product: Product, quantity?: number) => {
+    if (quantity && quantity > 0) {
+      updateQuantity(product, quantity);
+    } else {
+      const minQty = getMinQuantity(product);
+      const current = selectedItems.get(product.id)?.quantity || 0;
+      updateQuantity(product, current + (current === 0 ? minQty : product.incremento));
+    }
   };
 
   // Obtener cantidad actual de un producto
@@ -496,7 +500,8 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
         totalUSD: totals.usd,
         totalBs: totals.bs,
         customerName,
-        customerAddress
+        customerAddress,
+        source: 'cliente',
       });
 
       if (result.success && result.id) {

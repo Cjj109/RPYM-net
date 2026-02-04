@@ -773,7 +773,7 @@ export async function getBCVRate(): Promise<BCVRate> {
       const data = await response.json();
       const bcvData = data.sources?.BCV;
       if (bcvData?.quote) {
-        const rate = parseFloat(bcvData.quote);
+        const rate = Math.round(parseFloat(bcvData.quote) * 100) / 100;
         const fecha = bcvData.last_retrieved
           ? new Date(bcvData.last_retrieved).toLocaleDateString('es-VE')
           : new Date().toLocaleDateString('es-VE');
@@ -800,7 +800,7 @@ export async function getBCVRate(): Promise<BCVRate> {
       const data = await response.json();
       if (data.tasa) {
         return {
-          rate: data.tasa,
+          rate: Math.round(data.tasa * 100) / 100,
           date: data.fecha || new Date().toLocaleDateString('es-VE'),
           source: 'BCV',
         };

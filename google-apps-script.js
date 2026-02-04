@@ -66,6 +66,9 @@ function doPost(e) {
       case 'updateStatus':
         result = updateStatus(data.id, data.status);
         break;
+      case 'update':
+        result = updatePresupuesto(data);
+        break;
       case 'delete':
         result = deletePresupuesto(data.id);
         break;
@@ -91,6 +94,8 @@ function createPresupuesto(data) {
   const id = generateId();
   const now = new Date();
 
+  var status = data.status || 'pendiente';
+
   // Preparar fila
   const row = [
     id,                                    // A: ID
@@ -98,11 +103,12 @@ function createPresupuesto(data) {
     JSON.stringify(data.items || []),      // C: Items (JSON)
     data.totalUSD || 0,                    // D: Total USD
     data.totalBs || 0,                     // E: Total Bs
-    'pendiente',                           // F: Estado
+    status,                                // F: Estado
     data.clientIP || '',                   // G: IP del cliente
-    '',                                    // H: Fecha de pago
+    status === 'pagado' ? now.toISOString() : '',  // H: Fecha de pago
     data.customerName || '',               // I: Nombre cliente
-    data.customerAddress || ''             // J: Dirección
+    data.customerAddress || '',            // J: Dirección
+    data.source || 'cliente'               // K: Source (admin/cliente)
   ];
 
   sheet.appendRow(row);
@@ -135,7 +141,8 @@ function listPresupuestos(statusFilter) {
     clientIP: row[6],
     fechaPago: row[7],
     customerName: row[8] || '',
-    customerAddress: row[9] || ''
+    customerAddress: row[9] || '',
+    source: row[10] || 'cliente'
   }));
 
   // Filtrar por estado si se especifica
@@ -172,7 +179,8 @@ function getPresupuesto(id) {
           clientIP: data[i][6],
           fechaPago: data[i][7],
           customerName: data[i][8] || '',
-          customerAddress: data[i][9] || ''
+          customerAddress: data[i][9] || '',
+          source: data[i][10] || 'cliente'
         }
       };
     }
@@ -198,6 +206,27 @@ function updateStatus(id, newStatus) {
       }
 
       return { success: true, message: 'Estado actualizado' };
+    }
+  }
+
+  return { success: false, error: 'Presupuesto no encontrado' };
+}
+
+// Actualiza un presupuesto existente
+function updatePresupuesto(data) {
+  var sheet = getSheet();
+  var rows = sheet.getDataRange().getValues();
+
+  for (var i = 1; i < rows.length; i++) {
+    if (rows[i][0] === data.id) {
+      // Actualizar columnas editables
+      if (data.items) sheet.getRange(i + 1, 3).setValue(JSON.stringify(data.items));
+      if (data.totalUSD !== undefined) sheet.getRange(i + 1, 4).setValue(data.totalUSD);
+      if (data.totalBs !== undefined) sheet.getRange(i + 1, 5).setValue(data.totalBs);
+      if (data.customerName !== undefined) sheet.getRange(i + 1, 9).setValue(data.customerName);
+      if (data.customerAddress !== undefined) sheet.getRange(i + 1, 10).setValue(data.customerAddress);
+
+      return { success: true, message: 'Presupuesto actualizado' };
     }
   }
 
@@ -295,11 +324,12 @@ function getSheet() {
       'IP Cliente',
       'Fecha Pago',
       'Nombre Cliente',
-      'Dirección'
+      'Dirección',
+      'Source'
     ]);
 
     // Formatear headers
-    sheet.getRange(1, 1, 1, 10).setFontWeight('bold');
+    sheet.getRange(1, 1, 1, 11).setFontWeight('bold');
     sheet.setFrozenRows(1);
   }
 

@@ -1,10 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { Product, Category, BCVRate } from '../lib/sheets';
-import { savePresupuesto } from '../lib/presupuesto-storage';
+import { savePresupuesto, updatePresupuesto, type Presupuesto } from '../lib/presupuesto-storage';
 
 interface Props {
   categories: Category[];
   bcvRate: BCVRate;
+  editingPresupuesto?: Presupuesto | null;
+  onEditComplete?: () => void;
 }
 
 interface AdminSelectedItem {
@@ -38,7 +40,7 @@ const categoryIcons: Record<string, string> = {
   'Especiales': '👑',
 };
 
-export default function AdminBudgetBuilder({ categories, bcvRate }: Props) {
+export default function AdminBudgetBuilder({ categories, bcvRate, editingPresupuesto, onEditComplete }: Props) {
   // Product selection state
   const [selectedItems, setSelectedItems] = useState<Map<string, AdminSelectedItem>>(new Map());
   const [searchQuery, setSearchQuery] = useState('');
@@ -71,6 +73,19 @@ export default function AdminBudgetBuilder({ categories, bcvRate }: Props) {
   // Solo divisas mode (hide Bs)
   const [soloDivisas, setSoloDivisas] = useState(false);
 
+  // Mark as paid toggle
+  const [markAsPaid, setMarkAsPaid] = useState(false);
+
+  // Custom product form
+  const [showCustomForm, setShowCustomForm] = useState(false);
+  const [customName, setCustomName] = useState('');
+  const [customUnit, setCustomUnit] = useState('kg');
+  const [customPriceUSD, setCustomPriceUSD] = useState('');
+
+  // Dollar input mode
+  const [dollarInputMode, setDollarInputMode] = useState<Set<string>>(new Set());
+  const [dollarInputValues, setDollarInputValues] = useState<Map<string, string>>(new Map());
+
   // Editing prices in summary panel
   const [editingSummaryPrices, setEditingSummaryPrices] = useState<Map<string, string>>(new Map());
 
@@ -84,16 +99,69 @@ export default function AdminBudgetBuilder({ categories, bcvRate }: Props) {
     return categories.flatMap(cat => cat.products);
   }, [categories]);
 
+  // Load editing presupuesto data
+  useEffect(() => {
+    if (!editingPresupuesto) return;
+
+    const newItems = new Map<string, AdminSelectedItem>();
+
+    for (const item of editingPresupuesto.items) {
+      // Try to find product in catalog by name
+      const normalizedItemName = item.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const catalogProduct = allProducts.find(p =>
+        p.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') === normalizedItemName
+      );
+
+      if (catalogProduct) {
+        const isCustomPrice = Math.abs(catalogProduct.precioUSD - item.precioUSD) > 0.01;
+        newItems.set(catalogProduct.id, {
+          product: catalogProduct,
+          quantity: item.cantidad,
+          customPrice: isCustomPrice ? item.precioUSD : null,
+        });
+      } else {
+        // Create custom product for items not in catalog
+        const customId = `custom-edit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        const customProduct: Product = {
+          id: customId,
+          nombre: item.nombre,
+          precioUSD: item.precioUSD,
+          unidad: item.unidad,
+          descripcionCorta: 'Producto personalizado',
+          disponible: true,
+          esCaja: false,
+          incremento: item.unidad === 'kg' ? 0.5 : 1,
+          minimoKg: item.unidad === 'kg' ? 0.5 : 1,
+        };
+        newItems.set(customId, {
+          product: customProduct,
+          quantity: item.cantidad,
+          customPrice: null,
+        });
+      }
+    }
+
+    setSelectedItems(newItems);
+    setPresupuestoId(editingPresupuesto.id);
+    setCustomerName(editingPresupuesto.customerName || '');
+    setCustomerAddress(editingPresupuesto.customerAddress || '');
+    if (editingPresupuesto.estado === 'pagado') setMarkAsPaid(true);
+  }, [editingPresupuesto]);
+
+  // Normalize text for accent-insensitive search
+  const normalize = (text: string) =>
+    text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
   // Filtered products based on search
   const filteredCategories = useMemo(() => {
     if (!searchQuery.trim()) return categories;
-    const query = searchQuery.toLowerCase();
+    const query = normalize(searchQuery);
     return categories
       .map(cat => ({
         ...cat,
         products: cat.products.filter(p =>
-          p.nombre.toLowerCase().includes(query) ||
-          p.descripcionCorta?.toLowerCase().includes(query)
+          normalize(p.nombre).includes(query) ||
+          normalize(p.descripcionCorta || '').includes(query)
         ),
       }))
       .filter(cat => cat.products.length > 0);
@@ -179,6 +247,62 @@ export default function AdminBudgetBuilder({ categories, bcvRate }: Props) {
     setSelectedItems(new Map());
     setPresupuestoId(null);
     setSaveMessage(null);
+  };
+
+  // Add custom product
+  const addCustomProduct = () => {
+    const name = customName.trim();
+    const price = parseFloat(customPriceUSD);
+    if (!name || isNaN(price) || price <= 0) return;
+
+    const customProduct: Product = {
+      id: `custom-${Date.now()}`,
+      nombre: name,
+      precioUSD: price,
+      unidad: customUnit,
+      descripcionCorta: 'Producto personalizado',
+      disponible: true,
+      esCaja: false,
+      incremento: customUnit === 'kg' ? 0.5 : 1,
+      minimoKg: customUnit === 'kg' ? 0.5 : 1,
+    };
+
+    updateQuantity(customProduct, customProduct.minimoKg || 1);
+    setShowCustomForm(false);
+    setCustomName('');
+    setCustomUnit('kg');
+    setCustomPriceUSD('');
+  };
+
+  // Handle dollar amount input — calculate qty from dollar amount
+  const handleDollarInput = (productId: string) => {
+    const dollarStr = dollarInputValues.get(productId);
+    const dollars = parseFloat(dollarStr || '0');
+    const item = selectedItems.get(productId);
+    if (!item || dollars <= 0) return;
+
+    const effectivePrice = getEffectivePrice(item);
+    if (effectivePrice <= 0) return;
+
+    let qty = dollars / effectivePrice;
+    // Round to nearest increment
+    const inc = item.product.incremento || 0.1;
+    qty = Math.round(qty / inc) * inc;
+    // Ensure at least minimum
+    const minQty = getMinQuantity(item.product);
+    if (qty < minQty) qty = minQty;
+
+    updateQuantity(item.product, qty);
+    setDollarInputMode(prev => {
+      const next = new Set(prev);
+      next.delete(productId);
+      return next;
+    });
+    setDollarInputValues(prev => {
+      const next = new Map(prev);
+      next.delete(productId);
+      return next;
+    });
   };
 
   // Input editing handlers
@@ -439,6 +563,12 @@ export default function AdminBudgetBuilder({ categories, bcvRate }: Props) {
 <body>
   <div class="watermark">PRESUPUESTO</div>
 
+  ${markAsPaid ? `
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-15deg);border:6px solid #16a34a;border-radius:12px;padding:15px 40px;color:#16a34a;font-size:36px;font-weight:900;text-transform:uppercase;letter-spacing:3px;opacity:0.35;pointer-events:none;z-index:1;">
+    PAGADO
+  </div>
+  ` : ''}
+
   <!-- Header -->
   <div style="display:flex;align-items:center;justify-content:space-between;border:2px solid #075985;padding:12px 16px;margin-bottom:16px;">
     <div>
@@ -530,8 +660,14 @@ export default function AdminBudgetBuilder({ categories, bcvRate }: Props) {
     </div>
   </div>
 
+  ${markAsPaid ? `
+  <div style="background:#dcfce7;color:#166534;padding:12px;border-radius:8px;text-align:center;margin-top:16px;font-weight:600;font-size:13px;">
+    Gracias por su compra!
+  </div>
+  ` : ''}
+
   <!-- Non-fiscal notice -->
-  <div style="margin-top:20px;padding:6px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:4px;text-align:center;">
+  <div style="margin-top:${markAsPaid ? '8' : '20'}px;padding:6px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:4px;text-align:center;">
     <span style="font-size:10px;color:#b45309;font-weight:500;">Este documento no tiene validez fiscal - Solo para referencia</span>
   </div>
 
@@ -593,6 +729,7 @@ export default function AdminBudgetBuilder({ categories, bcvRate }: Props) {
     <div style="text-align:center;margin-bottom:12px;">
       <img src="/camaronlogo-sm.webp" alt="RPYM" style="width:140px;height:auto;object-fit:contain;margin:0 auto;" />
       <div style="font-size:12px;color:#0369a1;margin-top:4px;">Presupuesto</div>
+      ${markAsPaid ? '<div style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:9999px;margin-top:6px;">PAGADO</div>' : ''}
     </div>
 
     ${customerName ? `<div style="font-size:12px;color:#0369a1;text-align:center;margin-bottom:10px;">Cliente: <strong style="color:#0c4a6e;">${customerName}</strong></div>` : ''}
@@ -646,19 +783,40 @@ export default function AdminBudgetBuilder({ categories, bcvRate }: Props) {
         subtotalBs: getEffectivePrice(item) * item.quantity * bcvRate.rate,
       }));
 
-      const result = await savePresupuesto({
-        items,
-        totalUSD: totals.totalUSD,
-        totalBs: totals.totalBs,
-        customerName,
-        customerAddress,
-      });
+      let result;
 
-      if (result.success && result.id) {
-        setPresupuestoId(result.id);
-        setSaveMessage(`Guardado con ID: ${result.id}`);
+      if (editingPresupuesto) {
+        // Update existing presupuesto
+        result = await updatePresupuesto({
+          id: editingPresupuesto.id,
+          items,
+          totalUSD: totals.totalUSD,
+          totalBs: totals.totalBs,
+          customerName,
+          customerAddress,
+        });
+        if (result.success) {
+          setSaveMessage(`Actualizado: ${editingPresupuesto.id}`);
+          onEditComplete?.();
+        } else {
+          setSaveMessage('Error al actualizar. Intenta de nuevo.');
+        }
       } else {
-        setSaveMessage('Error al guardar. Intenta de nuevo.');
+        result = await savePresupuesto({
+          items,
+          totalUSD: totals.totalUSD,
+          totalBs: totals.totalBs,
+          customerName,
+          customerAddress,
+          status: markAsPaid ? 'pagado' : 'pendiente',
+          source: 'admin',
+        });
+        if (result.success && result.id) {
+          setPresupuestoId(result.id);
+          setSaveMessage(`Guardado con ID: ${result.id}`);
+        } else {
+          setSaveMessage('Error al guardar. Intenta de nuevo.');
+        }
       }
     } catch (error) {
       console.error('Error guardando presupuesto:', error);
@@ -1005,7 +1163,8 @@ export default function AdminBudgetBuilder({ categories, bcvRate }: Props) {
         {/* Product selection panel */}
         {inputMode === 'manual' && (
           <div className="lg:col-span-2 space-y-4">
-            {/* Search bar */}
+            {/* Search bar + category nav (sticky) */}
+            <div className="sticky top-24 z-10 bg-ocean-50 pb-2 space-y-3">
             <div className="relative">
               <svg className="w-5 h-5 text-ocean-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -1052,10 +1211,11 @@ export default function AdminBudgetBuilder({ categories, bcvRate }: Props) {
                 ))}
               </div>
             )}
+            </div>
 
             {/* Products grid */}
             {filteredCategories.map((category) => (
-              <div key={category.name} id={`admin-cat-${category.name}`} className="scroll-mt-4">
+              <div key={category.name} id={`admin-cat-${category.name}`} className="scroll-mt-40">
                 <h3 className="text-base font-semibold text-ocean-800 mb-2 flex items-center gap-2">
                   <span>{categoryIcons[category.name] || '&#128032;'}</span>
                   {category.name}
@@ -1145,10 +1305,70 @@ export default function AdminBudgetBuilder({ categories, bcvRate }: Props) {
 
                         {/* Subtotal row with editable price */}
                         {quantity > 0 && (
-                          <div className="mt-2 pt-2 border-t border-ocean-100 flex items-center justify-between gap-2">
-                            <span className="text-xs text-ocean-600">
-                              {formatQuantity(quantity)} {product.unidad}
-                            </span>
+                          <div className="mt-2 pt-2 border-t border-ocean-100 space-y-1.5">
+                            {/* Dollar input for grid */}
+                            {dollarInputMode.has(product.id) && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[11px] text-ocean-500">Monto $:</span>
+                                <div className="relative flex-1">
+                                  <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-ocean-400">$</span>
+                                  <input
+                                    type="number"
+                                    value={dollarInputValues.get(product.id) || ''}
+                                    onChange={(e) => {
+                                      setDollarInputValues(prev => {
+                                        const next = new Map(prev);
+                                        next.set(product.id, e.target.value);
+                                        return next;
+                                      });
+                                    }}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') handleDollarInput(product.id); }}
+                                    autoFocus
+                                    step="0.01"
+                                    min="0"
+                                    placeholder="20.00"
+                                    className="w-full pl-4 pr-1 py-1 text-xs border border-ocean-300 rounded
+                                      focus:ring-1 focus:ring-ocean-500 outline-none
+                                      [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
+                                      text-ocean-900 bg-white"
+                                  />
+                                </div>
+                                <button
+                                  onClick={() => handleDollarInput(product.id)}
+                                  className="px-2 py-1 bg-coral-500 text-white text-[10px] rounded hover:bg-coral-600 transition-colors"
+                                >
+                                  OK
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setDollarInputMode(prev => { const next = new Set(prev); next.delete(product.id); return next; });
+                                    setDollarInputValues(prev => { const next = new Map(prev); next.delete(product.id); return next; });
+                                  }}
+                                  className="text-ocean-400 hover:text-ocean-600"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                            )}
+                            <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-ocean-600">
+                                {formatQuantity(quantity)} {product.unidad}
+                              </span>
+                              {!dollarInputMode.has(product.id) && (
+                                <button
+                                  onClick={() => {
+                                    setDollarInputMode(prev => { const next = new Set(prev); next.add(product.id); return next; });
+                                  }}
+                                  className="text-[10px] text-ocean-400 hover:text-coral-500 border border-ocean-200 hover:border-coral-300 rounded px-1 py-0.5 transition-colors"
+                                  title="Ingresar monto en dolares"
+                                >
+                                  $→{product.unidad}
+                                </button>
+                              )}
+                            </div>
                             <div className="flex items-center gap-2">
                               {/* Editable price */}
                               <div className="flex items-center gap-1">
@@ -1216,6 +1436,7 @@ export default function AdminBudgetBuilder({ categories, bcvRate }: Props) {
                               </span>
                             </div>
                           </div>
+                          </div>
                         )}
                       </div>
                     );
@@ -1228,7 +1449,7 @@ export default function AdminBudgetBuilder({ categories, bcvRate }: Props) {
 
         {/* Summary panel */}
         <div className={`${inputMode === 'manual' ? 'lg:col-span-1' : 'lg:col-span-3'}`}>
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-ocean-100 sticky top-4">
+          <div className="bg-white rounded-xl p-5 shadow-sm border border-ocean-100 sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto">
             <h3 className="text-lg font-semibold text-ocean-900 mb-4 flex items-center gap-2">
               <svg className="w-5 h-5 text-coral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -1264,73 +1485,143 @@ export default function AdminBudgetBuilder({ categories, bcvRate }: Props) {
                             </svg>
                           </button>
                         </div>
-                        <div className="flex items-center justify-between text-xs gap-2">
-                          <span className="text-ocean-600">
-                            {formatQuantity(item.quantity)} {item.product.unidad} x{' '}
-                          </span>
-                          <div className="flex items-center gap-1.5">
-                            {hasCustomPrice && (
-                              <span className="line-through text-ocean-400 text-[10px]">{formatUSD(item.product.precioUSD)}</span>
-                            )}
-                            <div className="relative">
-                              <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[10px] text-ocean-400">$</span>
+                        {/* Dollar input mode for this item */}
+                        {dollarInputMode.has(item.product.id) ? (
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="text-[11px] text-ocean-500">Monto $:</span>
+                            <div className="relative flex-1">
+                              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-ocean-400">$</span>
                               <input
                                 type="number"
-                                value={editingSummaryPrices.has(item.product.id) ? editingSummaryPrices.get(item.product.id) : effectivePrice}
-                                onFocus={() => {
-                                  setEditingSummaryPrices(prev => {
-                                    const next = new Map(prev);
-                                    next.set(item.product.id, String(effectivePrice));
-                                    return next;
-                                  });
-                                }}
+                                value={dollarInputValues.get(item.product.id) || ''}
                                 onChange={(e) => {
-                                  setEditingSummaryPrices(prev => {
+                                  setDollarInputValues(prev => {
                                     const next = new Map(prev);
                                     next.set(item.product.id, e.target.value);
                                     return next;
                                   });
                                 }}
-                                onBlur={() => {
-                                  const editValue = editingSummaryPrices.get(item.product.id);
-                                  const val = parseFloat(editValue || '0') || 0;
-                                  if (val === item.product.precioUSD) {
-                                    updateCustomPrice(item.product.id, null);
-                                  } else {
-                                    updateCustomPrice(item.product.id, val);
-                                  }
-                                  setEditingSummaryPrices(prev => {
-                                    const next = new Map(prev);
-                                    next.delete(item.product.id);
-                                    return next;
-                                  });
-                                }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') handleDollarInput(item.product.id); }}
+                                autoFocus
                                 step="0.01"
                                 min="0"
-                                className="w-16 pl-3 pr-0.5 py-0.5 text-[11px] text-right border border-ocean-200 rounded
-                                  focus:ring-1 focus:ring-ocean-500 focus:border-transparent outline-none
+                                placeholder="20.00"
+                                className="w-full pl-4 pr-1 py-1 text-xs border border-ocean-300 rounded
+                                  focus:ring-1 focus:ring-ocean-500 outline-none
                                   [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
                                   text-ocean-900 bg-white"
                               />
                             </div>
-                            <span className="font-semibold text-coral-500 whitespace-nowrap">{formatUSD(effectivePrice * item.quantity)}</span>
+                            <button
+                              onClick={() => handleDollarInput(item.product.id)}
+                              className="px-2 py-1 bg-coral-500 text-white text-[10px] rounded hover:bg-coral-600 transition-colors"
+                            >
+                              OK
+                            </button>
+                            <button
+                              onClick={() => {
+                                setDollarInputMode(prev => { const next = new Set(prev); next.delete(item.product.id); return next; });
+                                setDollarInputValues(prev => { const next = new Map(prev); next.delete(item.product.id); return next; });
+                              }}
+                              className="text-ocean-400 hover:text-ocean-600"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="flex items-center justify-between text-xs gap-2">
+                            <div className="flex items-center gap-1">
+                              <span className="text-ocean-600">
+                                {formatQuantity(item.quantity)} {item.product.unidad} x{' '}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  setDollarInputMode(prev => { const next = new Set(prev); next.add(item.product.id); return next; });
+                                }}
+                                className="text-[10px] text-ocean-400 hover:text-coral-500 border border-ocean-200 hover:border-coral-300 rounded px-1 py-0.5 transition-colors"
+                                title="Ingresar monto en dolares"
+                              >
+                                $→{item.product.unidad}
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {hasCustomPrice && (
+                                <span className="line-through text-ocean-400 text-[10px]">{formatUSD(item.product.precioUSD)}</span>
+                              )}
+                              <div className="relative">
+                                <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[10px] text-ocean-400">$</span>
+                                <input
+                                  type="number"
+                                  value={editingSummaryPrices.has(item.product.id) ? editingSummaryPrices.get(item.product.id) : effectivePrice}
+                                  onFocus={() => {
+                                    setEditingSummaryPrices(prev => {
+                                      const next = new Map(prev);
+                                      next.set(item.product.id, String(effectivePrice));
+                                      return next;
+                                    });
+                                  }}
+                                  onChange={(e) => {
+                                    setEditingSummaryPrices(prev => {
+                                      const next = new Map(prev);
+                                      next.set(item.product.id, e.target.value);
+                                      return next;
+                                    });
+                                  }}
+                                  onBlur={() => {
+                                    const editValue = editingSummaryPrices.get(item.product.id);
+                                    const val = parseFloat(editValue || '0') || 0;
+                                    if (val === item.product.precioUSD) {
+                                      updateCustomPrice(item.product.id, null);
+                                    } else {
+                                      updateCustomPrice(item.product.id, val);
+                                    }
+                                    setEditingSummaryPrices(prev => {
+                                      const next = new Map(prev);
+                                      next.delete(item.product.id);
+                                      return next;
+                                    });
+                                  }}
+                                  step="0.01"
+                                  min="0"
+                                  className="w-16 pl-3 pr-0.5 py-0.5 text-[11px] text-right border border-ocean-200 rounded
+                                    focus:ring-1 focus:ring-ocean-500 focus:border-transparent outline-none
+                                    [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
+                                    text-ocean-900 bg-white"
+                                />
+                              </div>
+                              <span className="font-semibold text-coral-500 whitespace-nowrap">{formatUSD(effectivePrice * item.quantity)}</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
                 </div>
 
-                {/* Solo divisas toggle */}
-                <div className="flex items-center justify-between py-2 mb-2">
-                  <label htmlFor="solo-divisas" className="text-xs text-ocean-600 cursor-pointer">Solo divisas (ocultar Bs.)</label>
-                  <button
-                    id="solo-divisas"
-                    onClick={() => setSoloDivisas(!soloDivisas)}
-                    className={`relative w-9 h-5 rounded-full transition-colors ${soloDivisas ? 'bg-coral-500' : 'bg-ocean-200'}`}
-                  >
-                    <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${soloDivisas ? 'translate-x-4' : ''}`} />
-                  </button>
+                {/* Toggles */}
+                <div className="space-y-1.5 py-2 mb-2">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="solo-divisas" className="text-xs text-ocean-600 cursor-pointer">Solo divisas (ocultar Bs.)</label>
+                    <button
+                      id="solo-divisas"
+                      onClick={() => setSoloDivisas(!soloDivisas)}
+                      className={`relative w-9 h-5 rounded-full transition-colors ${soloDivisas ? 'bg-coral-500' : 'bg-ocean-200'}`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${soloDivisas ? 'translate-x-4' : ''}`} />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="mark-paid" className="text-xs text-ocean-600 cursor-pointer">Marcar como pagado</label>
+                    <button
+                      id="mark-paid"
+                      onClick={() => setMarkAsPaid(!markAsPaid)}
+                      className={`relative w-9 h-5 rounded-full transition-colors ${markAsPaid ? 'bg-green-500' : 'bg-ocean-200'}`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${markAsPaid ? 'translate-x-4' : ''}`} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Totals */}
@@ -1404,7 +1695,7 @@ export default function AdminBudgetBuilder({ categories, bcvRate }: Props) {
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                         </svg>
-                        Guardar Presupuesto
+                        {editingPresupuesto ? 'Actualizar Presupuesto' : 'Guardar Presupuesto'}
                       </>
                     )}
                   </button>
@@ -1422,6 +1713,70 @@ export default function AdminBudgetBuilder({ categories, bcvRate }: Props) {
                     Limpiar seleccion
                   </button>
                 </div>
+
+                {/* Custom product */}
+                {!showCustomForm ? (
+                  <button
+                    onClick={() => setShowCustomForm(true)}
+                    className="w-full mt-2 py-2 border-2 border-dashed border-ocean-200 text-ocean-500 hover:border-ocean-400 hover:text-ocean-700 rounded-xl text-sm transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Producto personalizado
+                  </button>
+                ) : (
+                  <div className="mt-2 p-3 border border-ocean-200 rounded-xl space-y-2 bg-ocean-50">
+                    <p className="text-xs font-medium text-ocean-700">Nuevo producto</p>
+                    <input
+                      type="text"
+                      value={customName}
+                      onChange={(e) => setCustomName(e.target.value)}
+                      placeholder="Nombre del producto"
+                      className="w-full px-2.5 py-1.5 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500 text-ocean-900 bg-white"
+                    />
+                    <div className="flex gap-2">
+                      <select
+                        value={customUnit}
+                        onChange={(e) => setCustomUnit(e.target.value)}
+                        className="flex-1 px-2 py-1.5 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500 text-ocean-900 bg-white"
+                      >
+                        <option value="kg">kg</option>
+                        <option value="unidad">unidad</option>
+                        <option value="paquete">paquete</option>
+                      </select>
+                      <div className="relative flex-1">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-ocean-400">$</span>
+                        <input
+                          type="number"
+                          value={customPriceUSD}
+                          onChange={(e) => setCustomPriceUSD(e.target.value)}
+                          placeholder="Precio"
+                          step="0.01"
+                          min="0"
+                          className="w-full pl-5 pr-2 py-1.5 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500
+                            [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
+                            text-ocean-900 bg-white"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setShowCustomForm(false); setCustomName(''); setCustomPriceUSD(''); }}
+                        className="flex-1 py-1.5 text-sm text-ocean-600 hover:bg-ocean-100 rounded-lg transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={addCustomProduct}
+                        disabled={!customName.trim() || !customPriceUSD || parseFloat(customPriceUSD) <= 0}
+                        className="flex-1 py-1.5 text-sm bg-coral-500 text-white rounded-lg hover:bg-coral-600 disabled:bg-ocean-200 disabled:text-ocean-400 transition-colors"
+                      >
+                        Agregar
+                      </button>
+                    </div>
+                  </div>
+                )}
               </>
             )}
 

@@ -87,10 +87,15 @@ function normalize(text: string): string {
 }
 
 // --- Types ---
+interface MatchedProduct {
+  product: Product;
+  quantity?: number; // in kg (extracted from José's response)
+}
+
 interface Message {
   role: 'user' | 'jose';
   text: string;
-  matchedProducts?: Product[];
+  matchedProducts?: MatchedProduct[];
 }
 
 interface SelectedItem {
@@ -101,7 +106,45 @@ interface SelectedItem {
 interface Props {
   products: Product[];
   selectedItems: Map<string, SelectedItem>;
-  onAddItem: (product: Product) => void;
+  onAddItem: (product: Product, quantity?: number) => void;
+}
+
+// Extract quantity mentioned near a product name in text
+function extractQuantityNearProduct(text: string, productName: string): number | undefined {
+  const normalizedText = normalize(text);
+  const normalizedName = normalize(productName);
+
+  // Find position of product name in text
+  const nameIdx = normalizedText.indexOf(normalizedName);
+  // Search in a window around the product mention (100 chars before and after)
+  const searchStart = Math.max(0, nameIdx !== -1 ? nameIdx - 100 : 0);
+  const searchEnd = nameIdx !== -1 ? nameIdx + normalizedName.length + 100 : normalizedText.length;
+  const window = normalizedText.slice(searchStart, searchEnd);
+
+  // Patterns: "800g", "800gr", "800 g", "800 gr", "800 gramos"
+  const gramsMatch = window.match(/(\d+(?:[.,]\d+)?)\s*(?:g|gr|gramos)\b/);
+  if (gramsMatch) {
+    const grams = parseFloat(gramsMatch[1].replace(',', '.'));
+    return grams / 1000; // convert to kg
+  }
+
+  // Patterns: "1.5kg", "1,5 kg", "1.5 kilos", "2 kg"
+  const kgMatch = window.match(/(\d+(?:[.,]\d+)?)\s*(?:kg|kilo|kilos)\b/);
+  if (kgMatch) {
+    return parseFloat(kgMatch[1].replace(',', '.'));
+  }
+
+  // Patterns: "medio kilo", "1/2 kg"
+  if (/medio\s+kilo/.test(window) || /1\/2\s*kg/.test(window)) {
+    return 0.5;
+  }
+
+  // Patterns: "cuarto de kilo", "1/4 kg"
+  if (/cuarto\s+de\s+kilo/.test(window) || /1\/4\s*kg/.test(window)) {
+    return 0.25;
+  }
+
+  return undefined;
 }
 
 // --- Component ---
@@ -138,7 +181,7 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
   };
 
   // Find products mentioned in José's response using keyword matching
-  const findMentionedProducts = (text: string): Product[] => {
+  const findMentionedProducts = (text: string): MatchedProduct[] => {
     let normalizedText = normalize(text);
 
     // Replace Portuguese terms with Spanish equivalents
@@ -205,7 +248,7 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
       familyBest.set(entry.family, existing);
     }
 
-    const result: Product[] = [];
+    const result: MatchedProduct[] = [];
     for (const [, entries] of familyBest) {
       // Sort by score descending
       entries.sort((a, b) => b.score - a.score);
@@ -214,10 +257,16 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
       if (bestScore >= 2) {
         // Has specific matches — only keep those (not generic 0.5 fallbacks)
         const specific = entries.filter(e => e.score >= 2);
-        result.push(...specific.slice(0, 2).map(e => e.product));
+        result.push(...specific.slice(0, 2).map(e => ({
+          product: e.product,
+          quantity: extractQuantityNearProduct(text, e.product.nombre),
+        })));
       } else {
         // Only generic category mention — show first available product
-        result.push(entries[0].product);
+        result.push({
+          product: entries[0].product,
+          quantity: extractQuantityNearProduct(text, entries[0].product.nombre),
+        });
       }
     }
 
@@ -422,12 +471,15 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
             {/* Product action buttons for José's recommendations */}
             {msg.role === 'jose' && msg.matchedProducts && msg.matchedProducts.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-2 ml-1">
-                {msg.matchedProducts.map(product => {
+                {msg.matchedProducts.map(({ product, quantity }) => {
                   const isInCart = selectedItems.has(product.id);
+                  const qtyLabel = quantity
+                    ? quantity >= 1 ? `${quantity}kg` : `${Math.round(quantity * 1000)}g`
+                    : null;
                   return (
                     <button
                       key={product.id}
-                      onClick={() => { if (!isInCart) onAddItem(product); }}
+                      onClick={() => { if (!isInCart) onAddItem(product, quantity); }}
                       disabled={isInCart}
                       className={`text-xs px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 ${
                         isInCart
@@ -447,7 +499,7 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                           </svg>
-                          Agregar {product.nombre}
+                          Agregar {product.nombre}{qtyLabel ? ` (${qtyLabel})` : ''}
                         </>
                       )}
                     </button>
