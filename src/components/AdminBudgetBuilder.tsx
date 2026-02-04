@@ -176,14 +176,15 @@ export default function AdminBudgetBuilder({ categories, bcvRate, editingPresupu
   const totals = useMemo(() => {
     let usd = 0;
     selectedItems.forEach(item => {
-      usd += getEffectivePrice(item) * item.quantity;
+      // Round each item subtotal to 2 decimals to avoid floating point accumulation
+      usd += Math.round(getEffectivePrice(item) * item.quantity * 100) / 100;
     });
-    const usdWithDelivery = usd + deliveryCost;
+    const usdWithDelivery = Math.round((usd + deliveryCost) * 100) / 100;
     return {
       subtotalUSD: usd,
       deliveryUSD: deliveryCost,
       totalUSD: usdWithDelivery,
-      totalBs: usdWithDelivery * bcvRate.rate,
+      totalBs: Math.round(usdWithDelivery * bcvRate.rate * 100) / 100,
     };
   }, [selectedItems, deliveryCost, bcvRate.rate]);
 
@@ -284,8 +285,8 @@ export default function AdminBudgetBuilder({ categories, bcvRate, editingPresupu
     const effectivePrice = getEffectivePrice(item);
     if (effectivePrice <= 0) return;
 
-    // Calculate exact quantity for the dollar amount (2 decimal precision)
-    let qty = Math.round((dollars / effectivePrice) * 100) / 100;
+    // Calculate quantity with high precision so subtotal matches the dollar amount
+    let qty = Math.round((dollars / effectivePrice) * 10000) / 10000;
     if (qty <= 0) qty = 0.01;
 
     updateQuantity(item.product, qty);
@@ -489,7 +490,7 @@ export default function AdminBudgetBuilder({ categories, bcvRate, editingPresupu
       cantidad: item.quantity,
       unidad: item.product.unidad,
       precioUSD: getEffectivePrice(item),
-      subtotalUSD: getEffectivePrice(item) * item.quantity,
+      subtotalUSD: Math.round(getEffectivePrice(item) * item.quantity * 100) / 100,
     }));
   };
 
@@ -774,9 +775,9 @@ export default function AdminBudgetBuilder({ categories, bcvRate, editingPresupu
         cantidad: item.quantity,
         unidad: item.product.unidad,
         precioUSD: getEffectivePrice(item),
-        precioBs: getEffectivePrice(item) * bcvRate.rate,
-        subtotalUSD: getEffectivePrice(item) * item.quantity,
-        subtotalBs: getEffectivePrice(item) * item.quantity * bcvRate.rate,
+        precioBs: Math.round(getEffectivePrice(item) * bcvRate.rate * 100) / 100,
+        subtotalUSD: Math.round(getEffectivePrice(item) * item.quantity * 100) / 100,
+        subtotalBs: Math.round(getEffectivePrice(item) * item.quantity * bcvRate.rate * 100) / 100,
       }));
 
       let result;
