@@ -262,6 +262,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
           }
           .doc-info {
             text-align: right;
+            flex-shrink: 0;
           }
           .doc-number {
             font-family: monospace;
@@ -272,6 +273,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
           .doc-date {
             font-size: 11px;
             color: #0369a1;
+            white-space: nowrap;
           }
           .client-section {
             background: #f0f9ff;
@@ -398,7 +400,8 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
           </div>
           <div class="doc-info">
             <div class="doc-number">${presupuesto.id}</div>
-            <div class="doc-date">${formatDate(presupuesto.fecha)}</div>
+            <div class="doc-date">${new Date(presupuesto.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
+            <div class="doc-date">${new Date(presupuesto.fecha).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}</div>
           </div>
         </div>
 
