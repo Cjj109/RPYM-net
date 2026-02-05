@@ -4,8 +4,8 @@ on:
   schedule:
     # 5 AM Venezuela (UTC-4) = 9 AM UTC
     - cron: '0 9 * * *'
-    # Tambien a las 2 PM Venezuela = 6 PM UTC (por si hay actualizacion tardia)
-    - cron: '0 18 * * *'
+    # 6:30 PM Venezuela (UTC-4) = 10:30 PM UTC
+    - cron: '30 22 * * *'
   workflow_dispatch: # Permite ejecutar manualmente
 
 jobs:
