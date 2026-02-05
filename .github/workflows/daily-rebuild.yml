@@ -18,24 +18,17 @@ jobs:
           echo "Fetching BCV rate from exchangedyn.com..."
 
           # Try primary API (exchangedyn.com)
-          RESPONSE=$(curl -s --fail "https://api.exchangedyn.com/markets/quotes/usdves/bcv" \
-            -H "Accept: application/json" || echo "FAILED")
+          RESPONSE=$(curl -s "https://api.exchangedyn.com/markets/quotes/usdves/bcv" \
+            -H "Accept: application/json")
 
-          if [ "$RESPONSE" != "FAILED" ]; then
+          if [ -n "$RESPONSE" ]; then
             RATE=$(echo "$RESPONSE" | jq -r '.sources.BCV.quote // empty')
-            DATE=$(echo "$RESPONSE" | jq -r '.sources.BCV.last_retrieved // empty')
 
-            if [ -n "$RATE" ] && [ "$RATE" != "null" ]; then
+            if [ -n "$RATE" ] && [ "$RATE" != "null" ] && [ "$RATE" != "" ]; then
               # Round to 2 decimals
               RATE=$(printf "%.2f" "$RATE")
-              SOURCE="BCV (exchangedyn)"
-
-              if [ -n "$DATE" ] && [ "$DATE" != "null" ]; then
-                # Format date
-                DATE=$(date -d "$DATE" +"%Y-%m-%d" 2>/dev/null || echo "$(date +%Y-%m-%d)")
-              else
-                DATE=$(date +%Y-%m-%d)
-              fi
+              SOURCE="exchangedyn"
+              DATE=$(date +%Y-%m-%d)
 
               echo "rate=$RATE" >> $GITHUB_OUTPUT
               echo "source=$SOURCE" >> $GITHUB_OUTPUT
@@ -48,16 +41,15 @@ jobs:
           echo "Primary API failed, trying fallback..."
 
           # Try fallback API (bcvapi.tech)
-          RESPONSE=$(curl -s --fail "https://bcvapi.tech/api/v1/dolar/public" \
-            -H "Accept: application/json" || echo "FAILED")
+          RESPONSE=$(curl -s "https://bcvapi.tech/api/v1/dolar/public" \
+            -H "Accept: application/json")
 
-          if [ "$RESPONSE" != "FAILED" ]; then
+          if [ -n "$RESPONSE" ]; then
             RATE=$(echo "$RESPONSE" | jq -r '.valor // empty')
-            DATE=$(echo "$RESPONSE" | jq -r '.fecha // empty')
 
-            if [ -n "$RATE" ] && [ "$RATE" != "null" ]; then
-              SOURCE="BCV (bcvapi)"
-              DATE=${DATE:-$(date +%Y-%m-%d)}
+            if [ -n "$RATE" ] && [ "$RATE" != "null" ] && [ "$RATE" != "" ]; then
+              SOURCE="bcvapi"
+              DATE=$(date +%Y-%m-%d)
 
               echo "rate=$RATE" >> $GITHUB_OUTPUT
               echo "source=$SOURCE" >> $GITHUB_OUTPUT
@@ -72,17 +64,19 @@ jobs:
 
       - name: Update D1 Database via API
         if: steps.fetch-rate.outputs.rate != ''
+        env:
+          RPYM_API_URL: ${{ secrets.RPYM_API_URL }}
+          RPYM_API_SECRET: ${{ secrets.RPYM_API_SECRET }}
+          BCV_RATE: ${{ steps.fetch-rate.outputs.rate }}
+          BCV_SOURCE: ${{ steps.fetch-rate.outputs.source }}
+          BCV_DATE: ${{ steps.fetch-rate.outputs.date }}
         run: |
-          echo "Updating D1 with rate: ${{ steps.fetch-rate.outputs.rate }}"
+          echo "Updating D1 with rate: $BCV_RATE"
 
-          RESPONSE=$(curl -s -X POST "${{ secrets.RPYM_API_URL }}/api/config/update-bcv" \
+          RESPONSE=$(curl -s -X POST "${RPYM_API_URL}/api/config/update-bcv" \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${{ secrets.RPYM_API_SECRET }}" \
-            -d '{
-              "rate": ${{ steps.fetch-rate.outputs.rate }},
-              "source": "${{ steps.fetch-rate.outputs.source }}",
-              "date": "${{ steps.fetch-rate.outputs.date }}"
-            }')
+            -H "Authorization: Bearer ${RPYM_API_SECRET}" \
+            -d "{\"rate\": ${BCV_RATE}, \"source\": \"${BCV_SOURCE}\", \"date\": \"${BCV_DATE}\"}")
 
           echo "API Response: $RESPONSE"
 
@@ -91,5 +85,6 @@ jobs:
             echo "BCV rate updated successfully!"
           else
             echo "Failed to update BCV rate"
+            echo "Response: $RESPONSE"
             exit 1
           fi
