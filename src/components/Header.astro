@@ -1,10 +1,12 @@
 ---
 import Logo from './Logo.astro';
 import WaveDecoration from './WaveDecoration.astro';
+import HeaderDecorations from './HeaderDecorations.astro';
 ---
 
 <header class="relative bg-gradient-to-b from-ocean-900 to-ocean-800 text-white">
-  <div class="container mx-auto px-4 py-3 md:py-4">
+  <HeaderDecorations />
+  <div class="container mx-auto px-4 py-3 md:py-4 relative z-10">
     <nav class="flex items-center justify-between">
       <Logo size="sm" class="md:hidden text-white [&_span]:text-white [&_span]:text-ocean-200 [&_svg]:text-ocean-300" />
       <Logo size="md" class="hidden md:flex text-white [&_span]:text-white [&_span]:text-ocean-200 [&_svg]:text-ocean-300" />

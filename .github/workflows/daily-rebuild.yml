@@ -1,17 +1,95 @@
-name: Daily Rebuild - Actualizar Tasa BCV
+name: Actualizar Tasa BCV
 
 on:
   schedule:
     # 5 AM Venezuela (UTC-4) = 9 AM UTC
     - cron: '0 9 * * *'
+    # Tambien a las 2 PM Venezuela = 6 PM UTC (por si hay actualizacion tardia)
+    - cron: '0 18 * * *'
   workflow_dispatch: # Permite ejecutar manualmente
 
 jobs:
-  trigger-rebuild:
+  update-bcv-rate:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Cloudflare Pages Rebuild
+      - name: Fetch BCV Rate from API
+        id: fetch-rate
         run: |
-          curl -X POST "${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}"
-        env:
-          CLOUDFLARE_DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}
+          echo "Fetching BCV rate from exchangedyn.com..."
+
+          # Try primary API (exchangedyn.com)
+          RESPONSE=$(curl -s --fail "https://api.exchangedyn.com/markets/quotes/usdves/bcv" \
+            -H "Accept: application/json" || echo "FAILED")
+
+          if [ "$RESPONSE" != "FAILED" ]; then
+            RATE=$(echo "$RESPONSE" | jq -r '.sources.BCV.quote // empty')
+            DATE=$(echo "$RESPONSE" | jq -r '.sources.BCV.last_retrieved // empty')
+
+            if [ -n "$RATE" ] && [ "$RATE" != "null" ]; then
+              # Round to 2 decimals
+              RATE=$(printf "%.2f" "$RATE")
+              SOURCE="BCV (exchangedyn)"
+
+              if [ -n "$DATE" ] && [ "$DATE" != "null" ]; then
+                # Format date
+                DATE=$(date -d "$DATE" +"%Y-%m-%d" 2>/dev/null || echo "$(date +%Y-%m-%d)")
+              else
+                DATE=$(date +%Y-%m-%d)
+              fi
+
+              echo "rate=$RATE" >> $GITHUB_OUTPUT
+              echo "source=$SOURCE" >> $GITHUB_OUTPUT
+              echo "date=$DATE" >> $GITHUB_OUTPUT
+              echo "Success: Rate = $RATE from $SOURCE"
+              exit 0
+            fi
+          fi
+
+          echo "Primary API failed, trying fallback..."
+
+          # Try fallback API (bcvapi.tech)
+          RESPONSE=$(curl -s --fail "https://bcvapi.tech/api/v1/dolar/public" \
+            -H "Accept: application/json" || echo "FAILED")
+
+          if [ "$RESPONSE" != "FAILED" ]; then
+            RATE=$(echo "$RESPONSE" | jq -r '.valor // empty')
+            DATE=$(echo "$RESPONSE" | jq -r '.fecha // empty')
+
+            if [ -n "$RATE" ] && [ "$RATE" != "null" ]; then
+              SOURCE="BCV (bcvapi)"
+              DATE=${DATE:-$(date +%Y-%m-%d)}
+
+              echo "rate=$RATE" >> $GITHUB_OUTPUT
+              echo "source=$SOURCE" >> $GITHUB_OUTPUT
+              echo "date=$DATE" >> $GITHUB_OUTPUT
+              echo "Fallback success: Rate = $RATE from $SOURCE"
+              exit 0
+            fi
+          fi
+
+          echo "Both APIs failed!"
+          exit 1
+
+      - name: Update D1 Database via API
+        if: steps.fetch-rate.outputs.rate != ''
+        run: |
+          echo "Updating D1 with rate: ${{ steps.fetch-rate.outputs.rate }}"
+
+          RESPONSE=$(curl -s -X POST "${{ secrets.RPYM_API_URL }}/api/config/update-bcv" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.RPYM_API_SECRET }}" \
+            -d '{
+              "rate": ${{ steps.fetch-rate.outputs.rate }},
+              "source": "${{ steps.fetch-rate.outputs.source }}",
+              "date": "${{ steps.fetch-rate.outputs.date }}"
+            }')
+
+          echo "API Response: $RESPONSE"
+
+          SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
+          if [ "$SUCCESS" = "true" ]; then
+            echo "BCV rate updated successfully!"
+          else
+            echo "Failed to update BCV rate"
+            exit 1
+          fi

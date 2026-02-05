@@ -1,9 +1,11 @@
 /**
  * RPYM - Panel de Administración de Presupuestos
  */
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import html2canvas from 'html2canvas';
 
 const AdminBudgetBuilder = lazy(() => import('./AdminBudgetBuilder'));
+const AdminSettings = lazy(() => import('./AdminSettings'));
 
 import {
   listPresupuestos,
@@ -16,9 +18,6 @@ import {
   type PresupuestoStats
 } from '../lib/presupuesto-storage';
 
-// Password de administrador (cambiar por una más segura en producción)
-const ADMIN_PASSWORD = 'Rpym@Admin2026!';
-
 interface Category {
   name: string;
   products: any[];
@@ -30,14 +29,22 @@ interface BCVRateData {
   source: string;
 }
 
+interface AdminUser {
+  username: string;
+  displayName: string;
+  role: 'admin' | 'viewer';
+}
+
 interface AdminPanelProps {
   categories?: Category[];
   bcvRate?: BCVRateData;
 }
 
 export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}) {
-  const [activeTab, setActiveTab] = useState<'ver' | 'crear'>('ver');
+  const [activeTab, setActiveTab] = useState<'ver' | 'crear' | 'config'>('ver');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [currentUser, setCurrentUser] = useState<AdminUser | null>(null);
   const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([]);
   const [stats, setStats] = useState<PresupuestoStats | null>(null);
   const [filter, setFilter] = useState<'all' | 'pendiente' | 'pagado'>('all');
@@ -53,22 +60,74 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   const [editingPresupuesto, setEditingPresupuesto] = useState<Presupuesto | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
-  // Verificar autenticación al cargar
+  // Estado para envío por WhatsApp
+  const [whatsappPhone, setWhatsappPhone] = useState('');
+  const [whatsappSending, setWhatsappSending] = useState(false);
+  const [whatsappStatus, setWhatsappStatus] = useState<'idle' | 'capturing' | 'uploading' | 'sent' | 'error'>('idle');
+  const [whatsappError, setWhatsappError] = useState<string | null>(null);
+  const whatsappCaptureRef = useRef<HTMLDivElement>(null);
+
+  // Verificar autenticación al cargar via API
   useEffect(() => {
-    const auth = sessionStorage.getItem('rpym_admin_auth');
-    if (auth === 'true') {
-      setIsAuthenticated(true);
-    } else {
-      const password = prompt('Ingresa la contraseña de administrador:');
-      if (password === ADMIN_PASSWORD) {
-        setIsAuthenticated(true);
-        sessionStorage.setItem('rpym_admin_auth', 'true');
-      } else {
-        alert('Contraseña incorrecta');
-        window.location.href = '/';
+    const checkAuth = async () => {
+      try {
+        // First check sessionStorage for cached auth
+        const cachedAuth = sessionStorage.getItem('rpym_admin_auth');
+        const cachedUser = sessionStorage.getItem('rpym_admin_user');
+
+        if (cachedAuth === 'true' && cachedUser) {
+          setCurrentUser(JSON.parse(cachedUser));
+          setIsAuthenticated(true);
+          setIsCheckingAuth(false);
+
+          // Verify with server in background
+          const response = await fetch('/api/auth/me');
+          const data = await response.json();
+
+          if (!data.authenticated) {
+            // Session expired, redirect to login
+            sessionStorage.removeItem('rpym_admin_auth');
+            sessionStorage.removeItem('rpym_admin_user');
+            window.location.href = '/admin';
+          }
+          return;
+        }
+
+        // No cached auth, check with server
+        const response = await fetch('/api/auth/me');
+        const data = await response.json();
+
+        if (data.authenticated) {
+          setCurrentUser(data.user);
+          setIsAuthenticated(true);
+          sessionStorage.setItem('rpym_admin_auth', 'true');
+          sessionStorage.setItem('rpym_admin_user', JSON.stringify(data.user));
+        } else {
+          // Redirect to login page
+          window.location.href = '/admin';
+        }
+      } catch (error) {
+        console.error('Auth check error:', error);
+        window.location.href = '/admin';
+      } finally {
+        setIsCheckingAuth(false);
       }
-    }
+    };
+
+    checkAuth();
   }, []);
+
+  // Logout function
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {
+      // Continue with logout even if API fails
+    }
+    sessionStorage.removeItem('rpym_admin_auth');
+    sessionStorage.removeItem('rpym_admin_user');
+    window.location.href = '/admin';
+  };
 
   // Cargar datos
   const loadData = useCallback(async () => {
@@ -193,6 +252,20 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   // Formatear moneda
   const formatUSD = (amount: number) => `$${Number(amount).toFixed(2)}`;
   const formatBs = (amount: number) => `Bs. ${Number(amount).toFixed(2)}`;
+
+  // Formatear teléfono para mostrar: 0414-XXX-XXXX
+  const formatPhoneDisplay = (value: string): string => {
+    const digits = value.replace(/\D/g, '');
+    if (digits.length <= 4) return digits;
+    if (digits.length <= 7) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+    return `${digits.slice(0, 4)}-${digits.slice(4, 7)}-${digits.slice(7, 11)}`;
+  };
+
+  // Validar teléfono venezolano
+  const isValidPhone = (value: string): boolean => {
+    const d = value.replace(/\D/g, '');
+    return d.length === 11 && ['0412', '0414', '0416', '0424', '0426'].includes(d.slice(0, 4));
+  };
 
   // Imprimir nota de entrega (con o sin sello de pagado)
   const printNote = (presupuesto: Presupuesto, showPaid: boolean) => {
@@ -587,10 +660,169 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     whatsappWindow.document.close();
   };
 
-  if (!isAuthenticated) {
+  // Generar HTML para captura de WhatsApp (para html2canvas)
+  const buildWhatsAppHTML = (presupuesto: Presupuesto): string => {
+    const isPaid = presupuesto.estado === 'pagado';
+    const fmtQty = (qty: number): string => {
+      const rounded = Math.round(qty * 1000) / 1000;
+      return rounded.toFixed(3).replace(/\.?0+$/, '');
+    };
+
+    const itemsHtml = presupuesto.items.map(item => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#fff;border-radius:8px;margin-bottom:4px;">
+        <div>
+          <div style="font-weight:600;font-size:13px;color:#0c4a6e;">${item.nombre}</div>
+          <div style="font-size:11px;color:#64748b;">${fmtQty(item.cantidad)} ${item.unidad} × ${formatUSD(item.precioUSD)}</div>
+        </div>
+        <div style="font-weight:700;font-size:14px;color:#ea580c;">${formatUSD(item.subtotalUSD)}</div>
+      </div>
+    `).join('');
+
+    return `
+      <div style="font-family:'Inter',-apple-system,sans-serif;background:#e5ddd5;width:380px;min-height:100px;">
+        <div style="background:#075e54;color:white;padding:12px 16px;display:flex;align-items:center;gap:10px;">
+          <div style="width:36px;height:36px;border-radius:50%;background:white;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+            <img src="${window.location.origin}/camaronlogo-sm.webp" style="width:130%;height:130%;object-fit:contain;" />
+          </div>
+          <div>
+            <div style="font-weight:600;font-size:15px;">RPYM Mariscos</div>
+            <div style="font-size:11px;opacity:0.8;">en línea</div>
+          </div>
+        </div>
+
+        <div style="background:white;margin:12px;border-radius:0 8px 8px 8px;padding:12px;box-shadow:0 1px 2px rgba(0,0,0,0.1);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <span style="font-weight:700;font-size:14px;color:#0c4a6e;">
+              ${presupuesto.id}
+              ${isPaid ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;font-size:11px;font-weight:600;padding:2px 8px;border-radius:9999px;margin-left:6px;">✅ PAGADO</span>' : ''}
+            </span>
+          </div>
+
+          ${presupuesto.customerName ? `
+          <div style="background:#f0f9ff;border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:12px;color:#0c4a6e;">
+            <strong>${presupuesto.customerName}</strong>
+            ${presupuesto.customerAddress ? `<br/>${presupuesto.customerAddress}` : ''}
+          </div>
+          ` : ''}
+
+          <div style="margin-bottom:10px;">
+            ${itemsHtml}
+          </div>
+
+          <div style="background:#fff7ed;border-radius:8px;padding:10px 12px;margin-top:8px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+              <span style="color:#0369a1;font-size:13px;">Total USD</span>
+              <span style="font-weight:700;font-size:18px;color:#ea580c;">${formatUSD(presupuesto.totalUSD)}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;">
+              <span style="color:#0369a1;font-size:13px;">Total Bs.</span>
+              <span style="font-weight:600;font-size:13px;color:#0c4a6e;">${formatBs(presupuesto.totalBs)}</span>
+            </div>
+          </div>
+
+          <div style="text-align:right;font-size:10px;color:#64748b;margin-top:6px;">
+            ${new Date(presupuesto.fecha).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}
+          </div>
+        </div>
+
+        ${isPaid ? `
+        <div style="background:#dcfce7;margin:0 12px 12px;border-radius:8px;padding:8px 12px;text-align:center;font-size:11px;color:#166534;">
+          ¡Gracias por su compra! 🦐
+        </div>
+        ` : ''}
+      </div>
+    `;
+  };
+
+  // Enviar presupuesto por WhatsApp Cloud API
+  const sendWhatsApp = async (presupuesto: Presupuesto) => {
+    // Validar teléfono
+    if (!isValidPhone(whatsappPhone)) {
+      setWhatsappError('Número inválido. Usa formato: 0414XXXXXXX');
+      setWhatsappStatus('error');
+      return;
+    }
+
+    setWhatsappSending(true);
+    setWhatsappStatus('capturing');
+    setWhatsappError(null);
+
+    try {
+      // 1. Renderizar HTML en div oculto
+      const captureDiv = whatsappCaptureRef.current;
+      if (!captureDiv) throw new Error('Container de captura no encontrado');
+
+      captureDiv.innerHTML = buildWhatsAppHTML(presupuesto);
+      captureDiv.style.display = 'block';
+
+      // 2. Esperar a que carguen las imágenes
+      await new Promise(resolve => setTimeout(resolve, 400));
+
+      // 3. Capturar con html2canvas
+      const canvas = await html2canvas(captureDiv.firstElementChild as HTMLElement, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#e5ddd5',
+        width: 380,
+        windowWidth: 380,
+      });
+
+      // Ocultar div de captura
+      captureDiv.style.display = 'none';
+
+      // 4. Convertir a JPEG blob
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (b) => b ? resolve(b) : reject(new Error('Error al crear imagen')),
+          'image/jpeg',
+          0.85
+        );
+      });
+
+      // 5. Verificar tamaño
+      if (blob.size > 5 * 1024 * 1024) {
+        throw new Error('La imagen es demasiado grande');
+      }
+
+      setWhatsappStatus('uploading');
+
+      // 6. Enviar a API
+      const formData = new FormData();
+      formData.append('image', blob, 'presupuesto.jpg');
+      formData.append('phone', whatsappPhone.replace(/\D/g, ''));
+      formData.append('customerName', presupuesto.customerName || 'Cliente');
+      formData.append('totalUSD', presupuesto.totalUSD.toFixed(2));
+      formData.append('presupuestoId', presupuesto.id);
+
+      const response = await fetch('/api/send-whatsapp', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setWhatsappStatus('sent');
+      } else {
+        throw new Error(result.error || 'Error desconocido');
+      }
+
+    } catch (err: any) {
+      console.error('WhatsApp send error:', err);
+      setWhatsappStatus('error');
+      setWhatsappError(err.message || 'Error al enviar por WhatsApp');
+    } finally {
+      setWhatsappSending(false);
+    }
+  };
+
+  if (isCheckingAuth || !isAuthenticated) {
     return (
       <div className="min-h-screen bg-ocean-50 flex items-center justify-center">
-        <div className="text-ocean-600">Verificando acceso...</div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ocean-600 mx-auto mb-3"></div>
+          <div className="text-ocean-600">Verificando acceso...</div>
+        </div>
       </div>
     );
   }
@@ -605,17 +837,19 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
               <img src="/camaronlogo-sm.webp" alt="RPYM" className="w-8 h-8 object-contain" />
               <div>
                 <h1 className="text-lg font-bold">RPYM Admin</h1>
-                <p className="text-xs text-ocean-300">Gestión de Presupuestos</p>
+                <p className="text-xs text-ocean-300">
+                  {currentUser ? `Hola, ${currentUser.displayName}` : 'Gestion de Presupuestos'}
+                </p>
               </div>
             </div>
             <button
-              onClick={() => {
-                sessionStorage.removeItem('rpym_admin_auth');
-                window.location.href = '/';
-              }}
-              className="text-sm text-ocean-300 hover:text-white"
+              onClick={handleLogout}
+              className="text-sm text-ocean-300 hover:text-white flex items-center gap-2"
             >
-              Cerrar sesión
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Cerrar sesion
             </button>
           </div>
 
@@ -641,11 +875,27 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
             >
               Crear Presupuesto
             </button>
+            <button
+              onClick={() => setActiveTab('config')}
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'config'
+                  ? 'bg-white text-ocean-900'
+                  : 'text-ocean-200 hover:text-white'
+              }`}
+            >
+              Configuracion
+            </button>
           </div>
         </div>
       </header>
 
-      {activeTab === 'crear' && categories && bcvRate ? (
+      {activeTab === 'config' && bcvRate ? (
+        <main className="max-w-7xl mx-auto p-4">
+          <Suspense fallback={<div className="text-center py-12 text-ocean-700">Cargando...</div>}>
+            <AdminSettings currentBcvRate={bcvRate} />
+          </Suspense>
+        </main>
+      ) : activeTab === 'crear' && categories && bcvRate ? (
         <main className="max-w-7xl mx-auto p-4">
           <Suspense fallback={<div className="text-center py-12 text-ocean-700">Cargando...</div>}>
             <AdminBudgetBuilder
@@ -825,7 +1075,15 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                 <p className="text-xs text-ocean-600">{formatDate(selectedPresupuesto.fecha)}</p>
               </div>
               <button
-                onClick={() => { setSelectedPresupuesto(null); setEditedItems(null); setEditingPrices(new Map()); }}
+                onClick={() => {
+                  setSelectedPresupuesto(null);
+                  setEditedItems(null);
+                  setEditingPrices(new Map());
+                  // Reset WhatsApp state
+                  setWhatsappPhone('');
+                  setWhatsappStatus('idle');
+                  setWhatsappError(null);
+                }}
                 className="p-2 text-ocean-600 hover:bg-ocean-50 rounded-lg"
               >
                 ✕
@@ -956,7 +1214,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                     onClick={() => handleWhatsAppView(selectedPresupuesto)}
                     className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-500 flex items-center gap-1"
                   >
-                    📱 WhatsApp
+                    📱 Vista
                   </button>
                   <button
                     onClick={() => {
@@ -970,10 +1228,93 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                   </button>
                 </div>
               </div>
+
+              {/* Enviar por WhatsApp */}
+              <div className="border-t border-ocean-100 pt-4 mt-4">
+                <p className="text-xs font-semibold text-ocean-700 mb-2 flex items-center gap-1.5">
+                  <svg className="w-4 h-4 text-green-600" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
+                  </svg>
+                  Enviar al cliente por WhatsApp
+                </p>
+
+                <div className="flex gap-2">
+                  <input
+                    type="tel"
+                    placeholder="0414-XXX-XXXX"
+                    value={formatPhoneDisplay(whatsappPhone)}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '');
+                      setWhatsappPhone(digits.slice(0, 11));
+                      setWhatsappStatus('idle');
+                      setWhatsappError(null);
+                    }}
+                    className="flex-1 px-3 py-2 text-sm border border-ocean-200 rounded-lg
+                      focus:ring-1 focus:ring-green-500 focus:border-transparent outline-none
+                      placeholder:text-ocean-400"
+                    disabled={whatsappSending}
+                  />
+                  <button
+                    onClick={() => sendWhatsApp(selectedPresupuesto)}
+                    disabled={whatsappSending || whatsappPhone.replace(/\D/g, '').length < 11}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:bg-green-300
+                      text-white rounded-lg text-sm font-medium transition-colors
+                      flex items-center gap-1.5 whitespace-nowrap"
+                  >
+                    {whatsappStatus === 'capturing' ? (
+                      <>
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                        </svg>
+                        Capturando...
+                      </>
+                    ) : whatsappStatus === 'uploading' ? (
+                      <>
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                        </svg>
+                        Enviando...
+                      </>
+                    ) : (
+                      <>Enviar</>
+                    )}
+                  </button>
+                </div>
+
+                {/* Status messages */}
+                {whatsappStatus === 'sent' && (
+                  <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Mensaje enviado exitosamente
+                  </p>
+                )}
+                {whatsappStatus === 'error' && whatsappError && (
+                  <p className="text-xs text-red-600 mt-2">
+                    ⚠️ {whatsappError}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Hidden div for html2canvas capture */}
+      <div
+        ref={whatsappCaptureRef}
+        style={{
+          position: 'fixed',
+          left: '-9999px',
+          top: 0,
+          width: '380px',
+          display: 'none',
+          zIndex: -1,
+        }}
+      />
     </div>
   );
 }

@@ -1,0 +1,130 @@
+---
+/**
+ * RPYM - Decoraciones temáticas
+ * Renderiza elementos decorativos animados según el tema activo
+ */
+---
+
+<div class="theme-decorations" id="theme-decorations" aria-hidden="true">
+  <!-- Las decoraciones se insertan dinámicamente via JavaScript -->
+</div>
+
+<script is:inline>
+(function() {
+  const container = document.getElementById('theme-decorations');
+  if (!container) return;
+
+  // Configuración de decoraciones por tema
+  const decorations = {
+    ocean: {
+      count: 8,
+      create: (i) => {
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        bubble.style.left = `${Math.random() * 100}%`;
+        bubble.style.animationDuration = `${8 + Math.random() * 12}s`;
+        bubble.style.animationDelay = `${Math.random() * 10}s`;
+        bubble.style.width = `${10 + Math.random() * 20}px`;
+        bubble.style.height = bubble.style.width;
+        bubble.style.opacity = `${0.3 + Math.random() * 0.4}`;
+        return bubble;
+      }
+    },
+    carnival: {
+      count: 25,
+      create: (i) => {
+        const colors = ['#a855f7', '#eab308', '#22c55e', '#ec4899', '#f97316'];
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti-piece';
+        confetti.style.left = `${Math.random() * 100}%`;
+        confetti.style.backgroundColor = colors[i % colors.length];
+        confetti.style.animationDuration = `${5 + Math.random() * 8}s`;
+        confetti.style.animationDelay = `${Math.random() * 10}s`;
+        confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+        confetti.style.width = `${6 + Math.random() * 8}px`;
+        confetti.style.height = `${6 + Math.random() * 8}px`;
+        confetti.style.opacity = `${0.6 + Math.random() * 0.4}`;
+        return confetti;
+      }
+    },
+    christmas: {
+      count: 20,
+      create: (i) => {
+        const snowflake = document.createElement('div');
+        snowflake.className = 'snowflake';
+        snowflake.textContent = '❄';
+        snowflake.style.left = `${Math.random() * 100}%`;
+        snowflake.style.animationDuration = `${8 + Math.random() * 12}s`;
+        snowflake.style.animationDelay = `${Math.random() * 15}s`;
+        snowflake.style.fontSize = `${0.8 + Math.random() * 1.2}rem`;
+        snowflake.style.opacity = `${0.4 + Math.random() * 0.5}`;
+        return snowflake;
+      }
+    },
+    easter: {
+      count: 12,
+      create: (i) => {
+        const emojis = ['🥚', '🐰', '🌸', '🌷', '🦋', '🐣'];
+        const element = document.createElement('div');
+        element.className = 'easter-element';
+        element.textContent = emojis[i % emojis.length];
+        element.style.left = `${5 + Math.random() * 90}%`;
+        element.style.top = `${10 + Math.random() * 80}%`;
+        element.style.animationDuration = `${3 + Math.random() * 4}s`;
+        element.style.animationDelay = `${Math.random() * 3}s`;
+        element.style.fontSize = `${1 + Math.random() * 1.5}rem`;
+        element.style.opacity = `${0.4 + Math.random() * 0.3}`;
+        return element;
+      }
+    }
+  };
+
+  let currentTheme = null;
+
+  function renderDecorations(theme) {
+    // Solo re-renderizar si el tema cambió
+    if (currentTheme === theme) return;
+    currentTheme = theme;
+
+    // Limpiar decoraciones anteriores
+    container.innerHTML = '';
+
+    const config = decorations[theme];
+    if (!config) return;
+
+    // Crear nuevas decoraciones
+    for (let i = 0; i < config.count; i++) {
+      const element = config.create(i);
+      container.appendChild(element);
+    }
+  }
+
+  // Renderizar decoraciones iniciales
+  function init() {
+    const theme = document.documentElement.getAttribute('data-theme') || 'ocean';
+    renderDecorations(theme);
+  }
+
+  // Observar cambios en el tema
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.attributeName === 'data-theme') {
+        const newTheme = document.documentElement.getAttribute('data-theme') || 'ocean';
+        renderDecorations(newTheme);
+      }
+    });
+  });
+
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-theme']
+  });
+
+  // Inicializar cuando el DOM esté listo
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>

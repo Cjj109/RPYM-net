@@ -1,0 +1,264 @@
+---
+/**
+ * RPYM - Decoraciones del Header según tema
+ * Agrega elementos decorativos al header basado en el tema activo
+ */
+---
+
+<div id="header-decorations" class="absolute inset-x-0 top-0 overflow-hidden pointer-events-none" aria-hidden="true">
+  <!-- Decoraciones se insertan dinámicamente -->
+</div>
+
+<style>
+  /* === Luces de Navidad === */
+  .christmas-lights {
+    display: flex;
+    justify-content: space-around;
+    padding: 0 10px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+
+  .christmas-light {
+    width: 12px;
+    height: 18px;
+    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+    position: relative;
+    animation: twinkle 1.5s ease-in-out infinite;
+  }
+
+  .christmas-light::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 6px;
+    background: #333;
+    border-radius: 2px 2px 0 0;
+  }
+
+  .christmas-light:nth-child(1) { background: #ef4444; animation-delay: 0s; }
+  .christmas-light:nth-child(2) { background: #22c55e; animation-delay: 0.2s; }
+  .christmas-light:nth-child(3) { background: #eab308; animation-delay: 0.4s; }
+  .christmas-light:nth-child(4) { background: #3b82f6; animation-delay: 0.6s; }
+  .christmas-light:nth-child(5) { background: #ef4444; animation-delay: 0.8s; }
+  .christmas-light:nth-child(6) { background: #22c55e; animation-delay: 1s; }
+  .christmas-light:nth-child(7) { background: #eab308; animation-delay: 1.2s; }
+  .christmas-light:nth-child(8) { background: #3b82f6; animation-delay: 0.1s; }
+  .christmas-light:nth-child(9) { background: #ef4444; animation-delay: 0.3s; }
+  .christmas-light:nth-child(10) { background: #22c55e; animation-delay: 0.5s; }
+
+  @keyframes twinkle {
+    0%, 100% { opacity: 1; filter: brightness(1.2); }
+    50% { opacity: 0.5; filter: brightness(0.8); }
+  }
+
+  /* Wire connecting lights */
+  .christmas-wire {
+    position: absolute;
+    top: 4px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg,
+      transparent 0%, #333 5%, #333 95%, transparent 100%
+    );
+  }
+
+  /* === Serpentinas de Carnaval === */
+  .carnival-streamers {
+    display: flex;
+    justify-content: space-between;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 0 5%;
+  }
+
+  .streamer {
+    width: 8px;
+    height: 60px;
+    background: linear-gradient(180deg,
+      var(--color) 0%,
+      var(--color) 50%,
+      transparent 100%
+    );
+    border-radius: 4px;
+    transform-origin: top center;
+    animation: streamer-wave 2s ease-in-out infinite;
+  }
+
+  .streamer:nth-child(1) { --color: #a855f7; animation-delay: 0s; }
+  .streamer:nth-child(2) { --color: #eab308; animation-delay: 0.3s; }
+  .streamer:nth-child(3) { --color: #22c55e; animation-delay: 0.6s; }
+  .streamer:nth-child(4) { --color: #ec4899; animation-delay: 0.2s; }
+  .streamer:nth-child(5) { --color: #f97316; animation-delay: 0.5s; }
+  .streamer:nth-child(6) { --color: #a855f7; animation-delay: 0.8s; }
+  .streamer:nth-child(7) { --color: #eab308; animation-delay: 0.1s; }
+  .streamer:nth-child(8) { --color: #22c55e; animation-delay: 0.4s; }
+
+  @keyframes streamer-wave {
+    0%, 100% { transform: rotate(-5deg); }
+    50% { transform: rotate(5deg); }
+  }
+
+  /* === Flores de Pascua === */
+  .easter-flowers {
+    display: flex;
+    justify-content: space-between;
+    position: absolute;
+    top: -5px;
+    left: 0;
+    right: 0;
+    padding: 0 10%;
+  }
+
+  .easter-flower {
+    font-size: 1.2rem;
+    animation: flower-bounce 2s ease-in-out infinite;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+  }
+
+  .easter-flower:nth-child(even) {
+    animation-delay: 0.5s;
+  }
+
+  @keyframes flower-bounce {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-5px) rotate(10deg); }
+  }
+
+  /* === Burbujas Ocean === */
+  .ocean-bubbles {
+    display: flex;
+    justify-content: space-around;
+    position: absolute;
+    bottom: 30px;
+    left: 0;
+    right: 0;
+    padding: 0 10%;
+  }
+
+  .header-bubble {
+    width: 8px;
+    height: 8px;
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.9), rgba(56, 189, 248, 0.4));
+    border-radius: 50%;
+    animation: header-bubble-float 3s ease-in-out infinite;
+  }
+
+  .header-bubble:nth-child(1) { animation-delay: 0s; }
+  .header-bubble:nth-child(2) { animation-delay: 0.5s; width: 6px; height: 6px; }
+  .header-bubble:nth-child(3) { animation-delay: 1s; }
+  .header-bubble:nth-child(4) { animation-delay: 0.3s; width: 10px; height: 10px; }
+  .header-bubble:nth-child(5) { animation-delay: 0.8s; width: 5px; height: 5px; }
+
+  @keyframes header-bubble-float {
+    0%, 100% { transform: translateY(0); opacity: 0.6; }
+    50% { transform: translateY(-10px); opacity: 1; }
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .christmas-light,
+    .streamer,
+    .easter-flower,
+    .header-bubble {
+      animation: none;
+    }
+  }
+</style>
+
+<script is:inline>
+(function() {
+  const container = document.getElementById('header-decorations');
+  if (!container) return;
+
+  const decorations = {
+    ocean: () => `
+      <div class="ocean-bubbles">
+        <div class="header-bubble"></div>
+        <div class="header-bubble"></div>
+        <div class="header-bubble"></div>
+        <div class="header-bubble"></div>
+        <div class="header-bubble"></div>
+      </div>
+    `,
+    carnival: () => `
+      <div class="carnival-streamers">
+        <div class="streamer"></div>
+        <div class="streamer"></div>
+        <div class="streamer"></div>
+        <div class="streamer"></div>
+        <div class="streamer"></div>
+        <div class="streamer"></div>
+        <div class="streamer"></div>
+        <div class="streamer"></div>
+      </div>
+    `,
+    christmas: () => `
+      <div class="christmas-wire"></div>
+      <div class="christmas-lights">
+        <div class="christmas-light"></div>
+        <div class="christmas-light"></div>
+        <div class="christmas-light"></div>
+        <div class="christmas-light"></div>
+        <div class="christmas-light"></div>
+        <div class="christmas-light"></div>
+        <div class="christmas-light"></div>
+        <div class="christmas-light"></div>
+        <div class="christmas-light"></div>
+        <div class="christmas-light"></div>
+      </div>
+    `,
+    easter: () => `
+      <div class="easter-flowers">
+        <span class="easter-flower">🌸</span>
+        <span class="easter-flower">🌷</span>
+        <span class="easter-flower">🌼</span>
+        <span class="easter-flower">🌸</span>
+        <span class="easter-flower">🌷</span>
+      </div>
+    `
+  };
+
+  let currentTheme = null;
+
+  function render(theme) {
+    if (currentTheme === theme) return;
+    currentTheme = theme;
+    container.innerHTML = decorations[theme] ? decorations[theme]() : '';
+  }
+
+  function init() {
+    const theme = document.documentElement.getAttribute('data-theme') || 'ocean';
+    render(theme);
+  }
+
+  // Observer para cambios de tema
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.attributeName === 'data-theme') {
+        const newTheme = document.documentElement.getAttribute('data-theme') || 'ocean';
+        render(newTheme);
+      }
+    });
+  });
+
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-theme']
+  });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>

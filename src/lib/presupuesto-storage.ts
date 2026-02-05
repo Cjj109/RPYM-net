@@ -1,17 +1,11 @@
 /**
  * RPYM - Módulo de almacenamiento de presupuestos
  *
- * Este módulo maneja la comunicación con Google Apps Script
+ * Este módulo maneja la comunicación con Cloudflare D1
  * para guardar y gestionar presupuestos.
+ *
+ * Anteriormente usaba Google Apps Script, ahora usa D1 APIs.
  */
-
-// ============================================
-// CONFIGURACIÓN
-// ============================================
-
-// URL del Google Apps Script desplegado
-// IMPORTANTE: Reemplazar después del deploy del script
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxq9yoSKmAFMbVsVAcN3yURQXh24jit3Nhl8RR5yQW81va7lfXw2DjQbdguTaiMVbx2RA/exec';
 
 // ============================================
 // TIPOS
@@ -64,7 +58,7 @@ export interface PresupuestoStats {
 // ============================================
 
 /**
- * Guarda un presupuesto en Google Sheets
+ * Guarda un presupuesto en D1
  * Esta función es silenciosa - no muestra errores al usuario
  */
 export async function savePresupuesto(data: SavePresupuestoData): Promise<{ success: boolean; id?: string }> {
@@ -79,38 +73,28 @@ export async function savePresupuesto(data: SavePresupuestoData): Promise<{ succ
       // Si falla obtener IP, continuar sin ella
     }
 
-    const payload = {
-      action: 'create',
-      items: data.items,
-      totalUSD: data.totalUSD,
-      totalBs: data.totalBs,
-      customerName: data.customerName || '',
-      customerAddress: data.customerAddress || '',
-      clientIP: clientIP,
-      status: data.status || 'pendiente',
-      source: data.source || 'cliente',
-    };
-
-    const response = await fetch(APPS_SCRIPT_URL, {
+    const response = await fetch('/api/presupuestos', {
       method: 'POST',
-      redirect: 'follow',
       headers: {
-        'Content-Type': 'text/plain',
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        items: data.items,
+        totalUSD: data.totalUSD,
+        totalBs: data.totalBs,
+        customerName: data.customerName || '',
+        customerAddress: data.customerAddress || '',
+        clientIP: clientIP,
+        status: data.status || 'pendiente',
+        source: data.source || 'cliente',
+      })
     });
 
-    const text = await response.text();
-    try {
-      const result = JSON.parse(text);
-      return {
-        success: result.success || false,
-        id: result.id
-      };
-    } catch {
-      console.error('savePresupuesto: respuesta no es JSON:', text.substring(0, 200));
-      return { success: false };
-    }
+    const result = await response.json();
+    return {
+      success: result.success || false,
+      id: result.id
+    };
   } catch (error) {
     // Silencioso - no bloquear la experiencia del usuario
     console.error('Error guardando presupuesto:', error);
@@ -123,7 +107,7 @@ export async function savePresupuesto(data: SavePresupuestoData): Promise<{ succ
  */
 export async function getPresupuesto(id: string): Promise<Presupuesto | null> {
   try {
-    const response = await fetch(`${APPS_SCRIPT_URL}?action=get&id=${encodeURIComponent(id)}`);
+    const response = await fetch(`/api/presupuestos/${encodeURIComponent(id)}`);
     const result = await response.json();
 
     if (result.success && result.presupuesto) {
@@ -141,8 +125,8 @@ export async function getPresupuesto(id: string): Promise<Presupuesto | null> {
  */
 export async function listPresupuestos(status?: 'pendiente' | 'pagado' | 'all'): Promise<Presupuesto[]> {
   try {
-    const statusParam = status ? `&status=${status}` : '';
-    const response = await fetch(`${APPS_SCRIPT_URL}?action=list${statusParam}`);
+    const statusParam = status ? `?status=${status}` : '';
+    const response = await fetch(`/api/presupuestos${statusParam}`);
     const result = await response.json();
 
     return result.presupuestos || [];
@@ -160,18 +144,12 @@ export async function updatePresupuestoStatus(
   status: 'pendiente' | 'pagado'
 ): Promise<boolean> {
   try {
-    const response = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      mode: 'cors',
-      redirect: 'follow',
+    const response = await fetch(`/api/presupuestos/${encodeURIComponent(id)}`, {
+      method: 'PUT',
       headers: {
-        'Content-Type': 'text/plain',
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        action: 'updateStatus',
-        id: id,
-        status: status
-      })
+      body: JSON.stringify({ status })
     });
 
     const result = await response.json();
@@ -185,38 +163,34 @@ export async function updatePresupuestoStatus(
 /**
  * Actualiza los items y totales de un presupuesto existente
  */
-export async function updatePresupuesto(data: {
-  id: string;
-  items: PresupuestoItem[];
-  totalUSD: number;
-  totalBs: number;
-  customerName?: string;
-  customerAddress?: string;
-}): Promise<{ success: boolean }> {
+export async function updatePresupuesto(
+  id: string,
+  items: PresupuestoItem[],
+  totalUSD: number,
+  totalBs: number,
+  customerName?: string,
+  customerAddress?: string
+): Promise<boolean> {
   try {
-    const response = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      mode: 'cors',
-      redirect: 'follow',
+    const response = await fetch(`/api/presupuestos/${encodeURIComponent(id)}`, {
+      method: 'PUT',
       headers: {
-        'Content-Type': 'text/plain',
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        action: 'update',
-        id: data.id,
-        items: data.items,
-        totalUSD: data.totalUSD,
-        totalBs: data.totalBs,
-        customerName: data.customerName || '',
-        customerAddress: data.customerAddress || '',
+        items,
+        totalUSD,
+        totalBs,
+        customerName: customerName || '',
+        customerAddress: customerAddress || '',
       })
     });
 
     const result = await response.json();
-    return { success: result.success || false };
+    return result.success || false;
   } catch (error) {
     console.error('Error actualizando presupuesto:', error);
-    return { success: false };
+    return false;
   }
 }
 
@@ -225,17 +199,8 @@ export async function updatePresupuesto(data: {
  */
 export async function deletePresupuesto(id: string): Promise<boolean> {
   try {
-    const response = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      mode: 'cors',
-      redirect: 'follow',
-      headers: {
-        'Content-Type': 'text/plain',
-      },
-      body: JSON.stringify({
-        action: 'delete',
-        id: id
-      })
+    const response = await fetch(`/api/presupuestos/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
     });
 
     const result = await response.json();
@@ -251,7 +216,7 @@ export async function deletePresupuesto(id: string): Promise<boolean> {
  */
 export async function getPresupuestoStats(): Promise<PresupuestoStats | null> {
   try {
-    const response = await fetch(`${APPS_SCRIPT_URL}?action=stats`);
+    const response = await fetch('/api/presupuestos/stats');
     const result = await response.json();
     return result;
   } catch (error) {
@@ -269,7 +234,8 @@ export function getPresupuestoViewUrl(id: string): string {
 
 /**
  * Verifica si el módulo está configurado correctamente
+ * Siempre devuelve true ya que D1 se configura automáticamente
  */
 export function isConfigured(): boolean {
-  return !APPS_SCRIPT_URL.includes('TU_DEPLOYMENT_ID');
+  return true;
 }

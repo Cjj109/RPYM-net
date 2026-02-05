@@ -1,29 +1,130 @@
 @import "tailwindcss";
 
-/* Variables CSS personalizadas */
-@theme {
-  --color-ocean-50: #f0f9ff;
-  --color-ocean-100: #e0f2fe;
-  --color-ocean-200: #bae6fd;
-  --color-ocean-300: #7dd3fc;
-  --color-ocean-400: #38bdf8;
-  --color-ocean-500: #0ea5e9;
-  --color-ocean-600: #0284c7;
-  --color-ocean-700: #0369a1;
-  --color-ocean-800: #075985;
-  --color-ocean-900: #0c4a6e;
-  --color-ocean-950: #082f49;
+/* ========== SISTEMA DE TEMAS DINAMICOS ========== */
 
+/* Variables de tema base (Ocean - default) */
+:root {
+  --theme-primary-50: #f0f9ff;
+  --theme-primary-100: #e0f2fe;
+  --theme-primary-200: #bae6fd;
+  --theme-primary-300: #7dd3fc;
+  --theme-primary-400: #38bdf8;
+  --theme-primary-500: #0ea5e9;
+  --theme-primary-600: #0284c7;
+  --theme-primary-700: #0369a1;
+  --theme-primary-800: #075985;
+  --theme-primary-900: #0c4a6e;
+  --theme-primary-950: #082f49;
+
+  --theme-accent-100: #ffedd5;
+  --theme-accent-300: #fdba74;
+  --theme-accent-400: #fb923c;
+  --theme-accent-500: #f97316;
+  --theme-accent-600: #ea580c;
+
+  --theme-bg-from: #f0f9ff;
+  --theme-bg-to: #f8fafc;
+}
+
+/* Carnaval - Morado, Dorado, Verde */
+[data-theme="carnival"] {
+  --theme-primary-50: #faf5ff;
+  --theme-primary-100: #f3e8ff;
+  --theme-primary-200: #e9d5ff;
+  --theme-primary-300: #d8b4fe;
+  --theme-primary-400: #c084fc;
+  --theme-primary-500: #a855f7;
+  --theme-primary-600: #9333ea;
+  --theme-primary-700: #7e22ce;
+  --theme-primary-800: #6b21a8;
+  --theme-primary-900: #581c87;
+  --theme-primary-950: #3b0764;
+
+  --theme-accent-100: #fef9c3;
+  --theme-accent-300: #fde047;
+  --theme-accent-400: #facc15;
+  --theme-accent-500: #eab308;
+  --theme-accent-600: #ca8a04;
+
+  --theme-bg-from: #faf5ff;
+  --theme-bg-to: #f8fafc;
+}
+
+/* Navidad - Rojo, Verde, Dorado */
+[data-theme="christmas"] {
+  --theme-primary-50: #fef2f2;
+  --theme-primary-100: #fee2e2;
+  --theme-primary-200: #fecaca;
+  --theme-primary-300: #fca5a5;
+  --theme-primary-400: #f87171;
+  --theme-primary-500: #ef4444;
+  --theme-primary-600: #dc2626;
+  --theme-primary-700: #b91c1c;
+  --theme-primary-800: #991b1b;
+  --theme-primary-900: #7f1d1d;
+  --theme-primary-950: #450a0a;
+
+  --theme-accent-100: #dcfce7;
+  --theme-accent-300: #86efac;
+  --theme-accent-400: #4ade80;
+  --theme-accent-500: #22c55e;
+  --theme-accent-600: #16a34a;
+
+  --theme-bg-from: #fef2f2;
+  --theme-bg-to: #f0fdf4;
+}
+
+/* Pascua - Rosa pastel, Azul, Amarillo */
+[data-theme="easter"] {
+  --theme-primary-50: #fdf2f8;
+  --theme-primary-100: #fce7f3;
+  --theme-primary-200: #fbcfe8;
+  --theme-primary-300: #f9a8d4;
+  --theme-primary-400: #f472b6;
+  --theme-primary-500: #ec4899;
+  --theme-primary-600: #db2777;
+  --theme-primary-700: #be185d;
+  --theme-primary-800: #9d174d;
+  --theme-primary-900: #831843;
+  --theme-primary-950: #500724;
+
+  --theme-accent-100: #e0f2fe;
+  --theme-accent-300: #7dd3fc;
+  --theme-accent-400: #38bdf8;
+  --theme-accent-500: #0ea5e9;
+  --theme-accent-600: #0284c7;
+
+  --theme-bg-from: #fdf2f8;
+  --theme-bg-to: #eff6ff;
+}
+
+/* Variables CSS personalizadas - mapean a variables de tema */
+@theme {
+  /* Ocean colors map to theme variables for dynamic theming */
+  --color-ocean-50: var(--theme-primary-50);
+  --color-ocean-100: var(--theme-primary-100);
+  --color-ocean-200: var(--theme-primary-200);
+  --color-ocean-300: var(--theme-primary-300);
+  --color-ocean-400: var(--theme-primary-400);
+  --color-ocean-500: var(--theme-primary-500);
+  --color-ocean-600: var(--theme-primary-600);
+  --color-ocean-700: var(--theme-primary-700);
+  --color-ocean-800: var(--theme-primary-800);
+  --color-ocean-900: var(--theme-primary-900);
+  --color-ocean-950: var(--theme-primary-950);
+
+  /* Sand colors remain static */
   --color-sand-50: #fffbeb;
   --color-sand-100: #fef3c7;
   --color-sand-200: #fde68a;
   --color-sand-300: #fcd34d;
 
-  --color-coral-100: #ffedd5;
-  --color-coral-300: #fdba74;
-  --color-coral-400: #fb923c;
-  --color-coral-500: #f97316;
-  --color-coral-600: #ea580c;
+  /* Coral/accent colors map to theme accent variables */
+  --color-coral-100: var(--theme-accent-100);
+  --color-coral-300: var(--theme-accent-300);
+  --color-coral-400: var(--theme-accent-400);
+  --color-coral-500: var(--theme-accent-500);
+  --color-coral-600: var(--theme-accent-600);
 
   --color-foam: #f8fafc;
 
@@ -38,8 +139,9 @@ html {
 
 body {
   font-family: var(--font-body);
-  background: linear-gradient(180deg, var(--color-ocean-50) 0%, var(--color-foam) 100%);
+  background: linear-gradient(180deg, var(--theme-bg-from) 0%, var(--theme-bg-to) 100%);
   min-height: 100vh;
+  transition: background 0.3s ease;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -110,12 +212,160 @@ h1, h2, h3, h4, h5, h6 {
   animation: shrimp-swim 2s ease-in-out infinite;
 }
 
-/* Patron de agua sutil */
+/* Patron de agua sutil (Ocean default) */
 .water-pattern {
   background-image:
     radial-gradient(ellipse at 50% 50%, rgba(14, 165, 233, 0.03) 0%, transparent 70%),
     radial-gradient(ellipse at 80% 20%, rgba(14, 165, 233, 0.05) 0%, transparent 50%),
     radial-gradient(ellipse at 20% 80%, rgba(14, 165, 233, 0.04) 0%, transparent 60%);
+}
+
+/* ========== ANIMACIONES Y DECORACIONES POR TEMA ========== */
+
+/* === CARNAVAL - Confeti cayendo === */
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-100vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg);
+    opacity: 0.7;
+  }
+}
+
+@keyframes confetti-sway {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(30px); }
+}
+
+.confetti-piece {
+  position: fixed;
+  width: 10px;
+  height: 10px;
+  top: -20px;
+  z-index: 1;
+  pointer-events: none;
+  animation: confetti-fall linear infinite;
+}
+
+.confetti-piece:nth-child(odd) {
+  animation: confetti-fall linear infinite, confetti-sway 2s ease-in-out infinite;
+}
+
+/* === NAVIDAD - Copos de nieve === */
+@keyframes snowfall {
+  0% {
+    transform: translateY(-100vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(360deg);
+    opacity: 0.3;
+  }
+}
+
+@keyframes snow-sway {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(15px); }
+  75% { transform: translateX(-15px); }
+}
+
+.snowflake {
+  position: fixed;
+  color: white;
+  text-shadow: 0 0 5px rgba(255,255,255,0.8);
+  top: -50px;
+  z-index: 1;
+  pointer-events: none;
+  animation: snowfall linear infinite, snow-sway 3s ease-in-out infinite;
+  font-size: 1rem;
+}
+
+/* === PASCUA - Elementos flotantes === */
+@keyframes easter-float {
+  0%, 100% {
+    transform: translateY(0) rotate(-5deg);
+  }
+  50% {
+    transform: translateY(-20px) rotate(5deg);
+  }
+}
+
+@keyframes easter-bounce {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-10px) scale(1.1);
+  }
+}
+
+.easter-element {
+  position: fixed;
+  z-index: 1;
+  pointer-events: none;
+  animation: easter-float 4s ease-in-out infinite;
+  font-size: 1.5rem;
+  opacity: 0.6;
+}
+
+.easter-element:nth-child(even) {
+  animation: easter-bounce 3s ease-in-out infinite;
+}
+
+/* === OCEAN - Burbujas === */
+@keyframes bubble-rise {
+  0% {
+    transform: translateY(100vh) scale(0.5);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(-100vh) scale(1);
+    opacity: 0;
+  }
+}
+
+.bubble {
+  position: fixed;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.8), rgba(14, 165, 233, 0.3));
+  bottom: -50px;
+  z-index: 1;
+  pointer-events: none;
+  animation: bubble-rise linear infinite;
+}
+
+/* === Contenedor de decoraciones === */
+.theme-decorations {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Ocultar decoraciones en impresión */
+@media print {
+  .theme-decorations {
+    display: none !important;
+  }
+}
+
+/* Reducir animaciones si el usuario lo prefiere */
+@media (prefers-reduced-motion: reduce) {
+  .confetti-piece,
+  .snowflake,
+  .easter-element,
+  .bubble {
+    animation: none;
+    display: none;
+  }
 }
 
 /* Scrollbar personalizada */

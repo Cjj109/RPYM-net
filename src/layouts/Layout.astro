@@ -2,6 +2,7 @@
 import '../styles/global.css';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
+import ThemeDecorations from '../components/ThemeDecorations.astro';
 
 interface Props {
   title: string;
@@ -20,9 +21,21 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
 ---
 
 <!doctype html>
-<html lang="es">
+<html lang="es" data-theme="ocean">
   <head>
     <meta charset="UTF-8" />
+
+    <!-- Theme initialization (prevent FOUC) -->
+    <script is:inline>
+      (function() {
+        try {
+          var cached = localStorage.getItem('rpym_theme');
+          if (cached && ['ocean', 'carnival', 'christmas', 'easter'].includes(cached)) {
+            document.documentElement.setAttribute('data-theme', cached);
+          }
+        } catch (e) {}
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
     <meta name="theme-color" content="#0c4a6e" />
@@ -102,10 +115,66 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
     })} />
   </head>
   <body class="water-pattern min-h-screen flex flex-col">
+    <ThemeDecorations />
     <Header />
     <main class="flex-1">
       <slot />
     </main>
     <Footer />
+
+    <!-- Theme polling for real-time updates -->
+    <script is:inline>
+      (function() {
+        var POLL_INTERVAL = 30000; // 30 seconds
+        var VALID_THEMES = ['ocean', 'carnival', 'christmas', 'easter'];
+
+        function applyTheme(theme) {
+          if (!VALID_THEMES.includes(theme)) return;
+          localStorage.setItem('rpym_theme', theme);
+          document.documentElement.setAttribute('data-theme', theme);
+          // Update meta theme-color for mobile browsers
+          var themeColors = {
+            ocean: '#0c4a6e',
+            carnival: '#7e22ce',
+            christmas: '#b91c1c',
+            easter: '#be185d'
+          };
+          var metaTheme = document.querySelector('meta[name="theme-color"]');
+          if (metaTheme) metaTheme.setAttribute('content', themeColors[theme]);
+        }
+
+        async function checkTheme() {
+          try {
+            var response = await fetch('/api/config/theme', { cache: 'no-store' });
+            if (response.ok) {
+              var data = await response.json();
+              var currentTheme = localStorage.getItem('rpym_theme') || 'ocean';
+              if (data.theme && data.theme !== currentTheme) {
+                applyTheme(data.theme);
+              }
+            }
+          } catch (e) {
+            console.error('Error checking theme:', e);
+          }
+        }
+
+        // Initial check after page load
+        if (document.readyState === 'complete') {
+          checkTheme();
+        } else {
+          window.addEventListener('load', checkTheme);
+        }
+
+        // Poll every 30 seconds
+        setInterval(checkTheme, POLL_INTERVAL);
+
+        // Also check when tab becomes visible
+        document.addEventListener('visibilitychange', function() {
+          if (document.visibilityState === 'visible') {
+            checkTheme();
+          }
+        });
+      })();
+    </script>
   </body>
 </html>
