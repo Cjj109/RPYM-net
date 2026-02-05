@@ -12,6 +12,7 @@ export interface D1Presupuesto {
   items: string; // JSON string
   total_usd: number;
   total_bs: number;
+  total_usd_divisa: number | null;
   estado: 'pendiente' | 'pagado';
   customer_name: string | null;
   customer_address: string | null;
@@ -80,9 +81,51 @@ export interface D1ExecResult {
   duration: number;
 }
 
+// Cloudflare R2 binding types
+export interface R2Bucket {
+  put(key: string, value: ReadableStream | ArrayBuffer | ArrayBufferView | string | null, options?: R2PutOptions): Promise<R2Object>;
+  get(key: string): Promise<R2ObjectBody | null>;
+  delete(key: string | string[]): Promise<void>;
+  list(options?: R2ListOptions): Promise<R2Objects>;
+}
+
+export interface R2PutOptions {
+  httpMetadata?: { contentType?: string };
+  customMetadata?: Record<string, string>;
+}
+
+export interface R2Object {
+  key: string;
+  size: number;
+  etag: string;
+  uploaded: Date;
+}
+
+export interface R2ObjectBody extends R2Object {
+  body: ReadableStream;
+  bodyUsed: boolean;
+  arrayBuffer(): Promise<ArrayBuffer>;
+  text(): Promise<string>;
+  blob(): Promise<Blob>;
+}
+
+export interface R2ListOptions {
+  prefix?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface R2Objects {
+  objects: R2Object[];
+  truncated: boolean;
+  cursor?: string;
+}
+
 // Cloudflare runtime environment
 export interface CloudflareEnv {
   DB: D1Database;
+  R2_BUCKET?: R2Bucket;
+  // Meta WhatsApp Cloud API
   WHATSAPP_ACCESS_TOKEN?: string;
   WHATSAPP_PHONE_NUMBER_ID?: string;
 }
@@ -91,4 +134,10 @@ export interface CloudflareEnv {
 export function getD1(locals: App.Locals): D1Database | null {
   const runtime = (locals as any).runtime;
   return runtime?.env?.DB || null;
+}
+
+// Helper to get R2 from Astro locals
+export function getR2(locals: App.Locals): R2Bucket | null {
+  const runtime = (locals as any).runtime;
+  return runtime?.env?.R2_BUCKET || null;
 }
