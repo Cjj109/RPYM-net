@@ -273,13 +273,13 @@ h1, h2, h3, h4, h5, h6 {
 
 .snowflake {
   position: fixed;
-  color: white;
-  text-shadow: 0 0 5px rgba(255,255,255,0.8);
+  color: #a8d5ff;
+  text-shadow: 0 0 8px rgba(168, 213, 255, 0.9), 0 0 15px rgba(100, 180, 255, 0.5);
   top: -50px;
   z-index: 1;
   pointer-events: none;
   animation: snowfall linear infinite, snow-sway 3s ease-in-out infinite;
-  font-size: 1rem;
+  font-size: 1.2rem;
 }
 
 /* === PASCUA - Elementos flotantes === */
@@ -305,9 +305,9 @@ h1, h2, h3, h4, h5, h6 {
   position: fixed;
   z-index: 1;
   pointer-events: none;
-  animation: easter-float 4s ease-in-out infinite;
-  font-size: 1.5rem;
-  opacity: 0.6;
+  animation: easter-float 5s ease-in-out infinite;
+  font-size: 1.2rem;
+  opacity: 0.35;
 }
 
 .easter-element:nth-child(even) {

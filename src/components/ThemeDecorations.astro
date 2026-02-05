@@ -48,32 +48,42 @@
       }
     },
     christmas: {
-      count: 20,
+      count: 30,
       create: (i) => {
         const snowflake = document.createElement('div');
         snowflake.className = 'snowflake';
         snowflake.textContent = '❄';
         snowflake.style.left = `${Math.random() * 100}%`;
-        snowflake.style.animationDuration = `${8 + Math.random() * 12}s`;
-        snowflake.style.animationDelay = `${Math.random() * 15}s`;
-        snowflake.style.fontSize = `${0.8 + Math.random() * 1.2}rem`;
-        snowflake.style.opacity = `${0.4 + Math.random() * 0.5}`;
+        snowflake.style.animationDuration = `${6 + Math.random() * 8}s`;
+        snowflake.style.animationDelay = `${Math.random() * 5}s`; // Start sooner
+        snowflake.style.fontSize = `${1 + Math.random() * 1.5}rem`;
+        snowflake.style.opacity = `${0.7 + Math.random() * 0.3}`;
+        snowflake.style.color = '#a8d5ff'; // Light blue instead of white
+        snowflake.style.textShadow = '0 0 8px rgba(168, 213, 255, 0.9), 0 0 15px rgba(100, 180, 255, 0.5)';
         return snowflake;
       }
     },
     easter: {
-      count: 12,
+      count: 5, // Reduced from 12
       create: (i) => {
-        const emojis = ['🥚', '🐰', '🌸', '🌷', '🦋', '🐣'];
+        const emojis = ['🥚', '🐰', '🌸', '🌷', '🐣'];
         const element = document.createElement('div');
         element.className = 'easter-element';
         element.textContent = emojis[i % emojis.length];
-        element.style.left = `${5 + Math.random() * 90}%`;
-        element.style.top = `${10 + Math.random() * 80}%`;
-        element.style.animationDuration = `${3 + Math.random() * 4}s`;
-        element.style.animationDelay = `${Math.random() * 3}s`;
-        element.style.fontSize = `${1 + Math.random() * 1.5}rem`;
-        element.style.opacity = `${0.4 + Math.random() * 0.3}`;
+        // Position in corners/edges, not center
+        const positions = [
+          { left: '5%', top: '15%' },
+          { left: '92%', top: '25%' },
+          { left: '8%', top: '75%' },
+          { left: '90%', top: '80%' },
+          { left: '50%', top: '90%' }
+        ];
+        element.style.left = positions[i].left;
+        element.style.top = positions[i].top;
+        element.style.animationDuration = `${4 + Math.random() * 3}s`;
+        element.style.animationDelay = `${i * 0.5}s`;
+        element.style.fontSize = '1.2rem';
+        element.style.opacity = '0.35';
         return element;
       }
     }
