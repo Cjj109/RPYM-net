@@ -93,12 +93,22 @@ import HeaderDecorations from './HeaderDecorations.astro';
     });
   });
 
-  // Admin dropdown visibility
-  const isAdmin = sessionStorage.getItem('rpym_admin_auth') === 'true';
-  if (isAdmin) {
-    document.getElementById('admin-dropdown')?.classList.remove('hidden');
-    document.getElementById('admin-mobile-links')?.classList.remove('hidden');
+  // Admin dropdown visibility - check auth via API
+  async function checkAdminAuth() {
+    try {
+      const response = await fetch('/api/auth/me', { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.authenticated) {
+          document.getElementById('admin-dropdown')?.classList.remove('hidden');
+          document.getElementById('admin-mobile-links')?.classList.remove('hidden');
+        }
+      }
+    } catch (e) {
+      // Not authenticated, menu stays hidden
+    }
   }
+  checkAdminAuth();
 
   // Admin dropdown toggle
   const dropdownBtn = document.getElementById('admin-dropdown-btn');
