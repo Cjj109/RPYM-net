@@ -73,18 +73,41 @@ jobs:
         run: |
           echo "Updating D1 with rate: $BCV_RATE"
 
-          RESPONSE=$(curl -s -X POST "${RPYM_API_URL}/api/config/update-bcv" \
+          # Debug: Check if secrets are set
+          if [ -z "$RPYM_API_URL" ]; then
+            echo "ERROR: RPYM_API_URL secret is not set!"
+            exit 1
+          fi
+
+          if [ -z "$RPYM_API_SECRET" ]; then
+            echo "ERROR: RPYM_API_SECRET secret is not set!"
+            exit 1
+          fi
+
+          # Trim whitespace from URL
+          API_URL=$(echo "$RPYM_API_URL" | tr -d '[:space:]')
+          echo "API URL: $API_URL/api/config/update-bcv"
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${API_URL}/api/config/update-bcv" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${RPYM_API_SECRET}" \
             -d "{\"rate\": ${BCV_RATE}, \"source\": \"${BCV_SOURCE}\", \"date\": \"${BCV_DATE}\"}")
 
-          echo "API Response: $RESPONSE"
+          # Extract HTTP status code (last line) and body
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
 
-          SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
-          if [ "$SUCCESS" = "true" ]; then
-            echo "BCV rate updated successfully!"
-          else
-            echo "Failed to update BCV rate"
-            echo "Response: $RESPONSE"
-            exit 1
+          echo "HTTP Status: $HTTP_CODE"
+          echo "API Response: $BODY"
+
+          # Check if request was successful
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+            if [ "$SUCCESS" = "true" ]; then
+              echo "BCV rate updated successfully!"
+              exit 0
+            fi
           fi
+
+          echo "Failed to update BCV rate (HTTP $HTTP_CODE)"
+          exit 1
