@@ -53,6 +53,16 @@ export const GET: APIRoute = async ({ locals }) => {
       source = config.bcv_rate_source || 'D1';
     }
 
+    // Save today's rate to bcv_rates history (fire and forget)
+    if (activeRate > 0) {
+      const today = new Date().toISOString().split('T')[0];
+      try {
+        await db.prepare(
+          'INSERT OR IGNORE INTO bcv_rates (date, usd_rate) VALUES (?, ?)'
+        ).bind(today, activeRate).run();
+      } catch (_) { /* ignore - table may not exist yet */ }
+    }
+
     return new Response(JSON.stringify({
       rate: activeRate,
       manual: isManual,

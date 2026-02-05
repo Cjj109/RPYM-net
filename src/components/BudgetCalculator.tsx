@@ -66,8 +66,8 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
     let usd = 0;
     let bs = 0;
     selectedItems.forEach(item => {
-      usd += item.product.precioUSD * item.quantity;
-      bs += item.product.precioBs * item.quantity;
+      usd += Math.round(item.product.precioUSD * item.quantity * 100) / 100;
+      bs += Math.round(item.product.precioBs * item.quantity * 100) / 100;
     });
     return { usd, bs };
   }, [selectedItems]);
@@ -491,8 +491,8 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
         unidad: product.unidad,
         precioUSD: product.precioUSD,
         precioBs: product.precioBs,
-        subtotalUSD: product.precioUSD * quantity,
-        subtotalBs: product.precioBs * quantity
+        subtotalUSD: Math.round(product.precioUSD * quantity * 100) / 100,
+        subtotalBs: Math.round(product.precioBs * quantity * 100) / 100
       }));
 
       const result = await savePresupuesto({

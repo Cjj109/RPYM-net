@@ -1,0 +1,13 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import CuentaPublica from '../../components/CuentaPublica';
+
+export const prerender = false;
+---
+
+<Layout
+  title="Mi Cuenta | RPYM"
+  description="Consulta tu balance y movimientos con RPYM Mariscos"
+>
+  <CuentaPublica client:load />
+</Layout>

@@ -8,16 +8,20 @@ interface ProductInfo {
   nombre: string;
   unidad: string;
   precioUSD: number;
+  precioUSDDivisa?: number | null;
 }
 
 interface ParsedItem {
-  productId: string;
-  productName: string;
+  productId: string | null;
+  productName: string | null;
   requestedName: string;
   quantity: number;
   unit: string;
   matched: boolean;
   confidence: 'high' | 'medium' | 'low';
+  dollarAmount?: number | null;
+  customPrice?: number | null;
+  customPriceDivisa?: number | null;
 }
 
 interface ParseRequest {
@@ -29,6 +33,11 @@ interface ParseResponse {
   success: boolean;
   items: ParsedItem[];
   unmatched: string[];
+  delivery?: number | null;
+  customerName?: string | null;
+  dollarsOnly?: boolean;
+  isPaid?: boolean;
+  pricingMode?: 'bcv' | 'divisa' | 'dual' | null;
   error?: string;
 }
 
@@ -65,39 +74,93 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    // Crear lista de productos disponibles para el prompt
+    // Crear lista de productos disponibles para el prompt (incluir precios para cálculos)
     const productList = products.map(p =>
-      `- ID: ${p.id} | Nombre: "${p.nombre}" | Unidad: ${p.unidad}`
+      `- ID: ${p.id} | Nombre: "${p.nombre}" | Precio BCV: $${p.precioUSD.toFixed(2)}/${p.unidad}${p.precioUSDDivisa ? ` | Precio Divisa: $${p.precioUSDDivisa.toFixed(2)}/${p.unidad}` : ''} | Unidad: ${p.unidad}`
     ).join('\n');
 
     const systemPrompt = `Eres un asistente especializado en interpretar listas de pedidos de mariscos para un negocio en Venezuela.
 
 Tu tarea es:
-1. Analizar el texto del usuario que contiene una lista de productos con cantidades
+1. Analizar el texto del usuario que contiene una lista de productos con cantidades O MONTOS EN DÓLARES
 2. Identificar cada producto y su cantidad
 3. Hacer match con los productos disponibles en el catálogo
+4. Si el usuario especifica un MONTO EN DÓLARES (ej: "$20 de calamar"), CALCULAR la cantidad dividiendo el monto entre el precio del producto
 
 REGLAS DE INTERPRETACIÓN:
+- MONTOS EN DÓLARES: "$20 de calamar nacional" → buscar precio del calamar ($18/kg) → cantidad = 20/18 = 1.11 kg
 - "1/2 kg", "medio kilo", "500g", "500gr" = 0.5 kg
 - "1kg", "1 kilo", "un kilo" = 1 kg
 - "2 cajas", "2cj" = 2 (unidad: caja)
-- Los números antes del producto indican cantidad
+- Los números antes del producto indican cantidad (si no hay símbolo $)
 - Si no se especifica unidad, asumir "kg" para productos por peso
 - Para camarones, las tallas como "41/50", "61/70" son importantes para el match
+- Redondear cantidades calculadas a 3 decimales
+
+FORMATOS DE MONTO VÁLIDOS:
+- "$20 de producto" → monto = 20, calcular cantidad
+- "20$ de producto" → monto = 20
+- "20 dolares de producto" → monto = 20
+- "veinte dolares de producto" → monto = 20
+
+PRECIOS PERSONALIZADOS (solo admin):
+- "camaron vivito 5kg a 13" → 5kg con precio unitario $13 (no el precio del catálogo)
+- "1kg pulpo a $20" → 1kg con precio unitario $20
+- "2kg calamar a 15" → 2kg con precio unitario $15
+- Si el usuario especifica "a X" o "a $X", ese es el precio personalizado por unidad (customPrice)
+
+PRECIOS PERSONALIZADOS DUALES:
+- "tentaculo a 13 en bs y 10 en divisas" → customPrice: 13 (BCV), customPriceDivisa: 10 (divisa)
+- "pulpo a 20 bcv 18 divisa" → customPrice: 20, customPriceDivisa: 18
+- "calamar a 15/12" → customPrice: 15 (BCV), customPriceDivisa: 12 (divisa) cuando hay formato X/Y
+- Si solo se especifica un precio, customPriceDivisa será null
+- Si se especifican dos precios, el mayor suele ser el BCV y el menor el divisa
 
 VARIACIONES COMUNES:
 - "camaron" = "camarón"
 - "camarones conchas" = "camarón en concha" o "camarón con concha"
-- "langostino" puede referirse a "Langostino"
-- "jaiba" = "Jaiba"
-- "calamar" puede ser "Calamar Pota" o "Calamar Nacional"
-- "desvenado" = "Pelado y Desvenado"
+- "calamar" sin especificar puede ser "Calamar Pota" o "Calamar Nacional" (preferir Nacional)
+- "desvenado" = "Pelado y Desvenado" o "Camarón Desvenado"
+- "pulpo" sin especificar preferir "Pulpo Mediano"
+- "pepitona" = "Pepitona" (no la caja de 10kg a menos que diga "caja")
 
-ACLARACIONES DEL CLIENTE:
-- Si el texto incluye una sección "ACLARACIONES DEL CLIENTE", usa esas correcciones para ajustar tu interpretación
+ACLARACIONES DEL USUARIO:
+- Si el texto incluye aclaraciones o correcciones, úsalas para ajustar tu interpretación
 - Las aclaraciones tienen PRIORIDAD sobre tu interpretación inicial
-- Ejemplo: si dice "el camarón es con concha, no pelado", busca variantes "con concha" o "en concha" en lugar de "desvenado"
-- Si dice "es X, no Y", asegúrate de buscar X en el catálogo
+
+DELIVERY:
+- Si el usuario menciona "delivery", "envío", "envio", "flete", extrae el costo
+- Formatos: "delivery $5", "$5 delivery", "5$ de delivery", "envío 5 dólares"
+- Si no menciona delivery, delivery será null
+
+NOMBRE DEL CLIENTE:
+- Detecta si se menciona un nombre de cliente
+- Formatos: "cliente: Juan", "para Maria", "pedido de Pedro", "Juan Garcia", "cliente Juan"
+- Si hay un nombre propio al inicio o después de "cliente/para/pedido de", extraerlo
+- Si no se detecta nombre, customerName será null
+
+SOLO DÓLARES:
+- Detecta si el pedido es solo en dólares (sin bolívares)
+- Formatos: "solo dolares", "sin bolivares", "en dolares", "puro dolar", "solo $", "factura en dolares"
+- Si se menciona, dollarsOnly será true, sino false
+
+ESTADO PAGADO:
+- Detecta si el pedido ya está pagado
+- Formatos: "pagado", "ya pago", "cancelado" (en el sentido de pagado), "ya pagó", "pago confirmado"
+- Si se menciona, isPaid será true, sino false
+
+MODO DE PRECIO:
+- Cada producto puede tener dos precios: "Precio BCV" (para pago en bolívares) y "Precio Divisa" (para pago en dólares efectivos)
+- Detecta el modo de pago del cliente:
+  - Si dice "a BCV", "precios BCV", "va a pagar en bolivares", "pago movil", "transferencia" → pricingMode: "bcv"
+  - Si dice "en dolares", "pago en divisa", "va a pagar en dolares", "precio divisa", "efectivo", "cash" → pricingMode: "divisa"
+  - Si dice "dual", "ambos precios", "bcv y divisa", "los dos precios", "presupuesto dual" → pricingMode: "dual"
+  - Si especifica precios personalizados duales (ej: "a 13 en bs y 10 en divisas") → pricingMode: "dual"
+  - Si no se especifica → pricingMode: null
+- Cuando el modo es "divisa" y el producto tiene Precio Divisa, usar ese precio para calcular cantidades por monto en dólares
+- Cuando el modo es "bcv" o no se especifica, usar el Precio BCV (el precio por defecto)
+- Cuando el modo es "dual", se usarán ambos precios (el presupuesto mostrará ambas versiones)
+- Ejemplo: "$20 de calamar" en modo divisa con Precio Divisa $15/kg → cantidad = 20/15 = 1.333 kg
 
 Responde SOLO con un JSON válido con esta estructura:
 {
@@ -105,14 +168,22 @@ Responde SOLO con un JSON válido con esta estructura:
     {
       "productId": "id del producto del catálogo o null si no hay match",
       "productName": "nombre exacto del catálogo o null",
-      "requestedName": "nombre como lo escribió el usuario",
-      "quantity": número,
+      "requestedName": "lo que escribió el usuario (ej: '$20 de calamar')",
+      "quantity": número calculado,
       "unit": "kg" o "caja" o "paquete",
       "matched": true/false,
-      "confidence": "high" | "medium" | "low"
+      "confidence": "high" | "medium" | "low",
+      "dollarAmount": número o null (si el usuario especificó monto en $),
+      "customPrice": número o null (precio BCV por unidad si el usuario dijo "a $X"),
+      "customPriceDivisa": número o null (precio Divisa por unidad, solo si el usuario dio dos precios)
     }
   ],
-  "unmatched": ["items que no pudiste identificar"]
+  "unmatched": ["items que no pudiste identificar"],
+  "delivery": número o null (costo de delivery si se mencionó),
+  "customerName": "nombre del cliente" o null,
+  "dollarsOnly": true/false,
+  "isPaid": true/false,
+  "pricingMode": "bcv" | "divisa" | "dual" | null
 }`;
 
     const userPrompt = `CATÁLOGO DE PRODUCTOS DISPONIBLES:
@@ -205,7 +276,12 @@ Analiza la lista e identifica cada producto con su cantidad. Haz el mejor match 
     return new Response(JSON.stringify({
       success: true,
       items: parsedResult.items || [],
-      unmatched: parsedResult.unmatched || []
+      unmatched: parsedResult.unmatched || [],
+      delivery: parsedResult.delivery || null,
+      customerName: parsedResult.customerName || null,
+      dollarsOnly: parsedResult.dollarsOnly || false,
+      isPaid: parsedResult.isPaid || false,
+      pricingMode: parsedResult.pricingMode || null
     } as ParseResponse), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }

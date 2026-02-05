@@ -68,9 +68,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
+    const rateDate = date || new Date().toISOString().split('T')[0];
+    const eurRate = body.eurRate ? parseFloat(body.eurRate) : null;
+
     // Update the BCV rate in site_config
     // This will be used when manual mode is OFF
-    await db.batch([
+    const statements = [
       db.prepare(`
         INSERT OR REPLACE INTO site_config (key, value, updated_at)
         VALUES ('bcv_rate_auto', ?, datetime('now'))
@@ -82,15 +85,23 @@ export const POST: APIRoute = async ({ request, locals }) => {
       db.prepare(`
         INSERT OR REPLACE INTO site_config (key, value, updated_at)
         VALUES ('bcv_rate_date', ?, datetime('now'))
-      `).bind(date || new Date().toISOString().split('T')[0])
-    ]);
+      `).bind(rateDate),
+      // Save to bcv_rates history table
+      db.prepare(`
+        INSERT OR REPLACE INTO bcv_rates (date, usd_rate, eur_rate)
+        VALUES (?, ?, ?)
+      `).bind(rateDate, rate, eurRate),
+    ];
+
+    await db.batch(statements);
 
     return new Response(JSON.stringify({
       success: true,
       message: `BCV rate updated to ${rate.toFixed(4)}`,
       rate: rate,
+      eurRate: eurRate,
       source: source || 'API',
-      date: date || new Date().toISOString().split('T')[0]
+      date: rateDate
     }), {
       headers: { 'Content-Type': 'application/json' }
     });

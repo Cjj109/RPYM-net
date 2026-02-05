@@ -4,10 +4,17 @@ import { PriceListInteractive } from '../components/PriceListInteractive';
 import NoFiado from '../components/NoFiado.astro';
 import InfoSection from '../components/InfoSection.astro';
 import { getProducts, groupByCategory, getBCVRate, getMasVendidos } from '../lib/sheets';
+import { getD1 } from '../lib/d1-types';
 
-// Obtener tasa BCV y productos
+// SSR para datos frescos de D1
+export const prerender = false;
+
+// Obtener D1 database si está disponible
+const db = getD1(Astro.locals);
+
+// Obtener tasa BCV y productos (D1 primary, Google Sheets fallback)
 const bcvRate = await getBCVRate();
-const products = await getProducts(bcvRate.rate);
+const products = await getProducts(bcvRate.rate, db || undefined);
 const categories = groupByCategory(products);
 const masVendidos = getMasVendidos(products);
 ---

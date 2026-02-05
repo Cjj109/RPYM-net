@@ -3,14 +3,10 @@ import { getD1, type D1Presupuesto } from '../../../lib/d1-types';
 
 export const prerender = false;
 
-// Generate presupuesto ID: RPYM-YYMMDD-XXX
+// Generate presupuesto ID: 5-digit number
 function generatePresupuestoId(): string {
-  const now = new Date();
-  const yy = String(now.getFullYear()).slice(-2);
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  const random = Math.random().toString(36).substring(2, 5).toUpperCase();
-  return `RPYM-${yy}${mm}${dd}-${random}`;
+  const num = Math.floor(10000 + Math.random() * 90000);
+  return String(num);
 }
 
 // Transform D1 row to API response format
@@ -21,6 +17,7 @@ function transformPresupuesto(row: D1Presupuesto) {
     items: JSON.parse(row.items),
     totalUSD: row.total_usd,
     totalBs: row.total_bs,
+    totalUSDDivisa: row.total_usd_divisa,
     estado: row.estado,
     customerName: row.customer_name,
     customerAddress: row.customer_address,
@@ -100,7 +97,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const body = await request.json();
-    const { items, totalUSD, totalBs, customerName, customerAddress, clientIP, status, source } = body;
+    const { items, totalUSD, totalBs, totalUSDDivisa, customerName, customerAddress, clientIP, status, source } = body;
 
     // Validate required fields
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -127,14 +124,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const fecha = new Date().toISOString();
 
     await db.prepare(`
-      INSERT INTO presupuestos (id, fecha, items, total_usd, total_bs, estado, customer_name, customer_address, client_ip, source, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      INSERT INTO presupuestos (id, fecha, items, total_usd, total_bs, total_usd_divisa, estado, customer_name, customer_address, client_ip, source, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
     `).bind(
       id,
       fecha,
       JSON.stringify(items),
       totalUSD,
       totalBs,
+      totalUSDDivisa || null,
       status || 'pendiente',
       customerName || null,
       customerAddress || null,

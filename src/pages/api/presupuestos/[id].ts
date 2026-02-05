@@ -11,6 +11,7 @@ function transformPresupuesto(row: D1Presupuesto) {
     items: JSON.parse(row.items),
     totalUSD: row.total_usd,
     totalBs: row.total_bs,
+    totalUSDDivisa: row.total_usd_divisa,
     estado: row.estado,
     customerName: row.customer_name,
     customerAddress: row.customer_address,
@@ -131,16 +132,17 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
       `).bind(status, fechaPago, id).run();
     } else {
       // Full update (items, totals, customer info)
-      const { items, totalUSD, totalBs, customerName, customerAddress } = body;
+      const { items, totalUSD, totalBs, totalUSDDivisa, customerName, customerAddress } = body;
 
       await db.prepare(`
         UPDATE presupuestos
-        SET items = ?, total_usd = ?, total_bs = ?, customer_name = ?, customer_address = ?, updated_at = datetime('now')
+        SET items = ?, total_usd = ?, total_bs = ?, total_usd_divisa = ?, customer_name = ?, customer_address = ?, updated_at = datetime('now')
         WHERE id = ?
       `).bind(
         JSON.stringify(items),
         totalUSD,
         totalBs,
+        totalUSDDivisa || null,
         customerName || null,
         customerAddress || null,
         id

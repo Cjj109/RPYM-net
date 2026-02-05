@@ -8,3 +8,9 @@ compatibility_date = "2024-01-01"
 binding = "DB"
 database_name = "rpym-db"
 database_id = "33a05cd3-7675-445f-886f-82587984fe64"
+
+# R2 Bucket for invoice images
+# Create with: wrangler r2 bucket create rpym-invoices
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "rpym-invoices"

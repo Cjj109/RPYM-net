@@ -16,6 +16,7 @@ jobs:
         id: fetch-rate
         run: |
           echo "Fetching BCV rate from exchangedyn.com..."
+          EUR_RATE=""
 
           # Try primary API (exchangedyn.com)
           RESPONSE=$(curl -s "https://api.exchangedyn.com/markets/quotes/usdves/bcv" \
@@ -30,9 +31,19 @@ jobs:
               SOURCE="exchangedyn"
               DATE=$(date +%Y-%m-%d)
 
+              # Also try to fetch euro rate from bcvapi.tech
+              EUR_RESPONSE=$(curl -s "https://bcvapi.tech/api/v1/euro/public" -H "Accept: application/json" || true)
+              if [ -n "$EUR_RESPONSE" ]; then
+                EUR_RATE=$(echo "$EUR_RESPONSE" | jq -r '.valor // empty')
+                if [ -n "$EUR_RATE" ] && [ "$EUR_RATE" != "null" ]; then
+                  echo "Euro rate: $EUR_RATE"
+                fi
+              fi
+
               echo "rate=$RATE" >> $GITHUB_OUTPUT
               echo "source=$SOURCE" >> $GITHUB_OUTPUT
               echo "date=$DATE" >> $GITHUB_OUTPUT
+              echo "eur_rate=$EUR_RATE" >> $GITHUB_OUTPUT
               echo "Success: Rate = $RATE from $SOURCE"
               exit 0
             fi
@@ -51,9 +62,19 @@ jobs:
               SOURCE="bcvapi"
               DATE=$(date +%Y-%m-%d)
 
+              # Also fetch euro rate since we're already using bcvapi
+              EUR_RESPONSE=$(curl -s "https://bcvapi.tech/api/v1/euro/public" -H "Accept: application/json" || true)
+              if [ -n "$EUR_RESPONSE" ]; then
+                EUR_RATE=$(echo "$EUR_RESPONSE" | jq -r '.valor // empty')
+                if [ -n "$EUR_RATE" ] && [ "$EUR_RATE" != "null" ]; then
+                  echo "Euro rate: $EUR_RATE"
+                fi
+              fi
+
               echo "rate=$RATE" >> $GITHUB_OUTPUT
               echo "source=$SOURCE" >> $GITHUB_OUTPUT
               echo "date=$DATE" >> $GITHUB_OUTPUT
+              echo "eur_rate=$EUR_RATE" >> $GITHUB_OUTPUT
               echo "Fallback success: Rate = $RATE from $SOURCE"
               exit 0
             fi
@@ -70,8 +91,9 @@ jobs:
           BCV_RATE: ${{ steps.fetch-rate.outputs.rate }}
           BCV_SOURCE: ${{ steps.fetch-rate.outputs.source }}
           BCV_DATE: ${{ steps.fetch-rate.outputs.date }}
+          BCV_EUR_RATE: ${{ steps.fetch-rate.outputs.eur_rate }}
         run: |
-          echo "Updating D1 with rate: $BCV_RATE"
+          echo "Updating D1 with rate: $BCV_RATE (EUR: $BCV_EUR_RATE)"
 
           # Debug: Check if secrets are set
           if [ -z "$RPYM_API_URL" ]; then
@@ -88,10 +110,17 @@ jobs:
           API_URL=$(echo "$RPYM_API_URL" | tr -d '[:space:]')
           echo "API URL: $API_URL/api/config/update-bcv"
 
+          # Build JSON body with optional eurRate
+          if [ -n "$BCV_EUR_RATE" ] && [ "$BCV_EUR_RATE" != "" ]; then
+            JSON_BODY="{\"rate\": ${BCV_RATE}, \"source\": \"${BCV_SOURCE}\", \"date\": \"${BCV_DATE}\", \"eurRate\": ${BCV_EUR_RATE}}"
+          else
+            JSON_BODY="{\"rate\": ${BCV_RATE}, \"source\": \"${BCV_SOURCE}\", \"date\": \"${BCV_DATE}\"}"
+          fi
+
           RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${API_URL}/api/config/update-bcv" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${RPYM_API_SECRET}" \
-            -d "{\"rate\": ${BCV_RATE}, \"source\": \"${BCV_SOURCE}\", \"date\": \"${BCV_DATE}\"}")
+            -d "$JSON_BODY")
 
           # Extract HTTP status code (last line) and body
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)

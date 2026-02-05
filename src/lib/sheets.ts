@@ -1,9 +1,34 @@
-// Configuracion de Google Sheets
+// Configuracion de Google Sheets (fallback) y D1 (primary)
+// El sistema intenta leer de D1 primero, y si falla usa Google Sheets como fallback.
 // Para obtener el SHEET_ID: abrir tu Google Sheet y copiar el ID de la URL
 // URL: https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit
 // IMPORTANTE: El Sheet debe estar compartido como "Cualquier persona con el enlace puede ver"
 
 const SHEET_ID = import.meta.env.PUBLIC_SHEET_ID || 'TU_SHEET_ID_AQUI';
+
+// D1 Database type (simplified for product queries)
+type D1Database = {
+  prepare: (sql: string) => {
+    all: <T>() => Promise<{ results: T[] }>;
+    bind: (...values: unknown[]) => {
+      all: <T>() => Promise<{ results: T[] }>;
+    };
+  };
+};
+
+interface D1ProductRow {
+  id: number;
+  nombre: string;
+  descripcion: string | null;
+  descripcion_corta: string | null;
+  descripcion_home: string | null;
+  categoria: string;
+  precio_usd: number;
+  precio_usd_divisa: number | null;
+  unidad: string;
+  disponible: number;
+  sort_order: number;
+}
 
 export interface Product {
   id: string;
@@ -13,6 +38,7 @@ export interface Product {
   descripcionHome: string; // Descripción ultra-corta (5-7 palabras) para la home
   categoria: string;
   precioUSD: number;
+  precioUSDDivisa?: number | null;
   precioBs: number;
   unidad: string;
   disponible: boolean;
@@ -417,7 +443,7 @@ export interface BCVRate {
 
 // Datos de ejemplo mientras no se configure el Sheet real
 // Actualizados con precios reales del negocio
-const SAMPLE_DATA: Omit<Product, 'precioBs' | 'descripcionCorta' | 'masVendido' | 'incremento' | 'esCaja'>[] = [
+const SAMPLE_DATA: Omit<Product, 'precioBs' | 'descripcionCorta' | 'descripcionHome' | 'precioUSDDivisa' | 'masVendido' | 'incremento' | 'esCaja'>[] = [
   // ═══════════════════════════════════════════════════════════════════
   // CAMARONES EN CONCHA
   // ═══════════════════════════════════════════════════════════════════
@@ -820,10 +846,54 @@ export async function getBCVRate(): Promise<BCVRate> {
 }
 
 /**
- * Obtiene los productos desde Google Sheets
- * Si falla o no esta configurado, devuelve datos de ejemplo
+ * Obtiene los productos desde D1 (primary) o Google Sheets (fallback)
+ * @param bcvRate - Tasa de cambio BCV
+ * @param db - Opcional: instancia de D1 database para consulta directa
  */
-export async function getProducts(bcvRate: number): Promise<Product[]> {
+export async function getProducts(bcvRate: number, db?: D1Database): Promise<Product[]> {
+  // Si tenemos acceso a D1, intentar leer de ahí primero
+  if (db) {
+    try {
+      const results = await db.prepare(`
+        SELECT * FROM products ORDER BY sort_order ASC, categoria ASC, nombre ASC
+      `).all<D1ProductRow>();
+
+      if (results.results && results.results.length > 0) {
+        console.log(`✅ Cargados ${results.results.length} productos desde D1`);
+        return results.results.map((row, index) => {
+          const nombre = row.nombre;
+          const descripcion = row.descripcion || '';
+          const unidad = row.unidad;
+          // Usar descripciones de D1 si existen, sino generar automáticamente
+          const descripcionCorta = row.descripcion_corta || generarDescripcionCorta(descripcion, nombre);
+          const descripcionHome = row.descripcion_home || generarDescripcionHome(nombre);
+          return {
+            id: String(row.id),
+            nombre,
+            descripcion,
+            descripcionCorta,
+            descripcionHome,
+            categoria: row.categoria,
+            precioUSD: row.precio_usd,
+            precioUSDDivisa: row.precio_usd_divisa ?? null,
+            precioBs: row.precio_usd * bcvRate,
+            unidad,
+            disponible: row.disponible === 1,
+            masVendido: esMasVendido(nombre),
+            incremento: determinarIncremento(nombre, unidad),
+            esCaja: esProductoCaja(nombre, unidad),
+            minimoKg: determinarMinimoKg(nombre, unidad),
+            entradaLibre: tieneEntradaLibre(nombre, unidad),
+          };
+        });
+      }
+      console.log('⚠️ D1 vacío, usando fallback...');
+    } catch (error) {
+      console.error('Error leyendo de D1:', error);
+    }
+  }
+
+  // Fallback: Google Sheets o datos de ejemplo
   // Si no hay SHEET_ID configurado, usar datos de ejemplo
   if (!SHEET_ID || SHEET_ID === 'TU_SHEET_ID_AQUI') {
     console.log('⚠️ Usando datos de ejemplo. Configura PUBLIC_SHEET_ID para conectar con Google Sheets.');
@@ -878,6 +948,7 @@ export async function getProducts(bcvRate: number): Promise<Product[]> {
           descripcionHome: generarDescripcionHome(nombre),
           categoria: String(row.c[5]?.v || 'General'),
           precioUSD,
+          precioUSDDivisa: null,
           precioBs: precioUSD * bcvRate,
           unidad,
           disponible: String(row.c[4]?.v || 'SI').toUpperCase() !== 'NO',

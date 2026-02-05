@@ -6,6 +6,8 @@ import html2canvas from 'html2canvas';
 
 const AdminBudgetBuilder = lazy(() => import('./AdminBudgetBuilder'));
 const AdminSettings = lazy(() => import('./AdminSettings'));
+const AdminProducts = lazy(() => import('./AdminProducts'));
+const AdminCustomers = lazy(() => import('./AdminCustomers'));
 
 import {
   listPresupuestos,
@@ -41,7 +43,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}) {
-  const [activeTab, setActiveTab] = useState<'ver' | 'crear' | 'config'>('ver');
+  const [activeTab, setActiveTab] = useState<'ver' | 'crear' | 'productos' | 'clientes' | 'config'>('ver');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [currentUser, setCurrentUser] = useState<AdminUser | null>(null);
@@ -66,6 +68,8 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   const [whatsappStatus, setWhatsappStatus] = useState<'idle' | 'capturing' | 'uploading' | 'sent' | 'error'>('idle');
   const [whatsappError, setWhatsappError] = useState<string | null>(null);
   const whatsappCaptureRef = useRef<HTMLDivElement>(null);
+  const [whatsappPopoverId, setWhatsappPopoverId] = useState<string | null>(null);
+  const [rowWhatsappPhone, setRowWhatsappPhone] = useState('');
 
   // Verificar autenticación al cargar via API
   useEffect(() => {
@@ -267,7 +271,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     return d.length === 11 && ['0412', '0414', '0416', '0424', '0426'].includes(d.slice(0, 4));
   };
 
-  // Imprimir nota de entrega (con o sin sello de pagado)
+  // Imprimir nota de entrega (con o sin sello de pagado) - Estilo profesional con bordes
   const printNote = (presupuesto: Presupuesto, showPaid: boolean) => {
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) {
@@ -280,456 +284,441 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
       return rounded.toFixed(3).replace(/\.?0+$/, '');
     };
 
-    const itemsHtml = presupuesto.items.map(item => `
-      <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #e0f2fe;">${item.nombre}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #e0f2fe; text-align: center;">${fmtQty(item.cantidad)} ${item.unidad}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #e0f2fe; text-align: right;">${formatUSD(item.precioUSD)}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #e0f2fe; text-align: right; font-weight: 600; color: #ea580c;">${formatUSD(item.subtotalUSD)}</td>
+    const isDual = presupuesto.totalUSDDivisa != null;
+    const dateStr = new Date(presupuesto.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const customerName = presupuesto.customerName || '';
+    const customerAddress = presupuesto.customerAddress || '';
+
+    // Filas de productos BCV
+    const rows = presupuesto.items.map((item, i) => `
+      <tr style="background:${i % 2 === 0 ? '#fff' : '#f0f9ff'}">
+        <td style="border-right:1px solid #075985;padding:6px 10px;color:#0c4a6e;">${item.nombre}</td>
+        <td style="border-right:1px solid #075985;padding:6px 10px;text-align:center;color:#0c4a6e;">${fmtQty(item.cantidad)}</td>
+        <td style="border-right:1px solid #075985;padding:6px 10px;text-align:center;color:#0c4a6e;">${item.unidad}</td>
+        <td style="border-right:1px solid #075985;padding:6px 10px;text-align:right;color:#0c4a6e;">${formatUSD(item.precioUSD)}</td>
+        <td style="padding:6px 10px;text-align:right;font-weight:600;color:#0c4a6e;">${formatUSD(item.subtotalUSD)}</td>
       </tr>
     `).join('');
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Nota de Entrega - ${presupuesto.id}</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            padding: 1cm;
-            background: white;
-            color: #0c4a6e;
-            font-size: 12px;
-            position: relative;
-          }
-          .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 20px;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #075985;
-          }
-          .logo-section {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-          }
-          .logo {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            border: 2px solid #7dd3fc;
-            overflow: hidden;
-            flex-shrink: 0;
-            background: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-          .logo img {
-            width: 140%;
-            height: 140%;
-            object-fit: contain;
-          }
-          .company-name {
-            font-size: 24px;
-            font-weight: 700;
-            color: #0c4a6e;
-          }
-          .doc-info {
-            text-align: right;
-          }
-          .doc-label {
-            font-size: 9px;
-            color: #0369a1;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-          }
-          .doc-number {
-            font-family: monospace;
-            font-size: 12px;
-            font-weight: 700;
-            color: #0c4a6e;
-            word-break: break-all;
-          }
-          .doc-date {
-            font-size: 11px;
-            color: #0369a1;
-            margin-top: 4px;
-          }
-          .client-section {
-            background: #f0f9ff;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-          }
-          .client-label {
-            font-size: 10px;
-            color: #0369a1;
-            margin-bottom: 4px;
-          }
-          .client-name {
-            font-weight: 600;
-            color: #0c4a6e;
-          }
-          .client-address {
-            font-size: 11px;
-            color: #0369a1;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-          }
-          th {
-            background: #e0f2fe;
-            padding: 10px 8px;
-            text-align: left;
-            font-size: 11px;
-            font-weight: 600;
-            color: #0c4a6e;
-            border-bottom: 2px solid #075985;
-          }
-          .totals {
-            background: #fff7ed;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-          }
-          .total-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 5px;
-          }
-          .total-label {
-            color: #0369a1;
-          }
-          .total-usd {
-            font-size: 20px;
-            font-weight: 700;
-            color: #ea580c;
-          }
-          .total-bs {
-            font-size: 14px;
-            font-weight: 600;
-            color: #0c4a6e;
-          }
-          .footer {
-            text-align: center;
-            padding-top: 15px;
-            border-top: 1px solid #e0f2fe;
-            font-size: 10px;
-            color: #0369a1;
-          }
-          .paid-stamp {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-15deg);
-            border: 6px solid #16a34a;
-            border-radius: 12px;
-            padding: 15px 40px;
-            color: #16a34a;
-            font-size: 36px;
-            font-weight: 900;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            opacity: 0.35;
-            pointer-events: none;
-          }
-          .paid-date {
-            font-size: 12px;
-            font-weight: 500;
-            letter-spacing: 1px;
-          }
-          .thank-you {
-            background: #dcfce7;
-            color: #166534;
-            padding: 12px;
-            border-radius: 8px;
-            text-align: center;
-            margin-bottom: 15px;
-            font-weight: 600;
-          }
-          .non-fiscal {
-            background: #fef3c7;
-            color: #92400e;
-            padding: 8px;
-            border-radius: 6px;
-            text-align: center;
-            font-size: 10px;
-            font-weight: 500;
-            margin-bottom: 15px;
-          }
-          @media print {
-            body { padding: 0.5cm; }
-            @page { size: A4; margin: 0.5cm; }
-          }
-        </style>
-      </head>
-      <body>
-        ${showPaid ? `
-        <!-- Sello de PAGADO -->
-        <div class="paid-stamp">
-          PAGADO
-          <div class="paid-date">${presupuesto.fechaPago ? formatDate(presupuesto.fechaPago) : formatDate(new Date().toISOString())}</div>
+    // Filas de productos Divisa (para presupuestos duales)
+    const divisaRows = isDual ? presupuesto.items.map((item, i) => `
+      <tr style="background:${i % 2 === 0 ? '#fff' : '#fefce8'}">
+        <td style="border-right:1px solid #92400e;padding:6px 10px;color:#713f12;">${item.nombre}</td>
+        <td style="border-right:1px solid #92400e;padding:6px 10px;text-align:center;color:#713f12;">${fmtQty(item.cantidad)}</td>
+        <td style="border-right:1px solid #92400e;padding:6px 10px;text-align:center;color:#713f12;">${item.unidad}</td>
+        <td style="border-right:1px solid #92400e;padding:6px 10px;text-align:right;color:#713f12;">${formatUSD(item.precioUSDDivisa ?? item.precioUSD)}</td>
+        <td style="padding:6px 10px;text-align:right;font-weight:600;color:#713f12;">${formatUSD(item.subtotalUSDDivisa ?? item.subtotalUSD)}</td>
+      </tr>
+    `).join('') : '';
+
+    // Pagina 2 para dual
+    const divisaPageHtml = isDual ? `
+      <div style="page-break-before:always;"></div>
+      <div class="watermark" style="color:rgba(234,179,8,0.06);">PRESUPUESTO</div>
+      ${showPaid ? `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-15deg);border:6px solid #16a34a;border-radius:12px;padding:15px 40px;color:#16a34a;font-size:36px;font-weight:900;text-transform:uppercase;letter-spacing:3px;opacity:0.35;pointer-events:none;z-index:1;">PAGADO</div>` : ''}
+      <div style="display:flex;align-items:center;justify-content:space-between;border:2px solid #92400e;padding:12px 16px;margin-bottom:16px;">
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+            <div style="width:48px;height:48px;border-radius:50%;border:2px solid #fde68a;overflow:hidden;flex-shrink:0;background:white;display:flex;align-items:center;justify-content:center;">
+              <img src="/camaronlogo-sm.webp" alt="RPYM" style="width:140%;height:140%;object-fit:contain;" />
+            </div>
+            <div style="font-size:22px;font-weight:800;color:#713f12;">RPYM</div>
+          </div>
+          <div style="font-size:10px;color:#92400e;">Muelle Pesquero "El Mosquero", Puesto 3 y 4, Maiquetia</div>
         </div>
-        ` : ''}
-
-        <!-- Header -->
-        <div class="header">
-          <div class="logo-section">
-            <div class="logo"><img src="/camaronlogo-sm.webp" alt="RPYM" /></div>
-            <div class="company-name">RPYM</div>
-          </div>
-          <div class="doc-info">
-            <div class="doc-label">Nº Presupuesto</div>
-            <div class="doc-number">${presupuesto.id}</div>
-            <div class="doc-date">${new Date(presupuesto.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${new Date(presupuesto.fecha).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}</div>
-          </div>
+        <div style="text-align:right;">
+          <div style="font-size:16px;font-weight:700;color:#713f12;border-bottom:2px solid #92400e;padding-bottom:4px;margin-bottom:6px;">PRESUPUESTO</div>
+          <div style="background:#fef3c7;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#92400e;margin-bottom:4px;">PRECIOS DIVISA</div>
+          <div style="font-size:10px;color:#92400e;">No: <span style="font-family:monospace;font-weight:600;color:#713f12;">${presupuesto.id}</span></div>
+          <div style="font-size:10px;color:#92400e;margin-top:2px;">Fecha: <span style="font-weight:600;color:#713f12;">${dateStr}</span></div>
         </div>
-
-        <!-- Cliente -->
-        ${presupuesto.customerName || presupuesto.customerAddress ? `
-          <div class="client-section">
-            <div class="client-label">CLIENTE</div>
-            ${presupuesto.customerName ? `<div class="client-name">${presupuesto.customerName}</div>` : ''}
-            ${presupuesto.customerAddress ? `<div class="client-address">${presupuesto.customerAddress}</div>` : ''}
-          </div>
-        ` : ''}
-
-        <!-- Productos -->
+      </div>
+      <div style="border:2px solid #92400e;padding:10px 16px;margin-bottom:16px;">
+        <div style="margin-bottom:6px;"><span style="font-size:10px;font-weight:600;color:#92400e;">Cliente:</span><span style="font-size:12px;color:#713f12;margin-left:8px;">${customerName || '---'}</span></div>
+        <div><span style="font-size:10px;font-weight:600;color:#92400e;">Direccion:</span><span style="font-size:12px;color:#713f12;margin-left:8px;">${customerAddress || '---'}</span></div>
+      </div>
+      <div style="border:2px solid #92400e;margin-bottom:16px;">
         <table>
           <thead>
-            <tr>
-              <th>Producto</th>
-              <th style="text-align: center;">Cantidad</th>
-              <th style="text-align: right;">Precio Unit.</th>
-              <th style="text-align: right;">Subtotal</th>
+            <tr style="background:#fef3c7;">
+              <th style="border-bottom:2px solid #92400e;border-right:1px solid #92400e;padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:#713f12;">Producto</th>
+              <th style="border-bottom:2px solid #92400e;border-right:1px solid #92400e;padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:#713f12;width:60px;">Cant</th>
+              <th style="border-bottom:2px solid #92400e;border-right:1px solid #92400e;padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:#713f12;width:60px;">Unidad</th>
+              <th style="border-bottom:2px solid #92400e;border-right:1px solid #92400e;padding:8px 10px;text-align:right;font-size:11px;font-weight:700;color:#713f12;width:80px;">P.Unitario</th>
+              <th style="border-bottom:2px solid #92400e;padding:8px 10px;text-align:right;font-size:11px;font-weight:700;color:#713f12;width:80px;">Subtotal</th>
             </tr>
           </thead>
-          <tbody>
-            ${itemsHtml}
-          </tbody>
+          <tbody>${divisaRows}</tbody>
         </table>
-
-        <!-- Totales -->
-        <div class="totals">
-          <div class="total-row">
-            <span class="total-label">Total USD:</span>
-            <span class="total-usd">${formatUSD(presupuesto.totalUSD)}</span>
+      </div>
+      <div style="border:2px solid #92400e;margin-bottom:16px;display:flex;">
+        <div style="flex:1;padding:10px 16px;border-right:2px solid #92400e;">
+          <div style="font-size:10px;font-weight:600;color:#92400e;margin-bottom:4px;">OBSERVACIONES:</div>
+          <div style="font-size:10px;color:#92400e;">Precios en USD efectivo</div>
+        </div>
+        <div style="width:200px;padding:10px 16px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;">
+            <span style="color:#92400e;font-weight:600;">Total USD:</span>
+            <span style="font-weight:800;color:#713f12;">${formatUSD(presupuesto.totalUSDDivisa!)}</span>
           </div>
-          <div class="total-row">
-            <span class="total-label">Total Bolívares:</span>
-            <span class="total-bs">${formatBs(presupuesto.totalBs)}</span>
-          </div>
         </div>
+      </div>
+      <div style="display:flex;gap:40px;margin-top:40px;">
+        <div style="flex:1;text-align:center;"><div style="border-top:2px solid #92400e;padding-top:6px;margin:0 30px;"><span style="font-size:10px;font-weight:600;color:#92400e;">CONFORME CLIENTE</span></div></div>
+        <div style="flex:1;text-align:center;"><div style="border-top:2px solid #92400e;padding-top:6px;margin:0 30px;"><span style="font-size:10px;font-weight:600;color:#92400e;">ENTREGADO POR</span></div></div>
+      </div>
+      ${showPaid ? '<div style="background:#dcfce7;color:#166534;padding:12px;border-radius:8px;text-align:center;margin-top:16px;font-weight:600;font-size:13px;">Gracias por su compra!</div>' : ''}
+      <div style="margin-top:${showPaid ? '8' : '20'}px;padding:6px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:4px;text-align:center;">
+        <span style="font-size:10px;color:#b45309;font-weight:500;">Este documento no tiene validez fiscal - Solo para referencia</span>
+      </div>
+      <div style="margin-top:12px;padding-top:8px;border-top:1px solid #fde68a;text-align:center;">
+        <span style="font-size:10px;color:#d97706;">www.rpym.net • WhatsApp: +58 414-214-5202</span>
+      </div>
+    ` : '';
 
-        ${showPaid ? `
-        <!-- Mensaje de agradecimiento (solo en nota pagada) -->
-        <div class="thank-you">
-          ¡Gracias por su compra! 🦐
-        </div>
-        ` : ''}
+    printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <title>Presupuesto - ${presupuesto.id}</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: white;
+      color: #0c4a6e;
+      padding: 12mm 15mm;
+      position: relative;
+    }
+    table { width:100%; border-collapse:collapse; }
+    @media print {
+      body { padding: 0; }
+      @page { size: A4; margin: 12mm 15mm; }
+    }
+    .watermark {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-30deg);
+      font-size: 80px;
+      font-weight: 900;
+      color: rgba(14, 165, 233, 0.06);
+      letter-spacing: 12px;
+      pointer-events: none;
+      z-index: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="watermark">PRESUPUESTO</div>
 
-        <!-- Aviso no fiscal -->
-        <div class="non-fiscal">
-          📋 ESTE DOCUMENTO NO TIENE VALIDEZ FISCAL - Solo para control interno
-        </div>
+  ${showPaid ? `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-15deg);border:6px solid #16a34a;border-radius:12px;padding:15px 40px;color:#16a34a;font-size:36px;font-weight:900;text-transform:uppercase;letter-spacing:3px;opacity:0.35;pointer-events:none;z-index:1;">PAGADO</div>` : ''}
 
-        <!-- Footer -->
-        <div class="footer">
-          <p><a href="https://www.google.com/maps/search/?api=1&query=Mercado+El+Mosquero%2C+Maiquet%C3%ADa" target="_blank" style="text-decoration:underline">Muelle Pesquero "El Mosquero"</a> • Puesto 3 y 4, Maiquetía</p>
-          <p>www.rpym.net • WhatsApp: +58 414-214-5202</p>
+  <!-- Header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;border:2px solid #075985;padding:12px 16px;margin-bottom:16px;">
+    <div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+        <div style="width:48px;height:48px;border-radius:50%;border:2px solid #7dd3fc;overflow:hidden;flex-shrink:0;background:white;display:flex;align-items:center;justify-content:center;">
+          <img src="/camaronlogo-sm.webp" alt="RPYM" style="width:140%;height:140%;object-fit:contain;" />
         </div>
-      </body>
-      </html>
-    `);
+        <div style="font-size:22px;font-weight:800;color:#0c4a6e;">RPYM</div>
+      </div>
+      <div style="font-size:10px;color:#0369a1;">Muelle Pesquero "El Mosquero", Puesto 3 y 4, Maiquetia</div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:16px;font-weight:700;color:#0c4a6e;border-bottom:2px solid #075985;padding-bottom:4px;margin-bottom:6px;">PRESUPUESTO</div>
+      ${isDual ? '<div style="background:#e0f2fe;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#075985;margin-bottom:4px;">PRECIOS BCV</div>' : ''}
+      <div style="font-size:10px;color:#0369a1;">No: <span style="font-family:monospace;font-weight:600;color:#0c4a6e;">${presupuesto.id}</span></div>
+      <div style="font-size:10px;color:#0369a1;margin-top:2px;">Fecha: <span style="font-weight:600;color:#0c4a6e;">${dateStr}</span></div>
+    </div>
+  </div>
+
+  <!-- Client info -->
+  <div style="border:2px solid #075985;padding:10px 16px;margin-bottom:16px;">
+    <div style="margin-bottom:6px;">
+      <span style="font-size:10px;font-weight:600;color:#0369a1;">Cliente:</span>
+      <span style="font-size:12px;color:#0c4a6e;margin-left:8px;">${customerName || '---'}</span>
+    </div>
+    <div>
+      <span style="font-size:10px;font-weight:600;color:#0369a1;">Direccion:</span>
+      <span style="font-size:12px;color:#0c4a6e;margin-left:8px;">${customerAddress || '---'}</span>
+    </div>
+  </div>
+
+  <!-- Products table -->
+  <div style="border:2px solid #075985;margin-bottom:16px;">
+    <table>
+      <thead>
+        <tr style="background:#e0f2fe;">
+          <th style="border-bottom:2px solid #075985;border-right:1px solid #075985;padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:#0c4a6e;">Producto</th>
+          <th style="border-bottom:2px solid #075985;border-right:1px solid #075985;padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:#0c4a6e;width:60px;">Cant</th>
+          <th style="border-bottom:2px solid #075985;border-right:1px solid #075985;padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:#0c4a6e;width:60px;">Unidad</th>
+          <th style="border-bottom:2px solid #075985;border-right:1px solid #075985;padding:8px 10px;text-align:right;font-size:11px;font-weight:700;color:#0c4a6e;width:80px;">P.Unitario</th>
+          <th style="border-bottom:2px solid #075985;padding:8px 10px;text-align:right;font-size:11px;font-weight:700;color:#0c4a6e;width:80px;">Subtotal</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Totals -->
+  <div style="border:2px solid #075985;margin-bottom:16px;display:flex;">
+    <div style="flex:1;padding:10px 16px;border-right:2px solid #075985;">
+      <div style="font-size:10px;font-weight:600;color:#0369a1;margin-bottom:4px;">OBSERVACIONES:</div>
+      <div style="font-size:10px;color:#0369a1;">Tasa BCV aplicada al momento de pago</div>
+    </div>
+    <div style="width:200px;padding:10px 16px;">
+      <div style="display:flex;justify-content:space-between;font-size:13px;">
+        <span style="color:#0369a1;font-weight:600;">Total USD:</span>
+        <span style="font-weight:800;color:#0c4a6e;">${formatUSD(presupuesto.totalUSD)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;border-top:1px solid #7dd3fc;padding-top:4px;">
+        <span style="color:#0369a1;">Total Bs.:</span>
+        <span style="font-weight:700;color:#ea580c;">${formatBs(presupuesto.totalBs)}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signatures -->
+  <div style="display:flex;gap:40px;margin-top:40px;">
+    <div style="flex:1;text-align:center;">
+      <div style="border-top:2px solid #075985;padding-top:6px;margin:0 30px;">
+        <span style="font-size:10px;font-weight:600;color:#0369a1;">CONFORME CLIENTE</span>
+      </div>
+    </div>
+    <div style="flex:1;text-align:center;">
+      <div style="border-top:2px solid #075985;padding-top:6px;margin:0 30px;">
+        <span style="font-size:10px;font-weight:600;color:#0369a1;">ENTREGADO POR</span>
+      </div>
+    </div>
+  </div>
+
+  ${showPaid ? '<div style="background:#dcfce7;color:#166534;padding:12px;border-radius:8px;text-align:center;margin-top:16px;font-weight:600;font-size:13px;">Gracias por su compra!</div>' : ''}
+
+  <!-- Non-fiscal notice -->
+  <div style="margin-top:${showPaid ? '8' : '20'}px;padding:6px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:4px;text-align:center;">
+    <span style="font-size:10px;color:#b45309;font-weight:500;">Este documento no tiene validez fiscal - Solo para referencia</span>
+  </div>
+
+  <!-- Footer -->
+  <div style="margin-top:12px;padding-top:8px;border-top:1px solid #bae6fd;text-align:center;">
+    <span style="font-size:10px;color:#0ea5e9;">www.rpym.net • WhatsApp: +58 414-214-5202</span>
+  </div>
+
+  ${divisaPageHtml}
+</body>
+</html>`);
 
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => printWindow.print(), 250);
   };
 
-  // Vista WhatsApp compacta del presupuesto
+  // Vista WhatsApp compacta del presupuesto (estilo card limpio)
   const handleWhatsAppView = (presupuesto: Presupuesto) => {
     const isPaid = presupuesto.estado === 'pagado';
+    const isDualWA = presupuesto.totalUSDDivisa != null;
     const fmtQty = (qty: number): string => {
       const rounded = Math.round(qty * 1000) / 1000;
       return rounded.toFixed(3).replace(/\.?0+$/, '');
     };
+    const fechaStr = new Date(presupuesto.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-    const whatsappWindow = window.open('', '_blank', 'width=380,height=700');
-    if (!whatsappWindow) {
+    const waWindow = window.open('', '_blank', 'width=380,height=700,scrollbars=yes');
+    if (!waWindow) {
       alert('No se pudo abrir la ventana. Verifica que no estén bloqueados los popups.');
       return;
     }
 
-    const itemsHtml = presupuesto.items.map(item => `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#fff;border-radius:8px;margin-bottom:4px;">
-        <div>
-          <div style="font-weight:600;font-size:13px;color:#0c4a6e;">${item.nombre}</div>
-          <div style="font-size:11px;color:#64748b;">${fmtQty(item.cantidad)} ${item.unidad} × ${formatUSD(item.precioUSD)}</div>
-        </div>
-        <div style="font-weight:700;font-size:14px;color:#ea580c;">${formatUSD(item.subtotalUSD)}</div>
+    const productRows = presupuesto.items.map(item => `
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid #f0f9ff;">
+        <div style="flex:1;font-size:13px;color:#0c4a6e;">${item.nombre}</div>
+        <div style="font-size:12px;color:#0369a1;margin:0 8px;white-space:nowrap;">${fmtQty(item.cantidad)} ${item.unidad}</div>
+        <div style="font-size:13px;font-weight:600;color:#0c4a6e;white-space:nowrap;">${formatUSD(item.subtotalUSD)}</div>
       </div>
     `).join('');
 
-    whatsappWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>RPYM - ${presupuesto.id}</title>
-        <meta name="viewport" content="width=device-width,initial-scale=1">
-        <style>
-          * { margin:0; padding:0; box-sizing:border-box; }
-          body { font-family:'Inter',-apple-system,sans-serif; background:#e5ddd5; min-height:100vh; }
-          .chat-header { background:#075e54; color:white; padding:12px 16px; display:flex; align-items:center; gap:10px; position:sticky; top:0; }
-          .avatar { width:36px; height:36px; border-radius:50%; background:white; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-          .avatar img { width:130%; height:130%; object-fit:contain; }
-          .chat-name { font-weight:600; font-size:15px; }
-          .chat-status { font-size:11px; opacity:0.8; }
-          .bubble { background:white; margin:12px; border-radius:0 8px 8px 8px; padding:12px; box-shadow:0 1px 2px rgba(0,0,0,0.1); }
-          .bubble-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
-          .bubble-id { font-weight:700; font-size:14px; color:#0c4a6e; }
-          .bubble-date { font-size:11px; color:#64748b; }
-          .paid-badge { display:inline-flex; align-items:center; gap:4px; background:#dcfce7; color:#166534; font-size:11px; font-weight:600; padding:2px 8px; border-radius:9999px; margin-left:6px; }
-          .items-section { margin-bottom:10px; }
-          .totals-section { background:#fff7ed; border-radius:8px; padding:10px 12px; margin-top:8px; }
-          .total-row { display:flex; justify-content:space-between; margin-bottom:4px; }
-          .total-label { color:#0369a1; font-size:13px; }
-          .total-usd { font-weight:700; font-size:18px; color:#ea580c; }
-          .total-bs { font-weight:600; font-size:13px; color:#0c4a6e; }
-          .client-info { background:#f0f9ff; border-radius:6px; padding:8px 10px; margin-bottom:10px; font-size:12px; color:#0c4a6e; }
-          .footer-bubble { background:#dcfce7; margin:0 12px 12px; border-radius:8px; padding:8px 12px; text-align:center; font-size:11px; color:#166534; }
-          .timestamp { text-align:right; font-size:10px; color:#64748b; margin-top:6px; }
-        </style>
-      </head>
-      <body>
-        <div class="chat-header">
-          <div class="avatar"><img src="/camaronlogo-sm.webp" alt="RPYM" /></div>
-          <div>
-            <div class="chat-name">RPYM Mariscos</div>
-            <div class="chat-status">en línea</div>
+    const divisaBubbleHtml = isDualWA ? (() => {
+      const divisaProductRows = presupuesto.items.map(item => `
+        <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid #fefce8;">
+          <div style="flex:1;font-size:13px;color:#713f12;">${item.nombre}</div>
+          <div style="font-size:12px;color:#92400e;margin:0 8px;white-space:nowrap;">${fmtQty(item.cantidad)} ${item.unidad}</div>
+          <div style="font-size:13px;font-weight:600;color:#713f12;white-space:nowrap;">${formatUSD(item.subtotalUSDDivisa ?? item.subtotalUSD)}</div>
+        </div>
+      `).join('');
+      return `
+      <div style="width:320px;background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-top:16px;border:2px solid #fde68a;">
+        <div style="text-align:center;margin-bottom:12px;">
+          <img src="/camaronlogo-sm.webp" alt="RPYM" style="display:block;width:140px;height:auto;object-fit:contain;margin:0 auto;" />
+          <div style="background:#fef3c7;display:inline-block;padding:3px 12px;border-radius:6px;font-size:12px;font-weight:700;color:#92400e;margin-top:4px;">Precios Divisa</div>
+          ${isPaid ? '<div style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:9999px;margin-top:6px;">PAGADO</div>' : ''}
+        </div>
+        ${presupuesto.customerName ? '<div style="font-size:12px;color:#92400e;text-align:center;margin-bottom:10px;">Cliente: <strong style="color:#713f12;">' + presupuesto.customerName + '</strong></div>' : ''}
+        <div style="margin-bottom:12px;">
+          ${divisaProductRows}
+        </div>
+        <div style="border-top:2px solid #92400e;padding-top:10px;margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <span style="font-size:14px;font-weight:600;color:#92400e;">Total USD (Divisa)</span>
+            <span style="font-size:20px;font-weight:800;color:#713f12;">${formatUSD(presupuesto.totalUSDDivisa!)}</span>
           </div>
         </div>
-
-        <div class="bubble">
-          <div class="bubble-header">
-            <span class="bubble-id">${presupuesto.id}${isPaid ? '<span class="paid-badge">✅ PAGADO</span>' : ''}</span>
-          </div>
-
-          ${presupuesto.customerName ? `
-          <div class="client-info">
-            <strong>${presupuesto.customerName}</strong>
-            ${presupuesto.customerAddress ? `<br/>${presupuesto.customerAddress}` : ''}
-          </div>
-          ` : ''}
-
-          <div class="items-section">
-            ${itemsHtml}
-          </div>
-
-          <div class="totals-section">
-            <div class="total-row">
-              <span class="total-label">Total USD</span>
-              <span class="total-usd">${formatUSD(presupuesto.totalUSD)}</span>
-            </div>
-            <div class="total-row">
-              <span class="total-label">Total Bs.</span>
-              <span class="total-bs">${formatBs(presupuesto.totalBs)}</span>
-            </div>
-          </div>
-
-          <div class="timestamp">${new Date(presupuesto.fecha).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}</div>
+        <div style="text-align:center;border-top:1px solid #fde68a;padding-top:8px;">
+          <div style="font-size:10px;color:#d97706;">${fechaStr}</div>
+          <div style="font-size:10px;color:#d97706;margin-top:2px;">WhatsApp: +58 414-214-5202</div>
+          <div style="font-size:9px;color:#fde68a;margin-top:4px;">Ref: ${presupuesto.id}</div>
         </div>
+      </div>`;
+    })() : '';
 
-        ${isPaid ? `
-        <div class="footer-bubble">
-          ¡Gracias por su compra! 🦐
-        </div>
-        ` : ''}
-      </body>
-      </html>
-    `);
+    waWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <title>Presupuesto RPYM</title>
+  <meta name="viewport" content="width=320" />
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f9ff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 0;
+    }
+  </style>
+</head>
+<body>
+  <div style="width:320px;background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    <!-- Logo -->
+    <div style="text-align:center;margin-bottom:12px;">
+      <img src="/camaronlogo-sm.webp" alt="RPYM" style="display:block;width:140px;height:auto;object-fit:contain;margin:0 auto;" />
+      <div style="font-size:12px;color:#0369a1;margin-top:4px;">Presupuesto</div>
+      ${isDualWA ? '<div style="background:#e0f2fe;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#075985;margin-top:4px;">Precios BCV</div>' : ''}
+      ${isPaid ? '<div style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:9999px;margin-top:6px;">PAGADO</div>' : ''}
+    </div>
 
-    whatsappWindow.document.close();
+    ${presupuesto.customerName ? '<div style="font-size:12px;color:#0369a1;text-align:center;margin-bottom:10px;">Cliente: <strong style="color:#0c4a6e;">' + presupuesto.customerName + '</strong></div>' : ''}
+
+    <!-- Products -->
+    <div style="margin-bottom:12px;">
+      ${productRows}
+    </div>
+
+    <!-- Totals -->
+    <div style="border-top:2px solid #075985;padding-top:10px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;">
+        <span style="font-size:14px;font-weight:600;color:#0369a1;">Total USD</span>
+        <span style="font-size:20px;font-weight:800;color:#0c4a6e;">${formatUSD(presupuesto.totalUSD)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px;">
+        <span style="font-size:12px;color:#0369a1;">Total Bs.</span>
+        <span style="font-size:15px;font-weight:700;color:#ea580c;">${formatBs(presupuesto.totalBs)}</span>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="text-align:center;border-top:1px solid #e0f2fe;padding-top:8px;">
+      <div style="font-size:10px;color:#0ea5e9;">${fechaStr}</div>
+      <div style="font-size:10px;color:#0ea5e9;margin-top:2px;">WhatsApp: +58 414-214-5202</div>
+      <div style="font-size:9px;color:#7dd3fc;margin-top:4px;">Ref: ${presupuesto.id}</div>
+    </div>
+  </div>
+
+  ${divisaBubbleHtml}
+</body>
+</html>`);
+
+    waWindow.document.close();
   };
 
   // Generar HTML para captura de WhatsApp (para html2canvas)
   const buildWhatsAppHTML = (presupuesto: Presupuesto): string => {
     const isPaid = presupuesto.estado === 'pagado';
+    const isDualCapture = presupuesto.totalUSDDivisa != null;
     const fmtQty = (qty: number): string => {
       const rounded = Math.round(qty * 1000) / 1000;
       return rounded.toFixed(3).replace(/\.?0+$/, '');
     };
+    const fechaStr = new Date(presupuesto.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
     const itemsHtml = presupuesto.items.map(item => `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#fff;border-radius:8px;margin-bottom:4px;">
-        <div>
-          <div style="font-weight:600;font-size:13px;color:#0c4a6e;">${item.nombre}</div>
-          <div style="font-size:11px;color:#64748b;">${fmtQty(item.cantidad)} ${item.unidad} × ${formatUSD(item.precioUSD)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #e0f2fe;">
+        <div style="font-weight:600;font-size:14px;color:#0c4a6e;">${item.nombre}</div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="font-size:12px;color:#64748b;">${fmtQty(item.cantidad)} ${item.unidad}</span>
+          <span style="font-weight:700;font-size:14px;color:#ea580c;">${formatUSD(item.subtotalUSD)}</span>
         </div>
-        <div style="font-weight:700;font-size:14px;color:#ea580c;">${formatUSD(item.subtotalUSD)}</div>
       </div>
     `).join('');
 
+    const divisaItemsHtmlCapture = isDualCapture ? presupuesto.items.map(item => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #fef3c7;">
+        <div style="font-weight:600;font-size:14px;color:#0c4a6e;">${item.nombre}</div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="font-size:12px;color:#64748b;">${fmtQty(item.cantidad)} ${item.unidad}</span>
+          <span style="font-weight:700;font-size:14px;color:#ea580c;">${formatUSD(item.subtotalUSDDivisa ?? item.subtotalUSD)}</span>
+        </div>
+      </div>
+    `).join('') : '';
+
+    const divisaSectionHtml = isDualCapture ? `
+      <div style="height:3px;background:linear-gradient(90deg,#f59e0b,#eab308);border-radius:2px;margin-bottom:16px;"></div>
+
+      <div style="background:#fef3c7;padding:8px 12px;border-radius:6px;margin-bottom:12px;font-weight:700;font-size:14px;color:#92400e;text-align:center;">Precios Divisa</div>
+
+      <div style="margin-bottom:16px;">
+        ${divisaItemsHtmlCapture}
+      </div>
+
+      <div style="height:3px;background:linear-gradient(90deg,#f59e0b,#eab308);border-radius:2px;margin-bottom:16px;"></div>
+
+      <div style="margin-bottom:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-weight:700;font-size:14px;color:#92400e;">Total USD (Divisa)</span>
+          <span style="font-weight:700;font-size:22px;color:#ea580c;">${formatUSD(presupuesto.totalUSDDivisa!)}</span>
+        </div>
+      </div>
+    ` : '';
+
     return `
-      <div style="font-family:'Inter',-apple-system,sans-serif;background:#e5ddd5;width:380px;min-height:100px;">
-        <div style="background:#075e54;color:white;padding:12px 16px;display:flex;align-items:center;gap:10px;">
-          <div style="width:36px;height:36px;border-radius:50%;background:white;display:flex;align-items:center;justify-content:center;overflow:hidden;">
-            <img src="${window.location.origin}/camaronlogo-sm.webp" style="width:130%;height:130%;object-fit:contain;" />
+      <div style="font-family:'Inter',-apple-system,sans-serif;background:white;width:380px;padding:24px 20px;">
+        <div style="text-align:center;margin-bottom:20px;">
+          <img src="${window.location.origin}/camaronlogo-md.webp" style="display:block;margin:0 auto;width:160px;height:auto;" />
+        </div>
+
+        <div style="text-align:center;margin-bottom:16px;">
+          <div style="font-size:15px;color:#0369a1;font-weight:500;">Presupuesto</div>
+          ${isPaid ? '<div style="display:inline-block;background:#fef3c7;color:#92400e;font-size:13px;font-weight:700;padding:5px 20px;border-radius:6px;margin-top:8px;border:2px solid #f59e0b;">PAGADO</div>' : ''}
+        </div>
+
+        ${isDualCapture ? '<div style="background:#e0f2fe;padding:8px 12px;border-radius:6px;margin-bottom:12px;font-weight:700;font-size:14px;color:#075985;text-align:center;">Precios BCV</div>' : ''}
+
+        <div style="margin-bottom:16px;">
+          ${itemsHtml}
+        </div>
+
+        <div style="height:3px;background:linear-gradient(90deg,#075985,#0ea5e9);border-radius:2px;margin-bottom:16px;"></div>
+
+        <div style="margin-bottom:20px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="font-weight:700;font-size:14px;color:#0c4a6e;">Total USD</span>
+            <span style="font-weight:700;font-size:22px;color:#ea580c;">${formatUSD(presupuesto.totalUSD)}</span>
           </div>
-          <div>
-            <div style="font-weight:600;font-size:15px;">RPYM Mariscos</div>
-            <div style="font-size:11px;opacity:0.8;">en línea</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:13px;color:#0c4a6e;">Total Bs.</span>
+            <span style="font-weight:600;font-size:15px;color:#0c4a6e;">${formatBs(presupuesto.totalBs)}</span>
           </div>
         </div>
 
-        <div style="background:white;margin:12px;border-radius:0 8px 8px 8px;padding:12px;box-shadow:0 1px 2px rgba(0,0,0,0.1);">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-            <span style="font-weight:700;font-size:14px;color:#0c4a6e;">
-              ${presupuesto.id}
-              ${isPaid ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;font-size:11px;font-weight:600;padding:2px 8px;border-radius:9999px;margin-left:6px;">✅ PAGADO</span>' : ''}
-            </span>
-          </div>
+        ${divisaSectionHtml}
 
-          ${presupuesto.customerName ? `
-          <div style="background:#f0f9ff;border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:12px;color:#0c4a6e;">
-            <strong>${presupuesto.customerName}</strong>
-            ${presupuesto.customerAddress ? `<br/>${presupuesto.customerAddress}` : ''}
-          </div>
-          ` : ''}
-
-          <div style="margin-bottom:10px;">
-            ${itemsHtml}
-          </div>
-
-          <div style="background:#fff7ed;border-radius:8px;padding:10px 12px;margin-top:8px;">
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-              <span style="color:#0369a1;font-size:13px;">Total USD</span>
-              <span style="font-weight:700;font-size:18px;color:#ea580c;">${formatUSD(presupuesto.totalUSD)}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;">
-              <span style="color:#0369a1;font-size:13px;">Total Bs.</span>
-              <span style="font-weight:600;font-size:13px;color:#0c4a6e;">${formatBs(presupuesto.totalBs)}</span>
-            </div>
-          </div>
-
-          <div style="text-align:right;font-size:10px;color:#64748b;margin-top:6px;">
-            ${new Date(presupuesto.fecha).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}
-          </div>
+        <div style="text-align:center;padding-top:12px;border-top:1px solid #e0f2fe;font-size:11px;color:#0369a1;">
+          <div>${fechaStr}</div>
+          <div>WhatsApp: +58 414-214-5202</div>
+          <div>Ref: ${presupuesto.id}</div>
         </div>
-
-        ${isPaid ? `
-        <div style="background:#dcfce7;margin:0 12px 12px;border-radius:8px;padding:8px 12px;text-align:center;font-size:11px;color:#166534;">
-          ¡Gracias por su compra! 🦐
-        </div>
-        ` : ''}
       </div>
     `;
   };
@@ -762,7 +751,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
       const canvas = await html2canvas(captureDiv.firstElementChild as HTMLElement, {
         scale: 2,
         useCORS: true,
-        backgroundColor: '#e5ddd5',
+        backgroundColor: '#ffffff',
         width: 380,
         windowWidth: 380,
       });
@@ -853,43 +842,75 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
             </button>
           </div>
 
-          {/* Tabs */}
-          <div className="flex gap-1 mt-3 bg-ocean-900/50 rounded-lg p-1">
+          {/* Tabs - grid 2x2 on mobile, flex row on desktop */}
+          <div className="grid grid-cols-3 sm:flex gap-1 mt-3 bg-ocean-900/50 rounded-lg p-1">
             <button
               onClick={() => setActiveTab('ver')}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+              className={`py-2 px-3 sm:flex-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
                 activeTab === 'ver'
                   ? 'bg-white text-ocean-900'
                   : 'text-ocean-200 hover:text-white'
               }`}
             >
-              Ver Presupuestos
+              Ver
             </button>
             <button
               onClick={() => setActiveTab('crear')}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+              className={`py-2 px-3 sm:flex-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
                 activeTab === 'crear'
                   ? 'bg-white text-ocean-900'
                   : 'text-ocean-200 hover:text-white'
               }`}
             >
-              Crear Presupuesto
+              Crear
+            </button>
+            <button
+              onClick={() => setActiveTab('productos')}
+              className={`py-2 px-3 sm:flex-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                activeTab === 'productos'
+                  ? 'bg-white text-ocean-900'
+                  : 'text-ocean-200 hover:text-white'
+              }`}
+            >
+              Productos
+            </button>
+            <button
+              onClick={() => setActiveTab('clientes')}
+              className={`py-2 px-3 sm:flex-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                activeTab === 'clientes'
+                  ? 'bg-white text-ocean-900'
+                  : 'text-ocean-200 hover:text-white'
+              }`}
+            >
+              Clientes
             </button>
             <button
               onClick={() => setActiveTab('config')}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+              className={`py-2 px-3 sm:flex-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
                 activeTab === 'config'
                   ? 'bg-white text-ocean-900'
                   : 'text-ocean-200 hover:text-white'
               }`}
             >
-              Configuracion
+              Config
             </button>
           </div>
         </div>
       </header>
 
-      {activeTab === 'config' && bcvRate ? (
+      {activeTab === 'clientes' ? (
+        <main className="max-w-7xl mx-auto p-4">
+          <Suspense fallback={<div className="text-center py-12 text-ocean-700">Cargando...</div>}>
+            <AdminCustomers />
+          </Suspense>
+        </main>
+      ) : activeTab === 'productos' ? (
+        <main className="max-w-7xl mx-auto p-4">
+          <Suspense fallback={<div className="text-center py-12 text-ocean-700">Cargando...</div>}>
+            <AdminProducts />
+          </Suspense>
+        </main>
+      ) : activeTab === 'config' && bcvRate ? (
         <main className="max-w-7xl mx-auto p-4">
           <Suspense fallback={<div className="text-center py-12 text-ocean-700">Cargando...</div>}>
             <AdminSettings currentBcvRate={bcvRate} />
@@ -1007,7 +1028,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                           {p.estado === 'pagado' ? 'Pagado' : 'Pendiente'}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 relative">
                         <div className="flex items-center justify-center gap-1">
                           <button
                             onClick={() => printNote(p, p.estado === 'pagado')}
@@ -1017,11 +1038,31 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                             🖨️
                           </button>
                           <button
-                            onClick={() => handleWhatsAppView(p)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (whatsappPopoverId === p.id) {
+                                setWhatsappPopoverId(null);
+                              } else {
+                                setWhatsappPopoverId(p.id);
+                                setRowWhatsappPhone('');
+                                setWhatsappStatus('idle');
+                                setWhatsappError(null);
+                              }
+                            }}
                             className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                            title={p.estado === 'pagado' ? 'Vista WhatsApp (pagado)' : 'Vista WhatsApp'}
+                            title="Enviar por WhatsApp"
                           >
                             📱
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingPresupuesto(p);
+                              setActiveTab('crear');
+                            }}
+                            className="p-1.5 text-coral-500 hover:bg-coral-50 rounded-lg transition-colors"
+                            title="Editar presupuesto"
+                          >
+                            ✏️
                           </button>
                           {p.estado === 'pendiente' && (
                             <button
@@ -1049,6 +1090,59 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                             🗑️
                           </button>
                         </div>
+                        {whatsappPopoverId === p.id && (
+                          <div
+                            className="absolute right-4 top-full mt-1 bg-white rounded-xl shadow-lg border border-ocean-200 p-3 z-40 w-72"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <p className="text-xs font-semibold text-ocean-700 mb-2 flex items-center gap-1.5">
+                              <svg className="w-4 h-4 text-green-600" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
+                              </svg>
+                              Enviar al cliente
+                            </p>
+                            <div className="flex gap-2">
+                              <input
+                                type="tel"
+                                placeholder="0414-XXX-XXXX"
+                                value={formatPhoneDisplay(rowWhatsappPhone)}
+                                onChange={(e) => {
+                                  const digits = e.target.value.replace(/\D/g, '');
+                                  setRowWhatsappPhone(digits.slice(0, 11));
+                                  setWhatsappStatus('idle');
+                                  setWhatsappError(null);
+                                }}
+                                className="flex-1 px-2.5 py-1.5 text-sm border border-ocean-200 rounded-lg focus:ring-1 focus:ring-green-500 focus:border-transparent outline-none placeholder:text-ocean-400"
+                                disabled={whatsappSending}
+                              />
+                              <button
+                                onClick={() => {
+                                  setWhatsappPhone(rowWhatsappPhone);
+                                  sendWhatsApp(p);
+                                  // Close popover after successful send
+                                  setTimeout(() => {
+                                    if (whatsappStatus === 'sent') setWhatsappPopoverId(null);
+                                  }, 2000);
+                                }}
+                                disabled={whatsappSending || rowWhatsappPhone.replace(/\D/g, '').length < 11}
+                                className="px-3 py-1.5 bg-green-600 hover:bg-green-500 disabled:bg-green-300 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+                              >
+                                {whatsappStatus === 'capturing' || whatsappStatus === 'uploading' ? '...' : 'Enviar'}
+                              </button>
+                            </div>
+                            {whatsappStatus === 'sent' && (
+                              <p className="text-xs text-green-600 mt-1.5 flex items-center gap-1">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                Enviado
+                              </p>
+                            )}
+                            {whatsappStatus === 'error' && whatsappError && (
+                              <p className="text-xs text-red-600 mt-1.5">⚠️ {whatsappError}</p>
+                            )}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}

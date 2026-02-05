@@ -19,6 +19,8 @@ export interface PresupuestoItem {
   precioBs: number;
   subtotalUSD: number;
   subtotalBs: number;
+  precioUSDDivisa?: number;
+  subtotalUSDDivisa?: number;
 }
 
 export interface Presupuesto {
@@ -27,6 +29,7 @@ export interface Presupuesto {
   items: PresupuestoItem[];
   totalUSD: number;
   totalBs: number;
+  totalUSDDivisa?: number;
   estado: 'pendiente' | 'pagado';
   clientIP?: string;
   fechaPago?: string;
@@ -39,6 +42,7 @@ export interface SavePresupuestoData {
   items: PresupuestoItem[];
   totalUSD: number;
   totalBs: number;
+  totalUSDDivisa?: number;
   customerName?: string;
   customerAddress?: string;
   status?: 'pendiente' | 'pagado';
@@ -82,6 +86,7 @@ export async function savePresupuesto(data: SavePresupuestoData): Promise<{ succ
         items: data.items,
         totalUSD: data.totalUSD,
         totalBs: data.totalBs,
+        totalUSDDivisa: data.totalUSDDivisa || null,
         customerName: data.customerName || '',
         customerAddress: data.customerAddress || '',
         clientIP: clientIP,
@@ -169,7 +174,8 @@ export async function updatePresupuesto(
   totalUSD: number,
   totalBs: number,
   customerName?: string,
-  customerAddress?: string
+  customerAddress?: string,
+  totalUSDDivisa?: number
 ): Promise<boolean> {
   try {
     const response = await fetch(`/api/presupuestos/${encodeURIComponent(id)}`, {
@@ -181,6 +187,7 @@ export async function updatePresupuesto(
         items,
         totalUSD,
         totalBs,
+        totalUSDDivisa: totalUSDDivisa || null,
         customerName: customerName || '',
         customerAddress: customerAddress || '',
       })
