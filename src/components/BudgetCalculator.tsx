@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 import type { Product, Category, BCVRate } from '../lib/sheets';
-import { savePresupuesto, isConfigured } from '../lib/presupuesto-storage';
 import ChefJose from './ChefJose';
 
 interface Props {
@@ -58,8 +57,6 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
   const [showDeliveryNote, setShowDeliveryNote] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
-  const [presupuestoId, setPresupuestoId] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
 
   // Calcular totales
   const totals = useMemo(() => {
@@ -472,54 +469,13 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
   };
 
   // Mostrar presupuesto y guardarlo automáticamente
-  const handleShowDeliveryNote = async () => {
-    // Mostrar el presupuesto inmediatamente
+  const handleShowDeliveryNote = () => {
+    // Mostrar el presupuesto inmediatamente (ya no guardamos en BD - es solo para referencia del cliente)
     setShowDeliveryNote(true);
-
-    // Si ya se guardó este presupuesto, no volver a guardarlo
-    if (presupuestoId) return;
-
-    // Solo guardar si hay productos seleccionados y el módulo está configurado
-    if (selectedItems.size === 0 || !isConfigured()) return;
-
-    // Guardar en segundo plano (silencioso)
-    setIsSaving(true);
-    try {
-      const items = Array.from(selectedItems.values()).map(({ product, quantity }) => ({
-        nombre: product.nombre,
-        cantidad: quantity,
-        unidad: product.unidad,
-        precioUSD: product.precioUSD,
-        precioBs: product.precioBs,
-        subtotalUSD: Math.round(product.precioUSD * quantity * 100) / 100,
-        subtotalBs: Math.round(product.precioBs * quantity * 100) / 100
-      }));
-
-      const result = await savePresupuesto({
-        items,
-        totalUSD: totals.usd,
-        totalBs: totals.bs,
-        customerName,
-        customerAddress,
-        source: 'cliente',
-      });
-
-      if (result.success && result.id) {
-        setPresupuestoId(result.id);
-      }
-    } catch (error) {
-      // Silencioso - no mostrar errores al usuario
-      console.error('Error guardando presupuesto:', error);
-    } finally {
-      setIsSaving(false);
-    }
   };
 
-  // Generar número de nota (usa el ID guardado si existe)
+  // Generar número de nota (formato timestamp - no se guarda en BD)
   const getDeliveryNoteNumber = () => {
-    if (presupuestoId) {
-      return presupuestoId;
-    }
     const now = new Date();
     return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
   };

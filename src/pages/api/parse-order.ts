@@ -15,6 +15,7 @@ interface ParsedItem {
   productId: string | null;
   productName: string | null;
   requestedName: string;
+  suggestedName?: string | null;
   quantity: number;
   unit: string;
   matched: boolean;
@@ -227,6 +228,13 @@ MODO DE PRECIO:
 - Cuando el modo es "dual", se usarán ambos precios (el presupuesto mostrará ambas versiones)
 - Ejemplo: "$20 de calamar" en modo divisa con Precio Divisa $15/kg → cantidad = 20/15 = 1.333 kg
 
+PRODUCTOS PERSONALIZADOS (no en catálogo):
+- Si el usuario menciona un producto que NO está en el catálogo PERO especifica un precio:
+  - "mariscos varios $25" → matched: false, productId: null, suggestedName: "Mariscos Varios", quantity: 1, customPrice: 25
+  - "2kg de producto especial a $15" → matched: false, productId: null, suggestedName: "Producto Especial", quantity: 2, customPrice: 15
+- Si el producto no está en catálogo Y no tiene precio especificado → va a "unmatched"
+- suggestedName debe ser un nombre limpio y capitalizado para el producto personalizado
+
 Responde SOLO con un JSON válido con esta estructura:
 {
   "items": [
@@ -234,6 +242,7 @@ Responde SOLO con un JSON válido con esta estructura:
       "productId": "id del producto del catálogo o null si no hay match",
       "productName": "nombre exacto del catálogo o null",
       "requestedName": "lo que escribió el usuario (ej: '$20 de calamar')",
+      "suggestedName": "nombre sugerido para producto personalizado (solo si matched=false y tiene precio)" | null,
       "quantity": número calculado,
       "unit": "kg" o "caja" o "paquete",
       "matched": true/false,

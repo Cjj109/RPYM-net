@@ -21,6 +21,7 @@ interface ParsedItem {
   productId: string | null;
   productName: string | null;
   requestedName: string;
+  suggestedName?: string | null; // Nombre sugerido para producto personalizado
   quantity: number;
   unit: string;
   matched: boolean;
@@ -80,7 +81,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
             } else if (nombreLower.includes('tinta')) {
               incremento = 1;
             } else if (nombreLower.includes('guacuco')) {
-              incremento = 0.5;
+              incremento = 0.01; // Permite cantidades precisas como 10.35kg
             }
 
             // Determine minimoKg
@@ -92,13 +93,14 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
               else if (nombreLower.includes('salmon') || nombreLower.includes('salmón')) minimoKg = 0.2;
             }
 
-            // Determine entradaLibre
+            // Determine entradaLibre - allow free entry for most kg products
             let entradaLibre = true;
             if (unidadLower === 'caja' || unidadLower === 'paquete' || unidadLower === 'bolsa') {
               entradaLibre = false;
-            } else if (nombreLower.includes('tinta') || nombreLower.includes('guacuco')) {
+            } else if (nombreLower.includes('tinta')) {
               entradaLibre = false;
             }
+            // Guacuco now allows free entry for precise quantities like 10.35kg
 
             const product: Product = {
               id: String(p.id),
@@ -282,10 +284,21 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
     setCustomerAddress(editingPresupuesto.customerAddress || '');
     if (editingPresupuesto.estado === 'pagado') setMarkAsPaid(true);
 
-    // Auto-detect dual mode if presupuesto has totalUSDDivisa or items have precioUSDDivisa
-    if (editingPresupuesto.totalUSDDivisa != null ||
-        editingPresupuesto.items.some(i => i.precioUSDDivisa != null)) {
+    // Auto-detect pricing mode
+    // Solo divisas: totalBs === 0 or items have precioBs === 0
+    const isSoloDivisas = editingPresupuesto.totalBs === 0 ||
+        editingPresupuesto.items.every(i => i.precioBs === 0);
+    // Dual mode: has totalUSDDivisa or items have precioUSDDivisa
+    const isDualMode = editingPresupuesto.totalUSDDivisa != null ||
+        editingPresupuesto.items.some(i => i.precioUSDDivisa != null);
+
+    if (isSoloDivisas) {
+      setModoPrecio('divisa');
+      setSoloDivisas(true);
+    } else if (isDualMode) {
       setModoPrecio('dual');
+    } else {
+      setModoPrecio('bcv');
     }
   }, [editingPresupuesto]);
 
@@ -586,6 +599,25 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
             customPriceDivisa: newCustomPriceDivisa,
           });
         }
+      } else if (!item.matched && item.suggestedName && item.customPrice) {
+        // Producto personalizado no en catálogo pero con precio
+        const customId = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const customProduct: Product = {
+          id: customId,
+          nombre: item.suggestedName,
+          unidad: item.unit || 'kg',
+          precioUSD: item.customPrice,
+          precioUSDDivisa: item.customPriceDivisa ?? null,
+          categoria: 'Otros',
+          minimoKg: null,
+          descripcion: null,
+        };
+        newItems.set(customId, {
+          product: customProduct,
+          quantity: item.quantity,
+          customPrice: null, // Ya está en el producto
+          customPriceDivisa: null,
+        });
       }
     });
 
@@ -689,11 +721,10 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
     });
   };
 
-  // Generate note number
+  // Generate note number - returns presupuesto ID if saved, "BORRADOR" if not
   const getDeliveryNoteNumber = () => {
     if (presupuestoId) return presupuestoId;
-    const now = new Date();
-    return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+    return 'BORRADOR';
   };
 
   // Build items array for printing
@@ -1486,12 +1517,19 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
               </div>
 
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {parseResult.items.map((item, index) => (
+                {parseResult.items.map((item, index) => {
+                  // Determine item type: matched, custom (unmatched with price), or unmatched
+                  const isCustomProduct = !item.matched && item.suggestedName && item.customPrice;
+                  const bgClass = item.matched
+                    ? 'bg-green-50 border-green-200'
+                    : isCustomProduct
+                      ? 'bg-purple-50 border-purple-200'
+                      : 'bg-orange-50 border-orange-200';
+
+                  return (
                   <div
                     key={index}
-                    className={`p-3 rounded-xl border ${
-                      item.matched ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'
-                    }`}
+                    className={`p-3 rounded-xl border ${bgClass}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1">
@@ -1500,19 +1538,29 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                             <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                             </svg>
+                          ) : isCustomProduct ? (
+                            <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
                           ) : (
                             <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
                           )}
                           <span className="font-medium text-ocean-900 text-sm">
-                            {item.matched ? item.productName : item.requestedName}
+                            {item.matched ? item.productName : isCustomProduct ? item.suggestedName : item.requestedName}
                           </span>
+                          {isCustomProduct && (
+                            <span className="text-[10px] bg-purple-200 text-purple-700 px-1.5 py-0.5 rounded font-medium">Nuevo</span>
+                          )}
                         </div>
                         {item.matched && item.requestedName !== item.productName && (
                           <p className="text-xs text-ocean-500 mt-0.5 ml-6">Pedido: "{item.requestedName}"</p>
                         )}
-                        {!item.matched && (
+                        {isCustomProduct && (
+                          <p className="text-xs text-purple-600 mt-1 ml-6">Producto personalizado (se creara)</p>
+                        )}
+                        {!item.matched && !isCustomProduct && (
                           <p className="text-xs text-orange-700 mt-1 ml-6">No encontrado en el catalogo</p>
                         )}
                       </div>
@@ -1540,6 +1588,16 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                               )}
                             </>
                           )}
+                          {isCustomProduct && item.customPrice && (
+                            <>
+                              <span className="block text-xs text-coral-600 font-medium">
+                                {formatUSD(Math.round(item.customPrice * item.quantity * 100) / 100)}
+                              </span>
+                              <span className="block text-xs text-purple-600 font-medium">
+                                ${item.customPrice}/{item.unit}
+                              </span>
+                            </>
+                          )}
                         </div>
                         <button
                           onClick={() => removeParseItem(index)}
@@ -1554,7 +1612,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                       </div>
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
 
               {parseResult.unmatched.length > 0 && (
@@ -1662,17 +1720,22 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
               )}
 
               {/* Estimated total */}
-              {parseResult.items.some(i => i.matched) && (
+              {parseResult.items.some(i => i.matched || (i.suggestedName && i.customPrice)) && (
                 <div className="p-4 bg-ocean-50 rounded-xl space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-ocean-700">Subtotal productos:</span>
                     <span className="text-lg font-semibold text-ocean-800">
                       {formatUSD(
                         parseResult.items
-                          .filter(i => i.matched && i.productId)
+                          .filter(i => (i.matched && i.productId) || (i.suggestedName && i.customPrice))
                           .reduce((sum, item) => {
-                            const product = allProducts.find(p => String(p.id) === String(item.productId));
-                            return sum + Math.round((item.customPrice || product?.precioUSD || 0) * item.quantity * 100) / 100;
+                            if (item.matched && item.productId) {
+                              const product = allProducts.find(p => String(p.id) === String(item.productId));
+                              return sum + Math.round((item.customPrice || product?.precioUSD || 0) * item.quantity * 100) / 100;
+                            } else if (item.suggestedName && item.customPrice) {
+                              return sum + Math.round(item.customPrice * item.quantity * 100) / 100;
+                            }
+                            return sum;
                           }, 0)
                       )}
                     </span>
@@ -1688,10 +1751,15 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                     <span className="text-2xl font-bold text-coral-500">
                       {formatUSD(
                         parseResult.items
-                          .filter(i => i.matched && i.productId)
+                          .filter(i => (i.matched && i.productId) || (i.suggestedName && i.customPrice))
                           .reduce((sum, item) => {
-                            const product = allProducts.find(p => String(p.id) === String(item.productId));
-                            return sum + Math.round((item.customPrice || product?.precioUSD || 0) * item.quantity * 100) / 100;
+                            if (item.matched && item.productId) {
+                              const product = allProducts.find(p => String(p.id) === String(item.productId));
+                              return sum + Math.round((item.customPrice || product?.precioUSD || 0) * item.quantity * 100) / 100;
+                            } else if (item.suggestedName && item.customPrice) {
+                              return sum + Math.round(item.customPrice * item.quantity * 100) / 100;
+                            }
+                            return sum;
                           }, 0) + (parseResult.delivery || 0)
                       )}
                     </span>
@@ -1709,7 +1777,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                 </button>
                 <button
                   onClick={applyParsedItems}
-                  disabled={!parseResult.items.some(i => i.matched)}
+                  disabled={!parseResult.items.some(i => i.matched || (i.suggestedName && i.customPrice))}
                   className="flex-1 py-3 px-4 bg-coral-500 hover:bg-coral-600 disabled:bg-ocean-200 disabled:text-ocean-400
                     text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-md"
                 >

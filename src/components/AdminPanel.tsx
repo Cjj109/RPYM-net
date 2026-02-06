@@ -1083,7 +1083,12 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                     <tr key={p.id} className="hover:bg-ocean-50/50">
                       <td className="px-4 py-3">
                         <span className="font-mono text-sm text-ocean-900">{p.id}</span>
-                        {p.source === 'admin' && (
+                        {p.source === 'admin' && p.customerName && (
+                          <span className="ml-1.5 text-[10px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full font-medium truncate max-w-[80px] inline-block align-middle" title={p.customerName}>
+                            {p.customerName.length > 12 ? p.customerName.substring(0, 12) + '...' : p.customerName}
+                          </span>
+                        )}
+                        {p.source === 'admin' && !p.customerName && (
                           <span className="ml-1.5 text-[10px] bg-ocean-100 text-ocean-600 px-1.5 py-0.5 rounded-full font-medium">Admin</span>
                         )}
                       </td>

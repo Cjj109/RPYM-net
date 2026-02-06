@@ -147,6 +147,19 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
         customerAddress || null,
         id
       ).run();
+
+      // Also update any linked customer transactions
+      await db.prepare(`
+        UPDATE customer_transactions
+        SET amount_usd = ?, amount_bs = ?, amount_usd_divisa = ?, description = ?
+        WHERE presupuesto_id = ? AND type = 'purchase'
+      `).bind(
+        totalUSD,
+        totalBs,
+        totalUSDDivisa || null,
+        `Presupuesto ${id}`,
+        id
+      ).run();
     }
 
     return new Response(JSON.stringify({
