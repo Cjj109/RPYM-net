@@ -1166,88 +1166,6 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                             🗑️
                           </button>
                         </div>
-                        {whatsappPopoverId === p.id && (
-                          <div
-                            className="absolute right-0 bottom-full mb-2 bg-white rounded-xl shadow-xl border-2 border-green-200 p-3 z-50 w-80"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div className="absolute bottom-0 right-6 translate-y-full">
-                              <div className="border-8 border-transparent border-t-green-200"></div>
-                            </div>
-                            <p className="text-sm font-semibold text-green-700 mb-2 flex items-center gap-2">
-                              <svg className="w-5 h-5 text-green-600" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
-                              </svg>
-                              Enviar por WhatsApp
-                            </p>
-                            {/* Tipo toggle */}
-                            <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg mb-2">
-                              <button
-                                onClick={() => setWhatsappType('presupuesto')}
-                                className={`flex-1 px-2 py-1 text-xs font-medium rounded-md transition-colors ${
-                                  whatsappType === 'presupuesto'
-                                    ? 'bg-white text-green-700 shadow-sm'
-                                    : 'text-gray-600 hover:text-gray-800'
-                                }`}
-                              >
-                                📸 Imagen
-                              </button>
-                              <button
-                                onClick={() => setWhatsappType('factura')}
-                                className={`flex-1 px-2 py-1 text-xs font-medium rounded-md transition-colors ${
-                                  whatsappType === 'factura'
-                                    ? 'bg-white text-purple-700 shadow-sm'
-                                    : 'text-gray-600 hover:text-gray-800'
-                                }`}
-                              >
-                                📄 PDF
-                              </button>
-                            </div>
-                            <div className="flex gap-2 items-center">
-                              <input
-                                type="tel"
-                                placeholder="0414-XXX-XXXX"
-                                value={formatPhoneDisplay(rowWhatsappPhone)}
-                                onChange={(e) => {
-                                  const digits = e.target.value.replace(/\D/g, '');
-                                  setRowWhatsappPhone(digits.slice(0, 11));
-                                  setWhatsappStatus('idle');
-                                  setWhatsappError(null);
-                                }}
-                                className="flex-1 px-3 py-2 text-base border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none placeholder:text-gray-400 font-mono"
-                                disabled={whatsappSending}
-                                autoFocus
-                              />
-                              <button
-                                onClick={() => {
-                                  handleWhatsAppSend(p, rowWhatsappPhone);
-                                  setTimeout(() => {
-                                    if (whatsappStatus === 'sent') setWhatsappPopoverId(null);
-                                  }, 2000);
-                                }}
-                                disabled={whatsappSending || !isValidPhone(rowWhatsappPhone)}
-                                className={`px-3 py-1.5 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                                  whatsappType === 'factura'
-                                    ? 'bg-purple-600 hover:bg-purple-500 disabled:bg-purple-300'
-                                    : 'bg-green-600 hover:bg-green-500 disabled:bg-green-300'
-                                }`}
-                              >
-                                {whatsappStatus === 'capturing' || whatsappStatus === 'uploading' ? '...' : 'Enviar'}
-                              </button>
-                            </div>
-                            {whatsappStatus === 'sent' && (
-                              <p className="text-xs text-green-600 mt-1.5 flex items-center gap-1">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
-                                Enviado
-                              </p>
-                            )}
-                            {whatsappStatus === 'error' && whatsappError && (
-                              <p className="text-xs text-red-600 mt-1.5">⚠️ {whatsappError}</p>
-                            )}
-                          </div>
-                        )}
                       </td>
                     </tr>
                   ))}
@@ -1528,6 +1446,163 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
           </div>
         </div>
       )}
+
+      {/* Modal de envío por WhatsApp */}
+      {whatsappPopoverId && (() => {
+        const targetPresupuesto = presupuestos.find(p => p.id === whatsappPopoverId);
+        if (!targetPresupuesto) return null;
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+            onClick={() => {
+              setWhatsappPopoverId(null);
+              setRowWhatsappPhone('');
+              setWhatsappStatus('idle');
+              setWhatsappError(null);
+            }}
+          >
+            <div
+              className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="bg-green-600 px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-white">
+                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
+                  </svg>
+                  <span className="font-semibold">Enviar por WhatsApp</span>
+                </div>
+                <button
+                  onClick={() => {
+                    setWhatsappPopoverId(null);
+                    setRowWhatsappPhone('');
+                    setWhatsappStatus('idle');
+                    setWhatsappError(null);
+                  }}
+                  className="text-white/80 hover:text-white p-1"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-4 space-y-4">
+                {/* Info del presupuesto */}
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-sm font-medium text-gray-700">Presupuesto #{targetPresupuesto.id}</p>
+                  <p className="text-xs text-gray-500">{targetPresupuesto.customerName || 'Cliente'}</p>
+                  <p className="text-lg font-bold text-green-600 mt-1">${targetPresupuesto.totalUSD.toFixed(2)}</p>
+                </div>
+
+                {/* Tipo de envío */}
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1.5 block">Formato de envío</label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setWhatsappType('presupuesto')}
+                      className={`flex-1 py-2.5 px-3 rounded-lg border-2 transition-all text-sm font-medium flex items-center justify-center gap-2 ${
+                        whatsappType === 'presupuesto'
+                          ? 'border-green-500 bg-green-50 text-green-700'
+                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
+                    >
+                      📸 Imagen
+                    </button>
+                    <button
+                      onClick={() => setWhatsappType('factura')}
+                      className={`flex-1 py-2.5 px-3 rounded-lg border-2 transition-all text-sm font-medium flex items-center justify-center gap-2 ${
+                        whatsappType === 'factura'
+                          ? 'border-purple-500 bg-purple-50 text-purple-700'
+                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
+                    >
+                      📄 PDF
+                    </button>
+                  </div>
+                </div>
+
+                {/* Número de teléfono */}
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1.5 block">Número de WhatsApp</label>
+                  <input
+                    type="tel"
+                    placeholder="0414-123-4567"
+                    value={formatPhoneDisplay(rowWhatsappPhone)}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '');
+                      setRowWhatsappPhone(digits.slice(0, 11));
+                      setWhatsappStatus('idle');
+                      setWhatsappError(null);
+                    }}
+                    className="w-full px-4 py-3 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none placeholder:text-gray-400 font-mono text-center"
+                    disabled={whatsappSending}
+                    autoFocus
+                  />
+                </div>
+
+                {/* Status messages */}
+                {whatsappStatus === 'sent' && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-sm text-green-700 font-medium">
+                      {whatsappType === 'factura' ? 'Factura PDF enviada' : 'Presupuesto enviado'}
+                    </span>
+                  </div>
+                )}
+                {whatsappStatus === 'error' && whatsappError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+                    <span className="text-red-500 flex-shrink-0">⚠️</span>
+                    <span className="text-sm text-red-700">{whatsappError}</span>
+                  </div>
+                )}
+
+                {/* Botón de enviar */}
+                <button
+                  onClick={() => {
+                    handleWhatsAppSend(targetPresupuesto, rowWhatsappPhone);
+                  }}
+                  disabled={whatsappSending || !isValidPhone(rowWhatsappPhone)}
+                  className={`w-full py-3 text-white rounded-xl font-semibold transition-colors flex items-center justify-center gap-2 ${
+                    whatsappType === 'factura'
+                      ? 'bg-purple-600 hover:bg-purple-500 disabled:bg-purple-300'
+                      : 'bg-green-600 hover:bg-green-500 disabled:bg-green-300'
+                  }`}
+                >
+                  {whatsappStatus === 'capturing' ? (
+                    <>
+                      <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                      </svg>
+                      Capturando imagen...
+                    </>
+                  ) : whatsappStatus === 'uploading' ? (
+                    <>
+                      <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                      </svg>
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
+                      </svg>
+                      {whatsappType === 'factura' ? 'Enviar Factura PDF' : 'Enviar Presupuesto'}
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Hidden div for html2canvas capture */}
       <div
