@@ -70,6 +70,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   const whatsappCaptureRef = useRef<HTMLDivElement>(null);
   const [whatsappPopoverId, setWhatsappPopoverId] = useState<string | null>(null);
   const [rowWhatsappPhone, setRowWhatsappPhone] = useState('');
+  const [whatsappType, setWhatsappType] = useState<'presupuesto' | 'factura'>('presupuesto');
 
   // Verificar autenticación al cargar via API
   useEffect(() => {
@@ -811,6 +812,75 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     }
   };
 
+  // Enviar factura PDF por WhatsApp Cloud API
+  const sendWhatsAppFactura = async (presupuesto: Presupuesto, phoneOverride?: string) => {
+    const phone = phoneOverride || whatsappPhone;
+
+    if (!isValidPhone(phone)) {
+      setWhatsappError('Número inválido. Usa formato: 0414XXXXXXX');
+      setWhatsappStatus('error');
+      return;
+    }
+
+    if (phoneOverride) setWhatsappPhone(phoneOverride);
+
+    setWhatsappSending(true);
+    setWhatsappStatus('uploading');
+    setWhatsappError(null);
+
+    try {
+      // Preparar items para la factura
+      const facturaItems = presupuesto.items.map(item => ({
+        producto: item.nombre,
+        cantidad: item.cantidad,
+        unidad: item.unidad,
+        precioUnit: item.precioUSD,
+        subtotal: item.subtotalUSD
+      }));
+
+      const response = await fetch('/api/send-whatsapp-factura', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: phone.replace(/\D/g, ''),
+          facturaId: presupuesto.id,
+          customerName: presupuesto.customerName || 'Cliente',
+          customerAddress: presupuesto.customerAddress,
+          items: facturaItems,
+          subtotal: presupuesto.totalUSD,
+          total: presupuesto.totalUSD,
+          totalBs: presupuesto.totalBs,
+          exchangeRate: presupuesto.totalBs / presupuesto.totalUSD,
+          date: new Date(presupuesto.fecha).toLocaleDateString('es-VE')
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setWhatsappStatus('sent');
+      } else {
+        throw new Error(result.error || 'Error desconocido');
+      }
+
+    } catch (err: any) {
+      console.error('WhatsApp factura send error:', err);
+      setWhatsappStatus('error');
+      setWhatsappError(err.message || 'Error al enviar factura por WhatsApp');
+    } finally {
+      setWhatsappSending(false);
+    }
+  };
+
+  // Función wrapper para enviar según el tipo seleccionado
+  const handleWhatsAppSend = (presupuesto: Presupuesto, phoneOverride?: string) => {
+    if (whatsappType === 'factura') {
+      sendWhatsAppFactura(presupuesto, phoneOverride);
+    } else {
+      sendWhatsApp(presupuesto, phoneOverride);
+    }
+  };
+
   if (isCheckingAuth || !isAuthenticated) {
     return (
       <div className="min-h-screen bg-ocean-50 flex items-center justify-center">
@@ -1104,12 +1174,35 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                             <div className="absolute bottom-0 right-6 translate-y-full">
                               <div className="border-8 border-transparent border-t-green-200"></div>
                             </div>
-                            <p className="text-sm font-semibold text-green-700 mb-2.5 flex items-center gap-2">
+                            <p className="text-sm font-semibold text-green-700 mb-2 flex items-center gap-2">
                               <svg className="w-5 h-5 text-green-600" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
                               </svg>
-                              Enviar presupuesto por WhatsApp
+                              Enviar por WhatsApp
                             </p>
+                            {/* Tipo toggle */}
+                            <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg mb-2">
+                              <button
+                                onClick={() => setWhatsappType('presupuesto')}
+                                className={`flex-1 px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                                  whatsappType === 'presupuesto'
+                                    ? 'bg-white text-green-700 shadow-sm'
+                                    : 'text-gray-600 hover:text-gray-800'
+                                }`}
+                              >
+                                📸 Imagen
+                              </button>
+                              <button
+                                onClick={() => setWhatsappType('factura')}
+                                className={`flex-1 px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                                  whatsappType === 'factura'
+                                    ? 'bg-white text-purple-700 shadow-sm'
+                                    : 'text-gray-600 hover:text-gray-800'
+                                }`}
+                              >
+                                📄 PDF
+                              </button>
+                            </div>
                             <div className="flex gap-2 items-center">
                               <input
                                 type="tel"
@@ -1127,14 +1220,17 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                               />
                               <button
                                 onClick={() => {
-                                  sendWhatsApp(p, rowWhatsappPhone);
-                                  // Close popover after successful send
+                                  handleWhatsAppSend(p, rowWhatsappPhone);
                                   setTimeout(() => {
                                     if (whatsappStatus === 'sent') setWhatsappPopoverId(null);
                                   }, 2000);
                                 }}
                                 disabled={whatsappSending || !isValidPhone(rowWhatsappPhone)}
-                                className="px-3 py-1.5 bg-green-600 hover:bg-green-500 disabled:bg-green-300 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+                                className={`px-3 py-1.5 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                                  whatsappType === 'factura'
+                                    ? 'bg-purple-600 hover:bg-purple-500 disabled:bg-purple-300'
+                                    : 'bg-green-600 hover:bg-green-500 disabled:bg-green-300'
+                                }`}
                               >
                                 {whatsappStatus === 'capturing' || whatsappStatus === 'uploading' ? '...' : 'Enviar'}
                               </button>
@@ -1341,6 +1437,30 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                   Enviar al cliente por WhatsApp
                 </p>
 
+                {/* Tipo toggle */}
+                <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg mb-3">
+                  <button
+                    onClick={() => setWhatsappType('presupuesto')}
+                    className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                      whatsappType === 'presupuesto'
+                        ? 'bg-white text-green-700 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-800'
+                    }`}
+                  >
+                    📸 Presupuesto (Imagen)
+                  </button>
+                  <button
+                    onClick={() => setWhatsappType('factura')}
+                    className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                      whatsappType === 'factura'
+                        ? 'bg-white text-purple-700 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-800'
+                    }`}
+                  >
+                    📄 Factura (PDF)
+                  </button>
+                </div>
+
                 <div className="flex gap-2">
                   <input
                     type="tel"
@@ -1358,11 +1478,14 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                     disabled={whatsappSending}
                   />
                   <button
-                    onClick={() => sendWhatsApp(selectedPresupuesto)}
+                    onClick={() => handleWhatsAppSend(selectedPresupuesto)}
                     disabled={whatsappSending || whatsappPhone.replace(/\D/g, '').length < 11}
-                    className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:bg-green-300
-                      text-white rounded-lg text-sm font-medium transition-colors
-                      flex items-center gap-1.5 whitespace-nowrap"
+                    className={`px-4 py-2 text-white rounded-lg text-sm font-medium transition-colors
+                      flex items-center gap-1.5 whitespace-nowrap ${
+                        whatsappType === 'factura'
+                          ? 'bg-purple-600 hover:bg-purple-500 disabled:bg-purple-300'
+                          : 'bg-green-600 hover:bg-green-500 disabled:bg-green-300'
+                      }`}
                   >
                     {whatsappStatus === 'capturing' ? (
                       <>
@@ -1381,7 +1504,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                         Enviando...
                       </>
                     ) : (
-                      <>Enviar</>
+                      <>{whatsappType === 'factura' ? 'Enviar PDF' : 'Enviar'}</>
                     )}
                   </button>
                 </div>
@@ -1392,7 +1515,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    Mensaje enviado exitosamente
+                    {whatsappType === 'factura' ? 'Factura PDF enviada' : 'Mensaje enviado exitosamente'}
                   </p>
                 )}
                 {whatsappStatus === 'error' && whatsappError && (
