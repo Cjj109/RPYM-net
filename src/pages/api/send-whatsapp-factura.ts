@@ -79,7 +79,7 @@ function generateFacturaPDF(data: {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(100, 100, 100);
-  doc.text('Repuestos y Mas', margin, y + 6);
+  doc.text('El Rey de los Pescados y Mariscos', margin, y + 6);
 
   // Factura number - right aligned
   doc.setFontSize(14);
@@ -261,7 +261,7 @@ function generateFacturaPDF(data: {
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(150, 150, 150);
-  doc.text('Gracias por su compra - RPYM Repuestos y Mas', pageWidth / 2, footerY, { align: 'center' });
+  doc.text('Gracias por su compra - RPYM El Rey de los Pescados y Mariscos', pageWidth / 2, footerY, { align: 'center' });
 
   return doc.output('arraybuffer');
 }

@@ -5,19 +5,22 @@ export const prerender = false;
 // WhatsApp webhook verification token (set in Meta console)
 const VERIFY_TOKEN = 'rpym_webhook_2026';
 
-// Jose RPYM phone number (from website)
-const JOSE_WHATSAPP = '+58 414-214-5202';
+// Jose RPYM contact info
+const JOSE_CONTACT = {
+  name: 'José RPYM',
+  phone: '+584142145202', // Format for WhatsApp API
+  phoneDisplay: '+58 414-214-5202'
+};
 
 // Auto-reply message
-const AUTO_REPLY_MESSAGE = `¡Hola! 👋
+const AUTO_REPLY_MESSAGE = `¡Hola! 🐟
 
-Este número es exclusivo para el envío de facturas y presupuestos de *RPYM Repuestos y Mas*.
+Este número es exclusivo para el envío de facturas y presupuestos.
 
-Para consultas, pedidos o atención al cliente, por favor comunícate directamente con *José RPYM* al:
-📱 ${JOSE_WHATSAPP}
+Para consultas, pedidos o atención al cliente, comunícate directamente con *José* presionando el contacto que te enviaremos a continuación.
 
 ¡Gracias por tu preferencia!
-_RPYM - Repuestos y Mas_`;
+🦐 *RPYM - El Rey de los Pescados y Mariscos*`;
 
 /**
  * Webhook verification (GET) - Required by Meta for webhook setup
@@ -100,6 +103,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       }
     };
 
+    // 1. Send text message
     const response = await fetch(graphApiUrl, {
       method: 'POST',
       headers: {
@@ -116,7 +120,48 @@ export const POST: APIRoute = async ({ request, locals }) => {
       console.log(`Auto-reply sent to ${from}`);
     }
 
-    // Also mark the message as read
+    // 2. Send contact card for easy saving
+    const contactPayload = {
+      messaging_product: 'whatsapp',
+      to: from,
+      type: 'contacts',
+      contacts: [
+        {
+          name: {
+            formatted_name: JOSE_CONTACT.name,
+            first_name: 'José',
+            last_name: 'RPYM'
+          },
+          phones: [
+            {
+              phone: JOSE_CONTACT.phone,
+              type: 'CELL'
+            }
+          ],
+          org: {
+            company: 'RPYM - El Rey de los Pescados y Mariscos'
+          }
+        }
+      ]
+    };
+
+    const contactResponse = await fetch(graphApiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(contactPayload),
+    });
+
+    if (!contactResponse.ok) {
+      const error = await contactResponse.json();
+      console.error('WhatsApp contact card error:', error);
+    } else {
+      console.log(`Contact card sent to ${from}`);
+    }
+
+    // 3. Mark the original message as read
     await fetch(graphApiUrl, {
       method: 'POST',
       headers: {
