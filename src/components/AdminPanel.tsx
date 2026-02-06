@@ -265,10 +265,10 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     return `${digits.slice(0, 4)}-${digits.slice(4, 7)}-${digits.slice(7, 11)}`;
   };
 
-  // Validar teléfono venezolano
+  // Validar teléfono venezolano (todos los operadores)
   const isValidPhone = (value: string): boolean => {
     const d = value.replace(/\D/g, '');
-    return d.length === 11 && ['0412', '0414', '0416', '0424', '0426'].includes(d.slice(0, 4));
+    return d.length === 11 && ['0412', '0414', '0416', '0424', '0426', '0422'].includes(d.slice(0, 4));
   };
 
   // Imprimir nota de entrega (con o sin sello de pagado) - Estilo profesional con bordes
@@ -724,13 +724,19 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   };
 
   // Enviar presupuesto por WhatsApp Cloud API
-  const sendWhatsApp = async (presupuesto: Presupuesto) => {
+  const sendWhatsApp = async (presupuesto: Presupuesto, phoneOverride?: string) => {
+    // Usar el teléfono pasado directamente o el del estado
+    const phone = phoneOverride || whatsappPhone;
+
     // Validar teléfono
-    if (!isValidPhone(whatsappPhone)) {
+    if (!isValidPhone(phone)) {
       setWhatsappError('Número inválido. Usa formato: 0414XXXXXXX');
       setWhatsappStatus('error');
       return;
     }
+
+    // Guardar el teléfono en el estado para uso posterior
+    if (phoneOverride) setWhatsappPhone(phoneOverride);
 
     setWhatsappSending(true);
     setWhatsappStatus('capturing');
@@ -778,7 +784,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
       // 6. Enviar a API
       const formData = new FormData();
       formData.append('image', blob, 'presupuesto.jpg');
-      formData.append('phone', whatsappPhone.replace(/\D/g, ''));
+      formData.append('phone', phone.replace(/\D/g, ''));
       formData.append('customerName', presupuesto.customerName || 'Cliente');
       formData.append('totalUSD', presupuesto.totalUSD.toFixed(2));
       formData.append('presupuestoId', presupuesto.id);
@@ -1092,16 +1098,19 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                         </div>
                         {whatsappPopoverId === p.id && (
                           <div
-                            className="absolute right-4 top-full mt-1 bg-white rounded-xl shadow-lg border border-ocean-200 p-3 z-40 w-72"
+                            className="absolute right-0 bottom-full mb-2 bg-white rounded-xl shadow-xl border-2 border-green-200 p-3 z-50 w-80"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <p className="text-xs font-semibold text-ocean-700 mb-2 flex items-center gap-1.5">
-                              <svg className="w-4 h-4 text-green-600" viewBox="0 0 24 24" fill="currentColor">
+                            <div className="absolute bottom-0 right-6 translate-y-full">
+                              <div className="border-8 border-transparent border-t-green-200"></div>
+                            </div>
+                            <p className="text-sm font-semibold text-green-700 mb-2.5 flex items-center gap-2">
+                              <svg className="w-5 h-5 text-green-600" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
                               </svg>
-                              Enviar al cliente
+                              Enviar presupuesto por WhatsApp
                             </p>
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 items-center">
                               <input
                                 type="tel"
                                 placeholder="0414-XXX-XXXX"
@@ -1112,19 +1121,19 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                                   setWhatsappStatus('idle');
                                   setWhatsappError(null);
                                 }}
-                                className="flex-1 px-2.5 py-1.5 text-sm border border-ocean-200 rounded-lg focus:ring-1 focus:ring-green-500 focus:border-transparent outline-none placeholder:text-ocean-400"
+                                className="flex-1 px-3 py-2 text-base border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none placeholder:text-gray-400 font-mono"
                                 disabled={whatsappSending}
+                                autoFocus
                               />
                               <button
                                 onClick={() => {
-                                  setWhatsappPhone(rowWhatsappPhone);
-                                  sendWhatsApp(p);
+                                  sendWhatsApp(p, rowWhatsappPhone);
                                   // Close popover after successful send
                                   setTimeout(() => {
                                     if (whatsappStatus === 'sent') setWhatsappPopoverId(null);
                                   }, 2000);
                                 }}
-                                disabled={whatsappSending || rowWhatsappPhone.replace(/\D/g, '').length < 11}
+                                disabled={whatsappSending || !isValidPhone(rowWhatsappPhone)}
                                 className="px-3 py-1.5 bg-green-600 hover:bg-green-500 disabled:bg-green-300 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
                               >
                                 {whatsappStatus === 'capturing' || whatsappStatus === 'uploading' ? '...' : 'Enviar'}

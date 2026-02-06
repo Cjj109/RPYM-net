@@ -3,8 +3,9 @@ import { getR2 } from '../../lib/d1-types';
 
 export const prerender = false;
 
-// Valid Venezuelan mobile prefixes
-const VALID_PREFIXES = ['412', '414', '416', '424', '426'];
+// Valid Venezuelan mobile prefixes (all operators)
+// Movistar: 414, 424 | Digitel: 412, 422 | Movilnet: 416, 426
+const VALID_PREFIXES = ['412', '414', '416', '422', '424', '426'];
 
 /**
  * Convert Venezuelan phone number to WhatsApp format (without + prefix)
