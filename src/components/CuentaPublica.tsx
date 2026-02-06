@@ -19,6 +19,8 @@ interface PublicTransaction {
   amountUsdDivisa: number | null;
   isPaid: boolean;
   paidMethod: string | null;
+  paidDate: string | null;
+  notes: string | null;
   createdAt: string;
 }
 
@@ -592,14 +594,14 @@ export default function CuentaPublica() {
                               {tx.isPaid && (
                                 <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
                                   isDual && tx.paidMethod
-                                    ? (['efectivo', 'zelle'].includes(tx.paidMethod) ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700')
+                                    ? (['efectivo', 'zelle', 'usdt'].includes(tx.paidMethod) ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700')
                                     : 'bg-green-100 text-green-700'
                                 }`}>
                                   {isDual && tx.paidMethod
-                                    ? (['efectivo', 'zelle'].includes(tx.paidMethod)
-                                        ? `Pagado USD`
-                                        : `Pagado Bs`)
-                                    : 'Pagado'}
+                                    ? (['efectivo', 'zelle', 'usdt'].includes(tx.paidMethod)
+                                        ? `Pagado USD (${tx.paidMethod === 'zelle' ? 'Zelle' : tx.paidMethod === 'usdt' ? 'USDT' : 'Efectivo'})`
+                                        : `Pagado Bs (${tx.paidMethod === 'pago_movil' ? 'P.Movil' : tx.paidMethod === 'transferencia' ? 'Transf.' : tx.paidMethod})`)
+                                    : `Pagado${tx.paidMethod ? ` (${tx.paidMethod === 'pago_movil' ? 'P.Movil' : tx.paidMethod === 'efectivo' ? 'Efectivo' : tx.paidMethod === 'zelle' ? 'Zelle' : tx.paidMethod === 'usdt' ? 'USDT' : tx.paidMethod === 'transferencia' ? 'Transf.' : tx.paidMethod === 'tarjeta' ? 'Tarjeta' : tx.paidMethod})` : ''}`}
                                 </span>
                               )}
                               {isDual && (
@@ -616,10 +618,15 @@ export default function CuentaPublica() {
                               )}
                               {tx.paymentMethod && (
                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500">
-                                  {tx.paymentMethod === 'pago_movil' ? 'P.Movil' : tx.paymentMethod === 'efectivo' ? 'Efectivo' : tx.paymentMethod === 'tarjeta' ? 'Tarjeta' : tx.paymentMethod === 'transferencia' ? 'Transf.' : tx.paymentMethod === 'zelle' ? 'Zelle' : tx.paymentMethod}
+                                  {tx.paymentMethod === 'pago_movil' ? 'P.Movil' : tx.paymentMethod === 'efectivo' ? 'Efectivo' : tx.paymentMethod === 'tarjeta' ? 'Tarjeta' : tx.paymentMethod === 'transferencia' ? 'Transf.' : tx.paymentMethod === 'zelle' ? 'Zelle' : tx.paymentMethod === 'usdt' ? 'USDT' : tx.paymentMethod}
                                 </span>
                               )}
                             </div>
+                            {tx.notes && (
+                              <p className="text-xs text-ocean-500 italic mt-0.5">
+                                Nota: {tx.notes}
+                              </p>
+                            )}
                             {tx.presupuestoId && (
                               <button
                                 onClick={() => handleViewPresupuesto(tx.presupuestoId!)}
@@ -701,7 +708,7 @@ export default function CuentaPublica() {
         <div className="text-center py-6 space-y-2">
           <div className="w-10 h-0.5 bg-ocean-200 rounded mx-auto mb-3"></div>
           <p className="text-ocean-800 font-bold text-sm tracking-tight">RPYM Mariscos</p>
-          <p className="text-ocean-400 text-xs">Muelle El Mosquero, Puerto La Cruz</p>
+          <p className="text-ocean-400 text-xs">Muelle El Mosquero, Maiquetía</p>
           <a
             href="https://wa.me/584142145202"
             className="inline-flex items-center gap-1.5 text-green-600 text-xs hover:text-green-700 transition-colors bg-green-50 px-3 py-1.5 rounded-full"

@@ -47,6 +47,7 @@ export interface SavePresupuestoData {
   customerAddress?: string;
   status?: 'pendiente' | 'pagado';
   source?: 'admin' | 'cliente';
+  customDate?: string; // YYYY-MM-DD format for past presupuestos
 }
 
 export interface PresupuestoStats {
@@ -92,6 +93,7 @@ export async function savePresupuesto(data: SavePresupuestoData): Promise<{ succ
         clientIP: clientIP,
         status: data.status || 'pendiente',
         source: data.source || 'cliente',
+        customDate: data.customDate || null,
       })
     });
 

@@ -286,6 +286,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     };
 
     const isDual = presupuesto.totalUSDDivisa != null;
+    const isDivisasOnly = presupuesto.totalBs === 0;
     const dateStr = new Date(presupuesto.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const customerName = presupuesto.customerName || '';
     const customerAddress = presupuesto.customerAddress || '';
@@ -427,7 +428,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     </div>
     <div style="text-align:right;">
       <div style="font-size:16px;font-weight:700;color:#0c4a6e;border-bottom:2px solid #075985;padding-bottom:4px;margin-bottom:6px;">PRESUPUESTO</div>
-      ${isDual ? '<div style="background:#e0f2fe;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#075985;margin-bottom:4px;">PRECIOS BCV</div>' : ''}
+      ${isDivisasOnly ? '<div style="background:#dcfce7;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#166534;margin-bottom:4px;">PRECIOS USD</div>' : (isDual ? '<div style="background:#e0f2fe;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#075985;margin-bottom:4px;">PRECIOS BCV</div>' : '')}
       <div style="font-size:10px;color:#0369a1;">No: <span style="font-family:monospace;font-weight:600;color:#0c4a6e;">${presupuesto.id}</span></div>
       <div style="font-size:10px;color:#0369a1;margin-top:2px;">Fecha: <span style="font-weight:600;color:#0c4a6e;">${dateStr}</span></div>
     </div>
@@ -467,17 +468,17 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   <div style="border:2px solid #075985;margin-bottom:16px;display:flex;">
     <div style="flex:1;padding:10px 16px;border-right:2px solid #075985;">
       <div style="font-size:10px;font-weight:600;color:#0369a1;margin-bottom:4px;">OBSERVACIONES:</div>
-      <div style="font-size:10px;color:#0369a1;">Tasa BCV aplicada al momento de pago</div>
+      <div style="font-size:10px;color:#0369a1;">${isDivisasOnly ? 'Precios en USD efectivo' : 'Tasa BCV aplicada al momento de pago'}</div>
     </div>
     <div style="width:200px;padding:10px 16px;">
       <div style="display:flex;justify-content:space-between;font-size:13px;">
         <span style="color:#0369a1;font-weight:600;">Total USD:</span>
         <span style="font-weight:800;color:#0c4a6e;">${formatUSD(presupuesto.totalUSD)}</span>
       </div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;border-top:1px solid #7dd3fc;padding-top:4px;">
+      ${!isDivisasOnly ? `<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;border-top:1px solid #7dd3fc;padding-top:4px;">
         <span style="color:#0369a1;">Total Bs.:</span>
         <span style="font-weight:700;color:#ea580c;">${formatBs(presupuesto.totalBs)}</span>
-      </div>
+      </div>` : ''}
     </div>
   </div>
 
@@ -520,6 +521,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   const handleWhatsAppView = (presupuesto: Presupuesto) => {
     const isPaid = presupuesto.estado === 'pagado';
     const isDualWA = presupuesto.totalUSDDivisa != null;
+    const isDivisasOnlyWA = presupuesto.totalBs === 0;
     const fmtQty = (qty: number): string => {
       const rounded = Math.round(qty * 1000) / 1000;
       return rounded.toFixed(3).replace(/\.?0+$/, '');
@@ -596,7 +598,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     <div style="text-align:center;margin-bottom:12px;">
       <img src="/camaronlogo-sm.webp" alt="RPYM" style="display:block;width:140px;height:auto;object-fit:contain;margin:0 auto;" />
       <div style="font-size:12px;color:#0369a1;margin-top:4px;">Presupuesto</div>
-      ${isDualWA ? '<div style="background:#e0f2fe;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#075985;margin-top:4px;">Precios BCV</div>' : ''}
+      ${isDivisasOnlyWA ? '<div style="background:#dcfce7;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#166534;margin-top:4px;">Precios USD</div>' : (isDualWA ? '<div style="background:#e0f2fe;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#075985;margin-top:4px;">Precios BCV</div>' : '')}
       ${isPaid ? '<div style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:9999px;margin-top:6px;">PAGADO</div>' : ''}
     </div>
 
@@ -613,10 +615,10 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
         <span style="font-size:14px;font-weight:600;color:#0369a1;">Total USD</span>
         <span style="font-size:20px;font-weight:800;color:#0c4a6e;">${formatUSD(presupuesto.totalUSD)}</span>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px;">
+      ${!isDivisasOnlyWA ? `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px;">
         <span style="font-size:12px;color:#0369a1;">Total Bs.</span>
         <span style="font-size:15px;font-weight:700;color:#ea580c;">${formatBs(presupuesto.totalBs)}</span>
-      </div>
+      </div>` : ''}
     </div>
 
     <!-- Footer -->
@@ -638,6 +640,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   const buildWhatsAppHTML = (presupuesto: Presupuesto): string => {
     const isPaid = presupuesto.estado === 'pagado';
     const isDualCapture = presupuesto.totalUSDDivisa != null;
+    const isDivisasOnlyCapture = presupuesto.totalBs === 0;
     const fmtQty = (qty: number): string => {
       const rounded = Math.round(qty * 1000) / 1000;
       return rounded.toFixed(3).replace(/\.?0+$/, '');
@@ -694,7 +697,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
           ${isPaid ? '<div style="display:inline-block;background:#fef3c7;color:#92400e;font-size:13px;font-weight:700;padding:5px 20px;border-radius:6px;margin-top:8px;border:2px solid #f59e0b;">PAGADO</div>' : ''}
         </div>
 
-        ${isDualCapture ? '<div style="background:#e0f2fe;padding:8px 12px;border-radius:6px;margin-bottom:12px;font-weight:700;font-size:14px;color:#075985;text-align:center;">Precios BCV</div>' : ''}
+        ${isDivisasOnlyCapture ? '<div style="background:#dcfce7;padding:8px 12px;border-radius:6px;margin-bottom:12px;font-weight:700;font-size:14px;color:#166534;text-align:center;">Precios USD</div>' : (isDualCapture ? '<div style="background:#e0f2fe;padding:8px 12px;border-radius:6px;margin-bottom:12px;font-weight:700;font-size:14px;color:#075985;text-align:center;">Precios BCV</div>' : '')}
 
         <div style="margin-bottom:16px;">
           ${itemsHtml}
@@ -707,10 +710,10 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
             <span style="font-weight:700;font-size:14px;color:#0c4a6e;">Total USD</span>
             <span style="font-weight:700;font-size:22px;color:#ea580c;">${formatUSD(presupuesto.totalUSD)}</span>
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;">
+          ${!isDivisasOnlyCapture ? `<div style="display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:13px;color:#0c4a6e;">Total Bs.</span>
             <span style="font-weight:600;font-size:15px;color:#0c4a6e;">${formatBs(presupuesto.totalBs)}</span>
-          </div>
+          </div>` : ''}
         </div>
 
         ${divisaSectionHtml}

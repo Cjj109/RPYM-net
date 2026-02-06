@@ -120,6 +120,7 @@ export default function AdminCustomers() {
     items: Array<{ nombre: string; cantidad: number; unidad: string; precioUSD: number; subtotalUSD: number; precioUSDDivisa?: number; subtotalUSDDivisa?: number }>;
     customerName: string | null;
     isDual: boolean;
+    isDivisasOnly?: boolean;
   } | null>(null);
 
   // Modal detalle transaccion
@@ -177,17 +178,17 @@ export default function AdminCustomers() {
   const formatBs = (amount: number) => `Bs ${Number(amount).toFixed(2)}`;
 
   const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
+    // Parse date string directly to avoid timezone issues
+    // Input: "2025-01-31" or "2025-01-31T..."
+    const datePart = dateStr.split('T')[0];
+    const [year, month, day] = datePart.split('-');
     return `${day}/${month}`;
   };
 
   const formatDateFull = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
+    // Parse date string directly to avoid timezone issues
+    const datePart = dateStr.split('T')[0];
+    const [year, month, day] = datePart.split('-');
     return `${day}/${month}/${year}`;
   };
 
@@ -263,6 +264,7 @@ export default function AdminCustomers() {
       if (data.success && data.presupuesto) {
         const p = data.presupuesto;
         const isDual = p.totalUSDDivisa != null && p.totalUSDDivisa > 0;
+        const isDivisasOnly = p.totalBs === 0;
         setFetchedPresupuesto({
           id: p.id,
           totalUSD: p.totalUSD,
@@ -270,7 +272,8 @@ export default function AdminCustomers() {
           totalUSDDivisa: p.totalUSDDivisa,
           items: p.items,
           customerName: p.customerName,
-          isDual
+          isDual,
+          isDivisasOnly
         });
         setPresupuestoNotFound(false);
         // Auto-fill form
@@ -278,14 +281,16 @@ export default function AdminCustomers() {
           .map((it: any) => it.nombre)
           .join(', ');
         const desc = `Ppto #${p.id}: ${itemsSummary}`.substring(0, 200);
+        // Determine currency type: divisas-only → divisas, dual → dolar_bcv, otherwise keep current
+        const autoCurrencyType = isDivisasOnly ? 'divisas' : (isDual ? 'dolar_bcv' : undefined);
         setTxForm(prev => ({
           ...prev,
           presupuestoId: presupuestoId.trim(),
           description: desc,
           amountUsd: String(p.totalUSD),
-          amountBs: String(p.totalBs),
-          currencyType: isDual ? 'dolar_bcv' : prev.currencyType,
-          exchangeRate: isDual && bcvRate ? String(bcvRate) : prev.exchangeRate,
+          amountBs: isDivisasOnly ? '' : String(p.totalBs),
+          currencyType: autoCurrencyType ?? prev.currencyType,
+          exchangeRate: (isDual && bcvRate) ? String(bcvRate) : prev.exchangeRate,
         }));
       } else {
         setFetchedPresupuesto(null);
@@ -626,14 +631,14 @@ export default function AdminCustomers() {
 
     try {
       // Fetch products for the parser
-      const productsRes = await fetch('/api/productos');
+      const productsRes = await fetch('/api/products');
       const productsData = await productsRes.json();
 
-      if (!productsData.success) {
+      if (!productsData.success || !productsData.products) {
         throw new Error('Error al cargar productos');
       }
 
-      const productInfo = productsData.productos.map((p: any) => ({
+      const productInfo = productsData.products.map((p: any) => ({
         id: p.id,
         nombre: p.nombre,
         unidad: p.unidad,
@@ -1012,12 +1017,16 @@ export default function AdminCustomers() {
   const handleShareWhatsApp = () => {
     if (!shareUrl || !selectedCustomer) return;
     const message = `Hola ${selectedCustomer.name}, aqui puedes ver tu estado de cuenta:\n${shareUrl}`;
-    const phone = selectedCustomer.phone?.replace(/\D/g, '') || '';
-    if (phone) {
-      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
-    } else {
-      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank');
+    let phone = selectedCustomer.phone?.replace(/\D/g, '') || '';
+    // Ensure Venezuelan phone has country code
+    if (phone && !phone.startsWith('58') && phone.length === 10) {
+      phone = '58' + phone;
     }
+    // Use api.whatsapp.com/send which is more reliable across devices
+    const waUrl = phone
+      ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, '_blank');
   };
 
   // ─── AI Handlers ─────────────────────────────────────────────────
@@ -2174,6 +2183,15 @@ export default function AdminCustomers() {
                     {fetchedPresupuesto.customerName && (
                       <p className="text-xs text-green-600">Cliente: {fetchedPresupuesto.customerName}</p>
                     )}
+                    {fetchedPresupuesto.isDivisasOnly && (
+                      <div className="mt-2 p-2 bg-green-50 rounded border border-green-300">
+                        <p className="text-xs font-semibold text-green-700">Solo Divisas detectado</p>
+                        <p className="text-xs text-green-600">
+                          Este presupuesto es solo en USD (sin Bs)
+                        </p>
+                        <p className="text-xs text-green-500 mt-1">Tipo de cambio: Divisas</p>
+                      </div>
+                    )}
                     {fetchedPresupuesto.isDual && (
                       <div className="mt-2 p-2 bg-purple-50 rounded border border-purple-200">
                         <p className="text-xs font-semibold text-purple-700">Presupuesto Dual detectado</p>
@@ -2284,7 +2302,7 @@ export default function AdminCustomers() {
 
             <div>
               <label className="block text-sm font-medium text-ocean-700 mb-1">
-                Foto de factura
+                {isPurchase ? 'Foto de factura' : 'Foto de comprobante'}
                 <span className="font-normal text-ocean-500 ml-1">(opcional)</span>
               </label>
               <input
@@ -2297,7 +2315,7 @@ export default function AdminCustomers() {
                 <div className="mt-2 relative">
                   <img
                     src={invoicePreview}
-                    alt="Preview factura"
+                    alt={isPurchase ? 'Preview factura' : 'Preview comprobante'}
                     className="w-full max-h-40 object-contain rounded-lg border border-ocean-200"
                   />
                   <button
@@ -2484,10 +2502,10 @@ export default function AdminCustomers() {
 
             {detailTx.invoiceImageUrl && (
               <div>
-                <p className="text-xs text-ocean-500 mb-1">Foto de factura</p>
+                <p className="text-xs text-ocean-500 mb-1">{isPurchase ? 'Foto de factura' : 'Foto de comprobante'}</p>
                 <img
                   src={detailTx.invoiceImageUrl}
-                  alt="Factura"
+                  alt={isPurchase ? 'Factura' : 'Comprobante'}
                   className="w-full max-h-80 object-contain rounded-lg border border-ocean-200 cursor-pointer"
                   onClick={() => window.open(detailTx.invoiceImageUrl!, '_blank')}
                 />

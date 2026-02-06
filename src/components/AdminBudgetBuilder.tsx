@@ -192,6 +192,13 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
   // Mark as paid toggle
   const [markAsPaid, setMarkAsPaid] = useState(false);
 
+  // Custom date for presupuesto
+  const [useCustomDate, setUseCustomDate] = useState(false);
+  const [customPresupuestoDate, setCustomPresupuestoDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+
   // Customer assignment for ledger
   const [customersList, setCustomersList] = useState<{id: number, name: string}[]>([]);
   const [assignToCustomer, setAssignToCustomer] = useState<number | null>(null);
@@ -1159,14 +1166,16 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
 
     try {
       const items = Array.from(selectedItems.values()).map(item => {
+        // If soloDivisas is true, don't include Bs prices (set to 0)
+        const includeBs = !soloDivisas;
         const base = {
           nombre: item.product.nombre,
           cantidad: item.quantity,
           unidad: item.product.unidad,
           precioUSD: getEffectivePrice(item),
-          precioBs: Math.round(getEffectivePrice(item) * bcvRate.rate * 100) / 100,
+          precioBs: includeBs ? Math.round(getEffectivePrice(item) * bcvRate.rate * 100) / 100 : 0,
           subtotalUSD: Math.round(getEffectivePrice(item) * item.quantity * 100) / 100,
-          subtotalBs: Math.round(getEffectivePrice(item) * item.quantity * bcvRate.rate * 100) / 100,
+          subtotalBs: includeBs ? Math.round(getEffectivePrice(item) * item.quantity * bcvRate.rate * 100) / 100 : 0,
         };
         if (modoPrecio === 'dual') {
           const divisaPrice = item.customPriceDivisa !== null ? item.customPriceDivisa : (item.product.precioUSDDivisa ?? item.product.precioUSD);
@@ -1187,7 +1196,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
           editingPresupuesto.id,
           items,
           totals.totalUSD,
-          totals.totalBs,
+          soloDivisas ? 0 : totals.totalBs,
           customerName,
           customerAddress,
           modoPrecio === 'dual' ? totals.totalUSDDivisa : undefined,
@@ -1202,12 +1211,13 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
         result = await savePresupuesto({
           items,
           totalUSD: totals.totalUSD,
-          totalBs: totals.totalBs,
+          totalBs: soloDivisas ? 0 : totals.totalBs,
           totalUSDDivisa: modoPrecio === 'dual' ? totals.totalUSDDivisa : undefined,
           customerName,
           customerAddress,
           status: markAsPaid ? 'pagado' : 'pendiente',
           source: 'admin',
+          customDate: useCustomDate ? customPresupuestoDate : undefined,
         });
         if (result.success && result.id) {
           setPresupuestoId(result.id);
@@ -1215,6 +1225,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
 
           // If assigned to a customer, create a transaction in their ledger
           if (assignToCustomer) {
+            const txDate = useCustomDate ? customPresupuestoDate : new Date().toISOString().split('T')[0];
             try {
               await fetch(`/api/customers/${assignToCustomer}/transactions`, {
                 method: 'POST',
@@ -1222,7 +1233,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                 credentials: 'include',
                 body: JSON.stringify({
                   type: 'purchase',
-                  date: new Date().toISOString().split('T')[0],
+                  date: txDate,
                   description: `Presupuesto ${result.id}`,
                   amountUsd: totals.totalUSD,
                   amountBs: totals.totalBs,
@@ -1274,7 +1285,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
           <span className="text-xs text-ocean-600 mr-1">Modo:</span>
           <div className="flex rounded-lg overflow-hidden border border-ocean-200">
             <button
-              onClick={() => { setModoPrecio('bcv'); }}
+              onClick={() => { setModoPrecio('bcv'); setSoloDivisas(false); }}
               className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                 modoPrecio === 'bcv'
                   ? 'bg-ocean-600 text-white'
@@ -1284,7 +1295,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
               BCV
             </button>
             <button
-              onClick={() => { setModoPrecio('dual'); }}
+              onClick={() => { setModoPrecio('dual'); setSoloDivisas(false); }}
               className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                 modoPrecio === 'dual'
                   ? 'bg-purple-600 text-white'
@@ -1304,6 +1315,26 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
               Divisa
             </button>
           </div>
+        </div>
+        {/* Custom date toggle */}
+        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-ocean-100">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={useCustomDate}
+              onChange={(e) => setUseCustomDate(e.target.checked)}
+              className="rounded border-ocean-300 text-ocean-600 focus:ring-ocean-500"
+            />
+            <span className="text-xs text-ocean-600">Fecha personalizada</span>
+          </label>
+          {useCustomDate && (
+            <input
+              type="date"
+              value={customPresupuestoDate}
+              onChange={(e) => setCustomPresupuestoDate(e.target.value)}
+              className="ml-2 px-2 py-1 text-xs border border-ocean-200 rounded-lg focus:ring-1 focus:ring-ocean-500 focus:border-transparent outline-none"
+            />
+          )}
         </div>
       </div>
 
@@ -2457,6 +2488,70 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                         </div>
                       );
                     })}
+                  </div>
+                )}
+
+                {/* Custom product (mobile) */}
+                {!showCustomForm ? (
+                  <button
+                    onClick={() => setShowCustomForm(true)}
+                    className="w-full py-2 border-2 border-dashed border-ocean-200 text-ocean-500 hover:border-ocean-400 hover:text-ocean-700 rounded-lg text-sm transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Producto personalizado
+                  </button>
+                ) : (
+                  <div className="p-3 border border-ocean-200 rounded-lg space-y-2 bg-ocean-50">
+                    <p className="text-xs font-medium text-ocean-700">Nuevo producto</p>
+                    <input
+                      type="text"
+                      value={customName}
+                      onChange={(e) => setCustomName(e.target.value)}
+                      placeholder="Nombre del producto"
+                      className="w-full px-2.5 py-1.5 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500 text-ocean-900 bg-white"
+                    />
+                    <div className="flex gap-2">
+                      <select
+                        value={customUnit}
+                        onChange={(e) => setCustomUnit(e.target.value)}
+                        className="flex-1 px-2 py-1.5 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500 text-ocean-900 bg-white"
+                      >
+                        <option value="kg">kg</option>
+                        <option value="unidad">unidad</option>
+                        <option value="paquete">paquete</option>
+                      </select>
+                      <div className="relative flex-1">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-ocean-400">$</span>
+                        <input
+                          type="number"
+                          value={customPriceUSD}
+                          onChange={(e) => setCustomPriceUSD(e.target.value)}
+                          placeholder="Precio"
+                          step="0.01"
+                          min="0"
+                          className="w-full pl-5 pr-2 py-1.5 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500
+                            [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
+                            text-ocean-900 bg-white"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setShowCustomForm(false); setCustomName(''); setCustomPriceUSD(''); }}
+                        className="flex-1 py-1.5 text-sm text-ocean-600 hover:bg-ocean-100 rounded-lg transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={addCustomProduct}
+                        disabled={!customName.trim() || !customPriceUSD || parseFloat(customPriceUSD) <= 0}
+                        className="flex-1 py-1.5 text-sm bg-coral-500 text-white rounded-lg hover:bg-coral-600 disabled:bg-ocean-200 disabled:text-ocean-400 transition-colors"
+                      >
+                        Agregar
+                      </button>
+                    </div>
                   </div>
                 )}
 
