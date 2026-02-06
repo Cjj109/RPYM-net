@@ -97,7 +97,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const body = await request.json();
-    const { items, totalUSD, totalBs, totalUSDDivisa, customerName, customerAddress, clientIP, status, source } = body;
+    const { items, totalUSD, totalBs, totalUSDDivisa, customerName, customerAddress, clientIP, status, source, customDate } = body;
 
     // Validate required fields
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -121,7 +121,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const id = generatePresupuestoId();
-    const fecha = new Date().toISOString();
+    // Allow custom date for admin-created presupuestos (past purchases)
+    const fecha = customDate ? new Date(customDate).toISOString() : new Date().toISOString();
 
     await db.prepare(`
       INSERT INTO presupuestos (id, fecha, items, total_usd, total_bs, total_usd_divisa, estado, customer_name, customer_address, client_ip, source, created_at, updated_at)

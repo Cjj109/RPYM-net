@@ -94,6 +94,20 @@ export default function AdminCustomers() {
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
   const [bcvRate, setBcvRate] = useState<number | null>(null);
 
+  // Crear presupuesto desde compra manual
+  const [createPresupuestoFromTx, setCreatePresupuestoFromTx] = useState(false);
+  const [presupuestoDate, setPresupuestoDate] = useState('');
+  const [newPresupuestoItems, setNewPresupuestoItems] = useState<Array<{
+    nombre: string;
+    cantidad: number;
+    unidad: string;
+    precioUSD: number;
+    subtotalUSD: number;
+  }>>([]);
+  const [presupuestoTextInput, setPresupuestoTextInput] = useState('');
+  const [isParsingNewPresupuesto, setIsParsingNewPresupuesto] = useState(false);
+  const [parseNewPresupuestoError, setParseNewPresupuestoError] = useState<string | null>(null);
+
   // Auto-fill presupuesto
   const [isFetchingPresupuesto, setIsFetchingPresupuesto] = useState(false);
   const [presupuestoNotFound, setPresupuestoNotFound] = useState(false);
@@ -558,6 +572,12 @@ export default function AdminCustomers() {
     setFetchedPresupuesto(null);
     setIsFetchingPresupuesto(false);
     setPresupuestoNotFound(false);
+    // Reset crear presupuesto desde compra
+    setCreatePresupuestoFromTx(false);
+    setPresupuestoDate(todayStr());
+    setNewPresupuestoItems([]);
+    setPresupuestoTextInput('');
+    setParseNewPresupuestoError(null);
     setShowTxModal(true);
   };
 
@@ -597,6 +617,81 @@ export default function AdminCustomers() {
     }
   };
 
+  // Parse text input to create presupuesto items using AI
+  const parseNewPresupuestoText = async () => {
+    if (!presupuestoTextInput.trim()) return;
+
+    setIsParsingNewPresupuesto(true);
+    setParseNewPresupuestoError(null);
+
+    try {
+      // Fetch products for the parser
+      const productsRes = await fetch('/api/productos');
+      const productsData = await productsRes.json();
+
+      if (!productsData.success) {
+        throw new Error('Error al cargar productos');
+      }
+
+      const productInfo = productsData.productos.map((p: any) => ({
+        id: p.id,
+        nombre: p.nombre,
+        unidad: p.unidad,
+        precioUSD: p.precioUSD,
+        precioUSDDivisa: p.precioUSDDivisa ?? null,
+      }));
+
+      const response = await fetch('/api/parse-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: presupuestoTextInput, products: productInfo }),
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.items) {
+        // Convert parsed items to presupuesto format
+        const items = result.items
+          .filter((item: any) => item.matched && item.productId)
+          .map((item: any) => {
+            const product = productInfo.find((p: any) => String(p.id) === String(item.productId));
+            const precio = item.customPrice || product?.precioUSD || 0;
+            return {
+              nombre: item.productName || item.requestedName,
+              cantidad: item.quantity,
+              unidad: item.unit || product?.unidad || 'kg',
+              precioUSD: precio,
+              subtotalUSD: Math.round(precio * item.quantity * 100) / 100,
+            };
+          });
+
+        if (items.length > 0) {
+          setNewPresupuestoItems(prev => [...prev, ...items]);
+          setPresupuestoTextInput('');
+          // Auto-calculate amounts for the transaction
+          const total = items.reduce((sum: number, i: any) => sum + i.subtotalUSD, 0);
+          if (!txForm.amountUsd || parseFloat(txForm.amountUsd) === 0) {
+            const rate = bcvRate || parseFloat(txForm.exchangeRate) || 1;
+            setTxForm(prev => ({
+              ...prev,
+              amountUsd: String(Math.round(total * 100) / 100),
+              amountBs: String(Math.round(total * rate * 100) / 100),
+            }));
+          }
+        } else {
+          setParseNewPresupuestoError('No se pudieron identificar productos. Intenta con mas detalles.');
+        }
+      } else {
+        setParseNewPresupuestoError(result.error || 'Error al procesar la lista');
+      }
+    } catch (error) {
+      console.error('Error parsing presupuesto:', error);
+      setParseNewPresupuestoError('Error de conexion. Intenta de nuevo.');
+    } finally {
+      setIsParsingNewPresupuesto(false);
+    }
+  };
+
   const handleSaveTransaction = async () => {
     if (!selectedCustomer) return;
 
@@ -615,13 +710,43 @@ export default function AdminCustomers() {
 
     setIsSavingTx(true);
     try {
+      // Create presupuesto first if requested
+      let createdPresupuestoId: string | null = null;
+      if (createPresupuestoFromTx && newPresupuestoItems.length > 0 && txModalType === 'purchase') {
+        const presTotal = newPresupuestoItems.reduce((sum, i) => sum + i.subtotalUSD, 0);
+        const rate = bcvRate || parseFloat(txForm.exchangeRate) || 1;
+        const presTotalBs = presTotal * rate;
+
+        const presRes = await fetch('/api/presupuestos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: newPresupuestoItems,
+            totalUSD: Math.round(presTotal * 100) / 100,
+            totalBs: Math.round(presTotalBs * 100) / 100,
+            customerName: selectedCustomer.name,
+            status: 'pagado', // Ya está pagado si es una compra pasada
+            source: 'admin',
+            customDate: presupuestoDate || txForm.date, // Fecha personalizada
+          }),
+          credentials: 'include'
+        });
+
+        const presData = await presRes.json();
+        if (presData.success && presData.id) {
+          createdPresupuestoId = presData.id;
+        } else {
+          throw new Error(presData.error || 'Error al crear presupuesto');
+        }
+      }
+
       const payload = {
         type: txModalType,
         date: txForm.date,
         description: txForm.description.trim(),
         amountUsd: usd,
         amountBs: bs,
-        presupuestoId: txForm.presupuestoId.trim() || null,
+        presupuestoId: createdPresupuestoId || txForm.presupuestoId.trim() || null,
         notes: txForm.notes.trim() || null,
         currencyType: txForm.currencyType,
         paymentMethod: txModalType === 'payment' && txForm.paymentMethod ? txForm.paymentMethod : null,
@@ -1482,7 +1607,7 @@ export default function AdminCustomers() {
                           ) : null}
                           {tx.paymentMethod && (
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-ocean-100 text-ocean-600">
-                              {tx.paymentMethod === 'pago_movil' ? 'P.Movil' : tx.paymentMethod === 'efectivo' ? 'Efectivo' : tx.paymentMethod === 'tarjeta' ? 'Tarjeta' : tx.paymentMethod === 'transferencia' ? 'Transf.' : tx.paymentMethod === 'zelle' ? 'Zelle' : tx.paymentMethod}
+                              {tx.paymentMethod === 'pago_movil' ? 'P.Movil' : tx.paymentMethod === 'efectivo' ? 'Efectivo' : tx.paymentMethod === 'tarjeta' ? 'Tarjeta' : tx.paymentMethod === 'transferencia' ? 'Transf.' : tx.paymentMethod === 'zelle' ? 'Zelle' : tx.paymentMethod === 'usdt' ? 'USDT' : tx.paymentMethod}
                             </span>
                           )}
                           {tx.type === 'purchase' && tx.isPaid && (
@@ -1492,10 +1617,10 @@ export default function AdminCustomers() {
                                 : 'bg-green-100 text-green-700'
                             }`}>
                               {tx.amountUsdDivisa != null && tx.amountUsdDivisa > 0 && tx.paidMethod
-                                ? (['efectivo', 'zelle'].includes(tx.paidMethod)
-                                    ? `Pagado USD (${tx.paidMethod === 'zelle' ? 'Zelle' : 'Efectivo'})`
+                                ? (['efectivo', 'zelle', 'usdt'].includes(tx.paidMethod)
+                                    ? `Pagado USD (${tx.paidMethod === 'zelle' ? 'Zelle' : tx.paidMethod === 'usdt' ? 'USDT' : 'Efectivo'})`
                                     : `Pagado Bs (${tx.paidMethod === 'pago_movil' ? 'P.Movil' : tx.paidMethod === 'tarjeta' ? 'Tarjeta' : tx.paidMethod === 'transferencia' ? 'Transf.' : tx.paidMethod})`)
-                                : `Pagado${tx.paidMethod ? ` (${tx.paidMethod === 'pago_movil' ? 'P.Movil' : tx.paidMethod === 'efectivo' ? 'Efectivo' : tx.paidMethod === 'tarjeta' ? 'Tarjeta' : tx.paidMethod === 'transferencia' ? 'Transf.' : tx.paidMethod === 'zelle' ? 'Zelle' : tx.paidMethod})` : ''}`
+                                : `Pagado${tx.paidMethod ? ` (${tx.paidMethod === 'pago_movil' ? 'P.Movil' : tx.paidMethod === 'efectivo' ? 'Efectivo' : tx.paidMethod === 'tarjeta' ? 'Tarjeta' : tx.paidMethod === 'transferencia' ? 'Transf.' : tx.paidMethod === 'zelle' ? 'Zelle' : tx.paidMethod === 'usdt' ? 'USDT' : tx.paidMethod})` : ''}`
                               }
                             </span>
                           )}
@@ -1799,6 +1924,7 @@ export default function AdminCustomers() {
                     <option value="transferencia">Transferencia</option>
                     <option value="tarjeta">Tarjeta</option>
                     <option value="zelle">Zelle</option>
+                    <option value="usdt">USDT (Cripto)</option>
                   </select>
                 </div>
               )}
@@ -2064,6 +2190,95 @@ export default function AdminCustomers() {
                     <p className="text-xs text-red-600">Presupuesto no encontrado. Verifica el ID.</p>
                   </div>
                 )}
+
+                {/* Separator */}
+                {!fetchedPresupuesto && !txForm.presupuestoId.trim() && (
+                  <div className="mt-3 pt-3 border-t border-ocean-100">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={createPresupuestoFromTx}
+                        onChange={(e) => setCreatePresupuestoFromTx(e.target.checked)}
+                        className="rounded border-ocean-300 text-coral-500 focus:ring-coral-400"
+                      />
+                      <span className="text-sm font-medium text-ocean-700">
+                        Crear presupuesto nuevo
+                      </span>
+                      <span className="text-xs text-ocean-400">(para compras pasadas sin presupuesto)</span>
+                    </label>
+
+                    {createPresupuestoFromTx && (
+                      <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-200 space-y-3">
+                        {/* Fecha del presupuesto */}
+                        <div>
+                          <label className="block text-xs font-medium text-amber-700 mb-1">
+                            Fecha del presupuesto
+                          </label>
+                          <input
+                            type="date"
+                            value={presupuestoDate}
+                            onChange={(e) => setPresupuestoDate(e.target.value)}
+                            className="w-full px-3 py-1.5 text-sm border border-amber-200 rounded-lg focus:ring-1 focus:ring-amber-500 focus:border-transparent outline-none"
+                          />
+                        </div>
+
+                        {/* Input para pegar lista */}
+                        <div>
+                          <label className="block text-xs font-medium text-amber-700 mb-1">
+                            Pegar lista del cliente
+                          </label>
+                          <textarea
+                            value={presupuestoTextInput}
+                            onChange={(e) => setPresupuestoTextInput(e.target.value)}
+                            placeholder="1 KL MEJILLON&#10;2 KL CALAMARES&#10;1½ DE JAIBA..."
+                            rows={3}
+                            className="w-full px-3 py-2 text-sm border border-amber-200 rounded-lg focus:ring-1 focus:ring-amber-500 focus:border-transparent outline-none resize-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={parseNewPresupuestoText}
+                            disabled={isParsingNewPresupuesto || !presupuestoTextInput.trim()}
+                            className="mt-2 w-full px-3 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white text-sm font-medium rounded-lg transition-colors"
+                          >
+                            {isParsingNewPresupuesto ? 'Procesando...' : 'Procesar lista con IA'}
+                          </button>
+                          {parseNewPresupuestoError && (
+                            <p className="mt-1 text-xs text-red-600">{parseNewPresupuestoError}</p>
+                          )}
+                        </div>
+
+                        {/* Items agregados */}
+                        {newPresupuestoItems.length > 0 && (
+                          <div>
+                            <p className="text-xs font-medium text-amber-700 mb-1">
+                              Items del presupuesto ({newPresupuestoItems.length})
+                            </p>
+                            <div className="max-h-32 overflow-y-auto space-y-1">
+                              {newPresupuestoItems.map((item, idx) => (
+                                <div key={idx} className="flex items-center justify-between p-1.5 bg-white rounded border border-amber-100 text-xs">
+                                  <span className="text-amber-900">
+                                    {item.nombre} - {item.cantidad}{item.unidad} @ ${item.precioUSD.toFixed(2)} = ${item.subtotalUSD.toFixed(2)}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setNewPresupuestoItems(prev => prev.filter((_, i) => i !== idx))}
+                                    className="text-red-500 hover:text-red-700 ml-2"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="mt-2 pt-2 border-t border-amber-200 flex justify-between text-sm font-semibold text-amber-800">
+                              <span>Total:</span>
+                              <span>${newPresupuestoItems.reduce((sum, i) => sum + i.subtotalUSD, 0).toFixed(2)}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -2231,6 +2446,7 @@ export default function AdminCustomers() {
                     : detailTx.paymentMethod === 'tarjeta' ? 'Tarjeta'
                     : detailTx.paymentMethod === 'transferencia' ? 'Transferencia'
                     : detailTx.paymentMethod === 'zelle' ? 'Zelle'
+                    : detailTx.paymentMethod === 'usdt' ? 'USDT (Cripto)'
                     : detailTx.paymentMethod}
                 </p>
               </div>
