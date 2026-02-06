@@ -8,8 +8,8 @@ const VERIFY_TOKEN = 'rpym_webhook_2026';
 // Jose RPYM contact info
 const JOSE_CONTACT = {
   name: 'José RPYM',
-  phone: '+584142145202', // Format for WhatsApp API
-  phoneDisplay: '+58 414-214-5202'
+  phone: '584142145202', // Format for WhatsApp API (without + sign)
+  wa_id: '584142145202' // WhatsApp ID format
 };
 
 // Auto-reply message
@@ -135,7 +135,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
           phones: [
             {
               phone: JOSE_CONTACT.phone,
-              type: 'CELL'
+              type: 'CELL',
+              wa_id: JOSE_CONTACT.wa_id // Links to existing WhatsApp account
             }
           ],
           org: {
