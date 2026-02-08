@@ -166,14 +166,41 @@ export default function AdminCustomers() {
     presupuestoId: string | null;
     currencyType: 'divisas' | 'dolar_bcv' | 'euro_bcv';
     paymentMethod: string | null;
+    date: string | null;
   }>>([]);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiConfirming, setAiConfirming] = useState(false);
   const [aiExecuting, setAiExecuting] = useState(false);
 
+  // IA con productos (modo presupuesto)
+  const [aiMode, setAiMode] = useState<'simple' | 'productos'>('productos');
+  const [aiPricingMode, setAiPricingMode] = useState<'bcv' | 'divisas' | 'dual'>('bcv');
+  const [aiProductAction, setAiProductAction] = useState<{
+    customerName: string;
+    customerId: number | null;
+    items: Array<{
+      nombre: string;
+      cantidad: number;
+      unidad: string;
+      precioUSD: number;
+      subtotalUSD: number;
+      precioUSDDivisa?: number;
+      subtotalUSDDivisa?: number;
+    }>;
+    totalUSD: number;
+    totalBs: number;
+    totalUSDDivisa: number | null;
+    date: string | null;
+    description: string;
+    pricingMode: 'bcv' | 'divisas' | 'dual';
+  } | null>(null);
+  const [aiUnmatched, setAiUnmatched] = useState<string[]>([]);
+
   // ─── Helpers ───────────────────────────────────────────────────────
 
   const formatUSD = (amount: number) => `$${Number(amount).toFixed(2)}`;
+
+  const formatEUR = (amount: number) => `€${Number(amount).toFixed(2)}`;
 
   const formatBs = (amount: number) => `Bs ${Number(amount).toFixed(2)}`;
 
@@ -656,19 +683,32 @@ export default function AdminCustomers() {
 
       if (result.success && result.items) {
         // Convert parsed items to presupuesto format
-        const items = result.items
-          .filter((item: any) => item.matched && item.productId)
-          .map((item: any) => {
+        // Include both matched products AND custom products (unmatched with suggestedName + customPrice)
+        const items: any[] = [];
+
+        result.items.forEach((item: any) => {
+          if (item.matched && item.productId) {
+            // Producto del catálogo
             const product = productInfo.find((p: any) => String(p.id) === String(item.productId));
             const precio = item.customPrice || product?.precioUSD || 0;
-            return {
+            items.push({
               nombre: item.productName || item.requestedName,
               cantidad: item.quantity,
               unidad: item.unit || product?.unidad || 'kg',
               precioUSD: precio,
               subtotalUSD: Math.round(precio * item.quantity * 100) / 100,
-            };
-          });
+            });
+          } else if (!item.matched && item.suggestedName && item.customPrice) {
+            // Producto personalizado (no en catálogo pero con nombre y precio)
+            items.push({
+              nombre: item.suggestedName,
+              cantidad: item.quantity,
+              unidad: item.unit || 'kg',
+              precioUSD: item.customPrice,
+              subtotalUSD: Math.round(item.customPrice * item.quantity * 100) / 100,
+            });
+          }
+        });
 
         if (items.length > 0) {
           setNewPresupuestoItems(prev => [...prev, ...items]);
@@ -796,6 +836,22 @@ export default function AdminCustomers() {
           return;
         }
         txId = data.id;
+      }
+
+      // Actualizar customer_name del presupuesto si se asignó uno existente
+      const usedPresupuestoId = createdPresupuestoId || txForm.presupuestoId.trim();
+      if (usedPresupuestoId && !createdPresupuestoId && selectedCustomer) {
+        // Solo si usamos un presupuesto existente (no uno recién creado)
+        try {
+          await fetch(`/api/presupuestos/${usedPresupuestoId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ customerName: selectedCustomer.name }),
+            credentials: 'include'
+          });
+        } catch (updateErr) {
+          console.error('Error updating presupuesto customer name:', updateErr);
+        }
       }
 
       // Eliminar imagen existente si fue marcada para borrar
@@ -1019,8 +1075,14 @@ export default function AdminCustomers() {
     const message = `Hola ${selectedCustomer.name}, aqui puedes ver tu estado de cuenta:\n${shareUrl}`;
     let phone = selectedCustomer.phone?.replace(/\D/g, '') || '';
     // Ensure Venezuelan phone has country code
-    if (phone && !phone.startsWith('58') && phone.length === 10) {
-      phone = '58' + phone;
+    if (phone && !phone.startsWith('58')) {
+      if (phone.startsWith('0') && phone.length === 11) {
+        // 04142145202 → 584142145202
+        phone = '58' + phone.substring(1);
+      } else if (phone.length === 10) {
+        // 4142145202 → 584142145202
+        phone = '58' + phone;
+      }
     }
     // Use api.whatsapp.com/send which is more reliable across devices
     const waUrl = phone
@@ -1036,46 +1098,102 @@ export default function AdminCustomers() {
     setAiProcessing(true);
     setAiError(null);
     setAiActions([]);
+    setAiProductAction(null);
+    setAiUnmatched([]);
     setAiConfirming(false);
 
     try {
-      // Fetch recent presupuestos for context
-      let recentPresupuestos: Array<{ id: string; fecha: string; customerName: string; totalUSD: number; totalUSDDivisa: number | null }> = [];
-      try {
-        const pRes = await fetch('/api/presupuestos?limit=20', { credentials: 'include' });
-        const pData = await pRes.json();
-        if (pData.success) {
-          recentPresupuestos = pData.presupuestos.map((p: any) => ({
-            id: p.id,
-            fecha: p.fecha,
-            customerName: p.customerName || '',
-            totalUSD: p.totalUSD,
-            totalUSDDivisa: p.totalUSDDivisa || null
-          }));
+      if (aiMode === 'productos') {
+        // Product mode: parse products and create presupuesto
+        // Fetch products
+        const productsRes = await fetch('/api/products');
+        const productsData = await productsRes.json();
+        if (!productsData.success || !productsData.products) {
+          throw new Error('Error al cargar productos');
         }
-      } catch {}
 
-      const response = await fetch('/api/customer-ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: aiText,
-          customers: customers.map(c => ({ id: c.id, name: c.name })),
-          recentPresupuestos
-        }),
-        credentials: 'include'
-      });
+        const productInfo = productsData.products.map((p: any) => ({
+          id: p.id,
+          nombre: p.nombre,
+          unidad: p.unidad,
+          precioUSD: p.precioUSD,
+          precioUSDDivisa: p.precioUSDDivisa ?? null,
+        }));
 
-      const data = await response.json();
-      if (data.success && data.actions.length > 0) {
-        setAiActions(data.actions);
-        setAiConfirming(true);
-      } else if (data.success && data.actions.length === 0) {
-        setAiError('No se detectaron acciones. Reformula tu texto.');
+        // Get BCV rate if not already loaded
+        let rate = bcvRate || 1;
+        if (!bcvRate) {
+          try {
+            const rateRes = await fetch('/api/bcv-rate');
+            const rateData = await rateRes.json();
+            if (rateData.success && rateData.rate) {
+              rate = rateData.rate;
+              setBcvRate(rateData.rate);
+            }
+          } catch {}
+        }
+
+        const response = await fetch('/api/purchase-with-products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: aiText,
+            products: productInfo,
+            customers: customers.map(c => ({ id: c.id, name: c.name })),
+            bcvRate: rate,
+            pricingMode: aiPricingMode
+          }),
+          credentials: 'include'
+        });
+
+        const data = await response.json();
+        if (data.success && data.action) {
+          setAiProductAction(data.action);
+          setAiUnmatched(data.unmatched || []);
+          setAiConfirming(true);
+        } else {
+          setAiError(data.error || 'No se identificaron productos.');
+          setAiUnmatched(data.unmatched || []);
+        }
       } else {
-        setAiError(data.error || 'Error al procesar');
+        // Simple mode: existing behavior
+        let recentPresupuestos: Array<{ id: string; fecha: string; customerName: string; totalUSD: number; totalUSDDivisa: number | null }> = [];
+        try {
+          const pRes = await fetch('/api/presupuestos?limit=20', { credentials: 'include' });
+          const pData = await pRes.json();
+          if (pData.success) {
+            recentPresupuestos = pData.presupuestos.map((p: any) => ({
+              id: p.id,
+              fecha: p.fecha,
+              customerName: p.customerName || '',
+              totalUSD: p.totalUSD,
+              totalUSDDivisa: p.totalUSDDivisa || null
+            }));
+          }
+        } catch {}
+
+        const response = await fetch('/api/customer-ai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: aiText,
+            customers: customers.map(c => ({ id: c.id, name: c.name })),
+            recentPresupuestos
+          }),
+          credentials: 'include'
+        });
+
+        const data = await response.json();
+        if (data.success && data.actions.length > 0) {
+          setAiActions(data.actions);
+          setAiConfirming(true);
+        } else if (data.success && data.actions.length === 0) {
+          setAiError('No se detectaron acciones. Reformula tu texto.');
+        } else {
+          setAiError(data.error || 'Error al procesar');
+        }
       }
-    } catch {
+    } catch (err) {
       setAiError('Error de conexion');
     } finally {
       setAiProcessing(false);
@@ -1087,45 +1205,146 @@ export default function AdminCustomers() {
     let successCount = 0;
     let failCount = 0;
 
-    for (const action of aiActions) {
-      if (!action.customerId) {
-        failCount++;
-        continue;
-      }
+    if (aiMode === 'productos' && aiProductAction) {
+      // Product mode: create presupuesto then transaction
+      const action = aiProductAction;
+      let customerId = action.customerId;
+
       try {
-        const today = new Date().toISOString().split('T')[0];
-        const txPayload: any = {
-            type: action.type,
-            date: today,
-            description: action.description,
-            amountUsd: action.amountUsd,
-            amountBs: 0,
-            presupuestoId: action.presupuestoId || '',
-            notes: '',
-            currencyType: action.currencyType,
-            paymentMethod: action.paymentMethod || '',
-            exchangeRate: ''
-          };
-        if (action.amountUsdDivisa && action.amountUsdDivisa > 0) {
-          txPayload.amountUsdDivisa = action.amountUsdDivisa;
+        // If customer doesn't exist, create them first
+        if (!customerId) {
+          const createCustomerRes = await fetch('/api/customers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              name: action.customerName,
+              phone: null,
+              notes: null,
+              rateType: 'dolar_bcv',
+              customRate: null
+            })
+          });
+
+          const customerData = await createCustomerRes.json();
+          if (customerData.success && customerData.id) {
+            customerId = customerData.id;
+            // Refresh customer list after creating new customer
+            await loadCustomers();
+          } else {
+            throw new Error(customerData.error || 'Error al crear cliente');
+          }
         }
-        const response = await fetch(`/api/customers/${action.customerId}/transactions`, {
+
+        const today = new Date().toISOString().split('T')[0];
+        const txDate = action.date || today;
+
+        // 1. Create presupuesto
+        const presRes = await fetch('/api/presupuestos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: action.items,
+            totalUSD: action.totalUSD,
+            totalBs: action.totalBs,
+            totalUSDDivisa: action.totalUSDDivisa,
+            customerName: action.customerName,
+            status: 'pendiente',
+            source: 'admin',
+            customDate: txDate,
+          }),
+          credentials: 'include'
+        });
+
+        const presData = await presRes.json();
+        if (!presData.success || !presData.id) {
+          throw new Error(presData.error || 'Error al crear presupuesto');
+        }
+
+        const presupuestoId = presData.id;
+
+        // 2. Create transaction linked to presupuesto
+        const txPayload: any = {
+          type: 'purchase',
+          date: txDate,
+          description: `Presupuesto ${presupuestoId}`,
+          amountUsd: action.totalUSD,
+          amountBs: action.totalBs,
+          presupuestoId: presupuestoId,
+          notes: '',
+          currencyType: action.pricingMode === 'divisas' ? 'divisas' : 'dolar_bcv',
+          paymentMethod: '',
+          exchangeRate: bcvRate || ''
+        };
+
+        // Add dual amount if applicable
+        if (action.pricingMode === 'dual' && action.totalUSDDivisa) {
+          txPayload.amountUsdDivisa = action.totalUSDDivisa;
+        }
+
+        const txRes = await fetch(`/api/customers/${customerId}/transactions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(txPayload),
           credentials: 'include'
         });
-        const data = await response.json();
-        if (data.success) successCount++;
-        else failCount++;
-      } catch {
+
+        const txData = await txRes.json();
+        if (txData.success) {
+          successCount++;
+        } else {
+          throw new Error(txData.error || 'Error al crear transaccion');
+        }
+      } catch (err) {
+        console.error('Error creating purchase with products:', err);
         failCount++;
+        alert(`Error: ${err instanceof Error ? err.message : 'Error desconocido'}`);
+      }
+    } else {
+      // Simple mode: existing behavior
+      for (const action of aiActions) {
+        if (!action.customerId) {
+          failCount++;
+          continue;
+        }
+        try {
+          const today = new Date().toISOString().split('T')[0];
+          const txDate = action.date || today;
+          const txPayload: any = {
+              type: action.type,
+              date: txDate,
+              description: action.description,
+              amountUsd: action.amountUsd,
+              amountBs: 0,
+              presupuestoId: action.presupuestoId || '',
+              notes: '',
+              currencyType: action.currencyType,
+              paymentMethod: action.paymentMethod || '',
+              exchangeRate: ''
+            };
+          if (action.amountUsdDivisa && action.amountUsdDivisa > 0) {
+            txPayload.amountUsdDivisa = action.amountUsdDivisa;
+          }
+          const response = await fetch(`/api/customers/${action.customerId}/transactions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(txPayload),
+            credentials: 'include'
+          });
+          const data = await response.json();
+          if (data.success) successCount++;
+          else failCount++;
+        } catch {
+          failCount++;
+        }
       }
     }
 
     setAiExecuting(false);
     setAiConfirming(false);
     setAiActions([]);
+    setAiProductAction(null);
+    setAiUnmatched([]);
     setAiText('');
 
     if (failCount > 0) {
@@ -1139,6 +1358,8 @@ export default function AdminCustomers() {
   const handleAiCancel = () => {
     setAiConfirming(false);
     setAiActions([]);
+    setAiProductAction(null);
+    setAiUnmatched([]);
   };
 
   // ─── Render: Vista Lista ──────────────────────────────────────────
@@ -1200,17 +1421,82 @@ export default function AdminCustomers() {
 
       {/* IA Anotaciones rapidas */}
       <div className="bg-white rounded-xl p-4 shadow-sm border border-purple-100">
-        <div className="flex items-center gap-2 mb-2">
-          <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          <span className="text-sm font-semibold text-purple-700">Anotacion rapida con IA</span>
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <span className="text-sm font-semibold text-purple-700">Anotacion rapida con IA</span>
+          </div>
+          {/* Mode toggle */}
+          <div className="flex bg-purple-100 rounded-lg p-0.5">
+            <button
+              onClick={() => setAiMode('simple')}
+              className={`px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+                aiMode === 'simple'
+                  ? 'bg-white text-purple-800 shadow-sm'
+                  : 'text-purple-500 hover:text-purple-700'
+              }`}
+            >
+              Simple
+            </button>
+            <button
+              onClick={() => setAiMode('productos')}
+              className={`px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+                aiMode === 'productos'
+                  ? 'bg-white text-purple-800 shadow-sm'
+                  : 'text-purple-500 hover:text-purple-700'
+              }`}
+            >
+              Con Productos
+            </button>
+          </div>
         </div>
+
+        {/* Pricing mode selector (only for productos mode) */}
+        {aiMode === 'productos' && (
+          <div className="flex gap-1 mb-2">
+            <button
+              onClick={() => setAiPricingMode('bcv')}
+              className={`px-2 py-1 rounded text-[10px] font-medium border transition-colors ${
+                aiPricingMode === 'bcv'
+                  ? 'bg-blue-100 border-blue-300 text-blue-700'
+                  : 'bg-white border-ocean-200 text-ocean-500 hover:bg-ocean-50'
+              }`}
+            >
+              BCV
+            </button>
+            <button
+              onClick={() => setAiPricingMode('divisas')}
+              className={`px-2 py-1 rounded text-[10px] font-medium border transition-colors ${
+                aiPricingMode === 'divisas'
+                  ? 'bg-green-100 border-green-300 text-green-700'
+                  : 'bg-white border-ocean-200 text-ocean-500 hover:bg-ocean-50'
+              }`}
+            >
+              Divisas
+            </button>
+            <button
+              onClick={() => setAiPricingMode('dual')}
+              className={`px-2 py-1 rounded text-[10px] font-medium border transition-colors ${
+                aiPricingMode === 'dual'
+                  ? 'bg-purple-100 border-purple-300 text-purple-700'
+                  : 'bg-white border-ocean-200 text-ocean-500 hover:bg-ocean-50'
+              }`}
+            >
+              Dual
+            </button>
+          </div>
+        )}
+
         <div className="flex gap-2">
           <textarea
             value={aiText}
             onChange={(e) => setAiText(e.target.value)}
-            placeholder='Ej: "anota a Deisy $100 de mariscos, abono de Jose $50 pago movil"'
+            placeholder={aiMode === 'productos'
+              ? 'Ej: "registra a Delcy 2kg calamar y 1kg camaron del 03 de febrero"'
+              : 'Ej: "anota a Deisy $100 de mariscos, abono de Jose $50 pago movil"'
+            }
             className="flex-1 px-3 py-2 border border-purple-200 rounded-lg text-sm focus:ring-1 focus:ring-purple-500 focus:border-transparent outline-none resize-none placeholder:text-ocean-400"
             rows={2}
             disabled={aiProcessing || aiExecuting}
@@ -1233,13 +1519,181 @@ export default function AdminCustomers() {
         {aiError && (
           <p className="text-xs text-red-600 mt-2">{aiError}</p>
         )}
+        {aiUnmatched.length > 0 && (
+          <p className="text-xs text-amber-600 mt-1">No identificados: {aiUnmatched.join(', ')}</p>
+        )}
 
+        {/* Product mode preview */}
+        {aiConfirming && aiProductAction && (
+          <div className="mt-3 bg-purple-50 rounded-lg p-3 border border-purple-200">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-purple-700">Presupuesto a crear:</p>
+              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                aiProductAction.pricingMode === 'dual' ? 'bg-purple-100 text-purple-700' :
+                aiProductAction.pricingMode === 'divisas' ? 'bg-green-100 text-green-700' :
+                'bg-blue-100 text-blue-700'
+              }`}>
+                {aiProductAction.pricingMode === 'dual' ? 'Dual' :
+                 aiProductAction.pricingMode === 'divisas' ? 'Divisas' : 'BCV'}
+              </span>
+            </div>
+
+            {/* Customer selector and date */}
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              {aiProductAction.customerId ? (
+                <span className="text-sm font-medium text-ocean-700">{aiProductAction.customerName}</span>
+              ) : (
+                <div className="flex items-center gap-1 flex-wrap">
+                  <select
+                    className="text-sm border border-amber-300 bg-amber-50 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    value={aiProductAction.customerId || 'new'}
+                    onChange={(e) => {
+                      if (e.target.value === 'new') {
+                        setAiProductAction(prev => prev ? {
+                          ...prev,
+                          customerId: null
+                        } : null);
+                      } else {
+                        const selectedId = Number(e.target.value);
+                        const selectedCustomer = customers.find(c => c.id === selectedId);
+                        setAiProductAction(prev => prev ? {
+                          ...prev,
+                          customerId: selectedId,
+                          customerName: selectedCustomer?.name || prev.customerName
+                        } : null);
+                      }
+                    }}
+                  >
+                    <option value="new">➕ Crear: "{aiProductAction.customerName}"</option>
+                    {customers.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">
+                    Nuevo cliente
+                  </span>
+                </div>
+              )}
+              {aiProductAction.date && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700">
+                  {formatDate(aiProductAction.date)}
+                </span>
+              )}
+            </div>
+
+            {/* Items table */}
+            <div className="bg-white rounded border border-purple-200 overflow-hidden mb-2">
+              <table className="w-full text-xs">
+                <thead className="bg-purple-100">
+                  <tr>
+                    <th className="px-2 py-1 text-left text-purple-700">Producto</th>
+                    <th className="px-2 py-1 text-center text-purple-700">Cant</th>
+                    <th className="px-2 py-1 text-right text-purple-700">P.Unit</th>
+                    <th className="px-2 py-1 text-right text-purple-700">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-purple-100">
+                  {aiProductAction.items.map((item, i) => (
+                    <tr key={i}>
+                      <td className="px-2 py-1 text-ocean-800">{item.nombre}</td>
+                      <td className="px-2 py-1 text-center text-ocean-600">{item.cantidad} {item.unidad}</td>
+                      <td className="px-2 py-1 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <span className="text-ocean-400">$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={item.precioUSD}
+                            onChange={(e) => {
+                              const newPrice = parseFloat(e.target.value) || 0;
+                              setAiProductAction(prev => {
+                                if (!prev) return null;
+                                const newItems = [...prev.items];
+                                newItems[i] = {
+                                  ...newItems[i],
+                                  precioUSD: newPrice,
+                                  subtotalUSD: Math.round(newPrice * newItems[i].cantidad * 100) / 100,
+                                  // For dual mode, also update divisa prices
+                                  ...(prev.pricingMode === 'dual' ? {
+                                    precioUSDDivisa: newPrice,
+                                    subtotalUSDDivisa: Math.round(newPrice * newItems[i].cantidad * 100) / 100
+                                  } : {})
+                                };
+                                // Recalculate totals
+                                const newTotalUSD = newItems.reduce((sum, it) => sum + it.subtotalUSD, 0);
+                                const newTotalBs = prev.pricingMode === 'divisas' ? 0 : Math.round(newTotalUSD * bcvRate * 100) / 100;
+                                const newTotalUSDDivisa = prev.pricingMode === 'dual'
+                                  ? newItems.reduce((sum, it) => sum + (it.subtotalUSDDivisa || it.subtotalUSD), 0)
+                                  : null;
+                                return {
+                                  ...prev,
+                                  items: newItems,
+                                  totalUSD: Math.round(newTotalUSD * 100) / 100,
+                                  totalBs: Math.round(newTotalBs * 100) / 100,
+                                  totalUSDDivisa: newTotalUSDDivisa ? Math.round(newTotalUSDDivisa * 100) / 100 : null
+                                };
+                              });
+                            }}
+                            className="w-14 px-1 py-0.5 text-right text-ocean-700 border border-ocean-200 rounded focus:outline-none focus:ring-1 focus:ring-ocean-400 text-xs"
+                          />
+                        </div>
+                      </td>
+                      <td className="px-2 py-1 text-right font-medium text-ocean-800">
+                        ${item.subtotalUSD.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Totals */}
+            <div className="flex flex-wrap gap-3 text-sm mb-3">
+              <div>
+                <span className="text-ocean-500">Total USD: </span>
+                <span className="font-bold text-ocean-800">${aiProductAction.totalUSD.toFixed(2)}</span>
+              </div>
+              {aiProductAction.pricingMode !== 'divisas' && (
+                <div>
+                  <span className="text-ocean-500">Total Bs: </span>
+                  <span className="font-bold text-orange-600">Bs {aiProductAction.totalBs.toFixed(2)}</span>
+                </div>
+              )}
+              {aiProductAction.totalUSDDivisa && (
+                <div>
+                  <span className="text-amber-500">USD Divisa: </span>
+                  <span className="font-bold text-amber-700">${aiProductAction.totalUSDDivisa.toFixed(2)}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={handleAiConfirm}
+                disabled={aiExecuting || !aiProductAction.customerId}
+                className="px-3 py-1.5 bg-green-600 hover:bg-green-500 disabled:bg-green-300 text-white rounded-lg text-xs font-medium transition-colors"
+              >
+                {aiExecuting ? 'Creando...' : 'Crear Presupuesto + Compra'}
+              </button>
+              <button
+                onClick={handleAiCancel}
+                disabled={aiExecuting}
+                className="px-3 py-1.5 bg-ocean-100 text-ocean-700 rounded-lg text-xs font-medium hover:bg-ocean-200 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Simple mode preview */}
         {aiConfirming && aiActions.length > 0 && (
           <div className="mt-3 bg-purple-50 rounded-lg p-3 border border-purple-200">
             <p className="text-xs font-semibold text-purple-700 mb-2">Acciones detectadas:</p>
             <div className="space-y-2">
               {aiActions.map((action, i) => (
-                <div key={i} className="flex items-center gap-2 text-sm">
+                <div key={i} className="flex items-center gap-2 text-sm flex-wrap">
                   <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
                     action.type === 'purchase'
                       ? 'bg-red-100 text-red-700'
@@ -1247,6 +1701,11 @@ export default function AdminCustomers() {
                   }`}>
                     {action.type === 'purchase' ? 'Compra' : 'Abono'}
                   </span>
+                  {action.date && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700">
+                      {formatDate(action.date)}
+                    </span>
+                  )}
                   <span className="text-ocean-700 font-medium">{action.customerName}</span>
                   {!action.customerId && (
                     <span className="text-xs text-amber-600 bg-amber-50 px-1 rounded">No encontrado</span>
@@ -1411,6 +1870,14 @@ export default function AdminCustomers() {
                 {selectedCustomer.phone && (
                   <p className="text-xs text-ocean-500">{selectedCustomer.phone}</p>
                 )}
+                {selectedCustomer.notes && (
+                  <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1">
+                    <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                    </svg>
+                    <span className="truncate">{selectedCustomer.notes}</span>
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1496,10 +1963,10 @@ export default function AdminCustomers() {
           )}
           {showEuro && (
             <div className={`rounded-xl p-4 shadow-sm border ${hasDebtEuro ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
-              <p className={`text-xs font-medium ${hasDebtEuro ? 'text-red-600' : 'text-green-600'}`}>Euro BCV</p>
+              <p className={`text-xs font-medium ${hasDebtEuro ? 'text-red-600' : 'text-green-600'}`}>€ Euro BCV</p>
               <p className="text-[10px] text-ocean-400 mt-0.5">Pago en euros</p>
               <p className={`text-xl font-bold mt-1 ${hasDebtEuro ? 'text-red-700' : 'text-green-700'}`}>
-                {formatUSD(displayEuro)}
+                {formatEUR(displayEuro)}
               </p>
             </div>
           )}
@@ -1612,7 +2079,7 @@ export default function AdminCustomers() {
                           ) : tx.currencyType === 'dolar_bcv' ? (
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700">BCV</span>
                           ) : tx.currencyType === 'euro_bcv' ? (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-700">EUR</span>
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-700">€ EUR</span>
                           ) : null}
                           {tx.paymentMethod && (
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-ocean-100 text-ocean-600">
@@ -1688,7 +2155,7 @@ export default function AdminCustomers() {
                             </>
                           );
                         })()}
-                        {tx.amountBs > 0 && (
+                        {tx.amountBs > 0 && tx.currencyType !== 'divisas' && !(dualView === 'divisas' && tx.amountUsdDivisa != null && tx.amountUsdDivisa > 0) && (
                           <p className={`text-xs ${tx.type === 'purchase' ? (tx.isPaid ? 'text-ocean-400 line-through' : 'text-red-500') : 'text-green-500'}`}>
                             {tx.type === 'purchase' ? '+' : '-'}{formatBs(tx.amountBs)}
                             {tx.exchangeRate && (
@@ -2407,7 +2874,7 @@ export default function AdminCustomers() {
                 ) : detailTx.currencyType === 'dolar_bcv' ? (
                   <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">Dolar BCV</span>
                 ) : detailTx.currencyType === 'euro_bcv' ? (
-                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">Euro BCV</span>
+                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">€ Euro BCV</span>
                 ) : null}
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                   isPurchase ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
@@ -2443,7 +2910,7 @@ export default function AdminCustomers() {
               </div>
             )}
 
-            {detailTx.amountBs > 0 && (
+            {detailTx.amountBs > 0 && detailTx.currencyType !== 'divisas' && (
               <div>
                 <p className="text-xs text-ocean-500">Monto Bs</p>
                 <p className={`text-lg font-bold ${isPurchase ? 'text-red-600' : 'text-green-600'}`}>
@@ -2746,7 +3213,8 @@ export default function AdminCustomers() {
     if (!showPresupuestoModal) return null;
 
     const p = viewingPresupuesto;
-    const isDual = p && p.totalUSDDivisa != null && p.totalUSDDivisa > 0;
+    const isDual = p && p.totalUSDDivisa != null && Number(p.totalUSDDivisa) > 0;
+    const isDivisasOnly = p && (Number(p.totalBs) === 0 || p.totalBs == null) && !isDual;
     const fechaStr = p ? new Date(p.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
 
     const formatQty = (qty: number): string => {
@@ -2765,7 +3233,10 @@ export default function AdminCustomers() {
               {isDual && (
                 <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">Dual</span>
               )}
-              {p && !isDual && (
+              {p && !isDual && isDivisasOnly && (
+                <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">USD</span>
+              )}
+              {p && !isDual && !isDivisasOnly && (
                 <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">BCV</span>
               )}
             </div>
@@ -2831,6 +3302,22 @@ export default function AdminCustomers() {
                           <td className="text-right px-3 py-1.5 font-semibold text-ocean-800">${item.subtotalUSD.toFixed(2)}</td>
                         </tr>
                       ))}
+                      {/* Delivery row if total > sum of items */}
+                      {(() => {
+                        const itemsSum = p.items.reduce((sum: number, item: any) => sum + (item.subtotalUSD || 0), 0);
+                        const diff = Math.round((p.totalUSD - itemsSum) * 100) / 100;
+                        if (diff > 0.01) {
+                          return (
+                            <tr className="bg-amber-50/50 border-t border-amber-200">
+                              <td className="px-3 py-1.5 text-amber-700 italic">Delivery</td>
+                              <td className="text-center px-2 py-1.5 text-amber-600">-</td>
+                              <td className="text-right px-3 py-1.5 text-amber-600">-</td>
+                              <td className="text-right px-3 py-1.5 font-semibold text-amber-700">${diff.toFixed(2)}</td>
+                            </tr>
+                          );
+                        }
+                        return null;
+                      })()}
                     </tbody>
                   </table>
                 </div>
@@ -2872,6 +3359,22 @@ export default function AdminCustomers() {
                             <td className="text-right px-3 py-1.5 font-semibold text-ocean-800">${(item.subtotalUSDDivisa ?? item.subtotalUSD).toFixed(2)}</td>
                           </tr>
                         ))}
+                        {/* Delivery row if total > sum of items */}
+                        {(() => {
+                          const itemsSum = p.items.reduce((sum: number, item: any) => sum + (item.subtotalUSDDivisa ?? item.subtotalUSD ?? 0), 0);
+                          const diff = Math.round((p.totalUSDDivisa - itemsSum) * 100) / 100;
+                          if (diff > 0.01) {
+                            return (
+                              <tr className="bg-amber-100/50 border-t border-amber-300">
+                                <td className="px-3 py-1.5 text-amber-700 italic">Delivery</td>
+                                <td className="text-center px-2 py-1.5 text-amber-600">-</td>
+                                <td className="text-right px-3 py-1.5 text-amber-600">-</td>
+                                <td className="text-right px-3 py-1.5 font-semibold text-amber-700">${diff.toFixed(2)}</td>
+                              </tr>
+                            );
+                          }
+                          return null;
+                        })()}
                       </tbody>
                     </table>
                   </div>

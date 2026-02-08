@@ -40,6 +40,8 @@ export const GET: APIRoute = async ({ params, locals }) => {
     }
 
     // Get balance per currency type
+    // balance_divisas: pure divisas only (frontend handles dual view toggle)
+    // balance_bcv: all dolar_bcv including dual transactions
     const balance = await db.prepare(`
       SELECT
         COALESCE(SUM(CASE WHEN type='purchase' AND currency_type='divisas' AND COALESCE(is_paid,0)=0 THEN amount_usd ELSE 0 END), 0)

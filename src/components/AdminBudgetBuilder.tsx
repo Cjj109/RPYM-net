@@ -210,6 +210,8 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
   const [customName, setCustomName] = useState('');
   const [customUnit, setCustomUnit] = useState('kg');
   const [customPriceUSD, setCustomPriceUSD] = useState('');
+  const [customPriceDivisa, setCustomPriceDivisa] = useState('');
+  const [customQuantity, setCustomQuantity] = useState('1');
 
   // Dollar input mode
   const [dollarInputMode, setDollarInputMode] = useState<Set<string>>(new Set());
@@ -262,8 +264,13 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
           id: customId,
           nombre: item.nombre,
           precioUSD: item.precioUSD,
+          precioUSDDivisa: item.precioUSDDivisa ?? null,
+          precioBs: item.precioUSD * bcvRate.rate,
           unidad: item.unidad,
+          descripcion: 'Producto personalizado',
           descripcionCorta: 'Producto personalizado',
+          descripcionHome: item.nombre,
+          categoria: 'Otros',
           disponible: true,
           esCaja: false,
           incremento: item.unidad === 'kg' ? 0.5 : 1,
@@ -301,6 +308,21 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
       setModoPrecio('bcv');
     }
   }, [editingPresupuesto]);
+
+  // Auto-select customer when editing a presupuesto that has a customer name
+  useEffect(() => {
+    if (!editingPresupuesto?.customerName || customersList.length === 0) return;
+
+    // Try to match customer by name (case-insensitive)
+    const normalizedName = editingPresupuesto.customerName.toLowerCase().trim();
+    const matchedCustomer = customersList.find(c =>
+      c.name.toLowerCase().trim() === normalizedName
+    );
+
+    if (matchedCustomer) {
+      setAssignToCustomer(matchedCustomer.id);
+    }
+  }, [editingPresupuesto?.customerName, customersList]);
 
   // Normalize text for accent-insensitive search
   const normalize = (text: string) =>
@@ -428,25 +450,36 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
   const addCustomProduct = () => {
     const name = customName.trim();
     const price = parseFloat(customPriceUSD);
+    const priceDivisa = parseFloat(customPriceDivisa);
+    const qty = parseFloat(customQuantity) || 1;
     if (!name || isNaN(price) || price <= 0) return;
+    // In dual mode, require divisa price
+    if (modoPrecio === 'dual' && (isNaN(priceDivisa) || priceDivisa <= 0)) return;
 
     const customProduct: Product = {
       id: `custom-${Date.now()}`,
       nombre: name,
       precioUSD: price,
+      precioUSDDivisa: modoPrecio === 'dual' ? priceDivisa : undefined,
+      precioBs: price * bcvRate.rate,
       unidad: customUnit,
+      descripcion: 'Producto personalizado',
       descripcionCorta: 'Producto personalizado',
+      descripcionHome: name,
+      categoria: 'Otros',
       disponible: true,
       esCaja: false,
-      incremento: customUnit === 'kg' ? 0.5 : 1,
-      minimoKg: customUnit === 'kg' ? 0.5 : 1,
+      incremento: customUnit === 'kg' ? 0.01 : 1, // Allow precise quantities
+      minimoKg: customUnit === 'kg' ? 0.01 : 1,
     };
 
-    updateQuantity(customProduct, customProduct.minimoKg || 1);
+    updateQuantity(customProduct, qty);
     setShowCustomForm(false);
     setCustomName('');
     setCustomUnit('kg');
     setCustomPriceUSD('');
+    setCustomPriceDivisa('');
+    setCustomQuantity('1');
   };
 
   // Handle dollar amount input — calculate qty from dollar amount
@@ -608,9 +641,14 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
           unidad: item.unit || 'kg',
           precioUSD: item.customPrice,
           precioUSDDivisa: item.customPriceDivisa ?? null,
+          precioBs: item.customPrice * bcvRate.rate,
           categoria: 'Otros',
-          minimoKg: null,
-          descripcion: null,
+          descripcion: 'Producto personalizado',
+          descripcionCorta: 'Producto personalizado',
+          descripcionHome: item.suggestedName,
+          disponible: true,
+          incremento: item.unit === 'kg' ? 0.01 : 1,
+          minimoKg: item.unit === 'kg' ? 0.01 : undefined,
         };
         newItems.set(customId, {
           product: customProduct,
@@ -1197,8 +1235,8 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
 
     try {
       const items = Array.from(selectedItems.values()).map(item => {
-        // If soloDivisas is true, don't include Bs prices (set to 0)
-        const includeBs = !soloDivisas;
+        // If modoPrecio is 'divisa', don't include Bs prices (set to 0)
+        const includeBs = modoPrecio !== 'divisa';
         const base = {
           nombre: item.product.nombre,
           cantidad: item.quantity,
@@ -1223,28 +1261,73 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
 
       if (editingPresupuesto) {
         // Update existing presupuesto
+        // Use assigned customer name if customerName field is empty
+        const effectiveCustomerName = customerName.trim() ||
+          (assignToCustomer ? customersList.find(c => c.id === assignToCustomer)?.name : '') || '';
+
         const updated = await updatePresupuesto(
           editingPresupuesto.id,
           items,
           totals.totalUSD,
-          soloDivisas ? 0 : totals.totalBs,
-          customerName,
+          (modoPrecio === 'divisa' || soloDivisas) ? 0 : totals.totalBs,
+          effectiveCustomerName,
           customerAddress,
           modoPrecio === 'dual' ? totals.totalUSDDivisa : undefined,
         );
         if (updated) {
           setSaveMessage(`Actualizado: ${editingPresupuesto.id}`);
+
+          // If assigned to a customer (and wasn't before), create a transaction in their ledger
+          if (assignToCustomer) {
+            const txDate = useCustomDate ? customPresupuestoDate : new Date().toISOString().split('T')[0];
+            try {
+              // First check if this presupuesto already has a transaction for this customer
+              const existingTxRes = await fetch(`/api/customers/${assignToCustomer}/transactions`, {
+                credentials: 'include'
+              });
+              const existingTxData = await existingTxRes.json();
+              const alreadyAssigned = existingTxData.transactions?.some(
+                (tx: any) => tx.presupuestoId === editingPresupuesto.id
+              );
+
+              if (!alreadyAssigned) {
+                await fetch(`/api/customers/${assignToCustomer}/transactions`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify({
+                    type: 'purchase',
+                    date: txDate,
+                    description: `Presupuesto ${editingPresupuesto.id}`,
+                    amountUsd: totals.totalUSD,
+                    amountBs: (modoPrecio === 'divisa' || soloDivisas) ? 0 : totals.totalBs,
+                    amountUsdDivisa: modoPrecio === 'dual' ? totals.totalUSDDivisa : undefined,
+                    presupuestoId: editingPresupuesto.id,
+                    currencyType: modoPrecio === 'divisa' ? 'divisas' : 'dolar_bcv',
+                  })
+                });
+                setSaveMessage(`Actualizado y asignado: ${editingPresupuesto.id}`);
+              }
+            } catch (err) {
+              console.error('Error assigning to customer:', err);
+            }
+          }
+
           onEditComplete?.();
         } else {
           setSaveMessage('Error al actualizar. Intenta de nuevo.');
         }
       } else {
+        // Use assigned customer name if customerName field is empty
+        const effectiveCustomerName = customerName.trim() ||
+          (assignToCustomer ? customersList.find(c => c.id === assignToCustomer)?.name : '') || '';
+
         result = await savePresupuesto({
           items,
           totalUSD: totals.totalUSD,
-          totalBs: soloDivisas ? 0 : totals.totalBs,
+          totalBs: (modoPrecio === 'divisa' || soloDivisas) ? 0 : totals.totalBs,
           totalUSDDivisa: modoPrecio === 'dual' ? totals.totalUSDDivisa : undefined,
-          customerName,
+          customerName: effectiveCustomerName,
           customerAddress,
           status: markAsPaid ? 'pagado' : 'pendiente',
           source: 'admin',
@@ -1267,8 +1350,10 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                   date: txDate,
                   description: `Presupuesto ${result.id}`,
                   amountUsd: totals.totalUSD,
-                  amountBs: totals.totalBs,
+                  amountBs: (modoPrecio === 'divisa' || soloDivisas) ? 0 : totals.totalBs,
+                  amountUsdDivisa: modoPrecio === 'dual' ? totals.totalUSDDivisa : undefined,
                   presupuestoId: result.id,
+                  currencyType: modoPrecio === 'divisa' ? 'divisas' : 'dolar_bcv',
                 })
               });
             } catch (err) {
@@ -1595,6 +1680,9 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                               </span>
                               <span className="block text-xs text-purple-600 font-medium">
                                 ${item.customPrice}/{item.unit}
+                                {item.customPriceDivisa && (
+                                  <span className="text-amber-600"> | ${item.customPriceDivisa} div</span>
+                                )}
                               </span>
                             </>
                           )}
@@ -2112,7 +2200,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                   </button>
                 ) : (
                   <div className="mt-4 p-3 border border-ocean-200 rounded-xl space-y-2 bg-ocean-50 text-left">
-                    <p className="text-xs font-medium text-ocean-700">Nuevo producto</p>
+                    <p className="text-xs font-medium text-ocean-700">Nuevo producto {modoPrecio === 'dual' && <span className="text-purple-600">(Dual)</span>}</p>
                     <input
                       type="text"
                       value={customName}
@@ -2124,19 +2212,30 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                       <select
                         value={customUnit}
                         onChange={(e) => setCustomUnit(e.target.value)}
-                        className="flex-1 px-2 py-1.5 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500 text-ocean-900 bg-white"
+                        className="w-20 px-2 py-1.5 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500 text-ocean-900 bg-white"
                       >
                         <option value="kg">kg</option>
                         <option value="unidad">unidad</option>
                         <option value="paquete">paquete</option>
                       </select>
+                      <input
+                        type="number"
+                        value={customQuantity}
+                        onChange={(e) => setCustomQuantity(e.target.value)}
+                        placeholder="Cant"
+                        step="0.01"
+                        min="0.01"
+                        className="w-16 px-2 py-1.5 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500 text-center
+                          [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
+                          text-ocean-900 bg-white"
+                      />
                       <div className="relative flex-1">
                         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-ocean-400">$</span>
                         <input
                           type="number"
                           value={customPriceUSD}
                           onChange={(e) => setCustomPriceUSD(e.target.value)}
-                          placeholder="Precio"
+                          placeholder={modoPrecio === 'dual' ? 'BCV' : 'Precio'}
                           step="0.01"
                           min="0"
                           className="w-full pl-5 pr-2 py-1.5 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500
@@ -2144,17 +2243,33 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                             text-ocean-900 bg-white"
                         />
                       </div>
+                      {modoPrecio === 'dual' && (
+                        <div className="relative flex-1">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-amber-500">$</span>
+                          <input
+                            type="number"
+                            value={customPriceDivisa}
+                            onChange={(e) => setCustomPriceDivisa(e.target.value)}
+                            placeholder="Divisa"
+                            step="0.01"
+                            min="0"
+                            className="w-full pl-5 pr-2 py-1.5 text-sm border border-amber-300 rounded-lg outline-none focus:ring-1 focus:ring-amber-500
+                              [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
+                              text-ocean-900 bg-amber-50"
+                          />
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => { setShowCustomForm(false); setCustomName(''); setCustomPriceUSD(''); }}
+                        onClick={() => { setShowCustomForm(false); setCustomName(''); setCustomPriceUSD(''); setCustomPriceDivisa(''); setCustomQuantity('1'); }}
                         className="flex-1 py-1.5 text-sm text-ocean-600 hover:bg-ocean-100 rounded-lg transition-colors"
                       >
                         Cancelar
                       </button>
                       <button
                         onClick={addCustomProduct}
-                        disabled={!customName.trim() || !customPriceUSD || parseFloat(customPriceUSD) <= 0}
+                        disabled={!customName.trim() || !customPriceUSD || parseFloat(customPriceUSD) <= 0 || (modoPrecio === 'dual' && (!customPriceDivisa || parseFloat(customPriceDivisa) <= 0))}
                         className="flex-1 py-1.5 text-sm bg-coral-500 text-white rounded-lg hover:bg-coral-600 disabled:bg-ocean-200 disabled:text-ocean-400 transition-colors"
                       >
                         Agregar
@@ -2433,7 +2548,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                   </button>
                 ) : (
                   <div className="mt-2 p-3 border border-ocean-200 rounded-xl space-y-2 bg-ocean-50">
-                    <p className="text-xs font-medium text-ocean-700">Nuevo producto</p>
+                    <p className="text-xs font-medium text-ocean-700">Nuevo producto {modoPrecio === 'dual' && <span className="text-purple-600">(Dual)</span>}</p>
                     <input
                       type="text"
                       value={customName}
@@ -2445,19 +2560,30 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                       <select
                         value={customUnit}
                         onChange={(e) => setCustomUnit(e.target.value)}
-                        className="flex-1 px-2 py-1.5 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500 text-ocean-900 bg-white"
+                        className="w-20 px-2 py-1.5 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500 text-ocean-900 bg-white"
                       >
                         <option value="kg">kg</option>
                         <option value="unidad">unidad</option>
                         <option value="paquete">paquete</option>
                       </select>
+                      <input
+                        type="number"
+                        value={customQuantity}
+                        onChange={(e) => setCustomQuantity(e.target.value)}
+                        placeholder="Cant"
+                        step="0.01"
+                        min="0.01"
+                        className="w-16 px-2 py-1.5 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500 text-center
+                          [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
+                          text-ocean-900 bg-white"
+                      />
                       <div className="relative flex-1">
                         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-ocean-400">$</span>
                         <input
                           type="number"
                           value={customPriceUSD}
                           onChange={(e) => setCustomPriceUSD(e.target.value)}
-                          placeholder="Precio"
+                          placeholder={modoPrecio === 'dual' ? 'BCV' : 'Precio'}
                           step="0.01"
                           min="0"
                           className="w-full pl-5 pr-2 py-1.5 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500
@@ -2465,17 +2591,33 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                             text-ocean-900 bg-white"
                         />
                       </div>
+                      {modoPrecio === 'dual' && (
+                        <div className="relative flex-1">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-amber-500">$</span>
+                          <input
+                            type="number"
+                            value={customPriceDivisa}
+                            onChange={(e) => setCustomPriceDivisa(e.target.value)}
+                            placeholder="Divisa"
+                            step="0.01"
+                            min="0"
+                            className="w-full pl-5 pr-2 py-1.5 text-sm border border-amber-300 rounded-lg outline-none focus:ring-1 focus:ring-amber-500
+                              [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
+                              text-ocean-900 bg-amber-50"
+                          />
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => { setShowCustomForm(false); setCustomName(''); setCustomPriceUSD(''); }}
+                        onClick={() => { setShowCustomForm(false); setCustomName(''); setCustomPriceUSD(''); setCustomPriceDivisa(''); setCustomQuantity('1'); }}
                         className="flex-1 py-1.5 text-sm text-ocean-600 hover:bg-ocean-100 rounded-lg transition-colors"
                       >
                         Cancelar
                       </button>
                       <button
                         onClick={addCustomProduct}
-                        disabled={!customName.trim() || !customPriceUSD || parseFloat(customPriceUSD) <= 0}
+                        disabled={!customName.trim() || !customPriceUSD || parseFloat(customPriceUSD) <= 0 || (modoPrecio === 'dual' && (!customPriceDivisa || parseFloat(customPriceDivisa) <= 0))}
                         className="flex-1 py-1.5 text-sm bg-coral-500 text-white rounded-lg hover:bg-coral-600 disabled:bg-ocean-200 disabled:text-ocean-400 transition-colors"
                       >
                         Agregar
@@ -2571,50 +2713,89 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                     Producto personalizado
                   </button>
                 ) : (
-                  <div className="p-3 border border-ocean-200 rounded-lg space-y-2 bg-ocean-50">
-                    <p className="text-xs font-medium text-ocean-700">Nuevo producto</p>
+                  <div className="p-3 border border-ocean-200 rounded-lg space-y-3 bg-ocean-50">
+                    <p className="text-xs font-medium text-ocean-700">Nuevo producto {modoPrecio === 'dual' && <span className="text-purple-600">(Dual)</span>}</p>
                     <input
                       type="text"
                       value={customName}
                       onChange={(e) => setCustomName(e.target.value)}
                       placeholder="Nombre del producto"
-                      className="w-full px-2.5 py-1.5 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500 text-ocean-900 bg-white"
+                      className="w-full px-2.5 py-2 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500 text-ocean-900 bg-white"
                     />
-                    <div className="flex gap-2">
-                      <select
-                        value={customUnit}
-                        onChange={(e) => setCustomUnit(e.target.value)}
-                        className="flex-1 px-2 py-1.5 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500 text-ocean-900 bg-white"
-                      >
-                        <option value="kg">kg</option>
-                        <option value="unidad">unidad</option>
-                        <option value="paquete">paquete</option>
-                      </select>
-                      <div className="relative flex-1">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-ocean-400">$</span>
+                    <div className={`grid gap-2 ${modoPrecio === 'dual' ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                      <div>
+                        <label className="text-[10px] text-ocean-500 mb-0.5 block">Unidad</label>
+                        <select
+                          value={customUnit}
+                          onChange={(e) => setCustomUnit(e.target.value)}
+                          className="w-full px-2 py-2 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500 text-ocean-900 bg-white"
+                        >
+                          <option value="kg">kg</option>
+                          <option value="unidad">unidad</option>
+                          <option value="paquete">paquete</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-ocean-500 mb-0.5 block">Cantidad</label>
                         <input
                           type="number"
-                          value={customPriceUSD}
-                          onChange={(e) => setCustomPriceUSD(e.target.value)}
-                          placeholder="Precio"
+                          value={customQuantity}
+                          onChange={(e) => setCustomQuantity(e.target.value)}
+                          placeholder="1"
                           step="0.01"
-                          min="0"
-                          className="w-full pl-5 pr-2 py-1.5 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500
+                          min="0.01"
+                          className="w-full px-2 py-2 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500 text-center
                             [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
                             text-ocean-900 bg-white"
                         />
                       </div>
+                      <div>
+                        <label className="text-[10px] text-ocean-500 mb-0.5 block">{modoPrecio === 'dual' ? 'Precio BCV' : 'Precio USD'}</label>
+                        <div className="relative">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-ocean-400">$</span>
+                          <input
+                            type="number"
+                            value={customPriceUSD}
+                            onChange={(e) => setCustomPriceUSD(e.target.value)}
+                            placeholder="0.00"
+                            step="0.01"
+                            min="0"
+                            className="w-full pl-5 pr-2 py-2 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500
+                              [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
+                              text-ocean-900 bg-white"
+                          />
+                        </div>
+                      </div>
+                      {modoPrecio === 'dual' && (
+                        <div>
+                          <label className="text-[10px] text-amber-600 mb-0.5 block">Precio Divisa</label>
+                          <div className="relative">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-amber-500">$</span>
+                            <input
+                              type="number"
+                              value={customPriceDivisa}
+                              onChange={(e) => setCustomPriceDivisa(e.target.value)}
+                              placeholder="0.00"
+                              step="0.01"
+                              min="0"
+                              className="w-full pl-5 pr-2 py-2 text-sm border border-amber-300 rounded-lg outline-none focus:ring-1 focus:ring-amber-500
+                                [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
+                                text-ocean-900 bg-amber-50"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => { setShowCustomForm(false); setCustomName(''); setCustomPriceUSD(''); }}
+                        onClick={() => { setShowCustomForm(false); setCustomName(''); setCustomPriceUSD(''); setCustomPriceDivisa(''); setCustomQuantity('1'); }}
                         className="flex-1 py-1.5 text-sm text-ocean-600 hover:bg-ocean-100 rounded-lg transition-colors"
                       >
                         Cancelar
                       </button>
                       <button
                         onClick={addCustomProduct}
-                        disabled={!customName.trim() || !customPriceUSD || parseFloat(customPriceUSD) <= 0}
+                        disabled={!customName.trim() || !customPriceUSD || parseFloat(customPriceUSD) <= 0 || (modoPrecio === 'dual' && (!customPriceDivisa || parseFloat(customPriceDivisa) <= 0))}
                         className="flex-1 py-1.5 text-sm bg-coral-500 text-white rounded-lg hover:bg-coral-600 disabled:bg-ocean-200 disabled:text-ocean-400 transition-colors"
                       >
                         Agregar
@@ -2669,7 +2850,17 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                     <label className="text-xs font-medium text-ocean-600 block mb-1">Asignar a cuenta de cliente</label>
                     <select
                       value={assignToCustomer || ''}
-                      onChange={(e) => setAssignToCustomer(e.target.value ? parseInt(e.target.value) : null)}
+                      onChange={(e) => {
+                        const selectedId = e.target.value ? parseInt(e.target.value) : null;
+                        setAssignToCustomer(selectedId);
+                        // Auto-fill customer name if empty
+                        if (selectedId && !customerName.trim()) {
+                          const selectedCustomer = customersList.find(c => c.id === selectedId);
+                          if (selectedCustomer) {
+                            setCustomerName(selectedCustomer.name);
+                          }
+                        }
+                      }}
                       className="w-full px-3 py-2 text-sm border border-ocean-200 rounded-lg outline-none focus:ring-1 focus:ring-ocean-500 bg-white"
                     >
                       <option value="">-- No asignar --</option>

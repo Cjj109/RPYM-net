@@ -1,3 +1,15 @@
+# PWA files - Service Worker must not be cached too long
+/sw.js
+  Cache-Control: public, no-cache
+  Service-Worker-Allowed: /
+
+/manifest.json
+  Cache-Control: public, max-age=86400
+
+# PWA icons - can be cached
+/icons/*
+  Cache-Control: public, max-age=31536000, immutable
+
 # Cache control for static assets
 /*.webp
   Cache-Control: public, max-age=31536000, immutable
@@ -29,6 +41,17 @@
 
 /lista
   Cache-Control: public, no-cache
+
+# Admin - never cache (sensitive + real-time data)
+/admin
+  Cache-Control: private, no-cache, no-store, must-revalidate
+
+/admin/*
+  Cache-Control: private, no-cache, no-store, must-revalidate
+
+# API endpoints - never cache
+/api/*
+  Cache-Control: no-store
 
 # Security headers
 /*

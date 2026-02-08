@@ -6,9 +6,19 @@ export const prerender = false;
 
 /**
  * Setup endpoint to create initial admin users
- * IMPORTANT: Delete or secure this endpoint after initial setup in production
+ * DISABLED: Initial setup complete. Uncomment code below if you need to add more users.
  */
 export const POST: APIRoute = async ({ request, locals }) => {
+  // Setup disabled - users already configured
+  return new Response(JSON.stringify({
+    success: false,
+    error: 'Endpoint deshabilitado'
+  }), {
+    status: 404,
+    headers: { 'Content-Type': 'application/json' }
+  });
+
+  /* ORIGINAL CODE - DISABLED
   try {
     const db = getD1(locals);
 
@@ -97,4 +107,5 @@ export const POST: APIRoute = async ({ request, locals }) => {
       headers: { 'Content-Type': 'application/json' }
     });
   }
+  END OF DISABLED CODE */
 };

@@ -32,6 +32,10 @@ export const GET: APIRoute = async ({ request, locals }) => {
     const url = new URL(request.url);
     const search = url.searchParams.get('search');
 
+    // Balance calculation:
+    // - balance_divisas: pure divisas transactions only (frontend handles dual view toggle)
+    // - balance_bcv: includes all dolar_bcv transactions (dual and non-dual)
+    // - balance_euro: euro transactions
     let query = `
       SELECT c.*,
         COALESCE(SUM(CASE WHEN t.type='purchase' AND t.currency_type='divisas' AND COALESCE(t.is_paid,0)=0 THEN t.amount_usd ELSE 0 END), 0)

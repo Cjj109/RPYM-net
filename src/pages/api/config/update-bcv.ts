@@ -26,15 +26,22 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     const token = authHeader.slice(7); // Remove 'Bearer '
 
-    // Get the secret from environment
+    // Get the secret from environment (REQUIRED - no fallback)
     const runtime = (locals as any).runtime;
     const apiSecret = runtime?.env?.RPYM_API_SECRET;
 
-    // If no secret configured, use a default for initial setup
-    // IMPORTANT: Set RPYM_API_SECRET in Cloudflare environment variables for production
-    const expectedSecret = apiSecret || 'rpym-bcv-update-2026';
+    if (!apiSecret) {
+      console.error('RPYM_API_SECRET not configured in environment');
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Server configuration error'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
 
-    if (token !== expectedSecret) {
+    if (token !== apiSecret) {
       return new Response(JSON.stringify({
         success: false,
         error: 'Invalid token'
