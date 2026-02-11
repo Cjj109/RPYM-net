@@ -50,40 +50,125 @@
     christmas: {
       count: 30,
       create: (i) => {
-        const snowflake = document.createElement('div');
-        snowflake.className = 'snowflake';
-        snowflake.textContent = '❄';
-        snowflake.style.left = `${Math.random() * 100}%`;
-        snowflake.style.animationDuration = `${6 + Math.random() * 8}s`;
-        snowflake.style.animationDelay = `${Math.random() * 5}s`; // Start sooner
-        snowflake.style.fontSize = `${1 + Math.random() * 1.5}rem`;
-        snowflake.style.opacity = `${0.7 + Math.random() * 0.3}`;
-        snowflake.style.color = '#a8d5ff'; // Light blue instead of white
-        snowflake.style.textShadow = '0 0 8px rgba(168, 213, 255, 0.9), 0 0 15px rgba(100, 180, 255, 0.5)';
-        return snowflake;
+        const element = document.createElement('div');
+        // Variedad de elementos: copos (60%), esferas rojas (15%), esferas verdes (15%), estrellas (10%)
+        const type = i % 10;
+        if (type < 6) {
+          // Copos de nieve (tipos variados)
+          element.className = i % 3 === 0 ? 'snowflake-star' : 'snowflake';
+          const size = 6 + Math.random() * 10;
+          element.style.setProperty('--snow-size', `${size}px`);
+        } else if (type < 7) {
+          // Esferas rojas
+          element.className = 'christmas-ornament';
+          const size = 8 + Math.random() * 6;
+          element.style.setProperty('--ornament-size', `${size}px`);
+        } else if (type < 8) {
+          // Esferas verdes
+          element.className = 'christmas-ornament-green';
+          const size = 8 + Math.random() * 6;
+          element.style.setProperty('--ornament-size', `${size}px`);
+        } else {
+          // Estrellas doradas
+          element.className = 'christmas-star';
+          const size = 10 + Math.random() * 8;
+          element.style.setProperty('--star-size', `${size}px`);
+        }
+        element.style.left = `${Math.random() * 100}%`;
+        element.style.opacity = `${0.6 + Math.random() * 0.4}`;
+        const duration = 8 + Math.random() * 10;
+        const delay = Math.random() * 6;
+        element.style.animation = `snowfall ${duration}s linear ${delay}s infinite, snow-sway 3s ease-in-out ${delay}s infinite`;
+        return element;
       }
     },
     easter: {
-      count: 5, // Reduced from 12
+      count: 15,
       create: (i) => {
-        const emojis = ['🥚', '🐰', '🌸', '🌷', '🐣'];
+        const colors = ['#f9a8d4', '#a78bfa', '#86efac', '#fde047', '#67e8f9'];
         const element = document.createElement('div');
-        element.className = 'easter-element';
-        element.textContent = emojis[i % emojis.length];
-        // Position in corners/edges, not center
-        const positions = [
-          { left: '5%', top: '15%' },
-          { left: '92%', top: '25%' },
-          { left: '8%', top: '75%' },
-          { left: '90%', top: '80%' },
-          { left: '50%', top: '90%' }
-        ];
-        element.style.left = positions[i].left;
-        element.style.top = positions[i].top;
-        element.style.animationDuration = `${4 + Math.random() * 3}s`;
-        element.style.animationDelay = `${i * 0.5}s`;
-        element.style.fontSize = '1.2rem';
-        element.style.opacity = '0.35';
+        element.className = 'easter-egg';
+        const size = 8 + Math.random() * 8;
+        element.style.setProperty('--egg-size', `${size}px`);
+        element.style.setProperty('--egg-color', colors[i % colors.length]);
+        element.style.left = `${Math.random() * 100}%`;
+        element.style.opacity = `${0.5 + Math.random() * 0.4}`;
+        const duration = 7 + Math.random() * 6;
+        const delay = Math.random() * 4;
+        element.style.animation = `easter-fall ${duration}s linear ${delay}s infinite, easter-wobble 2s ease-in-out ${delay}s infinite`;
+        return element;
+      }
+    },
+    valentine: {
+      count: 18,
+      create: (i) => {
+        const colors = ['#e11d48', '#f43f5e', '#fb7185', '#fda4af', '#be123c'];
+        const heart = document.createElement('div');
+        heart.className = 'valentine-heart';
+        const size = 8 + Math.random() * 10;
+        heart.style.setProperty('--heart-size', `${size}px`);
+        heart.style.setProperty('--heart-color', colors[i % colors.length]);
+        heart.style.left = `${Math.random() * 100}%`;
+        heart.style.opacity = `${0.5 + Math.random() * 0.4}`;
+        const duration = 6 + Math.random() * 6;
+        const delay = Math.random() * 3;
+        heart.style.animation = `heart-fall ${duration}s linear ${delay}s infinite, heart-sway 3s ease-in-out ${delay}s infinite`;
+        return heart;
+      }
+    },
+    mundial: {
+      count: 20,
+      create: (i) => {
+        const element = document.createElement('div');
+        // Variedad: balones (40%), estrellas (20%), trofeos (15%), confeti verde (15%), confeti dorado (10%)
+        const type = i % 10;
+        if (type < 4) {
+          // Balones de fútbol
+          element.className = 'mundial-ball';
+          const size = 12 + Math.random() * 8;
+          element.style.setProperty('--ball-size', `${size}px`);
+        } else if (type < 6) {
+          // Estrellas doradas
+          element.className = 'mundial-star';
+          const size = 10 + Math.random() * 8;
+          element.style.setProperty('--star-size', `${size}px`);
+        } else if (type < 7) {
+          // Trofeos
+          element.className = 'mundial-trophy';
+          const size = 12 + Math.random() * 6;
+          element.style.setProperty('--trophy-size', `${size}px`);
+        } else if (type < 9) {
+          // Confeti verde
+          element.className = 'mundial-confetti green';
+          const size = 6 + Math.random() * 6;
+          element.style.setProperty('--confetti-size', `${size}px`);
+        } else {
+          // Confeti dorado
+          element.className = 'mundial-confetti gold';
+          const size = 6 + Math.random() * 6;
+          element.style.setProperty('--confetti-size', `${size}px`);
+        }
+        element.style.left = `${Math.random() * 100}%`;
+        element.style.opacity = `${0.6 + Math.random() * 0.4}`;
+        const duration = 7 + Math.random() * 6;
+        const delay = Math.random() * 6;
+        element.style.animation = `mundial-fall ${duration}s linear ${delay}s infinite, mundial-spin 2s ease-in-out ${delay}s infinite`;
+        return element;
+      }
+    },
+    halloween: {
+      count: 15,
+      create: (i) => {
+        const element = document.createElement('div');
+        // Alternar entre murciélagos y calabazas
+        element.className = i % 3 === 0 ? 'halloween-pumpkin' : 'halloween-bat';
+        const size = element.className === 'halloween-pumpkin' ? (10 + Math.random() * 8) : (12 + Math.random() * 8);
+        element.style.setProperty(element.className === 'halloween-pumpkin' ? '--pumpkin-size' : '--bat-size', `${size}px`);
+        element.style.left = `${Math.random() * 100}%`;
+        element.style.opacity = `${0.6 + Math.random() * 0.3}`;
+        const duration = 6 + Math.random() * 6;
+        const delay = Math.random() * 5;
+        element.style.animation = `halloween-fall ${duration}s linear ${delay}s infinite, halloween-flutter 2s ease-in-out ${delay}s infinite`;
         return element;
       }
     }

@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getD1 } from '../../../lib/d1-types';
-import { validateSession, getSessionFromCookie } from '../../../lib/auth';
+import { requireAuth } from '../../../lib/require-auth';
 
 export const prerender = false;
 
@@ -85,40 +85,9 @@ export const GET: APIRoute = async ({ locals }) => {
  */
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
-    const db = getD1(locals);
-
-    if (!db) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Database not configured'
-      }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Verify admin auth
-    const sessionId = getSessionFromCookie(request.headers.get('Cookie'));
-    if (!sessionId) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'No autenticado'
-      }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    const user = await validateSession(db, sessionId);
-    if (!user) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Sesion invalida'
-      }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
+    const auth = await requireAuth(request, locals);
+    if (auth instanceof Response) return auth;
+    const { db } = auth;
 
     const body = await request.json();
     const { nombre, descripcion, descripcionCorta, descripcionHome, categoria, precioUSD, precioUSDDivisa, unidad, disponible, sortOrder } = body;

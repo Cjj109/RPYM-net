@@ -98,6 +98,78 @@
   --theme-bg-to: #eff6ff;
 }
 
+/* San Valentin - Rosa, Rojo, Dorado */
+[data-theme="valentine"] {
+  --theme-primary-50: #fff1f2;
+  --theme-primary-100: #ffe4e6;
+  --theme-primary-200: #fecdd3;
+  --theme-primary-300: #fda4af;
+  --theme-primary-400: #fb7185;
+  --theme-primary-500: #f43f5e;
+  --theme-primary-600: #e11d48;
+  --theme-primary-700: #be123c;
+  --theme-primary-800: #9f1239;
+  --theme-primary-900: #881337;
+  --theme-primary-950: #4c0519;
+
+  --theme-accent-100: #fef3c7;
+  --theme-accent-300: #fcd34d;
+  --theme-accent-400: #fbbf24;
+  --theme-accent-500: #f59e0b;
+  --theme-accent-600: #d97706;
+
+  --theme-bg-from: #fff1f2;
+  --theme-bg-to: #fef2f2;
+}
+
+/* Mundial de Futbol - Verde cancha, Dorado trofeo */
+[data-theme="mundial"] {
+  --theme-primary-50: #f0fdf4;
+  --theme-primary-100: #dcfce7;
+  --theme-primary-200: #bbf7d0;
+  --theme-primary-300: #86efac;
+  --theme-primary-400: #4ade80;
+  --theme-primary-500: #22c55e;
+  --theme-primary-600: #16a34a;
+  --theme-primary-700: #15803d;
+  --theme-primary-800: #166534;
+  --theme-primary-900: #14532d;
+  --theme-primary-950: #052e16;
+
+  --theme-accent-100: #fef9c3;
+  --theme-accent-300: #fde047;
+  --theme-accent-400: #facc15;
+  --theme-accent-500: #eab308;
+  --theme-accent-600: #ca8a04;
+
+  --theme-bg-from: #f0fdf4;
+  --theme-bg-to: #fefce8;
+}
+
+/* Halloween - Naranja, Morado, Negro */
+[data-theme="halloween"] {
+  --theme-primary-50: #fff7ed;
+  --theme-primary-100: #ffedd5;
+  --theme-primary-200: #fed7aa;
+  --theme-primary-300: #fdba74;
+  --theme-primary-400: #fb923c;
+  --theme-primary-500: #f97316;
+  --theme-primary-600: #ea580c;
+  --theme-primary-700: #c2410c;
+  --theme-primary-800: #9a3412;
+  --theme-primary-900: #7c2d12;
+  --theme-primary-950: #431407;
+
+  --theme-accent-100: #f3e8ff;
+  --theme-accent-300: #c084fc;
+  --theme-accent-400: #a855f7;
+  --theme-accent-500: #9333ea;
+  --theme-accent-600: #7c3aed;
+
+  --theme-bg-from: #1c1917;
+  --theme-bg-to: #292524;
+}
+
 /* Variables CSS personalizadas - mapean a variables de tema */
 @theme {
   /* Ocean colors map to theme variables for dynamic theming */
@@ -130,6 +202,818 @@
 
   --font-display: 'Playfair Display', serif;
   --font-body: 'Inter', sans-serif;
+}
+
+/* ========== DETALLES TEMATICOS EN UI (Solo cliente, no admin) ========== */
+
+/* === NAVIDAD - Efecto escarcha/congelado === */
+[data-theme="christmas"] .themed-card,
+[data-theme="christmas"] .bg-white,
+[data-theme="christmas"] [class*="rounded"] {
+  position: relative;
+}
+
+/* Efecto de escarcha en los bordes de cards */
+[data-theme="christmas"] .themed-card::before,
+[data-theme="christmas"] .frost-effect::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(
+    135deg,
+    rgba(186, 230, 253, 0.3) 0%,
+    transparent 30%,
+    transparent 70%,
+    rgba(186, 230, 253, 0.2) 100%
+  );
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Carámbanos en la parte superior de cards principales */
+[data-theme="christmas"] .icicle-top::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 8px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20'%3E%3Cpath d='M0,0 L5,0 L5,8 L2.5,15 L0,8 Z M10,0 L18,0 L18,12 L14,20 L10,12 Z M22,0 L28,0 L28,6 L25,12 L22,6 Z M32,0 L42,0 L42,10 L37,18 L32,10 Z M46,0 L52,0 L52,7 L49,14 L46,7 Z M56,0 L64,0 L64,11 L60,19 L56,11 Z M68,0 L74,0 L74,5 L71,10 L68,5 Z M78,0 L88,0 L88,9 L83,16 L78,9 Z M92,0 L100,0 L100,7 L96,13 L92,7 Z' fill='%23e0f2fe' opacity='0.8'/%3E%3C/svg%3E") repeat-x;
+  background-size: 60px 8px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Brillo helado en badges */
+[data-theme="christmas"] .badge,
+[data-theme="christmas"] [class*="rounded-full"][class*="bg-"] {
+  box-shadow:
+    0 0 10px rgba(186, 230, 253, 0.4),
+    inset 0 1px 2px rgba(255, 255, 255, 0.6);
+}
+
+/* Nieve acumulada en la parte superior de elementos */
+[data-theme="christmas"] .snow-cap::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 5%;
+  right: 5%;
+  height: 8px;
+  background: linear-gradient(to bottom, #ffffff 0%, #e0f2fe 100%);
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  box-shadow: 0 -2px 4px rgba(255, 255, 255, 0.8);
+  z-index: 5;
+}
+
+/* === MUNDIAL - Estilo marcador/estadio === */
+[data-theme="mundial"] .themed-card,
+[data-theme="mundial"] .scoreboard-style {
+  position: relative;
+  border: 2px solid #16a34a !important;
+  box-shadow:
+    0 0 0 1px #15803d,
+    0 4px 6px rgba(22, 163, 74, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Esquinas doradas estilo trofeo */
+[data-theme="mundial"] .themed-card::before,
+[data-theme="mundial"] .scoreboard-style::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+  z-index: 5;
+}
+
+[data-theme="mundial"] .themed-card::after,
+[data-theme="mundial"] .scoreboard-style::after {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(315deg, #fbbf24 0%, #d97706 100%);
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+  z-index: 5;
+}
+
+/* Efecto de césped en la parte inferior */
+[data-theme="mundial"] .grass-bottom::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: repeating-linear-gradient(
+    90deg,
+    #16a34a 0px,
+    #16a34a 2px,
+    #22c55e 2px,
+    #22c55e 4px
+  );
+  border-radius: 0 0 inherit inherit;
+}
+
+/* Números estilo LED/marcador */
+[data-theme="mundial"] .scoreboard-number {
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  background: linear-gradient(to bottom, #1a1a1a 0%, #0a0a0a 100%);
+  color: #22c55e;
+  padding: 2px 6px;
+  border-radius: 2px;
+  text-shadow: 0 0 8px #22c55e;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
+}
+
+/* Estrellas doradas en headers */
+[data-theme="mundial"] h1::before,
+[data-theme="mundial"] h2::before {
+  content: '★';
+  color: #fbbf24;
+  margin-right: 8px;
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.6);
+}
+
+/* === HALLOWEEN - REDISEÑO COMPLETO MODO TERROR === */
+
+/* Fondo negro profundo con niebla púrpura */
+[data-theme="halloween"] body {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(88, 28, 135, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 0% 100%, rgba(185, 28, 28, 0.1) 0%, transparent 40%),
+    radial-gradient(ellipse at 100% 100%, rgba(249, 115, 22, 0.08) 0%, transparent 40%),
+    linear-gradient(180deg, #0a0a0a 0%, #0f0a15 30%, #150a0a 70%, #0a0a0a 100%) !important;
+}
+
+/* Telarañas más detalladas - esquina superior izquierda */
+[data-theme="halloween"] body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 250px;
+  height: 250px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cdefs%3E%3ClinearGradient id='webGrad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:white;stop-opacity:0.25'/%3E%3Cstop offset='100%25' style='stop-color:white;stop-opacity:0.05'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0,0 L200,200 M0,0 L100,200 M0,0 L200,100 M0,0 L50,200 M0,0 L200,50 M0,0 L0,200 M0,0 L200,0' stroke='url(%23webGrad)' stroke-width='0.5' fill='none'/%3E%3Ccircle cx='0' cy='0' r='30' stroke='rgba(255,255,255,0.15)' stroke-width='0.5' fill='none'/%3E%3Ccircle cx='0' cy='0' r='60' stroke='rgba(255,255,255,0.12)' stroke-width='0.5' fill='none'/%3E%3Ccircle cx='0' cy='0' r='90' stroke='rgba(255,255,255,0.09)' stroke-width='0.5' fill='none'/%3E%3Ccircle cx='0' cy='0' r='120' stroke='rgba(255,255,255,0.06)' stroke-width='0.5' fill='none'/%3E%3Ccircle cx='0' cy='0' r='150' stroke='rgba(255,255,255,0.04)' stroke-width='0.5' fill='none'/%3E%3C/svg%3E") no-repeat;
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 1;
+}
+
+/* Telaraña esquina superior derecha */
+[data-theme="halloween"] body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 250px;
+  height: 250px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cdefs%3E%3ClinearGradient id='webGrad2' x1='100%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:white;stop-opacity:0.25'/%3E%3Cstop offset='100%25' style='stop-color:white;stop-opacity:0.05'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M200,0 L0,200 M200,0 L100,200 M200,0 L0,100 M200,0 L150,200 M200,0 L0,50 M200,0 L200,200 M200,0 L0,0' stroke='url(%23webGrad2)' stroke-width='0.5' fill='none'/%3E%3Ccircle cx='200' cy='0' r='30' stroke='rgba(255,255,255,0.15)' stroke-width='0.5' fill='none'/%3E%3Ccircle cx='200' cy='0' r='60' stroke='rgba(255,255,255,0.12)' stroke-width='0.5' fill='none'/%3E%3Ccircle cx='200' cy='0' r='90' stroke='rgba(255,255,255,0.09)' stroke-width='0.5' fill='none'/%3E%3Ccircle cx='200' cy='0' r='120' stroke='rgba(255,255,255,0.06)' stroke-width='0.5' fill='none'/%3E%3Ccircle cx='200' cy='0' r='150' stroke='rgba(255,255,255,0.04)' stroke-width='0.5' fill='none'/%3E%3C/svg%3E") no-repeat;
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 1;
+}
+
+/* Todos los fondos blancos se vuelven negro profundo */
+[data-theme="halloween"] .bg-white,
+[data-theme="halloween"] [class*="bg-ocean-50"],
+[data-theme="halloween"] [class*="bg-sand-"],
+[data-theme="halloween"] [class*="from-white"],
+[data-theme="halloween"] [class*="to-ocean-50"] {
+  background: linear-gradient(145deg, #1a1515 0%, #0d0808 100%) !important;
+}
+
+/* Cards estilo cripta/tumba */
+[data-theme="halloween"] .themed-card,
+[data-theme="halloween"] .bg-white.rounded-2xl,
+[data-theme="halloween"] .bg-white.rounded-3xl {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(249, 115, 22, 0.08) 0%, transparent 50%),
+    linear-gradient(145deg, #1a1212 0%, #0d0808 50%, #0a0505 100%) !important;
+  border: 2px solid transparent !important;
+  border-image: linear-gradient(135deg, #f97316 0%, #dc2626 50%, #9333ea 100%) 1 !important;
+  box-shadow:
+    0 0 40px rgba(249, 115, 22, 0.2),
+    0 0 80px rgba(220, 38, 38, 0.1),
+    0 10px 40px rgba(0, 0, 0, 0.6),
+    inset 0 0 60px rgba(0, 0, 0, 0.4) !important;
+  position: relative;
+}
+
+/* Borde animado sangriento en cards */
+[data-theme="halloween"] .themed-card::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  background: linear-gradient(
+    45deg,
+    #f97316, #dc2626, #9333ea, #dc2626, #f97316
+  );
+  background-size: 400% 400%;
+  border-radius: inherit;
+  z-index: -1;
+  animation: blood-flow 4s ease infinite;
+  opacity: 0.6;
+}
+
+@keyframes blood-flow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Efecto de goteo de sangre en cards */
+[data-theme="halloween"] .themed-card::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 10%;
+  width: 80%;
+  height: 20px;
+  background:
+    radial-gradient(ellipse 8px 15px at 10% 0%, #dc2626 80%, transparent 80%),
+    radial-gradient(ellipse 6px 12px at 30% 0%, #dc2626 80%, transparent 80%),
+    radial-gradient(ellipse 10px 18px at 55% 0%, #dc2626 80%, transparent 80%),
+    radial-gradient(ellipse 5px 10px at 75% 0%, #dc2626 80%, transparent 80%),
+    radial-gradient(ellipse 7px 14px at 90% 0%, #dc2626 80%, transparent 80%);
+  opacity: 0.4;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Texto con brillo espectral */
+[data-theme="halloween"] .text-ocean-900,
+[data-theme="halloween"] .text-ocean-800,
+[data-theme="halloween"] .text-ocean-700,
+[data-theme="halloween"] .text-gray-900,
+[data-theme="halloween"] .text-gray-800,
+[data-theme="halloween"] .text-gray-700 {
+  color: #f5f5f5 !important;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="halloween"] .text-ocean-600,
+[data-theme="halloween"] .text-ocean-500 {
+  color: #fb923c !important;
+  text-shadow: 0 0 15px rgba(249, 115, 22, 0.4);
+}
+
+/* Headers con efecto sangre goteando */
+[data-theme="halloween"] h1,
+[data-theme="halloween"] h2.font-display,
+[data-theme="halloween"] h3 {
+  color: #ff6b35 !important;
+  text-shadow:
+    0 0 10px rgba(255, 107, 53, 0.8),
+    0 0 30px rgba(220, 38, 38, 0.5),
+    0 0 50px rgba(147, 51, 234, 0.3),
+    0 2px 4px rgba(0, 0, 0, 0.8);
+  position: relative;
+}
+
+/* Gotas de sangre bajo títulos */
+[data-theme="halloween"] h1::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 10%;
+  width: 80%;
+  height: 12px;
+  background:
+    radial-gradient(ellipse 4px 8px at 15% 0%, #dc2626 70%, transparent 70%),
+    radial-gradient(ellipse 3px 6px at 35% 0%, #dc2626 70%, transparent 70%),
+    radial-gradient(ellipse 5px 10px at 50% 0%, #dc2626 70%, transparent 70%),
+    radial-gradient(ellipse 3px 5px at 70% 0%, #dc2626 70%, transparent 70%),
+    radial-gradient(ellipse 4px 7px at 85% 0%, #dc2626 70%, transparent 70%);
+  opacity: 0.6;
+  animation: drip 3s ease-in-out infinite;
+}
+
+@keyframes drip {
+  0%, 100% { transform: scaleY(1); opacity: 0.6; }
+  50% { transform: scaleY(1.3); opacity: 0.8; }
+}
+
+/* Secciones con neblina oscura */
+[data-theme="halloween"] section {
+  background: transparent !important;
+}
+
+[data-theme="halloween"] section.hero-section {
+  background:
+    radial-gradient(ellipse at 50% 20%, rgba(147, 51, 234, 0.15) 0%, transparent 60%),
+    radial-gradient(ellipse at 30% 80%, rgba(220, 38, 38, 0.08) 0%, transparent 40%),
+    radial-gradient(ellipse at 70% 80%, rgba(249, 115, 22, 0.08) 0%, transparent 40%) !important;
+}
+
+/* Badges oscuros */
+[data-theme="halloween"] [class*="bg-ocean-100"],
+[data-theme="halloween"] [class*="bg-coral-50"],
+[data-theme="halloween"] [class*="bg-green-100"],
+[data-theme="halloween"] [class*="bg-red-100"] {
+  background: rgba(249, 115, 22, 0.2) !important;
+  border: 1px solid rgba(249, 115, 22, 0.4) !important;
+}
+
+[data-theme="halloween"] [class*="text-coral-"],
+[data-theme="halloween"] [class*="text-green-"],
+[data-theme="halloween"] .font-bold {
+  color: #fb923c !important;
+}
+
+/* Iconos brillantes */
+[data-theme="halloween"] svg {
+  filter: drop-shadow(0 0 3px rgba(249, 115, 22, 0.5));
+}
+
+/* Efecto de niebla en el fondo */
+[data-theme="halloween"] .hero-section::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 100px;
+  background: linear-gradient(to top, rgba(147, 51, 234, 0.1), transparent);
+  pointer-events: none;
+}
+
+/* Links con brillo */
+[data-theme="halloween"] a:not(.themed-button) {
+  color: #fb923c !important;
+  text-shadow: 0 0 5px rgba(249, 115, 22, 0.3);
+}
+
+[data-theme="halloween"] a:hover {
+  text-shadow: 0 0 10px rgba(249, 115, 22, 0.6);
+}
+
+/* Footer oscuro */
+[data-theme="halloween"] footer {
+  background: linear-gradient(to bottom, #0a0a0a, #000000) !important;
+  border-top: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+/* Bordes de sección con gradiente */
+[data-theme="halloween"] [class*="border-ocean"],
+[data-theme="halloween"] [class*="border-sand"] {
+  border-color: rgba(249, 115, 22, 0.4) !important;
+}
+
+/* Scrollbar temática */
+[data-theme="halloween"] ::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+[data-theme="halloween"] ::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #f97316, #9333ea);
+}
+
+/* === CARNAVAL - Bordes festivos === */
+[data-theme="carnival"] .themed-card {
+  position: relative;
+  overflow: visible;
+}
+
+[data-theme="carnival"] .themed-card::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(
+    90deg,
+    #a855f7 0%,
+    #eab308 25%,
+    #22c55e 50%,
+    #ec4899 75%,
+    #a855f7 100%
+  );
+  border-radius: inherit;
+  z-index: -1;
+  animation: carnival-border 3s linear infinite;
+}
+
+@keyframes carnival-border {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+[data-theme="carnival"] .themed-card::before {
+  background-size: 200% 100%;
+}
+
+/* === SAN VALENTIN - Detalles románticos === */
+[data-theme="valentine"] .themed-card {
+  border: 1px solid rgba(225, 29, 72, 0.3) !important;
+  box-shadow:
+    0 4px 15px rgba(225, 29, 72, 0.15),
+    inset 0 0 20px rgba(253, 164, 175, 0.1);
+}
+
+/* Corazón decorativo en esquina */
+[data-theme="valentine"] .heart-accent::before {
+  content: '♥';
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  font-size: 16px;
+  color: #e11d48;
+  text-shadow: 0 0 10px rgba(225, 29, 72, 0.6);
+  z-index: 10;
+}
+
+/* === PASCUA - Tonos suaves y festivos === */
+[data-theme="easter"] .themed-card {
+  background: linear-gradient(
+    135deg,
+    rgba(253, 242, 248, 0.9) 0%,
+    rgba(239, 246, 255, 0.9) 100%
+  ) !important;
+  border: 2px dashed rgba(236, 72, 153, 0.3) !important;
+}
+
+/* Patrón de huevitos sutil en fondo */
+[data-theme="easter"] .easter-pattern {
+  background-image:
+    radial-gradient(ellipse 8px 10px at 20% 30%, rgba(249, 168, 212, 0.2) 50%, transparent 50%),
+    radial-gradient(ellipse 6px 8px at 70% 60%, rgba(167, 139, 250, 0.2) 50%, transparent 50%),
+    radial-gradient(ellipse 7px 9px at 40% 80%, rgba(134, 239, 172, 0.2) 50%, transparent 50%);
+}
+
+/* ========== BOTONES Y CTAs TEMATICOS ========== */
+
+/* === NAVIDAD - Botones con brillo helado === */
+[data-theme="christmas"] .themed-button,
+[data-theme="christmas"] a[href*="whatsapp"],
+[data-theme="christmas"] button[type="submit"]:not([class*="admin"]) {
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 4px 15px rgba(185, 28, 28, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="christmas"] .themed-button::before,
+[data-theme="christmas"] a[href*="whatsapp"]::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    45deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 70%
+  );
+  animation: shine-sweep 3s ease-in-out infinite;
+}
+
+@keyframes shine-sweep {
+  0% { transform: translateX(-100%) rotate(45deg); }
+  100% { transform: translateX(100%) rotate(45deg); }
+}
+
+/* Efecto de vapor helado en hover */
+[data-theme="christmas"] .themed-button:hover,
+[data-theme="christmas"] a[href*="whatsapp"]:hover {
+  box-shadow:
+    0 6px 20px rgba(185, 28, 28, 0.4),
+    0 0 30px rgba(186, 230, 253, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+/* === SAN VALENTIN - Botones con colores del tema + palpitar como corazón === */
+[data-theme="valentine"] .themed-button,
+[data-theme="valentine"] a[href*="whatsapp"] {
+  /* Animación de palpitar como corazón */
+  animation: heartbeat 1.5s ease-in-out infinite;
+}
+
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  14% { transform: scale(1.04); }
+  28% { transform: scale(1); }
+  42% { transform: scale(1.02); }
+  56% { transform: scale(1); }
+}
+
+[data-theme="valentine"] .themed-button:hover,
+[data-theme="valentine"] a[href*="whatsapp"]:hover {
+  animation: none;
+  transform: scale(1.05);
+}
+
+/* Botón primario (coral) → Rosa/Rojo San Valentín */
+[data-theme="valentine"] .themed-button.bg-coral-500,
+[data-theme="valentine"] a.bg-coral-500 {
+  background-color: #f43f5e !important; /* rose-500 */
+  box-shadow: 0 10px 15px -3px rgba(244, 63, 94, 0.3), 0 4px 6px -4px rgba(244, 63, 94, 0.3);
+}
+
+[data-theme="valentine"] .themed-button.bg-coral-500:hover,
+[data-theme="valentine"] a.bg-coral-500:hover {
+  background-color: #e11d48 !important; /* rose-600 */
+}
+
+/* Botón secundario (ocean) → Rosa oscuro San Valentín */
+[data-theme="valentine"] .themed-button.bg-ocean-600,
+[data-theme="valentine"] a.bg-ocean-600 {
+  background-color: #be123c !important; /* rose-700 */
+  box-shadow: 0 10px 15px -3px rgba(190, 18, 60, 0.3), 0 4px 6px -4px rgba(190, 18, 60, 0.3);
+}
+
+[data-theme="valentine"] .themed-button.bg-ocean-600:hover,
+[data-theme="valentine"] a.bg-ocean-600:hover {
+  background-color: #9f1239 !important; /* rose-800 */
+}
+
+/* Botón blanco/outline mantiene estilo pero con acentos del tema */
+[data-theme="valentine"] .themed-button.bg-white {
+  color: #be123c !important; /* rose-700 */
+}
+
+[data-theme="valentine"] .themed-button.bg-white:hover {
+  background-color: #fff1f2 !important; /* rose-50 */
+}
+
+/* === MUNDIAL - Botones estilo estadio/marcador === */
+[data-theme="mundial"] .themed-button,
+[data-theme="mundial"] a[href*="whatsapp"] {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important;
+  border: 2px solid #22c55e !important;
+  box-shadow:
+    0 4px 15px rgba(22, 163, 74, 0.4),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+    inset 0 2px 0 rgba(255, 255, 255, 0.2);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+
+/* Efecto de reflector de estadio */
+[data-theme="mundial"] .themed-button::before,
+[data-theme="mundial"] a[href*="whatsapp"]::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  animation: stadium-light 2s ease-in-out infinite;
+}
+
+@keyframes stadium-light {
+  0% { left: -100%; }
+  50%, 100% { left: 200%; }
+}
+
+/* Esquinas doradas estilo trofeo */
+[data-theme="mundial"] .themed-button::after,
+[data-theme="mundial"] a[href*="whatsapp"]::after {
+  content: '★';
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  font-size: 16px;
+  color: #fbbf24;
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.8);
+  animation: trophy-pulse 1s ease-in-out infinite;
+}
+
+@keyframes trophy-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.2); opacity: 1; }
+}
+
+/* === HALLOWEEN - Botones CALABAZA BRILLANTE con sangre === */
+[data-theme="halloween"] .themed-button,
+[data-theme="halloween"] a[href*="whatsapp"] {
+  position: relative;
+  /* Forma de calabaza estilizada */
+  border-radius: 30px 30px 50% 50% / 40% 40% 60% 60% !important;
+  /* Gradiente calabaza con brillo interno */
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(255, 200, 100, 0.4) 0%, transparent 40%),
+    radial-gradient(ellipse at 70% 80%, rgba(120, 40, 0, 0.4) 0%, transparent 40%),
+    linear-gradient(180deg, #ff6b1a 0%, #ea580c 40%, #9a3412 80%, #7c2d12 100%) !important;
+  border: 3px solid #fbbf24 !important;
+  color: #ffffff !important;
+  padding: 16px 36px 20px 36px !important;
+  min-width: 160px;
+  box-shadow:
+    0 0 40px rgba(255, 107, 26, 0.7),
+    0 0 80px rgba(234, 88, 12, 0.4),
+    0 8px 30px rgba(0, 0, 0, 0.5),
+    inset 0 -4px 15px rgba(0, 0, 0, 0.4),
+    inset 0 4px 10px rgba(255, 200, 100, 0.3);
+  text-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.8),
+    0 0 20px rgba(255, 107, 26, 0.5);
+  animation: pumpkin-glow 2s ease-in-out infinite;
+  overflow: visible;
+}
+
+@keyframes pumpkin-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 40px rgba(255, 107, 26, 0.7),
+      0 0 80px rgba(234, 88, 12, 0.4),
+      0 8px 30px rgba(0, 0, 0, 0.5),
+      inset 0 -4px 15px rgba(0, 0, 0, 0.4),
+      inset 0 4px 10px rgba(255, 200, 100, 0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 60px rgba(255, 107, 26, 0.9),
+      0 0 120px rgba(234, 88, 12, 0.6),
+      0 8px 30px rgba(0, 0, 0, 0.5),
+      inset 0 -4px 15px rgba(0, 0, 0, 0.4),
+      inset 0 4px 15px rgba(255, 200, 100, 0.5);
+    filter: brightness(1.1);
+  }
+}
+
+/* Líneas de la calabaza (surcos) */
+[data-theme="halloween"] .themed-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    linear-gradient(90deg,
+      transparent 0%,
+      rgba(0, 0, 0, 0.15) 15%,
+      transparent 30%,
+      rgba(0, 0, 0, 0.1) 50%,
+      transparent 70%,
+      rgba(0, 0, 0, 0.15) 85%,
+      transparent 100%
+    );
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* Tallo de calabaza */
+[data-theme="halloween"] .themed-button::after {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 12px;
+  background: linear-gradient(180deg, #166534 0%, #15803d 50%, #22c55e 100%);
+  border-radius: 3px 3px 0 0;
+  box-shadow:
+    0 -2px 8px rgba(34, 197, 94, 0.5),
+    inset 0 1px 2px rgba(255, 255, 255, 0.3);
+}
+
+/* Efecto de goteo de sangre en hover */
+[data-theme="halloween"] .themed-button:hover,
+[data-theme="halloween"] a[href*="whatsapp"]:hover {
+  animation: none;
+  transform: scale(1.08);
+  box-shadow:
+    0 0 80px rgba(255, 107, 26, 1),
+    0 0 150px rgba(234, 88, 12, 0.7),
+    0 0 200px rgba(185, 28, 28, 0.4),
+    0 10px 40px rgba(0, 0, 0, 0.6),
+    inset 0 -4px 15px rgba(0, 0, 0, 0.4),
+    inset 0 4px 15px rgba(255, 200, 100, 0.5);
+  filter: brightness(1.15) saturate(1.2);
+}
+
+/* Click - calabaza aplastada */
+[data-theme="halloween"] .themed-button:active {
+  transform: scale(0.95) scaleY(0.9);
+  box-shadow:
+    0 0 30px rgba(255, 107, 26, 0.6),
+    0 4px 15px rgba(0, 0, 0, 0.7);
+}
+
+/* === CARNAVAL - Botones con colores del tema (diseño estándar) === */
+/* Botón primario (coral) → Dorado Carnaval */
+[data-theme="carnival"] .themed-button.bg-coral-500,
+[data-theme="carnival"] a.bg-coral-500 {
+  background-color: #eab308 !important; /* yellow-500 */
+  color: #1a1a1a !important; /* texto oscuro para contraste */
+  box-shadow: 0 10px 15px -3px rgba(234, 179, 8, 0.3), 0 4px 6px -4px rgba(234, 179, 8, 0.3) !important;
+}
+
+[data-theme="carnival"] .themed-button.bg-coral-500:hover,
+[data-theme="carnival"] a.bg-coral-500:hover {
+  background-color: #ca8a04 !important; /* yellow-600 */
+}
+
+/* Botón secundario (ocean) → Morado Carnaval */
+[data-theme="carnival"] .themed-button.bg-ocean-600,
+[data-theme="carnival"] a.bg-ocean-600 {
+  background-color: #9333ea !important; /* purple-600 */
+  box-shadow: 0 10px 15px -3px rgba(147, 51, 234, 0.3), 0 4px 6px -4px rgba(147, 51, 234, 0.3) !important;
+}
+
+[data-theme="carnival"] .themed-button.bg-ocean-600:hover,
+[data-theme="carnival"] a.bg-ocean-600:hover {
+  background-color: #7e22ce !important; /* purple-700 */
+}
+
+/* Botón blanco/outline mantiene estilo pero con acentos del tema */
+[data-theme="carnival"] .themed-button.bg-white {
+  color: #7e22ce !important; /* purple-700 */
+}
+
+[data-theme="carnival"] .themed-button.bg-white:hover {
+  background-color: #faf5ff !important; /* purple-50 */
+}
+
+/* === PASCUA - Botones suaves y coloridos === */
+[data-theme="easter"] .themed-button,
+[data-theme="easter"] a[href*="whatsapp"] {
+  background: linear-gradient(135deg, #ec4899 0%, #db2777 100%) !important;
+  box-shadow:
+    0 4px 15px rgba(236, 72, 153, 0.4),
+    0 0 20px rgba(167, 139, 250, 0.2);
+  animation: easter-bounce-btn 2s ease-in-out infinite;
+}
+
+@keyframes easter-bounce-btn {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+/* Huevitos decorativos */
+[data-theme="easter"] .themed-button::after {
+  content: '🥚';
+  position: absolute;
+  top: -10px;
+  right: -8px;
+  font-size: 14px;
+  animation: egg-wobble 1s ease-in-out infinite;
+}
+
+@keyframes egg-wobble {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-5deg); }
+  75% { transform: rotate(5deg); }
+}
+
+/* ========== EFECTOS ADICIONALES WOW ========== */
+
+/* Headers temáticos */
+[data-theme="christmas"] h1,
+[data-theme="christmas"] h2.font-display {
+  text-shadow:
+    0 0 10px rgba(186, 230, 253, 0.5),
+    0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="mundial"] h1,
+[data-theme="mundial"] h2.font-display {
+  position: relative;
+}
+
+/* Efecto de spotlight para Mundial */
+[data-theme="mundial"] section.hero-section {
+  position: relative;
+}
+
+[data-theme="mundial"] section.hero-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 200px;
+  height: 400px;
+  background: radial-gradient(ellipse at center, rgba(251, 191, 36, 0.1) 0%, transparent 70%);
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 /* Estilos base */
@@ -235,8 +1119,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 @keyframes confetti-sway {
-  0%, 100% { transform: translateX(0); }
-  50% { transform: translateX(30px); }
+  0%, 100% { margin-left: 0; }
+  50% { margin-left: 30px; }
 }
 
 .confetti-piece {
@@ -253,7 +1137,7 @@ h1, h2, h3, h4, h5, h6 {
   animation: confetti-fall linear infinite, confetti-sway 2s ease-in-out infinite;
 }
 
-/* === NAVIDAD - Copos de nieve === */
+/* === NAVIDAD - Copos de nieve y decoraciones === */
 @keyframes snowfall {
   0% {
     transform: translateY(-100vh) rotate(0deg);
@@ -266,20 +1150,215 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 @keyframes snow-sway {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(15px); }
-  75% { transform: translateX(-15px); }
+  0%, 100% { margin-left: 0; }
+  25% { margin-left: 15px; }
+  75% { margin-left: -15px; }
 }
 
+@keyframes snow-sparkle {
+  0%, 100% {
+    opacity: 0.6;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 1;
+    filter: brightness(1.5);
+  }
+}
+
+@keyframes star-twinkle {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 0.8;
+  }
+  25% {
+    transform: scale(1.2) rotate(15deg);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.9) rotate(-10deg);
+    opacity: 0.6;
+  }
+  75% {
+    transform: scale(1.1) rotate(5deg);
+    opacity: 0.9;
+  }
+}
+
+/* Copo de nieve tipo cristal */
 .snowflake {
+  --snow-size: 8px;
   position: fixed;
-  color: #a8d5ff;
-  text-shadow: 0 0 8px rgba(168, 213, 255, 0.9), 0 0 15px rgba(100, 180, 255, 0.5);
   top: -50px;
   z-index: 1;
   pointer-events: none;
-  animation: snowfall linear infinite, snow-sway 3s ease-in-out infinite;
-  font-size: 1.2rem;
+  width: var(--snow-size);
+  height: var(--snow-size);
+  background: radial-gradient(circle, #ffffff 0%, #e0f2fe 60%, transparent 70%);
+  border-radius: 50%;
+  box-shadow:
+    0 0 calc(var(--snow-size) * 0.8) #ffffff,
+    0 0 calc(var(--snow-size) * 1.5) rgba(186, 230, 253, 0.8),
+    0 0 calc(var(--snow-size) * 2.5) rgba(125, 211, 252, 0.4);
+  animation: snowfall 8s linear infinite, snow-sway 3s ease-in-out infinite, snow-sparkle 2s ease-in-out infinite;
+}
+
+/* Copo de nieve estrella (6 puntas) */
+.snowflake-star {
+  --snow-size: 10px;
+  position: fixed;
+  top: -50px;
+  z-index: 1;
+  pointer-events: none;
+  width: var(--snow-size);
+  height: var(--snow-size);
+  background: transparent;
+}
+
+.snowflake-star::before,
+.snowflake-star::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: var(--snow-size);
+  background: linear-gradient(to bottom, transparent 0%, #ffffff 30%, #ffffff 70%, transparent 100%);
+  transform-origin: center center;
+  box-shadow: 0 0 4px #bae6fd, 0 0 8px rgba(186, 230, 253, 0.6);
+}
+
+.snowflake-star::before {
+  transform: translateX(-50%) rotate(0deg);
+}
+
+.snowflake-star::after {
+  transform: translateX(-50%) rotate(60deg);
+}
+
+/* Esfera navideña roja */
+.christmas-ornament {
+  --ornament-size: 10px;
+  position: fixed;
+  top: -50px;
+  z-index: 1;
+  pointer-events: none;
+  width: var(--ornament-size);
+  height: var(--ornament-size);
+  background: radial-gradient(
+    circle at 30% 30%,
+    #fca5a5 0%,
+    #ef4444 30%,
+    #b91c1c 70%,
+    #7f1d1d 100%
+  );
+  border-radius: 50%;
+  box-shadow:
+    inset 2px 2px 4px rgba(255, 255, 255, 0.4),
+    inset -1px -1px 3px rgba(0, 0, 0, 0.2),
+    0 0 10px rgba(239, 68, 68, 0.5),
+    0 0 20px rgba(239, 68, 68, 0.3);
+}
+
+/* Gancho de la esfera */
+.christmas-ornament::before {
+  content: '';
+  position: absolute;
+  top: -20%;
+  left: 35%;
+  width: 30%;
+  height: 20%;
+  background: linear-gradient(to bottom, #fbbf24 0%, #d97706 100%);
+  border-radius: 2px 2px 0 0;
+  box-shadow: 0 0 4px rgba(251, 191, 36, 0.6);
+}
+
+/* Brillo de la esfera */
+.christmas-ornament::after {
+  content: '';
+  position: absolute;
+  top: 15%;
+  left: 20%;
+  width: 25%;
+  height: 25%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.8) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+/* Esfera navideña verde */
+.christmas-ornament-green {
+  --ornament-size: 10px;
+  position: fixed;
+  top: -50px;
+  z-index: 1;
+  pointer-events: none;
+  width: var(--ornament-size);
+  height: var(--ornament-size);
+  background: radial-gradient(
+    circle at 30% 30%,
+    #86efac 0%,
+    #22c55e 30%,
+    #16a34a 70%,
+    #14532d 100%
+  );
+  border-radius: 50%;
+  box-shadow:
+    inset 2px 2px 4px rgba(255, 255, 255, 0.4),
+    inset -1px -1px 3px rgba(0, 0, 0, 0.2),
+    0 0 10px rgba(34, 197, 94, 0.5),
+    0 0 20px rgba(34, 197, 94, 0.3);
+}
+
+.christmas-ornament-green::before {
+  content: '';
+  position: absolute;
+  top: -20%;
+  left: 35%;
+  width: 30%;
+  height: 20%;
+  background: linear-gradient(to bottom, #fbbf24 0%, #d97706 100%);
+  border-radius: 2px 2px 0 0;
+  box-shadow: 0 0 4px rgba(251, 191, 36, 0.6);
+}
+
+.christmas-ornament-green::after {
+  content: '';
+  position: absolute;
+  top: 15%;
+  left: 20%;
+  width: 25%;
+  height: 25%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.8) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+/* Estrella dorada navideña */
+.christmas-star {
+  --star-size: 12px;
+  position: fixed;
+  top: -50px;
+  z-index: 2;
+  pointer-events: none;
+  width: var(--star-size);
+  height: var(--star-size);
+  background: linear-gradient(135deg, #fef08a 0%, #fbbf24 50%, #d97706 100%);
+  clip-path: polygon(
+    50% 0%,
+    61% 35%,
+    98% 35%,
+    68% 57%,
+    79% 91%,
+    50% 70%,
+    21% 91%,
+    32% 57%,
+    2% 35%,
+    39% 35%
+  );
+  box-shadow:
+    0 0 10px #fbbf24,
+    0 0 20px rgba(251, 191, 36, 0.6),
+    0 0 30px rgba(251, 191, 36, 0.3);
+  animation: star-twinkle 3s ease-in-out infinite;
 }
 
 /* === PASCUA - Elementos flotantes === */
@@ -312,6 +1391,424 @@ h1, h2, h3, h4, h5, h6 {
 
 .easter-element:nth-child(even) {
   animation: easter-bounce 3s ease-in-out infinite;
+}
+
+/* === PASCUA - Huevitos cayendo === */
+@keyframes easter-fall {
+  0% {
+    transform: translateY(-100vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(180deg);
+    opacity: 0.3;
+  }
+}
+
+@keyframes easter-wobble {
+  0%, 100% { margin-left: 0; }
+  25% { margin-left: 15px; }
+  75% { margin-left: -15px; }
+}
+
+.easter-egg {
+  --egg-size: 10px;
+  --egg-color: #f9a8d4;
+  position: fixed;
+  top: -50px;
+  z-index: 1;
+  pointer-events: none;
+  width: var(--egg-size);
+  height: calc(var(--egg-size) * 1.3);
+  background: linear-gradient(
+    135deg,
+    var(--egg-color) 0%,
+    color-mix(in srgb, var(--egg-color) 70%, white) 50%,
+    var(--egg-color) 100%
+  );
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  box-shadow:
+    inset 2px 2px 4px rgba(255, 255, 255, 0.4),
+    0 0 8px color-mix(in srgb, var(--egg-color) 50%, transparent);
+}
+
+.easter-egg::before {
+  content: '';
+  position: absolute;
+  top: 30%;
+  left: 15%;
+  width: 70%;
+  height: 2px;
+  background: color-mix(in srgb, var(--egg-color) 60%, white);
+  border-radius: 50%;
+}
+
+.easter-egg::after {
+  content: '';
+  position: absolute;
+  top: 55%;
+  left: 15%;
+  width: 70%;
+  height: 2px;
+  background: color-mix(in srgb, var(--egg-color) 60%, white);
+  border-radius: 50%;
+}
+
+/* === SAN VALENTIN - Corazones cayendo === */
+@keyframes heart-fall {
+  0% {
+    transform: translateY(-100vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(360deg);
+    opacity: 0.3;
+  }
+}
+
+@keyframes heart-sway {
+  0%, 100% { margin-left: 0; }
+  25% { margin-left: 20px; }
+  75% { margin-left: -20px; }
+}
+
+.valentine-heart {
+  --heart-size: 12px;
+  --heart-color: #e11d48;
+  position: fixed;
+  top: -50px;
+  z-index: 1;
+  pointer-events: none;
+  width: var(--heart-size);
+  height: var(--heart-size);
+  background-color: var(--heart-color);
+  transform: rotate(-45deg);
+  box-shadow: 0 0 10px var(--heart-color);
+}
+
+.valentine-heart::before,
+.valentine-heart::after {
+  content: '';
+  position: absolute;
+  width: var(--heart-size);
+  height: var(--heart-size);
+  background-color: var(--heart-color);
+  border-radius: 50%;
+}
+
+.valentine-heart::before {
+  top: calc(var(--heart-size) * -0.5);
+  left: 0;
+}
+
+.valentine-heart::after {
+  top: 0;
+  left: calc(var(--heart-size) * 0.5);
+}
+
+/* === MUNDIAL 2026 - Balones, estrellas y trofeos === */
+@keyframes mundial-fall {
+  0% {
+    transform: translateY(-100vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(360deg);
+    opacity: 0.4;
+  }
+}
+
+@keyframes mundial-spin {
+  0%, 100% { margin-left: 0; }
+  25% { margin-left: 15px; }
+  75% { margin-left: -15px; }
+}
+
+@keyframes trophy-shine {
+  0%, 100% {
+    filter: brightness(1);
+    transform: scale(1);
+  }
+  50% {
+    filter: brightness(1.3);
+    transform: scale(1.05);
+  }
+}
+
+@keyframes ball-roll {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Balón de fútbol profesional */
+.mundial-ball {
+  --ball-size: 14px;
+  position: fixed;
+  top: -50px;
+  z-index: 1;
+  pointer-events: none;
+  width: var(--ball-size);
+  height: var(--ball-size);
+  background:
+    radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.9) 0%, transparent 40%),
+    radial-gradient(circle at 75% 75%, rgba(0, 0, 0, 0.1) 0%, transparent 30%),
+    linear-gradient(135deg, #ffffff 0%, #f5f5f5 50%, #e0e0e0 100%);
+  border-radius: 50%;
+  box-shadow:
+    inset 0 -3px 6px rgba(0, 0, 0, 0.15),
+    inset 0 3px 6px rgba(255, 255, 255, 0.8),
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    0 0 15px rgba(22, 163, 74, 0.3);
+}
+
+/* Pentágono central del balón */
+.mundial-ball::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(var(--ball-size) * 0.4);
+  height: calc(var(--ball-size) * 0.4);
+  background: #1a1a1a;
+  clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+}
+
+/* Líneas del balón */
+.mundial-ball::after {
+  content: '';
+  position: absolute;
+  top: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(var(--ball-size) * 0.2);
+  height: calc(var(--ball-size) * 0.15);
+  background: #1a1a1a;
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+}
+
+/* Estrella dorada del trofeo */
+.mundial-star {
+  --star-size: 12px;
+  position: fixed;
+  top: -50px;
+  z-index: 2;
+  pointer-events: none;
+  width: var(--star-size);
+  height: var(--star-size);
+  background: linear-gradient(
+    135deg,
+    #fef08a 0%,
+    #fbbf24 30%,
+    #f59e0b 50%,
+    #d97706 80%,
+    #b45309 100%
+  );
+  clip-path: polygon(
+    50% 0%,
+    61% 35%,
+    98% 35%,
+    68% 57%,
+    79% 91%,
+    50% 70%,
+    21% 91%,
+    32% 57%,
+    2% 35%,
+    39% 35%
+  );
+  box-shadow:
+    0 0 8px #fbbf24,
+    0 0 16px rgba(251, 191, 36, 0.6),
+    0 0 24px rgba(245, 158, 11, 0.3);
+  animation: trophy-shine 2s ease-in-out infinite;
+}
+
+/* Brillo de la estrella */
+.mundial-star::before {
+  content: '';
+  position: absolute;
+  top: 20%;
+  left: 30%;
+  width: 40%;
+  height: 30%;
+  background: radial-gradient(ellipse, rgba(255, 255, 255, 0.8) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+/* Trofeo dorado mini */
+.mundial-trophy {
+  --trophy-size: 14px;
+  position: fixed;
+  top: -50px;
+  z-index: 2;
+  pointer-events: none;
+  width: var(--trophy-size);
+  height: calc(var(--trophy-size) * 1.4);
+}
+
+/* Copa del trofeo */
+.mundial-trophy::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  width: 80%;
+  height: 60%;
+  background: linear-gradient(
+    135deg,
+    #fef08a 0%,
+    #fbbf24 30%,
+    #f59e0b 60%,
+    #d97706 100%
+  );
+  border-radius: 50% 50% 40% 40% / 60% 60% 40% 40%;
+  box-shadow:
+    inset 2px 2px 4px rgba(255, 255, 255, 0.6),
+    inset -1px -1px 3px rgba(0, 0, 0, 0.2),
+    0 0 10px rgba(251, 191, 36, 0.5);
+}
+
+/* Base del trofeo */
+.mundial-trophy::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 25%;
+  width: 50%;
+  height: 35%;
+  background: linear-gradient(
+    to bottom,
+    #d97706 0%,
+    #92400e 50%,
+    #78350f 100%
+  );
+  clip-path: polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Confeti verde/dorado del mundial */
+.mundial-confetti {
+  --confetti-size: 8px;
+  position: fixed;
+  top: -50px;
+  z-index: 1;
+  pointer-events: none;
+  width: var(--confetti-size);
+  height: calc(var(--confetti-size) * 0.4);
+  border-radius: 2px;
+  box-shadow: 0 0 4px currentColor;
+}
+
+.mundial-confetti.green {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: rgba(34, 197, 94, 0.5);
+}
+
+.mundial-confetti.gold {
+  background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
+  color: rgba(251, 191, 36, 0.5);
+}
+
+/* === HALLOWEEN - Murciélagos y calabazas === */
+@keyframes halloween-fall {
+  0% {
+    transform: translateY(-100vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(360deg);
+    opacity: 0.3;
+  }
+}
+
+@keyframes halloween-flutter {
+  0%, 100% { margin-left: 0; transform: scaleX(1); }
+  25% { margin-left: 20px; transform: scaleX(0.8); }
+  50% { margin-left: 0; transform: scaleX(1); }
+  75% { margin-left: -20px; transform: scaleX(0.8); }
+}
+
+.halloween-bat {
+  --bat-size: 14px;
+  position: fixed;
+  top: -50px;
+  z-index: 1;
+  pointer-events: none;
+  width: var(--bat-size);
+  height: calc(var(--bat-size) * 0.5);
+  background: #1a1a1a;
+  border-radius: 50% 50% 0 0;
+}
+
+/* Alas del murciélago */
+.halloween-bat::before,
+.halloween-bat::after {
+  content: '';
+  position: absolute;
+  top: 20%;
+  width: calc(var(--bat-size) * 0.8);
+  height: calc(var(--bat-size) * 0.6);
+  background: #1a1a1a;
+  border-radius: 50% 50% 0 0;
+}
+
+.halloween-bat::before {
+  left: calc(var(--bat-size) * -0.6);
+  transform: rotate(-20deg);
+}
+
+.halloween-bat::after {
+  right: calc(var(--bat-size) * -0.6);
+  transform: rotate(20deg);
+}
+
+.halloween-pumpkin {
+  --pumpkin-size: 12px;
+  position: fixed;
+  top: -50px;
+  z-index: 1;
+  pointer-events: none;
+  width: var(--pumpkin-size);
+  height: calc(var(--pumpkin-size) * 0.9);
+  background: linear-gradient(
+    135deg,
+    #f97316 0%,
+    #ea580c 50%,
+    #c2410c 100%
+  );
+  border-radius: 50%;
+  box-shadow:
+    inset 2px 2px 4px rgba(255, 255, 255, 0.2),
+    0 0 10px rgba(249, 115, 22, 0.5);
+}
+
+/* Tallo de la calabaza */
+.halloween-pumpkin::before {
+  content: '';
+  position: absolute;
+  top: -15%;
+  left: 40%;
+  width: 20%;
+  height: 20%;
+  background: #22c55e;
+  border-radius: 2px;
+}
+
+/* Cara de la calabaza */
+.halloween-pumpkin::after {
+  content: '';
+  position: absolute;
+  top: 35%;
+  left: 25%;
+  width: 50%;
+  height: 30%;
+  background:
+    radial-gradient(ellipse 25% 40% at 25% 50%, #fde047 100%, transparent 100%),
+    radial-gradient(ellipse 25% 40% at 75% 50%, #fde047 100%, transparent 100%);
 }
 
 /* === OCEAN - Burbujas === */
@@ -361,8 +1858,20 @@ h1, h2, h3, h4, h5, h6 {
 @media (prefers-reduced-motion: reduce) {
   .confetti-piece,
   .snowflake,
+  .snowflake-star,
+  .christmas-ornament,
+  .christmas-ornament-green,
+  .christmas-star,
   .easter-element,
-  .bubble {
+  .easter-egg,
+  .bubble,
+  .valentine-heart,
+  .mundial-ball,
+  .mundial-star,
+  .mundial-trophy,
+  .mundial-confetti,
+  .halloween-bat,
+  .halloween-pumpkin {
     animation: none;
     display: none;
   }

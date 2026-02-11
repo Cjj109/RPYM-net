@@ -54,6 +54,27 @@ const THEMES: ThemeConfig[] = [
     colors: ['#be185d', '#ec4899', '#0ea5e9'],
     icon: '🐰'
   },
+  {
+    id: 'valentine',
+    name: 'San Valentin',
+    description: 'Rosa, rojo y dorado',
+    colors: ['#e11d48', '#f43f5e', '#f59e0b'],
+    icon: '💕'
+  },
+  {
+    id: 'mundial',
+    name: 'Mundial 2026',
+    description: 'Verde cancha y dorado trofeo',
+    colors: ['#16a34a', '#22c55e', '#eab308'],
+    icon: '⚽'
+  },
+  {
+    id: 'halloween',
+    name: 'Halloween',
+    description: 'Naranja, morado y negro',
+    colors: ['#f97316', '#9333ea', '#1c1917'],
+    icon: '🎃'
+  },
 ];
 
 export default function AdminSettings({ currentBcvRate }: Props) {
@@ -126,7 +147,10 @@ export default function AdminSettings({ currentBcvRate }: Props) {
           ocean: '#0c4a6e',
           carnival: '#7e22ce',
           christmas: '#b91c1c',
-          easter: '#be185d'
+          easter: '#be185d',
+          valentine: '#e11d48',
+          mundial: '#16a34a',
+          halloween: '#f97316'
         };
         document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColors[selectedTheme]);
 

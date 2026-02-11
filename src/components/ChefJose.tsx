@@ -89,13 +89,39 @@ function normalize(text: string): string {
 // --- Types ---
 interface MatchedProduct {
   product: Product;
-  quantity?: number; // in kg (extracted from José's response)
+  quantity?: number; // in kg (from José's JSON recommendation)
 }
 
 interface Message {
   role: 'user' | 'jose';
   text: string;
   matchedProducts?: MatchedProduct[];
+}
+
+// Parse José's JSON product recommendations from his response
+interface JoseProductRec {
+  nombre: string;
+  kg: number;
+}
+
+function parseJoseRecommendations(text: string): { cleanText: string; recommendations: JoseProductRec[] } {
+  // Look for the JSON block: |||PRODUCTOS|||[...]|||FIN|||
+  const match = text.match(/\|\|\|PRODUCTOS\|\|\|(\[[\s\S]*?\])\|\|\|FIN\|\|\|/);
+
+  if (!match) {
+    return { cleanText: text, recommendations: [] };
+  }
+
+  // Remove the JSON block from visible text
+  const cleanText = text.replace(/\|\|\|PRODUCTOS\|\|\|[\s\S]*?\|\|\|FIN\|\|\|/, '').trim();
+
+  try {
+    const recommendations: JoseProductRec[] = JSON.parse(match[1]);
+    return { cleanText, recommendations };
+  } catch {
+    console.warn('Failed to parse José recommendations JSON:', match[1]);
+    return { cleanText, recommendations: [] };
+  }
 }
 
 interface SelectedItem {
@@ -112,13 +138,50 @@ interface Props {
 // Extract quantity mentioned near a product name in text
 function extractQuantityNearProduct(text: string, productName: string): number | undefined {
   const normalizedText = normalize(text);
-  const normalizedName = normalize(productName);
 
-  // Find position of product name in text
-  const nameIdx = normalizedText.indexOf(normalizedName);
-  // Search in a window around the product mention (100 chars before and after)
-  const searchStart = Math.max(0, nameIdx !== -1 ? nameIdx - 100 : 0);
-  const searchEnd = nameIdx !== -1 ? nameIdx + normalizedName.length + 100 : normalizedText.length;
+  // Clean product name the same way findMentionedProducts does:
+  // Remove parentheses content and numbers to match how José mentions products
+  const cleanName = productName.replace(/\(.*?\)/g, '').replace(/\d+[\/\d]*/g, '').trim();
+  const normalizedName = normalize(cleanName);
+
+  // Get the main keywords from the product name (words > 2 chars)
+  const keywords = normalizedName.split(/\s+/).filter(w => w.length > 2);
+
+  // Find the best position in text where most keywords appear together
+  let bestIdx = -1;
+  let bestScore = 0;
+
+  // First try to find the full cleaned name
+  const fullNameIdx = normalizedText.indexOf(normalizedName);
+  if (fullNameIdx !== -1) {
+    bestIdx = fullNameIdx;
+    bestScore = keywords.length;
+  } else {
+    // Try to find where the main keyword appears (usually the product family like "calamar", "camaron")
+    for (const keyword of keywords) {
+      const idx = normalizedText.indexOf(keyword);
+      if (idx !== -1) {
+        // Count how many other keywords are near this position
+        const windowStart = Math.max(0, idx - 50);
+        const windowEnd = Math.min(normalizedText.length, idx + keyword.length + 50);
+        const nearbyText = normalizedText.slice(windowStart, windowEnd);
+        const score = keywords.filter(k => nearbyText.includes(k)).length;
+        if (score > bestScore) {
+          bestScore = score;
+          bestIdx = idx;
+        }
+      }
+    }
+  }
+
+  // If we found the product mention, search in a window around it
+  // Otherwise don't extract quantity (to avoid wrong matches)
+  if (bestIdx === -1) {
+    return undefined;
+  }
+
+  const searchStart = Math.max(0, bestIdx - 80);
+  const searchEnd = Math.min(normalizedText.length, bestIdx + normalizedName.length + 80);
   const window = normalizedText.slice(searchStart, searchEnd);
 
   // Patterns: "800g", "800gr", "800 g", "800 gr", "800 gramos"
@@ -149,6 +212,59 @@ function extractQuantityNearProduct(text: string, productName: string): number |
 
 // --- Component ---
 export default function ChefJose({ products, selectedItems, onAddItem }: Props) {
+  // Convert José's JSON recommendations to MatchedProduct array
+  const matchRecommendationsToProducts = (recommendations: JoseProductRec[]): MatchedProduct[] => {
+    const matched: MatchedProduct[] = [];
+
+    for (const rec of recommendations) {
+      const normalizedRecName = normalize(rec.nombre);
+
+      // Find best matching product
+      let bestProduct: Product | null = null;
+      let bestScore = 0;
+
+      for (const product of products) {
+        if (!product.disponible || product.esCaja) continue;
+
+        const normalizedProductName = normalize(product.nombre);
+
+        // Exact match
+        if (normalizedProductName === normalizedRecName) {
+          bestProduct = product;
+          bestScore = 100;
+          break;
+        }
+
+        // Product name contains recommendation name
+        if (normalizedProductName.includes(normalizedRecName)) {
+          const score = 50 + normalizedRecName.length;
+          if (score > bestScore) {
+            bestProduct = product;
+            bestScore = score;
+          }
+        }
+
+        // Recommendation name contains product name (cleaned)
+        const cleanProductName = normalize(product.nombre.replace(/\(.*?\)/g, '').replace(/\d+[\/\d]*/g, '').trim());
+        if (normalizedRecName.includes(cleanProductName) && cleanProductName.length > 5) {
+          const score = 40 + cleanProductName.length;
+          if (score > bestScore) {
+            bestProduct = product;
+            bestScore = score;
+          }
+        }
+      }
+
+      if (bestProduct) {
+        matched.push({
+          product: bestProduct,
+          quantity: rec.kg > 0 ? rec.kg : undefined
+        });
+      }
+    }
+
+    return matched;
+  };
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -307,8 +423,11 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
     if (!isReview) {
       const cached = getCachedAnswer(question);
       if (cached) {
-        const matchedProducts = findMentionedProducts(cached);
-        setMessages(prev => [...prev, { role: 'jose', text: cached, matchedProducts }]);
+        const { cleanText, recommendations } = parseJoseRecommendations(cached);
+        const matchedProducts = recommendations.length > 0
+          ? matchRecommendationsToProducts(recommendations)
+          : findMentionedProducts(cleanText);
+        setMessages(prev => [...prev, { role: 'jose', text: cleanText, matchedProducts }]);
         return;
       }
     }
@@ -325,9 +444,16 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
       const data = await response.json();
 
       if (data.success && data.answer) {
-        const matchedProducts = findMentionedProducts(data.answer);
-        setMessages(prev => [...prev, { role: 'jose', text: data.answer, matchedProducts }]);
-        if (!isReview) setCachedAnswer(question, data.answer);
+        // Parse José's response to extract JSON recommendations
+        const { cleanText, recommendations } = parseJoseRecommendations(data.answer);
+
+        // Use JSON recommendations if available, otherwise fallback to text matching
+        const matchedProducts = recommendations.length > 0
+          ? matchRecommendationsToProducts(recommendations)
+          : findMentionedProducts(cleanText);
+
+        setMessages(prev => [...prev, { role: 'jose', text: cleanText, matchedProducts }]);
+        if (!isReview) setCachedAnswer(question, data.answer); // Cache original with JSON
         trackUsage();
       } else {
         setMessages(prev => [...prev, {

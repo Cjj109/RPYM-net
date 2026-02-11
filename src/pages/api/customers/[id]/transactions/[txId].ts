@@ -1,30 +1,14 @@
 import type { APIRoute } from 'astro';
-import { getD1, getR2 } from '../../../../../lib/d1-types';
-import { validateSession, getSessionFromCookie } from '../../../../../lib/auth';
+import { getR2 } from '../../../../../lib/d1-types';
+import { requireAuth } from '../../../../../lib/require-auth';
 
 export const prerender = false;
 
 // PUT /api/customers/:id/transactions/:txId - Update a transaction
 export const PUT: APIRoute = async ({ params, request, locals }) => {
-  const db = getD1(locals);
-  if (!db) {
-    return new Response(JSON.stringify({ success: false, error: 'Database no disponible' }), {
-      status: 500, headers: { 'Content-Type': 'application/json' }
-    });
-  }
-
-  const sessionId = getSessionFromCookie(request.headers.get('Cookie'));
-  if (!sessionId) {
-    return new Response(JSON.stringify({ success: false, error: 'No autenticado' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' }
-    });
-  }
-  const user = await validateSession(db, sessionId);
-  if (!user) {
-    return new Response(JSON.stringify({ success: false, error: 'Sesion invalida' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' }
-    });
-  }
+  const auth = await requireAuth(request, locals);
+  if (auth instanceof Response) return auth;
+  const { db } = auth;
 
   try {
     const { id: customerId, txId } = params;
@@ -164,25 +148,9 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
 
 // DELETE /api/customers/:id/transactions/:txId - Delete a transaction
 export const DELETE: APIRoute = async ({ params, request, locals }) => {
-  const db = getD1(locals);
-  if (!db) {
-    return new Response(JSON.stringify({ success: false, error: 'Database no disponible' }), {
-      status: 500, headers: { 'Content-Type': 'application/json' }
-    });
-  }
-
-  const sessionId = getSessionFromCookie(request.headers.get('Cookie'));
-  if (!sessionId) {
-    return new Response(JSON.stringify({ success: false, error: 'No autenticado' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' }
-    });
-  }
-  const user = await validateSession(db, sessionId);
-  if (!user) {
-    return new Response(JSON.stringify({ success: false, error: 'Sesion invalida' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' }
-    });
-  }
+  const auth = await requireAuth(request, locals);
+  if (auth instanceof Response) return auth;
+  const { db } = auth;
 
   try {
     const { id: customerId, txId } = params;

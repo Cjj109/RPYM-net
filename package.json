@@ -7,7 +7,9 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@astrojs/react": "^4.4.2",
@@ -24,6 +26,9 @@
   },
   "devDependencies": {
     "@astrojs/cloudflare": "^12.6.12",
-    "sharp": "^0.34.5"
+    "@vitest/coverage-v8": "^4.0.18",
+    "puppeteer": "^24.37.2",
+    "sharp": "^0.34.5",
+    "vitest": "^4.0.18"
   }
 }

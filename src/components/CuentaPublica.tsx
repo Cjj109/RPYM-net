@@ -35,6 +35,7 @@ interface PublicCustomer {
 export default function CuentaPublica() {
   const [customer, setCustomer] = useState<PublicCustomer | null>(null);
   const [transactions, setTransactions] = useState<PublicTransaction[]>([]);
+  const [bcvRate, setBcvRate] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showPresupuestoModal, setShowPresupuestoModal] = useState(false);
@@ -69,6 +70,7 @@ export default function CuentaPublica() {
 
         setCustomer(data.customer);
         setTransactions(data.transactions || []);
+        if (data.bcvRate) setBcvRate(data.bcvRate);
       } catch (err) {
         console.error('Error loading cuenta:', err);
         setError('Error al cargar los datos. Intenta de nuevo.');
@@ -351,8 +353,8 @@ export default function CuentaPublica() {
                   <span className="font-semibold text-ocean-700 text-sm">Total</span>
                   <div className="text-right">
                     <span className="text-lg font-bold text-ocean-900">${p.totalUSD.toFixed(2)}</span>
-                    {p.totalBs > 0 && (
-                      <p className="text-xs text-ocean-500">Bs {p.totalBs.toFixed(2)}</p>
+                    {bcvRate > 0 && !isDivisasOnly && (
+                      <p className="text-xs text-ocean-500">Bs {(p.totalUSD * bcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     )}
                   </div>
                 </div>
@@ -499,11 +501,17 @@ export default function CuentaPublica() {
           ) : (
             <>
               {/* Main balance display */}
-              <div className="p-4">
+              <div className="p-4 text-center">
                 <p className="text-xs text-ocean-400 mb-1">Balance pendiente</p>
                 <p className={`text-3xl font-bold tracking-tight ${totalBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
                   ${Math.abs(totalBalance).toFixed(2)}
                 </p>
+                {/* Show Bs equivalent when balance has BCV component */}
+                {bcvRate > 0 && displayBcv !== 0 && dualView === 'bcv' && (
+                  <p className={`text-sm font-medium mt-0.5 ${totalBalance > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                    Bs {(Math.abs(displayBcv) * bcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                )}
                 {totalBalance > 0 && (
                   <p className="text-xs text-red-400 mt-1">Por pagar</p>
                 )}
@@ -523,6 +531,11 @@ export default function CuentaPublica() {
                       <p className={`text-base font-bold mt-0.5 ${displayBcv > 0 ? 'text-red-600' : displayBcv < 0 ? 'text-green-600' : 'text-ocean-400'}`}>
                         ${Math.abs(displayBcv).toFixed(2)}
                       </p>
+                      {bcvRate > 0 && displayBcv !== 0 && (
+                        <p className="text-[10px] text-ocean-500 font-medium">
+                          Bs {(Math.abs(displayBcv) * bcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      )}
                       <p className="text-[10px] text-ocean-400 mt-0.5">Pago en Bs</p>
                     </div>
                   )}
@@ -711,9 +724,9 @@ export default function CuentaPublica() {
                                 {showingDivisa ? 'Precio divisa' : 'Precio BCV'}
                               </p>
                             )}
-                            {tx.amountBs > 0 && !tx.isPaid && tx.currencyType !== 'divisas' && !showingDivisa && (
+                            {bcvRate > 0 && !tx.isPaid && tx.currencyType !== 'divisas' && !showingDivisa && (
                               <p className={`text-[10px] ${tx.type === 'purchase' ? 'text-red-400' : 'text-green-400'}`}>
-                                Bs {tx.amountBs.toFixed(2)}
+                                Bs {(displayAmt * bcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </p>
                             )}
                           </div>

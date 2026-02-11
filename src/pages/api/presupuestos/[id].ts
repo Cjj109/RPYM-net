@@ -12,6 +12,9 @@ function transformPresupuesto(row: D1Presupuesto) {
     totalUSD: row.total_usd,
     totalBs: row.total_bs,
     totalUSDDivisa: row.total_usd_divisa,
+    hideRate: row.hide_rate === 1,
+    delivery: row.delivery || 0,
+    modoPrecio: row.modo_precio || 'bcv',
     estado: row.estado,
     customerName: row.customer_name,
     customerAddress: row.customer_address,
@@ -130,36 +133,69 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
         SET estado = ?, fecha_pago = ?, updated_at = datetime('now')
         WHERE id = ?
       `).bind(status, fechaPago, id).run();
-    } else {
-      // Full update (items, totals, customer info)
-      const { items, totalUSD, totalBs, totalUSDDivisa, customerName, customerAddress } = body;
-
+    } else if ('customerName' in body && Object.keys(body).length === 1) {
+      // Customer name only update (when assigning presupuesto to customer)
+      const { customerName } = body;
       await db.prepare(`
         UPDATE presupuestos
-        SET items = ?, total_usd = ?, total_bs = ?, total_usd_divisa = ?, customer_name = ?, customer_address = ?, updated_at = datetime('now')
+        SET customer_name = ?, updated_at = datetime('now')
         WHERE id = ?
-      `).bind(
-        JSON.stringify(items),
-        totalUSD,
-        totalBs,
-        totalUSDDivisa || null,
-        customerName || null,
-        customerAddress || null,
-        id
-      ).run();
+      `).bind(customerName || null, id).run();
+    } else {
+      // Full update (items, totals, customer info)
+      const { items, totalUSD, totalBs, totalUSDDivisa, hideRate, delivery, modoPrecio, customerName, customerAddress, fecha } = body;
+
+      // Build update query - include fecha if provided
+      if (fecha) {
+        await db.prepare(`
+          UPDATE presupuestos
+          SET fecha = ?, items = ?, total_usd = ?, total_bs = ?, total_usd_divisa = ?, hide_rate = ?, delivery = ?, modo_precio = ?, customer_name = ?, customer_address = ?, updated_at = datetime('now')
+          WHERE id = ?
+        `).bind(
+          fecha,
+          JSON.stringify(items),
+          totalUSD,
+          totalBs,
+          totalUSDDivisa || null,
+          hideRate ? 1 : 0,
+          delivery || 0,
+          modoPrecio || 'bcv',
+          customerName || null,
+          customerAddress || null,
+          id
+        ).run();
+      } else {
+        await db.prepare(`
+          UPDATE presupuestos
+          SET items = ?, total_usd = ?, total_bs = ?, total_usd_divisa = ?, hide_rate = ?, delivery = ?, modo_precio = ?, customer_name = ?, customer_address = ?, updated_at = datetime('now')
+          WHERE id = ?
+        `).bind(
+          JSON.stringify(items),
+          totalUSD,
+          totalBs,
+          totalUSDDivisa || null,
+          hideRate ? 1 : 0,
+          delivery || 0,
+          modoPrecio || 'bcv',
+          customerName || null,
+          customerAddress || null,
+          id
+        ).run();
+      }
 
       // Also update any linked customer transactions
+      const txUpdateFields = fecha
+        ? 'date = ?, amount_usd = ?, amount_bs = ?, amount_usd_divisa = ?, description = ?'
+        : 'amount_usd = ?, amount_bs = ?, amount_usd_divisa = ?, description = ?';
+      const txParams = fecha
+        ? [fecha.split('T')[0], totalUSD, totalBs, totalUSDDivisa || null, `Presupuesto ${id}`, id]
+        : [totalUSD, totalBs, totalUSDDivisa || null, `Presupuesto ${id}`, id];
+
       await db.prepare(`
         UPDATE customer_transactions
-        SET amount_usd = ?, amount_bs = ?, amount_usd_divisa = ?, description = ?
+        SET ${txUpdateFields}
         WHERE presupuesto_id = ? AND type = 'purchase'
-      `).bind(
-        totalUSD,
-        totalBs,
-        totalUSDDivisa || null,
-        `Presupuesto ${id}`,
-        id
-      ).run();
+      `).bind(...txParams).run();
     }
 
     return new Response(JSON.stringify({
@@ -199,6 +235,21 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
       return new Response(JSON.stringify({
         success: false,
         error: 'ID requerido'
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Check if presupuesto is linked to customer transactions
+    const linked = await db.prepare(`
+      SELECT COUNT(*) as count FROM customer_transactions WHERE presupuesto_id = ?
+    `).bind(id).first<{ count: number }>();
+
+    if (linked && linked.count > 0) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'No se puede eliminar: este presupuesto está vinculado a una cuenta de cliente'
       }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }

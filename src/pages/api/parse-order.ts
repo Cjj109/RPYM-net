@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { callGeminiWithRetry } from '../../lib/gemini-client';
 
 // Este endpoint NO se prerenderiza (se ejecuta en el servidor)
 export const prerender = false;
@@ -39,6 +40,7 @@ interface ParseResponse {
   dollarsOnly?: boolean;
   isPaid?: boolean;
   pricingMode?: 'bcv' | 'divisa' | 'dual' | null;
+  date?: string | null;
   error?: string;
 }
 
@@ -46,14 +48,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
   try {
     // En Cloudflare Pages, las env vars se acceden via locals.runtime.env
     const runtime = (locals as any).runtime;
-    const apiKey = runtime?.env?.CLAUDE_API_KEY || import.meta.env.CLAUDE_API_KEY;
+    const apiKey = runtime?.env?.GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY;
 
     if (!apiKey) {
       return new Response(JSON.stringify({
         success: false,
         items: [],
         unmatched: [],
-        error: 'API key no configurada. Contacta al administrador.'
+        error: 'API key de Gemini no configurada. Contacta al administrador.'
       }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' }
@@ -80,7 +82,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
       `- ID: ${p.id} | Nombre: "${p.nombre}" | Precio BCV: $${p.precioUSD.toFixed(2)}/${p.unidad}${p.precioUSDDivisa ? ` | Precio Divisa: $${p.precioUSDDivisa.toFixed(2)}/${p.unidad}` : ''} | Unidad: ${p.unidad}`
     ).join('\n');
 
+    // Fecha actual para contexto (Caracas = UTC-4)
+    const now = new Date();
+    now.setHours(now.getHours() - 4); // Ajustar a hora Caracas
+    const todayISO = now.toISOString().split('T')[0];
+    const dayNames = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+    const todayName = dayNames[now.getDay()];
+
     const systemPrompt = `Eres un EXPERTO en el negocio de mariscos RPYM - "El Rey de los Pescados y Mariscos" en Venezuela. Llevas años trabajando aquí y conoces TODOS los productos, cómo hablan los clientes, y cómo interpretar sus pedidos aunque escriban mal o de forma informal.
+
+FECHA ACTUAL: ${todayISO} (${todayName})
 
 CONTEXTO DEL NEGOCIO:
 - RPYM vende mariscos al mayor y detal en Venezuela
@@ -118,11 +129,36 @@ FORMATOS DE MONTO VÁLIDOS:
 - "20 dolares de producto" → monto = 20
 - "veinte dolares de producto" → monto = 20
 
-PRECIOS PERSONALIZADOS (solo admin):
-- "camaron vivito 5kg a 13" → 5kg con precio unitario $13 (no el precio del catálogo)
-- "1kg pulpo a $20" → 1kg con precio unitario $20
-- "2kg calamar a 15" → 2kg con precio unitario $15
-- Si el usuario especifica "a X" o "a $X", ese es el precio personalizado por unidad (customPrice)
+PRECIOS PERSONALIZADOS - ¡¡¡CRÍTICO - LEE ESTO!!!:
+Cuando el usuario escribe "a $X" o "a X" DESPUÉS de la cantidad/producto, ese X es el PRECIO PERSONALIZADO por unidad.
+IGNORA el precio del catálogo y usa el precio que especificó el usuario.
+
+¡¡¡SIEMPRE BUSCA EL PATRÓN "a $X" o "a X" EN CADA LÍNEA DEL PEDIDO!!!
+Si hay un número después de "a " o "a $" o "a$", ESE ES EL PRECIO PERSONALIZADO.
+
+EJEMPLOS CRÍTICOS (aprende estos patrones):
+- "2kg Pepitona a $2.5" → quantity: 2, customPrice: 2.5 (NO uses precio catálogo)
+- "5kg langostino a $12" → quantity: 5, customPrice: 12 (NO uses precio catálogo)
+- "3kg calamar a 15" → quantity: 3, customPrice: 15
+- "2kg calamar nacional grande a $10" → quantity: 2, customPrice: 10 (IMPORTANTE!)
+- "2kg lengua de calamar a $12" → quantity: 2, customPrice: 12
+- "camaron vivito 5kg a 13" → quantity: 5, customPrice: 13
+- "1kg pulpo a $20" → quantity: 1, customPrice: 20
+- "4 cajas 36/40 a $65" → quantity: 4, customPrice: 65
+- "calamar a $8" → quantity: 1 (default), customPrice: 8
+- "3kg jumbo a 15" → quantity: 3, customPrice: 15
+
+REGEX PARA DETECTAR PRECIO PERSONALIZADO:
+Busca: /a\s*\$?\s*(\d+(?:\.\d+)?)/i
+Ejemplo: "2kg calamar a $10" → match: "a $10" → customPrice: 10
+
+PATRONES A DETECTAR para precio personalizado:
+- "a $X" (con símbolo dólar) ej: "a $10", "a $12.50"
+- "a X" (sin símbolo, solo número) ej: "a 10", "a 15"
+- "a$X" (pegado) ej: "a$10"
+- "por $X" (alternativo) ej: "por $8"
+
+¡¡¡NUNCA IGNORES EL PRECIO PERSONALIZADO!!! Si detectas "a [número]", SIEMPRE establece customPrice
 
 PRECIOS PERSONALIZADOS DUALES:
 - "tentaculo a 13 en bs y 10 en divisas" → customPrice: 13 (BCV), customPriceDivisa: 10 (divisa)
@@ -221,12 +257,28 @@ MODO DE PRECIO:
   - Si dice "a BCV", "precios BCV", "va a pagar en bolivares", "pago movil", "transferencia" → pricingMode: "bcv"
   - Si dice "en dolares", "pago en divisa", "va a pagar en dolares", "precio divisa", "efectivo", "cash" → pricingMode: "divisa"
   - Si dice "dual", "ambos precios", "bcv y divisa", "los dos precios", "presupuesto dual" → pricingMode: "dual"
-  - Si especifica precios personalizados duales (ej: "a 13 en bs y 10 en divisas") → pricingMode: "dual"
+  - Si especifica precios personalizados duales (ej: "a 13 en bs y 10 en divisas", "a 10 en divisas y 12 en bcv") → pricingMode: "dual"
+  - NOTA: "bcv" = "bs" = "bolivares" son sinónimos
   - Si no se especifica → pricingMode: null
 - Cuando el modo es "divisa" y el producto tiene Precio Divisa, usar ese precio para calcular cantidades por monto en dólares
 - Cuando el modo es "bcv" o no se especifica, usar el Precio BCV (el precio por defecto)
 - Cuando el modo es "dual", se usarán ambos precios (el presupuesto mostrará ambas versiones)
 - Ejemplo: "$20 de calamar" en modo divisa con Precio Divisa $15/kg → cantidad = 20/15 = 1.333 kg
+
+FECHAS (MUY IMPORTANTE):
+- FECHA ACTUAL: ${todayISO} (${todayName})
+- Por defecto, date = null (significa hoy/fecha actual)
+- Detecta si el texto menciona una fecha específica pasada:
+  - "ayer" = fecha de ayer (calcula desde ${todayISO})
+  - "antier", "anteayer" = hace 2 días
+  - "el lunes", "el martes", etc. = el último día de esa semana (hacia atrás desde hoy)
+  - "hace 2 dias", "hace 3 dias" = restar esos días a hoy
+  - "el 5", "el 05", "el dia 5" = día del mes actual o anterior
+  - "el 5 de febrero", "del 5 febrero", "5/febrero", "05/feb" = fecha específica (usar año ${now.getFullYear()})
+  - "del 03 de febrero" = ${now.getFullYear()}-02-03
+- IMPORTANTE: Usa el año actual (${now.getFullYear()}) para todas las fechas
+- Si detectas una fecha, devuelve en formato "YYYY-MM-DD"
+- Si no se menciona fecha, date = null
 
 PRODUCTOS PERSONALIZADOS (no en catálogo):
 - Si el usuario menciona un producto que NO está en el catálogo PERO especifica un precio:
@@ -234,6 +286,17 @@ PRODUCTOS PERSONALIZADOS (no en catálogo):
   - "2kg de producto especial a $15" → matched: false, productId: null, suggestedName: "Producto Especial", quantity: 2, customPrice: 15
 - Si el producto no está en catálogo Y no tiene precio especificado → va a "unmatched"
 - suggestedName debe ser un nombre limpio y capitalizado para el producto personalizado
+
+MARCADOR DE PRODUCTO PERSONALIZADO (MUY IMPORTANTE):
+- Si el usuario escribe "(producto personalizado)", "(personalizado)", "(custom)", "(nuevo)" junto al nombre del producto:
+  - SIEMPRE tratar como producto personalizado (matched: false)
+  - ELIMINAR el marcador del nombre final (suggestedName NO debe incluir el texto entre paréntesis)
+  - Ejemplos:
+    * "1kg pescado especial (producto personalizado) a $15" → suggestedName: "Pescado Especial", customPrice: 15
+    * "2kg marisco mix (personalizado) a 20/18" → suggestedName: "Marisco Mix", customPrice: 20, customPriceDivisa: 18
+    * "filete importado (custom) a $25" → suggestedName: "Filete Importado", customPrice: 25
+  - El marcador puede ir antes o después del precio
+  - Capitalizar el nombre correctamente en suggestedName
 
 Responde SOLO con un JSON válido con esta estructura:
 {
@@ -248,7 +311,7 @@ Responde SOLO con un JSON válido con esta estructura:
       "matched": true/false,
       "confidence": "high" | "medium" | "low",
       "dollarAmount": número o null (si el usuario especificó monto en $),
-      "customPrice": número o null (precio BCV por unidad si el usuario dijo "a $X"),
+      "customPrice": número o null (¡¡IMPORTANTE!! si el usuario escribió "a $X" o "a X", este es ese precio),
       "customPriceDivisa": número o null (precio Divisa por unidad, solo si el usuario dio dos precios)
     }
   ],
@@ -257,7 +320,8 @@ Responde SOLO con un JSON válido con esta estructura:
   "customerName": "nombre del cliente" o null,
   "dollarsOnly": true/false,
   "isPaid": true/false,
-  "pricingMode": "bcv" | "divisa" | "dual" | null
+  "pricingMode": "bcv" | "divisa" | "dual" | null,
+  "date": "YYYY-MM-DD" o null (fecha específica si se mencionó)
 }`;
 
     const userPrompt = `CATÁLOGO DE PRODUCTOS DISPONIBLES:
@@ -266,63 +330,41 @@ ${productList}
 LISTA DEL CLIENTE A INTERPRETAR:
 ${text}
 
-Analiza la lista e identifica cada producto con su cantidad. Haz el mejor match posible con el catálogo.`;
+INSTRUCCIONES:
+1. Analiza la lista e identifica cada producto con su cantidad
+2. Haz el mejor match posible con el catálogo
+3. ¡¡¡CRÍTICO!!! Si un producto dice "a $X" o "a X", DEBES establecer customPrice con ese valor X
+   - Ejemplo: "2kg Pepitona a $2.5" → customPrice: 2.5
+   - Ejemplo: "5kg langostino a $12" → customPrice: 12
+   - Ejemplo: "2kg calamar nacional grande a $10" → customPrice: 10
+   - Ejemplo: "3kg jumbo a 15" → customPrice: 15
+4. ¡¡¡NUNCA IGNORES LOS PRECIOS PERSONALIZADOS!!! Son críticos para el presupuesto
+5. Busca el patrón "a" seguido de un número en CADA línea del pedido`;
 
-    // Llamar a la API de Anthropic
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 2048,
-        messages: [
-          {
-            role: 'user',
-            content: userPrompt
-          }
-        ],
-        system: systemPrompt
-      })
+    // Llamar a Gemini con retry automático
+    const geminiResult = await callGeminiWithRetry({
+      systemPrompt,
+      userMessage: userPrompt,
+      apiKey,
+      temperature: 0.1,
+      maxOutputTokens: 2048,
+      jsonMode: true,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error de API Claude:', response.status, errorText);
-
-      // Parsear el error para dar mejor feedback
-      let errorMessage = 'Error al procesar la lista. Intenta de nuevo.';
-      try {
-        const errorJson = JSON.parse(errorText);
-        if (errorJson.error?.type === 'authentication_error') {
-          errorMessage = 'Error de autenticación con la API. Verifica la API key.';
-        } else if (errorJson.error?.type === 'invalid_api_key') {
-          errorMessage = 'API key inválida. Contacta al administrador.';
-        } else if (errorJson.error?.type === 'rate_limit_error') {
-          errorMessage = 'Demasiadas solicitudes. Espera un momento e intenta de nuevo.';
-        } else if (errorJson.error?.message) {
-          errorMessage = `Error: ${errorJson.error.message}`;
-        }
-      } catch {
-        // Si no es JSON, usar el mensaje genérico
-      }
-
+    if (!geminiResult.success) {
+      console.error('Error de API Gemini:', geminiResult.error);
       return new Response(JSON.stringify({
         success: false,
         items: [],
         unmatched: [],
-        error: errorMessage
+        error: 'Error al procesar la lista. Intenta de nuevo.'
       }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    const claudeResponse = await response.json();
-    const content = claudeResponse.content[0]?.text || '';
+    const content = geminiResult.content;
 
     // Extraer el JSON de la respuesta
     let parsedResult;
@@ -355,7 +397,8 @@ Analiza la lista e identifica cada producto con su cantidad. Haz el mejor match 
       customerName: parsedResult.customerName || null,
       dollarsOnly: parsedResult.dollarsOnly || false,
       isPaid: parsedResult.isPaid || false,
-      pricingMode: parsedResult.pricingMode || null
+      pricingMode: parsedResult.pricingMode || null,
+      date: parsedResult.date || null
     } as ParseResponse), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }

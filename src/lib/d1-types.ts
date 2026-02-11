@@ -3,7 +3,7 @@
  */
 
 // Theme names
-export type ThemeName = 'ocean' | 'carnival' | 'christmas' | 'easter';
+export type ThemeName = 'ocean' | 'carnival' | 'christmas' | 'easter' | 'valentine' | 'mundial' | 'halloween';
 
 // D1 row types (snake_case as stored in database)
 export interface D1Presupuesto {
@@ -13,6 +13,9 @@ export interface D1Presupuesto {
   total_usd: number;
   total_bs: number;
   total_usd_divisa: number | null;
+  hide_rate: number | null; // 1 = hide BCV rate in print (but NOT divisas mode)
+  delivery: number | null; // Delivery cost in USD
+  modo_precio: string | null; // 'bcv', 'divisa', or 'dual'
   estado: 'pendiente' | 'pagado';
   customer_name: string | null;
   customer_address: string | null;

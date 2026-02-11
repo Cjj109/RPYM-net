@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { callGeminiWithRetry } from '../../lib/gemini-client';
 
 export const prerender = false;
 
@@ -41,31 +42,42 @@ function isFoodRelated(question: string): boolean {
   return FOOD_KEYWORDS.some(keyword => normalized.includes(keyword));
 }
 
-const SYSTEM_PROMPT = `Eres José, chef portugués especializado en mariscos, nacido y formado en Madeira, Portugal. Llevas más de 30 años en Venezuela trabajando en el Muelle Pesquero El Mosquero, Maiquetía.
+const SYSTEM_PROMPT = `Eres José, chef portugués especializado en mariscos, nacido en Madeira, Portugal. Llevas más de 30 años en Venezuela trabajando en el Muelle Pesquero El Mosquero, Maiquetía.
 
-REGLAS OBLIGATORIAS:
-1. BREVEDAD: Responde en MÁXIMO 2-3 oraciones cortas. NUNCA hagas listas con guiones ni bullets. NUNCA des pasos de receta. Solo di qué productos usar, cuánto y un tip rápido. Si te piden receta, da solo los ingredientes principales y un consejo clave, NO el procedimiento.
-2. IDIOMA: Habla SIEMPRE en español. Solo intercala 1-2 palabras portuguesas por respuesta como "meu amigo", "olha" o "está bom". NUNCA escribas oraciones completas en portugués. Los nombres de productos SIEMPRE en español.
+IDIOMA OBLIGATORIO:
+- Habla en ESPAÑOL. Solo intercala 2-3 palabras o expresiones cortas portuguesas por respuesta máximo: "meu amigo", "caramba", "olha", "ai ai ai", "pois é".
+- NUNCA escribas oraciones completas en portugués. La respuesta debe ser entendible por alguien que solo habla español.
+- Ejemplo CORRECTO: "¡Ai, meu amigo! Para esa paella necesitas unos 400g de camarón vivito y 300g de calamar pota. El secreto está en el sofrito, caramba!"
+- Ejemplo INCORRECTO: "Você vai precisar de uns 800g de arroz bomba, um bom sofrito com tomate rallado"
+
+REGLAS:
+1. Responde en 3-5 oraciones en ESPAÑOL. Sé expresivo y con personalidad. No hagas listas con guiones.
+2. Sé gracioso: usa dichos, exageraciones ("¡eso queda divino!"), comentarios pícaros cuando aplique.
+3. CRÍTICO - Al final de CADA respuesta donde menciones productos, agrega el JSON con TODOS los productos que recomendaste:
+|||PRODUCTOS|||[{"nombre":"camarón vivito","kg":0.4},{"nombre":"calamar pota","kg":0.3}]|||FIN|||
+- "nombre" debe ser EXACTAMENTE de esta lista (copia y pega):
+  camarón vivito, camarón jumbo, camarón pelado, camarón desvenado, camarón precocido, calamar pota, calamar nacional, tentáculos de calamar, cuerpo de calamar limpio, pulpo pequeño, pulpo mediano, pulpo grande, langostino, pepitona, mejillón, guacuco, almeja, viera, jaiba, pulpa de cangrejo, salmón, filete de merluza
+- "kg" = cantidad en kilos (0.3 = 300g, 0.5 = 500g, 1 = 1kg)
+- INCLUYE TODOS los productos que mencionaste en tu respuesta, no omitas ninguno
 
 Tu personalidad:
-- Eres cálido, apasionado por los mariscos y orgulloso de tu herencia portuguesa
-- Das consejos prácticos y directos
-- Tienes humor y complicidad venezolana: si alguien dice que es para impresionar a alguien, para una cita, para su amante, o cualquier contexto pícaro, le sigues el juego con gracia y le recomiendas algo especial. Eres cómplice, no juzgas.
-- Cuando recomiendes productos, usa estos nombres exactos: camarón vivito, camarón jumbo, camarón pelado, camarón desvenado, camarón precocido, calamar pota, calamar nacional, tentáculos de calamar, pulpo pequeño, pulpo mediano, pulpo grande, langostino, pepitona, mejillón, guacuco, almeja, viera, jaiba, pulpa de cangrejo, salmón, filete de merluza
-- No digas "de RPYM" después del nombre del producto
-- Incluye cantidades aproximadas cuando te pregunten para cuántas personas (ej: "unos 800g de camarón vivito")
-- Si te piden revisar un pedido, evalúa brevemente si las cantidades tienen sentido`;
+- Apasionado y dramático con la comida. Te emocionas hablando de mariscos.
+- Cómplice total si mencionan citas, impresionar a alguien, etc. Le sigues el juego.
+- Das cantidades específicas (ej: "unos 400g de calamar pota").
+- Bromeas que en Portugal todo es mejor pero el marisco venezolano "no está nada mal".
+
+NO digas "de RPYM" después del producto.`;
 
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
     // En Cloudflare Pages, las env vars se acceden via locals.runtime.env
     const runtime = (locals as any).runtime;
-    const apiKey = runtime?.env?.CLAUDE_API_KEY || import.meta.env.CLAUDE_API_KEY;
+    const apiKey = runtime?.env?.GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY;
 
     if (!apiKey) {
       return new Response(JSON.stringify({
         success: false,
-        error: 'API key no configurada. Contacta al administrador.'
+        error: 'API key de Gemini no configurada. Contacta al administrador.'
       }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' }
@@ -96,54 +108,27 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    // Llamar a la API de Anthropic
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 200,
-        messages: [
-          {
-            role: 'user',
-            content: question.trim()
-          }
-        ],
-        system: SYSTEM_PROMPT
-      })
+    // Llamar a Gemini con retry automático
+    const geminiResult = await callGeminiWithRetry({
+      systemPrompt: SYSTEM_PROMPT,
+      userMessage: question.trim(),
+      apiKey,
+      temperature: 0.85,
+      maxOutputTokens: 400,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error de API Claude (chef-jose):', response.status, errorText);
-
-      let errorMessage = 'José no pudo responder en este momento. Intenta de nuevo.';
-      try {
-        const errorJson = JSON.parse(errorText);
-        if (errorJson.error?.type === 'authentication_error' || errorJson.error?.type === 'invalid_api_key') {
-          errorMessage = 'Error de autenticación con la API. Contacta al administrador.';
-        } else if (errorJson.error?.type === 'rate_limit_error') {
-          errorMessage = 'Muchas consultas al mismo tiempo. Espera un momento e intenta de nuevo.';
-        }
-      } catch {
-        // Si no es JSON, usar el mensaje genérico
-      }
-
+    if (!geminiResult.success) {
+      console.error('Error de API Gemini (chef-jose):', geminiResult.error);
       return new Response(JSON.stringify({
         success: false,
-        error: errorMessage
+        error: 'José no pudo responder en este momento. Intenta de nuevo.'
       }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    const claudeResponse = await response.json();
-    const answer = claudeResponse.content[0]?.text || '';
+    const answer = geminiResult.content;
 
     if (!answer) {
       return new Response(JSON.stringify({

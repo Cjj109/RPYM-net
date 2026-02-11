@@ -214,6 +214,33 @@ INTENCIONES POSIBLES:
    - "sin delivery" → params: {action: "editar", edicion: {tipo: "delivery", monto: 0}}
    IMPORTANTE: "delivery" es un CARGO ESPECIAL, no un producto. Usar tipo: "delivery" cuando mencionan delivery/envío.
 
+   MÚLTIPLES EDICIONES EN UN MENSAJE (MUY IMPORTANTE):
+   Cuando el usuario pide VARIAS operaciones en un solo mensaje, "edicion" debe ser un ARRAY con TODAS las operaciones.
+   NO pongas las operaciones adicionales en alternativeIntents - TODAS van en el array edicion.
+
+   Ejemplos de múltiples ediciones:
+   - "resta 1kg de tripa, agrega 1kg pepitona" → params: {action: "editar", edicion: [
+       {tipo: "restar", producto: "tripa", cantidad: 1},
+       {tipo: "agregar", producto: "pepitona", cantidad: 1, unidad: "kg"}
+     ]}
+   - "quita el pulpo y agrega 2kg langostino a $15" → params: {action: "editar", edicion: [
+       {tipo: "quitar", producto: "pulpo"},
+       {tipo: "agregar", producto: "langostino", cantidad: 2, unidad: "kg", precio: 15}
+     ]}
+   - "réstale 1kg de tripa de perla, súmale 1kg pepitona y 1kg más de mejillón pelado" → params: {action: "editar", edicion: [
+       {tipo: "restar", producto: "tripa de perla", cantidad: 1},
+       {tipo: "agregar", producto: "pepitona", cantidad: 1, unidad: "kg"},
+       {tipo: "agregar", producto: "mejillón pelado", cantidad: 1, unidad: "kg"}
+     ]}
+   - "cambia el jumbo a $15 y ponle el nombre Juan" → params: {action: "editar", edicion: [
+       {tipo: "precio", producto: "jumbo", precio: 15},
+       {tipo: "cliente", nombre: "Juan"}
+     ]}
+
+   CRÍTICO: Si el usuario menciona varias acciones separadas por "y", comas, o puntos, TODAS deben ir en el array edicion.
+   Una sola operación puede ser objeto simple: edicion: {...}
+   Múltiples operaciones DEBEN ser array: edicion: [{...}, {...}, ...]
+
    EDITAR usa contexto para saber cuál presupuesto. Si especifica ID: "edita el 12345..."
 
    ASIGNAR PRESUPUESTO A CLIENTE (vincular a estado de cuenta):

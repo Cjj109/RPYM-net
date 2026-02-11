@@ -18,6 +18,9 @@ function transformPresupuesto(row: D1Presupuesto) {
     totalUSD: row.total_usd,
     totalBs: row.total_bs,
     totalUSDDivisa: row.total_usd_divisa,
+    hideRate: row.hide_rate === 1,
+    delivery: row.delivery || 0,
+    modoPrecio: row.modo_precio || 'bcv',
     estado: row.estado,
     customerName: row.customer_name,
     customerAddress: row.customer_address,
@@ -47,20 +50,43 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
     const url = new URL(request.url);
     const status = url.searchParams.get('status');
+    const search = url.searchParams.get('search')?.trim();
     const limit = parseInt(url.searchParams.get('limit') || '100');
 
-    let query: string;
-    let results;
+    // Build query with optional filters
+    let conditions: string[] = [];
+    let params: (string | number)[] = [];
 
     if (status && status !== 'all') {
-      query = 'SELECT * FROM presupuestos WHERE estado = ? ORDER BY created_at DESC LIMIT ?';
-      results = await db.prepare(query).bind(status, limit).all<D1Presupuesto>();
-    } else {
-      query = 'SELECT * FROM presupuestos ORDER BY created_at DESC LIMIT ?';
-      results = await db.prepare(query).bind(limit).all<D1Presupuesto>();
+      conditions.push('estado = ?');
+      params.push(status);
     }
 
-    const presupuestos = results.results.map(transformPresupuesto);
+    if (search) {
+      // Search by ID or customer name (case insensitive)
+      conditions.push('(id LIKE ? OR customer_name LIKE ?)');
+      params.push(`%${search}%`, `%${search}%`);
+    }
+
+    let query = 'SELECT * FROM presupuestos';
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+    query += ' ORDER BY created_at DESC LIMIT ?';
+    params.push(limit);
+
+    const results = await db.prepare(query).bind(...params).all<D1Presupuesto>();
+
+    // Get list of presupuesto IDs that are linked to customer transactions
+    const linkedResult = await db.prepare(`
+      SELECT DISTINCT presupuesto_id FROM customer_transactions WHERE presupuesto_id IS NOT NULL
+    `).all<{ presupuesto_id: string }>();
+    const linkedIds = new Set(linkedResult.results.map(r => r.presupuesto_id));
+
+    const presupuestos = results.results.map(row => ({
+      ...transformPresupuesto(row),
+      isLinked: linkedIds.has(row.id)
+    }));
 
     return new Response(JSON.stringify({
       success: true,
@@ -97,7 +123,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const body = await request.json();
-    const { items, totalUSD, totalBs, totalUSDDivisa, customerName, customerAddress, clientIP, status, source, customDate } = body;
+    const { items, totalUSD, totalBs, totalUSDDivisa, hideRate, delivery, modoPrecio, customerName, customerAddress, clientIP, status, source, customDate } = body;
 
     // Validate required fields
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -125,8 +151,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const fecha = customDate ? new Date(customDate).toISOString() : new Date().toISOString();
 
     await db.prepare(`
-      INSERT INTO presupuestos (id, fecha, items, total_usd, total_bs, total_usd_divisa, estado, customer_name, customer_address, client_ip, source, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      INSERT INTO presupuestos (id, fecha, items, total_usd, total_bs, total_usd_divisa, hide_rate, delivery, modo_precio, estado, customer_name, customer_address, client_ip, source, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
     `).bind(
       id,
       fecha,
@@ -134,6 +160,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
       totalUSD,
       totalBs,
       totalUSDDivisa || null,
+      hideRate ? 1 : 0,
+      delivery || 0,
+      modoPrecio || 'bcv',
       status || 'pendiente',
       customerName || null,
       customerAddress || null,

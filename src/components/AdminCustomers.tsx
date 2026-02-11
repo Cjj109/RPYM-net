@@ -1671,7 +1671,7 @@ export default function AdminCustomers() {
             <div className="flex gap-2">
               <button
                 onClick={handleAiConfirm}
-                disabled={aiExecuting || !aiProductAction.customerId}
+                disabled={aiExecuting || (!aiProductAction.customerId && !aiProductAction.customerName)}
                 className="px-3 py-1.5 bg-green-600 hover:bg-green-500 disabled:bg-green-300 text-white rounded-lg text-xs font-medium transition-colors"
               >
                 {aiExecuting ? 'Creando...' : 'Crear Presupuesto + Compra'}
@@ -2155,12 +2155,10 @@ export default function AdminCustomers() {
                             </>
                           );
                         })()}
-                        {tx.amountBs > 0 && tx.currencyType !== 'divisas' && !(dualView === 'divisas' && tx.amountUsdDivisa != null && tx.amountUsdDivisa > 0) && (
+                        {bcvRate > 0 && tx.currencyType !== 'divisas' && !(dualView === 'divisas' && tx.amountUsdDivisa != null && tx.amountUsdDivisa > 0) && (
                           <p className={`text-xs ${tx.type === 'purchase' ? (tx.isPaid ? 'text-ocean-400 line-through' : 'text-red-500') : 'text-green-500'}`}>
-                            {tx.type === 'purchase' ? '+' : '-'}{formatBs(tx.amountBs)}
-                            {tx.exchangeRate && (
-                              <span className="text-ocean-400 ml-1">@{tx.exchangeRate}</span>
-                            )}
+                            {tx.type === 'purchase' ? '+' : '-'}{formatBs(tx.amountUsd * bcvRate)}
+                            <span className="text-ocean-400 ml-1">@{bcvRate.toFixed(2)}</span>
                           </p>
                         )}
                       </div>
@@ -2910,15 +2908,13 @@ export default function AdminCustomers() {
               </div>
             )}
 
-            {detailTx.amountBs > 0 && detailTx.currencyType !== 'divisas' && (
+            {bcvRate > 0 && detailTx.currencyType !== 'divisas' && (
               <div>
                 <p className="text-xs text-ocean-500">Monto Bs</p>
                 <p className={`text-lg font-bold ${isPurchase ? 'text-red-600' : 'text-green-600'}`}>
-                  {isPurchase ? '+' : '-'}{formatBs(detailTx.amountBs)}
+                  {isPurchase ? '+' : '-'}{formatBs(detailTx.amountUsd * bcvRate)}
                 </p>
-                {detailTx.exchangeRate && (
-                  <p className="text-xs text-ocean-500 mt-0.5">Tasa: {detailTx.exchangeRate} Bs/$</p>
-                )}
+                <p className="text-xs text-ocean-500 mt-0.5">Tasa actual: {bcvRate.toFixed(2)} Bs/$</p>
               </div>
             )}
 
@@ -3325,10 +3321,10 @@ export default function AdminCustomers() {
                   <span className="text-sm font-semibold text-ocean-700">Total USD</span>
                   <span className="text-lg font-bold text-ocean-900">${p.totalUSD.toFixed(2)}</span>
                 </div>
-                {p.totalBs > 0 && (
+                {bcvRate > 0 && p.totalBs !== 0 && (
                   <div className="flex justify-between items-center px-1">
-                    <span className="text-xs text-ocean-500">Total Bs</span>
-                    <span className="text-sm font-semibold text-orange-600">Bs {p.totalBs.toFixed(2)}</span>
+                    <span className="text-xs text-ocean-500">Total Bs @{bcvRate.toFixed(2)}</span>
+                    <span className="text-sm font-semibold text-orange-600">Bs {(p.totalUSD * bcvRate).toFixed(2)}</span>
                   </div>
                 )}
               </div>

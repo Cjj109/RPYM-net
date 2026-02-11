@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { getD1 } from '../../../lib/d1-types';
 import type { D1CustomerTransaction } from '../../../lib/customer-types';
+import { getBCVRate } from '../../../lib/sheets';
 
 export const prerender = false;
 
@@ -54,6 +55,16 @@ export const GET: APIRoute = async ({ params, locals }) => {
       WHERE customer_id = ?
     `).bind(customer.id).first<{ balance_divisas: number; balance_bcv: number; balance_euro: number }>();
 
+    // Get current BCV rate
+    let bcvRate = 0;
+    try {
+      const rateData = await getBCVRate();
+      bcvRate = rateData.rate;
+    } catch {
+      // Fallback if rate fetch fails
+      bcvRate = 0;
+    }
+
     // Get transactions
     const transactions = await db.prepare(`
       SELECT id, type, date, description, amount_usd, amount_bs, amount_usd_divisa, presupuesto_id, invoice_image_key, currency_type, payment_method, exchange_rate, is_paid, paid_method, paid_date, notes, created_at
@@ -89,6 +100,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
         balanceBcv: balance?.balance_bcv || 0,
         balanceEuro: balance?.balance_euro || 0,
       },
+      bcvRate,
       transactions: transactions.results.map(t => ({
         id: t.id,
         type: t.type,

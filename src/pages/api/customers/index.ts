@@ -1,6 +1,5 @@
 import type { APIRoute } from 'astro';
-import { getD1 } from '../../../lib/d1-types';
-import { validateSession, getSessionFromCookie } from '../../../lib/auth';
+import { requireAuth } from '../../../lib/require-auth';
 import type { D1CustomerWithBalance } from '../../../lib/customer-types';
 import { transformCustomer } from '../../../lib/customer-types';
 
@@ -8,25 +7,9 @@ export const prerender = false;
 
 // GET /api/customers - List all active customers with balances
 export const GET: APIRoute = async ({ request, locals }) => {
-  const db = getD1(locals);
-  if (!db) {
-    return new Response(JSON.stringify({ success: false, error: 'Database no disponible' }), {
-      status: 500, headers: { 'Content-Type': 'application/json' }
-    });
-  }
-
-  const sessionId = getSessionFromCookie(request.headers.get('Cookie'));
-  if (!sessionId) {
-    return new Response(JSON.stringify({ success: false, error: 'No autenticado' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' }
-    });
-  }
-  const user = await validateSession(db, sessionId);
-  if (!user) {
-    return new Response(JSON.stringify({ success: false, error: 'Sesion invalida' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' }
-    });
-  }
+  const auth = await requireAuth(request, locals);
+  if (auth instanceof Response) return auth;
+  const { db } = auth;
 
   try {
     const url = new URL(request.url);
@@ -79,25 +62,9 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
 // POST /api/customers - Create a new customer
 export const POST: APIRoute = async ({ request, locals }) => {
-  const db = getD1(locals);
-  if (!db) {
-    return new Response(JSON.stringify({ success: false, error: 'Database no disponible' }), {
-      status: 500, headers: { 'Content-Type': 'application/json' }
-    });
-  }
-
-  const sessionId = getSessionFromCookie(request.headers.get('Cookie'));
-  if (!sessionId) {
-    return new Response(JSON.stringify({ success: false, error: 'No autenticado' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' }
-    });
-  }
-  const user = await validateSession(db, sessionId);
-  if (!user) {
-    return new Response(JSON.stringify({ success: false, error: 'Sesion invalida' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' }
-    });
-  }
+  const auth = await requireAuth(request, locals);
+  if (auth instanceof Response) return auth;
+  const { db } = auth;
 
   try {
     const body = await request.json();

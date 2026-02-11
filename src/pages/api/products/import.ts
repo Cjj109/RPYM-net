@@ -1,10 +1,8 @@
 import type { APIRoute } from 'astro';
-import { getD1 } from '../../../lib/d1-types';
-import { validateSession, getSessionFromCookie } from '../../../lib/auth';
+import { requireAuth } from '../../../lib/require-auth';
+import { getSheetId } from '../../../lib/env';
 
 export const prerender = false;
-
-const SHEET_ID = import.meta.env.PUBLIC_SHEET_ID || '1eiMez6PK9KNpKwecyb9nYTKS3p-APIbRHFzjB99Vydc';
 
 interface SheetRow {
   nombre: string;
@@ -21,37 +19,17 @@ interface SheetRow {
  */
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
-    const db = getD1(locals);
+    const auth = await requireAuth(request, locals);
+    if (auth instanceof Response) return auth;
+    const { db } = auth;
 
-    if (!db) {
+    const sheetId = getSheetId(locals);
+    if (!sheetId) {
       return new Response(JSON.stringify({
         success: false,
-        error: 'Database not configured'
+        error: 'PUBLIC_SHEET_ID no configurado en variables de entorno'
       }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Verify admin auth
-    const sessionId = getSessionFromCookie(request.headers.get('Cookie'));
-    if (!sessionId) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'No autenticado'
-      }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    const user = await validateSession(db, sessionId);
-    if (!user) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Sesion invalida'
-      }), {
-        status: 401,
         headers: { 'Content-Type': 'application/json' }
       });
     }
@@ -70,7 +48,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // Fetch data from Google Sheets
     console.log('Fetching data from Google Sheets...');
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
+    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -203,40 +181,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
  */
 export const DELETE: APIRoute = async ({ request, locals }) => {
   try {
-    const db = getD1(locals);
-
-    if (!db) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Database not configured'
-      }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Verify admin auth
-    const sessionId = getSessionFromCookie(request.headers.get('Cookie'));
-    if (!sessionId) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'No autenticado'
-      }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    const user = await validateSession(db, sessionId);
-    if (!user) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Sesion invalida'
-      }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
+    const auth = await requireAuth(request, locals);
+    if (auth instanceof Response) return auth;
+    const { db } = auth;
 
     await db.prepare('DELETE FROM products').run();
 

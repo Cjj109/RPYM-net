@@ -3,6 +3,7 @@ import Layout from '../layouts/Layout.astro';
 import { PriceListInteractive } from '../components/PriceListInteractive';
 import NoFiado from '../components/NoFiado.astro';
 import InfoSection from '../components/InfoSection.astro';
+import ThemedMascot from '../components/ThemedMascot.astro';
 import { getProducts, groupByCategory, getBCVRate, getMasVendidos } from '../lib/sheets';
 import { getD1 } from '../lib/d1-types';
 
@@ -21,7 +22,7 @@ const masVendidos = getMasVendidos(products);
 
 <Layout title="RPYM - El Rey de los Pescados y Mariscos">
   <!-- Hero Section - Optimizado para móvil -->
-  <section class="relative py-10 md:py-20 px-4 overflow-hidden">
+  <section class="hero-section relative py-10 md:py-20 px-4 overflow-hidden">
     <!-- Decoración de fondo -->
     <div class="absolute inset-0 pointer-events-none">
       <div class="absolute top-10 left-5 w-24 md:w-32 h-24 md:h-32 bg-ocean-200/30 rounded-full blur-3xl"></div>
@@ -30,22 +31,9 @@ const masVendidos = getMasVendidos(products);
 
     <div class="container mx-auto max-w-5xl relative">
       <div class="flex flex-col md:flex-row items-center gap-6 md:gap-12">
-        <!-- Mascota José - visible en móvil arriba -->
+        <!-- Mascota temática - cambia según el tema activo -->
         <div class="flex-shrink-0 order-first md:order-last">
-          <picture>
-            <source srcset="/jose-sm.webp" media="(max-width: 400px)" />
-            <source srcset="/jose-md.webp" media="(max-width: 768px)" />
-            <img
-              src="/jose-lg.webp"
-              alt="José el Camarón - Mascota de RPYM"
-              class="w-32 h-auto md:w-64 lg:w-80 drop-shadow-2xl animate-float"
-              width="500"
-              height="750"
-              loading="eager"
-              fetchpriority="high"
-              decoding="async"
-            />
-          </picture>
+          <ThemedMascot />
         </div>
 
         <!-- Contenido principal -->
@@ -76,7 +64,7 @@ const masVendidos = getMasVendidos(products);
             <div class="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-3">
               <a
                 href="/presupuesto"
-                class="w-full sm:w-auto bg-coral-500 hover:bg-coral-600 text-white px-6 py-3 md:px-8 md:py-4 rounded-full font-semibold text-base md:text-lg transition-all active:scale-95 md:hover:scale-105 shadow-lg shadow-coral-500/30 text-center flex items-center justify-center gap-2"
+                class="themed-button w-full sm:w-auto bg-coral-500 hover:bg-coral-600 text-white px-6 py-3 md:px-8 md:py-4 rounded-full font-semibold text-base md:text-lg transition-all active:scale-95 md:hover:scale-105 shadow-lg shadow-coral-500/30 text-center flex items-center justify-center gap-2"
               >
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
@@ -85,7 +73,7 @@ const masVendidos = getMasVendidos(products);
               </a>
               <a
                 href="#precios"
-                class="w-full sm:w-auto bg-ocean-600 hover:bg-ocean-700 text-white px-6 py-3 md:px-8 md:py-4 rounded-full font-semibold text-base md:text-lg transition-all active:scale-95 md:hover:scale-105 shadow-lg shadow-ocean-600/30 text-center"
+                class="themed-button w-full sm:w-auto bg-ocean-600 hover:bg-ocean-700 text-white px-6 py-3 md:px-8 md:py-4 rounded-full font-semibold text-base md:text-lg transition-all active:scale-95 md:hover:scale-105 shadow-lg shadow-ocean-600/30 text-center"
               >
                 Ver Precios
               </a>
@@ -185,13 +173,13 @@ const masVendidos = getMasVendidos(products);
         <div class="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 relative">
           <a
             href="/presupuesto"
-            class="inline-block bg-white text-ocean-700 hover:bg-ocean-50 px-6 py-3 md:px-8 md:py-4 rounded-full font-semibold text-base md:text-lg transition-all active:scale-95 md:hover:scale-105 shadow-lg"
+            class="themed-button inline-block bg-white text-ocean-700 hover:bg-ocean-50 px-6 py-3 md:px-8 md:py-4 rounded-full font-semibold text-base md:text-lg transition-all active:scale-95 md:hover:scale-105 shadow-lg"
           >
             Arma tu Pedido
           </a>
           <a
             href="/lista"
-            class="inline-block bg-transparent border-2 border-white/70 text-white hover:bg-white/10 px-6 py-3 md:px-8 md:py-4 rounded-full font-semibold text-base md:text-lg transition-all active:scale-95"
+            class="themed-button inline-block bg-transparent border-2 border-white/70 text-white hover:bg-white/10 px-6 py-3 md:px-8 md:py-4 rounded-full font-semibold text-base md:text-lg transition-all active:scale-95"
           >
             Ver Lista de Precios
           </a>

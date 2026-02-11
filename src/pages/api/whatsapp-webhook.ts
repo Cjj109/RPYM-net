@@ -1,26 +1,33 @@
 import type { APIRoute } from 'astro';
+import { getD1 } from '../../lib/d1-types';
+import {
+  VERIFY_TOKEN,
+  NUMERO_PRINCIPAL,
+  MAX_MESSAGES_PER_DAY,
+} from '../../lib/services/whatsapp/config';
+import { getNegocioStatus } from '../../lib/services/whatsapp/negocio';
+import { getCachedProducts } from '../../lib/services/whatsapp/product-cache';
+import {
+  getChatHistory,
+  saveChatMessage,
+  isNewTopicMessage,
+} from '../../lib/services/whatsapp/chat-handlers';
+import {
+  isAdmin,
+  handleAdminCommand,
+  checkRateLimit,
+  isMessageProcessed,
+} from '../../lib/services/whatsapp/admin-handlers';
+import { buildSystemPrompt } from '../../lib/services/whatsapp/prompts';
+import { callGemini } from '../../lib/services/whatsapp/gemini-handler';
+import {
+  sendWhatsAppMessage,
+  sendContactCard,
+  markAsRead,
+  sendTypingIndicator,
+} from '../../lib/services/whatsapp/wa-api';
 
 export const prerender = false;
-
-// WhatsApp webhook verification token (set in Meta console)
-const VERIFY_TOKEN = 'rpym_webhook_2026';
-
-// Jose RPYM contact info
-const JOSE_CONTACT = {
-  name: 'José RPYM',
-  phone: '584142145202', // Format for WhatsApp API (without + sign)
-  wa_id: '584142145202' // WhatsApp ID format
-};
-
-// Auto-reply message
-const AUTO_REPLY_MESSAGE = `¡Hola! 🐟
-
-Este número es exclusivo para el envío de facturas y presupuestos.
-
-Para consultas, pedidos o atención al cliente, comunícate directamente con *José* presionando el contacto que te enviaremos a continuación.
-
-¡Gracias por tu preferencia!
-🦐 *RPYM - El Rey de los Pescados y Mariscos*`;
 
 /**
  * Webhook verification (GET) - Required by Meta for webhook setup
@@ -31,7 +38,6 @@ export const GET: APIRoute = async ({ request }) => {
   const token = url.searchParams.get('hub.verify_token');
   const challenge = url.searchParams.get('hub.challenge');
 
-  // Verify the webhook
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
     console.log('WhatsApp webhook verified');
     return new Response(challenge, {
@@ -44,143 +50,169 @@ export const GET: APIRoute = async ({ request }) => {
 };
 
 /**
- * Incoming message handler (POST) - Receives messages and sends auto-reply
+ * Incoming message handler (POST) - Receives messages and responds with AI
  */
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
     const body = await request.json();
 
-    // Meta sends webhooks for various events
-    // We only care about incoming messages
     const entry = body.entry?.[0];
     const changes = entry?.changes?.[0];
     const value = changes?.value;
 
-    // Check if this is a message event
     if (value?.messaging_product !== 'whatsapp' || !value?.messages) {
-      // Not a message, acknowledge anyway
       return new Response('OK', { status: 200 });
     }
 
     const message = value.messages[0];
-    const from = message.from; // Sender's phone number
+    const from = message.from;
     const messageId = message.id;
     const messageType = message.type;
 
-    // Only respond to text messages (not reactions, status updates, etc.)
-    // Also only respond to first message in a thread (not replies to our auto-reply)
-    if (messageType !== 'text') {
-      return new Response('OK', { status: 200 });
-    }
-
-    // Get credentials
     const runtime = (locals as any).runtime;
     const accessToken = runtime?.env?.WHATSAPP_ACCESS_TOKEN || import.meta.env.WHATSAPP_ACCESS_TOKEN;
     const phoneNumberId = runtime?.env?.WHATSAPP_PHONE_NUMBER_ID || import.meta.env.WHATSAPP_PHONE_NUMBER_ID;
+    const geminiApiKey = runtime?.env?.GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY;
 
     if (!accessToken || !phoneNumberId) {
-      console.error('WhatsApp webhook: Missing credentials');
+      console.error('WhatsApp webhook: Missing WhatsApp credentials');
       return new Response('OK', { status: 200 });
     }
 
-    // Check if we already replied to this user recently (prevent spam)
-    // In production, you'd use D1/KV to store this, but for now we'll just reply
-    // Meta's Cloud API has built-in rate limiting
+    await markAsRead(messageId, accessToken, phoneNumberId);
 
-    // Send auto-reply
-    const graphApiUrl = `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`;
+    const db = getD1(locals);
 
-    const replyPayload = {
-      messaging_product: 'whatsapp',
-      to: from,
-      type: 'text',
-      text: {
-        body: AUTO_REPLY_MESSAGE
-      },
-      // Mark the original message as read
-      context: {
-        message_id: messageId
+    if (await isMessageProcessed(db, messageId)) {
+      return new Response('OK', { status: 200 });
+    }
+
+    if (messageType !== 'text') {
+      await sendWhatsAppMessage(
+        from,
+        '¡Épale! 🦐 Por ahora solo leo texto, mi pana. Escríbeme qué necesitas y te ayudo con precios y presupuestos.',
+        accessToken,
+        phoneNumberId,
+        messageId
+      );
+      return new Response('OK', { status: 200 });
+    }
+
+    const rawUserMessage = message.text?.body?.trim();
+
+    if (!rawUserMessage) {
+      return new Response('OK', { status: 200 });
+    }
+
+    const MAX_USER_MESSAGE_LENGTH = 500;
+    const userMessage = rawUserMessage.length > MAX_USER_MESSAGE_LENGTH
+      ? rawUserMessage.substring(0, MAX_USER_MESSAGE_LENGTH) + '...'
+      : rawUserMessage;
+
+    const adminResult = await handleAdminCommand(userMessage, from, db);
+    if (adminResult.handled && adminResult.response) {
+      await sendWhatsAppMessage(from, adminResult.response, accessToken, phoneNumberId, messageId);
+      return new Response('OK', { status: 200 });
+    }
+
+    const msgLower = userMessage.toLowerCase().trim();
+    if (msgLower === 'reset' || msgLower === 'nuevo' || msgLower === 'nueva' || msgLower === 'reiniciar') {
+      if (db) {
+        await db.prepare('DELETE FROM whatsapp_chat_history WHERE phone = ?').bind(from).run();
       }
-    };
-
-    // 1. Send text message
-    const response = await fetch(graphApiUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(replyPayload),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      console.error('WhatsApp auto-reply error:', error);
-    } else {
-      console.log(`Auto-reply sent to ${from}`);
+      await sendWhatsAppMessage(
+        from,
+        '🔄 ¡Listo mi pana! Conversación reiniciada.\n\n¿En qué te puedo ayudar? 🦐',
+        accessToken,
+        phoneNumberId,
+        messageId
+      );
+      return new Response('OK', { status: 200 });
     }
 
-    // 2. Send contact card for easy saving
-    const contactPayload = {
-      messaging_product: 'whatsapp',
-      to: from,
-      type: 'contacts',
-      contacts: [
-        {
-          name: {
-            formatted_name: JOSE_CONTACT.name,
-            first_name: 'José',
-            last_name: 'RPYM'
-          },
-          phones: [
-            {
-              phone: JOSE_CONTACT.phone,
-              type: 'CELL',
-              wa_id: JOSE_CONTACT.wa_id // Links to existing WhatsApp account
-            }
-          ],
-          org: {
-            company: 'RPYM - El Rey de los Pescados y Mariscos'
-          }
-        }
-      ]
-    };
-
-    const contactResponse = await fetch(graphApiUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(contactPayload),
-    });
-
-    if (!contactResponse.ok) {
-      const error = await contactResponse.json();
-      console.error('WhatsApp contact card error:', error);
-    } else {
-      console.log(`Contact card sent to ${from}`);
+    if (msgLower === 'lista' || msgLower === 'precios' || msgLower === 'menu' || msgLower === 'catalogo') {
+      const { productosTexto, bcvRate } = await getCachedProducts(db);
+      const listaFormateada = `🦐 *LISTA DE PRECIOS RPYM*\n(Tasa BCV: Bs. ${bcvRate.toFixed(2)})\n\n${productosTexto}\n📍 Muelle Pesquero El Mosquero\nPuesto 3 y 4, Maiquetía\n\nPa' pedir: ${NUMERO_PRINCIPAL}`;
+      await sendWhatsAppMessage(from, listaFormateada, accessToken, phoneNumberId, messageId);
+      await sendContactCard(from, accessToken, phoneNumberId);
+      return new Response('OK', { status: 200 });
     }
 
-    // 3. Mark the original message as read
-    await fetch(graphApiUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        status: 'read',
-        message_id: messageId
-      }),
-    });
+    const negocioStatus = await getNegocioStatus(db);
+    if (!negocioStatus.abierto && !isAdmin(from)) {
+      let mensajeCierre = '🦐 ¡Hola mi pana! Ahorita estamos cerrados.';
+      if (negocioStatus.mensaje) {
+        mensajeCierre += `\n\n📝 ${negocioStatus.mensaje}`;
+      }
+      mensajeCierre += `\n\nPa' cualquier cosa urgente, escríbele a José: ${NUMERO_PRINCIPAL}`;
+      await sendWhatsAppMessage(from, mensajeCierre, accessToken, phoneNumberId, messageId);
+      await sendContactCard(from, accessToken, phoneNumberId);
+      return new Response('OK', { status: 200 });
+    }
 
+    const rateLimit = isAdmin(from)
+      ? { allowed: true, count: 0 }
+      : await checkRateLimit(db, from);
+
+    if (!rateLimit.allowed) {
+      await sendWhatsAppMessage(
+        from,
+        `¡Ey mi pana! 🦐 Ya hablamos bastante hoy (${MAX_MESSAGES_PER_DAY} mensajes). Pa' seguir la conversa o hacer tu pedido, escríbele directo a José: ${NUMERO_PRINCIPAL}\n\n¡Mañana seguimos echando vaina! 😄`,
+        accessToken,
+        phoneNumberId,
+        messageId
+      );
+      await sendContactCard(from, accessToken, phoneNumberId);
+      return new Response('OK', { status: 200 });
+    }
+
+    if (!geminiApiKey) {
+      console.error('WhatsApp webhook: Missing GEMINI_API_KEY');
+      await sendWhatsAppMessage(
+        from,
+        `¡Épale! 🦐 Gracias por escribir.\n\nMira los precios aquí:\n👉 https://www.rpym.net/lista\n\nO arma tu presupuesto:\n👉 https://www.rpym.net/presupuesto\n\nPa' pedir, escríbele a José: ${NUMERO_PRINCIPAL}`,
+        accessToken,
+        phoneNumberId
+      );
+      return new Response('OK', { status: 200 });
+    }
+
+    const { bcvRate, productosTexto } = await getCachedProducts(db);
+    const systemPrompt = buildSystemPrompt(productosTexto, bcvRate);
+
+    const isNewTopic = isNewTopicMessage(userMessage);
+    const chatHistory = isNewTopic ? [] : await getChatHistory(db, from, 6);
+    console.log(`[WhatsApp] ${from}: "${userMessage.substring(0, 50)}..." (history: ${chatHistory.length} msgs, newTopic: ${isNewTopic})`);
+
+    sendTypingIndicator(from, accessToken, phoneNumberId);
+
+    let aiResponse: string;
+    try {
+      aiResponse = await callGemini(userMessage, systemPrompt, geminiApiKey, chatHistory);
+    } catch (error) {
+      console.error('Error calling Gemini:', error);
+      aiResponse = `¡Epa! 🦐 Estoy medio trabado ahorita.\n\nChequea los precios en:\n👉 https://www.rpym.net/lista\n\nO escríbele a José directo: ${NUMERO_PRINCIPAL}`;
+    }
+
+    await saveChatMessage(db, from, 'user', userMessage);
+    await saveChatMessage(db, from, 'assistant', aiResponse.substring(0, 1500));
+
+    await sendWhatsAppMessage(from, aiResponse, accessToken, phoneNumberId, messageId);
+
+    const shouldSendContact = aiResponse.includes(NUMERO_PRINCIPAL) ||
+                              aiResponse.toLowerCase().includes('cuadrar') ||
+                              aiResponse.toLowerCase().includes('escríbele a josé');
+
+    if (shouldSendContact) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await sendContactCard(from, accessToken, phoneNumberId);
+    }
+
+    console.log(`AI response sent to ${from} (${rateLimit.count}/${MAX_MESSAGES_PER_DAY})`);
     return new Response('OK', { status: 200 });
 
   } catch (error) {
     console.error('WhatsApp webhook error:', error);
-    // Always return 200 to prevent Meta from retrying
     return new Response('OK', { status: 200 });
   }
 };

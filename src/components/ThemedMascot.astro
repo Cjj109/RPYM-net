@@ -1,0 +1,96 @@
+---
+/**
+ * RPYM - Mascota temática
+ * Cambia la mascota según el tema activo
+ */
+interface Props {
+  class?: string;
+}
+
+const { class: className = '' } = Astro.props;
+---
+
+<div class={`themed-mascot ${className}`}>
+  <picture>
+    <source srcset="/jose-sm.webp" media="(max-width: 400px)" class="mascot-source" data-theme-src="jose" />
+    <source srcset="/jose-md.webp" media="(max-width: 768px)" class="mascot-source" data-theme-src="jose" />
+    <img
+      id="themed-mascot-img"
+      src="/jose-lg.webp"
+      alt="Mascota de RPYM"
+      class="w-48 h-auto md:w-64 lg:w-80 drop-shadow-2xl animate-float"
+      width="500"
+      height="750"
+      loading="eager"
+      fetchpriority="high"
+      decoding="async"
+      data-theme-src="jose"
+    />
+  </picture>
+</div>
+
+<script is:inline>
+(function() {
+  // Mapeo de tema a mascota
+  const themeMascots = {
+    ocean: 'jose',
+    carnival: 'carnaval',
+    christmas: 'navidad',
+    easter: 'jose',
+    valentine: 'sanvalentin',
+    mundial: 'jose',
+    halloween: 'jose'
+  };
+
+  function updateMascot(theme) {
+    const mascot = themeMascots[theme] || 'jose';
+    const img = document.getElementById('themed-mascot-img');
+    if (!img) return;
+
+    const picture = img.parentElement;
+    if (!picture) return;
+
+    // Update main image
+    img.src = `/${mascot}-lg.webp`;
+
+    // Update picture sources
+    const sources = picture.querySelectorAll('source');
+    sources.forEach(source => {
+      const srcset = source.getAttribute('srcset');
+      if (srcset && srcset.includes('-sm.webp')) {
+        source.srcset = `/${mascot}-sm.webp`;
+      } else if (srcset && srcset.includes('-md.webp')) {
+        source.srcset = `/${mascot}-md.webp`;
+      }
+    });
+  }
+
+  // Initial update
+  function init() {
+    const theme = document.documentElement.getAttribute('data-theme') || 'ocean';
+    updateMascot(theme);
+  }
+
+  // Observe theme changes
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.attributeName === 'data-theme') {
+        const newTheme = document.documentElement.getAttribute('data-theme') || 'ocean';
+        updateMascot(newTheme);
+      }
+    });
+  });
+
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-theme']
+  });
+
+  // Initialize
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>

@@ -16,12 +16,16 @@ pnpm-debug.log*
 # environment variables
 .env
 .env.production
+.dev.vars
 
 # macOS-specific files
 .DS_Store
 
 # jetbrains setting folder
 .idea/
+
+# wrangler local state
+.wrangler/
 
 # Source images (processed versions are in public/)
 camaron.jpeg

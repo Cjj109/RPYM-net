@@ -31,10 +31,23 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
     const arrayBuffer = await object.arrayBuffer();
 
+    // Use stored contentType from R2 or determine from extension
+    let contentType = object.httpMetadata?.contentType;
+    if (!contentType) {
+      // Fallback: determine from file extension
+      if (key.endsWith('.pdf')) {
+        contentType = 'application/pdf';
+      } else if (key.endsWith('.png')) {
+        contentType = 'image/png';
+      } else {
+        contentType = 'image/jpeg'; // Default for images
+      }
+    }
+
     return new Response(arrayBuffer, {
       status: 200,
       headers: {
-        'Content-Type': 'image/jpeg',
+        'Content-Type': contentType,
         'Cache-Control': 'public, max-age=86400',
       }
     });

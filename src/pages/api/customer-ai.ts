@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
-import { getD1 } from '../../lib/d1-types';
-import { validateSession, getSessionFromCookie } from '../../lib/auth';
+import { requireAuth } from '../../lib/require-auth';
+import { getGeminiApiKey } from '../../lib/env';
+import { callGeminiWithRetry } from '../../lib/gemini-client';
 
 export const prerender = false;
 
@@ -27,6 +28,7 @@ interface AIAction {
   presupuestoId: string | null;
   currencyType: 'divisas' | 'dolar_bcv' | 'euro_bcv';
   paymentMethod: string | null;
+  date: string | null; // YYYY-MM-DD format, null = today
 }
 
 interface AIRequest {
@@ -36,33 +38,16 @@ interface AIRequest {
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {
-  const db = getD1(locals);
-  if (!db) {
-    return new Response(JSON.stringify({ success: false, error: 'Database no disponible' }), {
-      status: 500, headers: { 'Content-Type': 'application/json' }
-    });
-  }
-
-  const sessionId = getSessionFromCookie(request.headers.get('Cookie'));
-  if (!sessionId) {
-    return new Response(JSON.stringify({ success: false, error: 'No autenticado' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' }
-    });
-  }
-  const user = await validateSession(db, sessionId);
-  if (!user) {
-    return new Response(JSON.stringify({ success: false, error: 'Sesion invalida' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' }
-    });
-  }
+  const auth = await requireAuth(request, locals);
+  if (auth instanceof Response) return auth;
+  const { db } = auth;
 
   try {
-    const runtime = (locals as any).runtime;
-    const apiKey = runtime?.env?.CLAUDE_API_KEY || import.meta.env.CLAUDE_API_KEY;
+    const apiKey = getGeminiApiKey(locals);
 
     if (!apiKey) {
       return new Response(JSON.stringify({
-        success: false, error: 'API key no configurada'
+        success: false, error: 'API key de Gemini no configurada'
       }), { status: 500, headers: { 'Content-Type': 'application/json' } });
     }
 
@@ -81,13 +66,41 @@ export const POST: APIRoute = async ({ request, locals }) => {
       ? recentPresupuestos.map(p => `- ID: ${p.id} | Fecha: ${p.fecha} | Cliente: ${p.customerName || 'Sin nombre'} | Total BCV: $${p.totalUSD.toFixed(2)}${p.totalUSDDivisa ? ` | Total Divisa: $${p.totalUSDDivisa.toFixed(2)} (DUAL)` : ''}`).join('\n')
       : '(No hay presupuestos recientes)';
 
+    // Get current date info for date parsing
+    const now = new Date();
+    const todayISO = now.toISOString().split('T')[0];
+    const dayOfWeek = now.getDay(); // 0=Sunday, 1=Monday, ...
+    const dayNames = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+    const todayName = dayNames[dayOfWeek];
+
     const systemPrompt = `Eres un asistente para un negocio de mariscos en Venezuela. Tu tarea es interpretar instrucciones rapidas del administrador para anotar transacciones de clientes.
+
+FECHA ACTUAL: ${todayISO} (${todayName})
 
 CLIENTES REGISTRADOS:
 ${customerList}
 
 PRESUPUESTOS RECIENTES:
 ${presupuestoList}
+
+REGLAS IMPORTANTES SOBRE TIPOS DE TRANSACCION:
+1. DIVISAS (USD efectivo): Cuando el usuario dice "en divisas", "USD efectivo", "dolares cash", etc.
+   - currencyType: "divisas"
+   - amountUsd: el monto
+   - amountUsdDivisa: null (SIEMPRE null para divisas simples)
+
+2. BCV (pago en bolivares a tasa BCV): Es el valor por defecto, o cuando dice "a BCV", "en bolivares", etc.
+   - currencyType: "dolar_bcv"
+   - amountUsd: el monto
+   - amountUsdDivisa: null (SIEMPRE null para BCV simple)
+
+3. DUAL: SOLO cuando se asigna un presupuesto que ya es dual (tiene Total Divisa en la lista)
+   - currencyType: "dolar_bcv"
+   - amountUsd: Total BCV del presupuesto
+   - amountUsdDivisa: Total Divisa del presupuesto (NO el mismo valor que amountUsd)
+
+IMPORTANTE: amountUsdDivisa SOLO debe tener valor cuando se asigna un PRESUPUESTO DUAL de la lista.
+Para transacciones manuales (sin presupuesto), amountUsdDivisa debe ser SIEMPRE null.
 
 REGLAS DE INTERPRETACION:
 - "anota/registra/apunta a [cliente] $X de [descripcion]" = purchase (compra)
@@ -96,18 +109,34 @@ REGLAS DE INTERPRETACION:
 - Match nombres de clientes de forma fuzzy (ej: "deisy" = "Deisy", "jose" = "Jose Garcia")
 - Si un cliente no existe en la lista, devolver customerId: null y el nombre tal como se escribio
 - Extraer montos en dolares (ej: "$100", "100 dolares", "100$")
-- Tipo de moneda por defecto es dolar_bcv (pago en bolivares a tasa BCV). Solo cambiar si se dice explicitamente: "en divisas/efectivo dolares" = divisas, "en euros" = euro_bcv
-- Si se menciona metodo de pago para abonos: "efectivo", "pago movil", "transferencia", "zelle", "tarjeta"
 - Puede haber MULTIPLES acciones en un solo texto separadas por comas, puntos o lineas
-- La descripcion debe ser concisa (ej: "Mariscos", "Pedido semanal", "Abono cuenta")
+- La descripcion debe ser concisa (ej: "Calamar", "Pedido", "Abono cuenta")
+
+METODOS DE PAGO Y SU MONEDA (MUY IMPORTANTE):
+- zelle, usdt, paypal, binance, cripto → currencyType: "divisas" (son pagos en USD)
+- tarjeta, pago_movil, transferencia, debito → currencyType: "dolar_bcv" (son pagos en Bs)
+- efectivo → depende del contexto:
+  * "efectivo en divisas" / "USD efectivo" / "dolares cash" → divisas
+  * "efectivo" solo, sin especificar → dolar_bcv (default)
+- Si el usuario dice explicitamente "en divisas" o "a BCV", usar eso independiente del metodo
+
+FECHAS:
+- Por defecto, date = null (significa hoy)
+- Si el usuario menciona una fecha pasada, calcular la fecha exacta en formato YYYY-MM-DD
+- Ejemplos:
+  * "ayer" = fecha de ayer
+  * "el lunes" / "el martes" = el ultimo dia de la semana mencionado (hacia atras)
+  * "hace 2 dias" / "hace 3 dias" = restar esos dias a hoy
+  * "el 15" / "el 20 de enero" = usar esa fecha del mes actual o anterior
+  * "antier" / "anteayer" = hace 2 dias
+- Si no se menciona fecha, usar date: null
 
 PRESUPUESTOS:
 - "anotale/registrale/cobrale el presupuesto XXXX a [cliente]" = purchase con presupuestoId
-- Cuando se menciona un presupuesto por su ID, buscar en PRESUPUESTOS RECIENTES para obtener el monto correcto
-- Si el presupuesto tiene "(DUAL)", usar amountUsd = Total BCV y amountUsdDivisa = Total Divisa, con currencyType = "dolar_bcv"
-- Si el presupuesto NO es dual, usar amountUsd = Total BCV y amountUsdDivisa = null
-- La descripcion para compras con presupuesto: "Pedido (presupuesto)" o similar
-- Si no encuentras el presupuesto en la lista, aun asi crea la accion con el ID del presupuesto y amountUsd = 0 (se autollenara)
+- Buscar en PRESUPUESTOS RECIENTES para obtener el monto
+- Si el presupuesto tiene "(DUAL)", usar los DOS montos diferentes
+- Si no es dual, usar SOLO amountUsd y amountUsdDivisa = null
+- Si no encuentras el presupuesto en la lista, crear accion con amountUsd = 0 (se autollenara)
 
 Responde SOLO con un JSON valido:
 {
@@ -121,46 +150,30 @@ Responde SOLO con un JSON valido:
       "description": "descripcion corta",
       "presupuestoId": "id" o null,
       "currencyType": "divisas" | "dolar_bcv" | "euro_bcv",
-      "paymentMethod": "efectivo" | "pago_movil" | "transferencia" | "zelle" | "tarjeta" | null
+      "paymentMethod": "efectivo" | "pago_movil" | "transferencia" | "zelle" | "tarjeta" | null,
+      "date": "YYYY-MM-DD" o null
     }
   ],
   "unmatchedCustomers": ["nombres que no se encontraron en la lista"]
 }`;
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 1024,
-        messages: [{ role: 'user', content: text }],
-        system: systemPrompt
-      })
+    const geminiResult = await callGeminiWithRetry({
+      systemPrompt,
+      userMessage: text,
+      apiKey,
+      temperature: 0.1,
+      maxOutputTokens: 1024,
+      jsonMode: true,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error de API Claude:', response.status, errorText);
-      let errorMessage = 'Error al procesar. Intenta de nuevo.';
-      try {
-        const errorJson = JSON.parse(errorText);
-        if (errorJson.error?.type === 'rate_limit_error') {
-          errorMessage = 'Demasiadas solicitudes. Espera un momento.';
-        } else if (errorJson.error?.message) {
-          errorMessage = `Error: ${errorJson.error.message}`;
-        }
-      } catch {}
-      return new Response(JSON.stringify({ success: false, error: errorMessage }), {
+    if (!geminiResult.success) {
+      console.error('Error de API Gemini:', geminiResult.error);
+      return new Response(JSON.stringify({ success: false, error: 'Error al procesar. Intenta de nuevo.' }), {
         status: 500, headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    const claudeResponse = await response.json();
-    const content = claudeResponse.content[0]?.text || '';
+    const content = geminiResult.content;
 
     let parsedResult;
     try {

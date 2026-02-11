@@ -181,6 +181,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
 
   // Editing price inputs (string-based to allow clearing)
   const [editingPrices, setEditingPrices] = useState<Map<string, string>>(new Map());
+  const [editingPricesDivisa, setEditingPricesDivisa] = useState<Map<string, string>>(new Map());
 
   // Editing delivery input (string-based to allow clearing)
   const [editingDelivery, setEditingDelivery] = useState<string | null>(null);
@@ -219,6 +220,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
 
   // Editing prices in summary panel
   const [editingSummaryPrices, setEditingSummaryPrices] = useState<Map<string, string>>(new Map());
+  const [editingSummaryPricesDivisa, setEditingSummaryPricesDivisa] = useState<Map<string, string>>(new Map());
 
   // Save state
   const [isSaving, setIsSaving] = useState(false);
@@ -291,21 +293,41 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
     setCustomerAddress(editingPresupuesto.customerAddress || '');
     if (editingPresupuesto.estado === 'pagado') setMarkAsPaid(true);
 
-    // Auto-detect pricing mode
-    // Solo divisas: totalBs === 0 or items have precioBs === 0
-    const isSoloDivisas = editingPresupuesto.totalBs === 0 ||
-        editingPresupuesto.items.every(i => i.precioBs === 0);
-    // Dual mode: has totalUSDDivisa or items have precioUSDDivisa
-    const isDualMode = editingPresupuesto.totalUSDDivisa != null ||
-        editingPresupuesto.items.some(i => i.precioUSDDivisa != null);
+    // Load date when editing - enable custom date and set it
+    if (editingPresupuesto.fecha) {
+      const dateOnly = editingPresupuesto.fecha.split('T')[0];
+      setCustomPresupuestoDate(dateOnly);
+      setUseCustomDate(true);
+    }
 
-    if (isSoloDivisas) {
-      setModoPrecio('divisa');
-      setSoloDivisas(true);
-    } else if (isDualMode) {
-      setModoPrecio('dual');
+    // Load delivery cost
+    if (editingPresupuesto.delivery && editingPresupuesto.delivery > 0) {
+      setDeliveryCost(editingPresupuesto.delivery);
+    }
+
+    // Load pricing mode - prefer stored value, fallback to detection
+    if (editingPresupuesto.modoPrecio) {
+      setModoPrecio(editingPresupuesto.modoPrecio as 'bcv' | 'divisa' | 'dual');
+      if (editingPresupuesto.modoPrecio === 'divisa') {
+        setSoloDivisas(true);
+      }
     } else {
-      setModoPrecio('bcv');
+      // Auto-detect pricing mode (for backwards compatibility)
+      // Solo divisas: totalBs === 0 or items have precioBs === 0
+      const isSoloDivisas = editingPresupuesto.totalBs === 0 ||
+          editingPresupuesto.items.every(i => i.precioBs === 0);
+      // Dual mode: has totalUSDDivisa or items have precioUSDDivisa
+      const isDualMode = editingPresupuesto.totalUSDDivisa != null ||
+          editingPresupuesto.items.some(i => i.precioUSDDivisa != null);
+
+      if (isSoloDivisas) {
+        setModoPrecio('divisa');
+        setSoloDivisas(true);
+      } else if (isDualMode) {
+        setModoPrecio('dual');
+      } else {
+        setModoPrecio('bcv');
+      }
     }
   }, [editingPresupuesto]);
 
@@ -350,6 +372,12 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
       return item.product.precioUSDDivisa ?? item.product.precioUSD;
     }
     return item.product.precioUSD;
+  };
+
+  // Get effective divisa price for dual mode
+  const getEffectivePriceDivisa = (item: AdminSelectedItem): number => {
+    if (item.customPriceDivisa !== null) return item.customPriceDivisa;
+    return item.product.precioUSDDivisa ?? item.product.precioUSD;
   };
 
   // Calculate totals
@@ -424,6 +452,18 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
       const existing = prev.get(productId);
       if (existing) {
         next.set(productId, { ...existing, customPrice: price });
+      }
+      return next;
+    });
+  };
+
+  // Update custom divisa price for a product (dual mode)
+  const updateCustomPriceDivisa = (productId: string, price: number | null) => {
+    setSelectedItems(prev => {
+      const next = new Map(prev);
+      const existing = prev.get(productId);
+      if (existing) {
+        next.set(productId, { ...existing, customPriceDivisa: price });
       }
       return next;
     });
@@ -793,25 +833,26 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
     const noteNumber = getDeliveryNoteNumber();
     const date = getCurrentDate();
 
+    // Theme colors: amber for divisa mode, blue for bcv/dual
+    const isDivisaMode = modoPrecio === 'divisa';
+    const theme = isDivisaMode ? {
+      primary: '#92400e', primaryLight: '#fde68a', text: '#713f12', textLight: '#92400e',
+      bg: '#fef3c7', bgAlt: '#fefce8', accent: '#d97706', watermark: 'rgba(234,179,8,0.06)'
+    } : {
+      primary: '#075985', primaryLight: '#7dd3fc', text: '#0c4a6e', textLight: '#0369a1',
+      bg: '#e0f2fe', bgAlt: '#f0f9ff', accent: '#0ea5e9', watermark: 'rgba(14, 165, 233, 0.06)'
+    };
+
     const rows = items.map((item, i) => `
-      <tr style="background:${i % 2 === 0 ? '#fff' : '#f0f9ff'}">
-        <td style="border-right:1px solid #7dd3fc;padding:6px 10px;color:#0c4a6e;">${item.nombre}</td>
-        <td style="border-right:1px solid #7dd3fc;padding:6px 10px;text-align:center;color:#0c4a6e;">${formatQuantity(item.cantidad)}</td>
-        <td style="border-right:1px solid #7dd3fc;padding:6px 10px;text-align:center;color:#0c4a6e;">${item.unidad}</td>
-        <td style="border-right:1px solid #7dd3fc;padding:6px 10px;text-align:right;color:#0c4a6e;">${formatUSD(item.precioUSD)}</td>
-        <td style="padding:6px 10px;text-align:right;font-weight:600;color:#0c4a6e;">${formatUSD(item.subtotalUSD)}</td>
+      <tr style="background:${i % 2 === 0 ? '#fff' : theme.bgAlt}">
+        <td style="border-right:1px solid ${theme.primaryLight};padding:6px 10px;color:${theme.text};">${item.nombre}</td>
+        <td style="border-right:1px solid ${theme.primaryLight};padding:6px 10px;text-align:center;color:${theme.text};">${formatQuantity(item.cantidad)}</td>
+        <td style="border-right:1px solid ${theme.primaryLight};padding:6px 10px;text-align:center;color:${theme.text};">${item.unidad}</td>
+        <td style="border-right:1px solid ${theme.primaryLight};padding:6px 10px;text-align:right;color:${theme.text};">${formatUSD(isDivisaMode ? (item.precioUSDDivisa ?? item.precioUSD) : item.precioUSD)}</td>
+        <td style="padding:6px 10px;text-align:right;font-weight:600;color:${theme.text};">${formatUSD(isDivisaMode ? (item.subtotalUSDDivisa ?? item.subtotalUSD) : item.subtotalUSD)}</td>
       </tr>
     `).join('');
 
-    const deliveryRow = deliveryCost > 0 ? `
-      <tr style="background:#fffbeb;">
-        <td style="border-right:1px solid #7dd3fc;padding:6px 10px;color:#0c4a6e;font-style:italic;">Delivery</td>
-        <td style="border-right:1px solid #7dd3fc;padding:6px 10px;text-align:center;color:#0c4a6e;">1</td>
-        <td style="border-right:1px solid #7dd3fc;padding:6px 10px;text-align:center;color:#0c4a6e;">servicio</td>
-        <td style="border-right:1px solid #7dd3fc;padding:6px 10px;text-align:right;color:#0c4a6e;">${formatUSD(deliveryCost)}</td>
-        <td style="padding:6px 10px;text-align:right;font-weight:600;color:#0c4a6e;">${formatUSD(deliveryCost)}</td>
-      </tr>
-    ` : '';
 
     const printWindow = window.open('', '_blank', 'width=800,height=900');
     if (!printWindow) return;
@@ -825,7 +866,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background: white;
-      color: #0c4a6e;
+      color: ${theme.text};
       width: 210mm;
       margin: 0 auto;
       padding: 12mm 15mm;
@@ -835,7 +876,24 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
     @media print {
       body { padding: 0; }
       @page { size: A4; margin: 12mm 15mm; }
+      .no-print { display: none !important; }
     }
+    .close-btn {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      padding: 8px 16px;
+      background: #dc2626;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      z-index: 9999;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .close-btn:hover { background: #b91c1c; }
     .watermark {
       position: fixed;
       top: 50%;
@@ -843,7 +901,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
       transform: translate(-50%, -50%) rotate(-30deg);
       font-size: 80px;
       font-weight: 900;
-      color: rgba(14, 165, 233, 0.06);
+      color: ${theme.watermark};
       letter-spacing: 12px;
       pointer-events: none;
       z-index: 0;
@@ -851,6 +909,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
   </style>
 </head>
 <body>
+  <button class="close-btn no-print" onclick="window.close()">Cerrar</button>
   <div class="watermark">PRESUPUESTO</div>
 
   ${markAsPaid ? `
@@ -860,78 +919,77 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
   ` : ''}
 
   <!-- Header -->
-  <div style="display:flex;align-items:center;justify-content:space-between;border:2px solid #075985;padding:12px 16px;margin-bottom:16px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;border:2px solid ${theme.primary};padding:12px 16px;margin-bottom:16px;">
     <div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-        <div style="width:48px;height:48px;border-radius:50%;border:2px solid #7dd3fc;overflow:hidden;flex-shrink:0;background:white;display:flex;align-items:center;justify-content:center;">
+        <div style="width:48px;height:48px;border-radius:50%;border:2px solid ${theme.primaryLight};overflow:hidden;flex-shrink:0;background:white;display:flex;align-items:center;justify-content:center;">
           <img src="/camaronlogo-sm.webp" alt="RPYM" style="width:140%;height:140%;object-fit:contain;" />
         </div>
-        <div style="font-size:22px;font-weight:800;color:#0c4a6e;">RPYM</div>
+        <div style="font-size:22px;font-weight:800;color:${theme.text};">RPYM</div>
       </div>
-      <div style="font-size:10px;color:#0369a1;">Muelle Pesquero "El Mosquero", Puesto 3 y 4, Maiquetia</div>
+      <div style="font-size:10px;color:${theme.textLight};">Muelle Pesquero "El Mosquero", Puesto 3 y 4, Maiquetia</div>
     </div>
     <div style="text-align:right;">
-      <div style="font-size:16px;font-weight:700;color:#0c4a6e;border-bottom:2px solid #075985;padding-bottom:4px;margin-bottom:6px;">PRESUPUESTO</div>
-      ${modoPrecio === 'dual' ? '<div style="background:#e0f2fe;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#075985;margin-bottom:4px;">PRECIOS BCV</div>' : ''}
-      <div style="font-size:10px;color:#0369a1;">No: <span style="font-family:monospace;font-weight:600;color:#0c4a6e;">${noteNumber}</span></div>
-      <div style="font-size:10px;color:#0369a1;margin-top:2px;">Fecha: <span style="font-weight:600;color:#0c4a6e;">${date}</span></div>
+      <div style="font-size:16px;font-weight:700;color:${theme.text};border-bottom:2px solid ${theme.primary};padding-bottom:4px;margin-bottom:6px;">PRESUPUESTO</div>
+      ${modoPrecio === 'dual' ? '<div style="background:#e0f2fe;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#075985;margin-bottom:4px;">PRECIOS BCV</div>' : (isDivisaMode ? '<div style="background:#fef3c7;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#92400e;margin-bottom:4px;">PRECIOS DIVISA</div>' : '')}
+      <div style="font-size:10px;color:${theme.textLight};">No: <span style="font-family:monospace;font-weight:600;color:${theme.text};">${noteNumber}</span></div>
+      <div style="font-size:10px;color:${theme.textLight};margin-top:2px;">Fecha: <span style="font-weight:600;color:${theme.text};">${date}</span></div>
     </div>
   </div>
 
   <!-- Client info -->
-  <div style="border:2px solid #075985;padding:10px 16px;margin-bottom:16px;">
+  <div style="border:2px solid ${theme.primary};padding:10px 16px;margin-bottom:16px;">
     <div style="margin-bottom:6px;">
-      <span style="font-size:10px;font-weight:600;color:#0369a1;">Cliente:</span>
-      <span style="font-size:12px;color:#0c4a6e;margin-left:8px;">${customerName || '---'}</span>
+      <span style="font-size:10px;font-weight:600;color:${theme.textLight};">Cliente:</span>
+      <span style="font-size:12px;color:${theme.text};margin-left:8px;">${customerName || '---'}</span>
     </div>
     <div>
-      <span style="font-size:10px;font-weight:600;color:#0369a1;">Direccion:</span>
-      <span style="font-size:12px;color:#0c4a6e;margin-left:8px;">${customerAddress || '---'}</span>
+      <span style="font-size:10px;font-weight:600;color:${theme.textLight};">Direccion:</span>
+      <span style="font-size:12px;color:${theme.text};margin-left:8px;">${customerAddress || '---'}</span>
     </div>
   </div>
 
   <!-- Products table -->
-  <div style="border:2px solid #075985;margin-bottom:16px;">
+  <div style="border:2px solid ${theme.primary};margin-bottom:16px;">
     <table>
       <thead>
-        <tr style="background:#e0f2fe;">
-          <th style="border-bottom:2px solid #075985;border-right:1px solid #075985;padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:#0c4a6e;">Producto</th>
-          <th style="border-bottom:2px solid #075985;border-right:1px solid #075985;padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:#0c4a6e;width:60px;">Cant</th>
-          <th style="border-bottom:2px solid #075985;border-right:1px solid #075985;padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:#0c4a6e;width:60px;">Unidad</th>
-          <th style="border-bottom:2px solid #075985;border-right:1px solid #075985;padding:8px 10px;text-align:right;font-size:11px;font-weight:700;color:#0c4a6e;width:80px;">P.Unitario</th>
-          <th style="border-bottom:2px solid #075985;padding:8px 10px;text-align:right;font-size:11px;font-weight:700;color:#0c4a6e;width:80px;">Subtotal</th>
+        <tr style="background:${theme.bg};">
+          <th style="border-bottom:2px solid ${theme.primary};border-right:1px solid ${theme.primary};padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:${theme.text};">Producto</th>
+          <th style="border-bottom:2px solid ${theme.primary};border-right:1px solid ${theme.primary};padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:${theme.text};width:60px;">Cant</th>
+          <th style="border-bottom:2px solid ${theme.primary};border-right:1px solid ${theme.primary};padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:${theme.text};width:60px;">Unidad</th>
+          <th style="border-bottom:2px solid ${theme.primary};border-right:1px solid ${theme.primary};padding:8px 10px;text-align:right;font-size:11px;font-weight:700;color:${theme.text};width:80px;">P.Unitario</th>
+          <th style="border-bottom:2px solid ${theme.primary};padding:8px 10px;text-align:right;font-size:11px;font-weight:700;color:${theme.text};width:80px;">Subtotal</th>
         </tr>
       </thead>
       <tbody>
         ${rows}
-        ${deliveryRow}
       </tbody>
     </table>
   </div>
 
   <!-- Totals -->
-  <div style="border:2px solid #075985;margin-bottom:16px;display:flex;">
-    <div style="flex:1;padding:10px 16px;border-right:2px solid #075985;">
-      <div style="font-size:10px;font-weight:600;color:#0369a1;margin-bottom:4px;">OBSERVACIONES:</div>
-      ${soloDivisas ? '<div style="font-size:10px;color:#0369a1;">Precios en USD</div>' : `<div style="font-size:10px;color:#0369a1;">Tasa BCV del dia: Bs. ${bcvRate.rate.toFixed(2)} por USD</div>`}
+  <div style="border:2px solid ${theme.primary};margin-bottom:16px;display:flex;">
+    <div style="flex:1;padding:10px 16px;border-right:2px solid ${theme.primary};">
+      <div style="font-size:10px;font-weight:600;color:${theme.textLight};margin-bottom:4px;">OBSERVACIONES:</div>
+      ${isDivisaMode ? '<div style="font-size:10px;color:' + theme.textLight + ';">Precios en USD efectivo</div>' : (soloDivisas ? '<div style="font-size:10px;color:' + theme.textLight + ';">Tasa BCV aplicada al momento de pago</div>' : `<div style="font-size:10px;color:${theme.textLight};">Tasa BCV del dia: Bs. ${bcvRate.rate.toFixed(2)} por USD</div>`)}
     </div>
     <div style="width:200px;padding:10px 16px;">
       ${deliveryCost > 0 ? `
       <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;">
-        <span style="color:#0369a1;">Subtotal:</span>
-        <span style="font-weight:600;color:#0c4a6e;">${formatUSD(totals.subtotalUSD)}</span>
+        <span style="color:${theme.textLight};">Subtotal:</span>
+        <span style="font-weight:600;color:${theme.text};">${formatUSD(isDivisaMode ? (totals.totalUSDDivisa! - deliveryCost) : totals.subtotalUSD)}</span>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;">
-        <span style="color:#0369a1;">Delivery:</span>
-        <span style="font-weight:600;color:#0c4a6e;">${formatUSD(totals.deliveryUSD)}</span>
+        <span style="color:${theme.textLight};">Delivery:</span>
+        <span style="font-weight:600;color:${theme.text};">${formatUSD(totals.deliveryUSD)}</span>
       </div>
       ` : ''}
-      <div style="display:flex;justify-content:space-between;font-size:13px;${deliveryCost > 0 ? 'border-top:1px solid #7dd3fc;padding-top:6px;' : ''}">
-        <span style="color:#0369a1;font-weight:600;">Total USD:</span>
-        <span style="font-weight:800;color:#0c4a6e;">${formatUSD(totals.totalUSD)}</span>
+      <div style="display:flex;justify-content:space-between;font-size:13px;${deliveryCost > 0 ? 'border-top:1px solid ' + theme.primaryLight + ';padding-top:6px;' : ''}">
+        <span style="color:${theme.textLight};font-weight:600;">Total USD:</span>
+        <span style="font-weight:800;color:${theme.text};">${formatUSD(isDivisaMode ? totals.totalUSDDivisa! : totals.totalUSD)}</span>
       </div>
-      ${soloDivisas ? '' : `<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;border-top:1px solid #7dd3fc;padding-top:4px;">
-        <span style="color:#0369a1;">Total Bs.:</span>
+      ${(isDivisaMode || soloDivisas) ? '' : `<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;border-top:1px solid ${theme.primaryLight};padding-top:4px;">
+        <span style="color:${theme.textLight};">Total Bs.:</span>
         <span style="font-weight:700;color:#ea580c;">${formatBs(totals.totalBs)}</span>
       </div>`}
     </div>
@@ -940,13 +998,13 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
   <!-- Signatures -->
   <div style="display:flex;gap:40px;margin-top:40px;">
     <div style="flex:1;text-align:center;">
-      <div style="border-top:2px solid #075985;padding-top:6px;margin:0 30px;">
-        <span style="font-size:10px;font-weight:600;color:#0369a1;">CONFORME CLIENTE</span>
+      <div style="border-top:2px solid ${theme.primary};padding-top:6px;margin:0 30px;">
+        <span style="font-size:10px;font-weight:600;color:${theme.textLight};">CONFORME CLIENTE</span>
       </div>
     </div>
     <div style="flex:1;text-align:center;">
-      <div style="border-top:2px solid #075985;padding-top:6px;margin:0 30px;">
-        <span style="font-size:10px;font-weight:600;color:#0369a1;">ENTREGADO POR</span>
+      <div style="border-top:2px solid ${theme.primary};padding-top:6px;margin:0 30px;">
+        <span style="font-size:10px;font-weight:600;color:${theme.textLight};">ENTREGADO POR</span>
       </div>
     </div>
   </div>
@@ -963,8 +1021,8 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
   </div>
 
   <!-- Footer -->
-  <div style="margin-top:12px;padding-top:8px;border-top:1px solid #bae6fd;text-align:center;">
-    <span style="font-size:10px;color:#0ea5e9;">www.rpym.net &bull; WhatsApp: +58 414-214-5202</span>
+  <div style="margin-top:12px;padding-top:8px;border-top:1px solid ${theme.primaryLight};text-align:center;">
+    <span style="font-size:10px;color:${theme.accent};">www.rpym.net &bull; WhatsApp: +58 414-214-5202</span>
   </div>
 
   ${modoPrecio === 'dual' ? (() => {
@@ -977,15 +1035,6 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
         <td style="padding:6px 10px;text-align:right;font-weight:600;color:#713f12;">${formatUSD(item.subtotalUSDDivisa ?? item.subtotalUSD)}</td>
       </tr>
     `).join('');
-    const divisaDeliveryRow = deliveryCost > 0 ? `
-      <tr style="background:#fffbeb;">
-        <td style="border-right:1px solid #fde68a;padding:6px 10px;color:#713f12;font-style:italic;">Delivery</td>
-        <td style="border-right:1px solid #fde68a;padding:6px 10px;text-align:center;color:#713f12;">1</td>
-        <td style="border-right:1px solid #fde68a;padding:6px 10px;text-align:center;color:#713f12;">servicio</td>
-        <td style="border-right:1px solid #fde68a;padding:6px 10px;text-align:right;color:#713f12;">${formatUSD(deliveryCost)}</td>
-        <td style="padding:6px 10px;text-align:right;font-weight:600;color:#713f12;">${formatUSD(deliveryCost)}</td>
-      </tr>
-    ` : '';
     return `
   <div style="page-break-before:always;"></div>
 
@@ -1039,7 +1088,6 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
       </thead>
       <tbody>
         ${divisaRows}
-        ${divisaDeliveryRow}
       </tbody>
     </table>
   </div>
@@ -1108,20 +1156,21 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
     const noteNumber = getDeliveryNoteNumber();
     const date = getCurrentDate();
 
+    // Theme colors: amber for divisa mode, blue for bcv/dual
+    const isDivisaModeWA = modoPrecio === 'divisa';
+    const waTheme = isDivisaModeWA ? {
+      bg: '#fffbeb', border: '#fde68a', borderDark: '#92400e', text: '#713f12', textLight: '#92400e', accent: '#d97706'
+    } : {
+      bg: '#f0f9ff', border: '#e0f2fe', borderDark: '#075985', text: '#0c4a6e', textLight: '#0369a1', accent: '#0ea5e9'
+    };
+
     const productRows = items.map(item => `
-      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid #f0f9ff;">
-        <div style="flex:1;font-size:13px;color:#0c4a6e;">${item.nombre}</div>
-        <div style="font-size:12px;color:#0369a1;margin:0 8px;white-space:nowrap;">${formatQuantity(item.cantidad)} ${item.unidad}</div>
-        <div style="font-size:13px;font-weight:600;color:#0c4a6e;white-space:nowrap;">${formatUSD(item.subtotalUSD)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid ${waTheme.border};">
+        <div style="flex:1;font-size:13px;color:${waTheme.text};">${item.nombre}</div>
+        <div style="font-size:12px;color:${waTheme.textLight};margin:0 8px;white-space:nowrap;">${formatQuantity(item.cantidad)} ${item.unidad}</div>
+        <div style="font-size:13px;font-weight:600;color:${waTheme.text};white-space:nowrap;">${formatUSD(isDivisaModeWA ? (item.subtotalUSDDivisa ?? item.subtotalUSD) : item.subtotalUSD)}</div>
       </div>
     `).join('');
-
-    const deliveryLine = deliveryCost > 0 ? `
-      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid #f0f9ff;">
-        <div style="flex:1;font-size:13px;color:#0c4a6e;font-style:italic;">Delivery</div>
-        <div style="font-size:13px;font-weight:600;color:#0c4a6e;white-space:nowrap;">${formatUSD(deliveryCost)}</div>
-      </div>
-    ` : '';
 
     const waWindow = window.open('', '_blank', 'width=380,height=700,scrollbars=yes');
     if (!waWindow) return;
@@ -1135,49 +1184,72 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
     * { margin:0; padding:0; box-sizing:border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #f0f9ff;
+      background: ${waTheme.bg};
       display: flex;
       flex-direction: column;
       align-items: center;
       padding: 16px 0;
     }
+    .close-btn {
+      margin-bottom: 12px;
+      padding: 8px 20px;
+      background: #dc2626;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .close-btn:hover { background: #b91c1c; }
   </style>
 </head>
 <body>
-  <div style="width:320px;background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+  <button class="close-btn" onclick="window.close()">Cerrar ventana</button>
+  <div style="width:320px;background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:2px solid ${waTheme.borderDark};">
     <!-- Logo -->
     <div style="text-align:center;margin-bottom:12px;">
       <img src="/camaronlogo-sm.webp" alt="RPYM" style="display:block;width:140px;height:auto;object-fit:contain;margin:0 auto;" />
-      <div style="font-size:12px;color:#0369a1;margin-top:4px;">Presupuesto</div>
-      ${modoPrecio === 'dual' ? '<div style="background:#e0f2fe;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#075985;margin-top:4px;">Precios BCV</div>' : ''}
+      <div style="font-size:12px;color:${waTheme.textLight};margin-top:4px;">Presupuesto</div>
+      ${isDivisaModeWA ? '<div style="background:#fef3c7;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#92400e;margin-top:4px;">PRECIOS DIVISA</div>' : (modoPrecio === 'dual' ? '<div style="background:#e0f2fe;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#075985;margin-top:4px;">PRECIOS BCV</div>' : '')}
       ${markAsPaid ? '<div style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:9999px;margin-top:6px;">PAGADO</div>' : ''}
     </div>
 
-    ${customerName ? `<div style="font-size:12px;color:#0369a1;text-align:center;margin-bottom:10px;">Cliente: <strong style="color:#0c4a6e;">${customerName}</strong></div>` : ''}
+    ${customerName ? `<div style="font-size:12px;color:${waTheme.textLight};text-align:center;margin-bottom:10px;">Cliente: <strong style="color:${waTheme.text};">${customerName}</strong></div>` : ''}
 
     <!-- Products -->
     <div style="margin-bottom:12px;">
       ${productRows}
-      ${deliveryLine}
     </div>
 
     <!-- Totals -->
-    <div style="border-top:2px solid #075985;padding-top:10px;margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;">
-        <span style="font-size:14px;font-weight:600;color:#0369a1;">Total USD</span>
-        <span style="font-size:20px;font-weight:800;color:#0c4a6e;">${formatUSD(totals.totalUSD)}</span>
+    <div style="border-top:2px solid ${waTheme.borderDark};padding-top:10px;margin-bottom:12px;">
+      ${deliveryCost > 0 ? `
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+        <span style="font-size:12px;color:${waTheme.textLight};">Subtotal</span>
+        <span style="font-size:14px;font-weight:600;color:${waTheme.text};">${formatUSD(isDivisaModeWA ? ((totals.totalUSDDivisa || 0) - deliveryCost) : (totals.totalUSD - deliveryCost))}</span>
       </div>
-      ${soloDivisas ? '' : `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px;">
-        <span style="font-size:12px;color:#0369a1;">Total Bs.</span>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+        <span style="font-size:12px;color:${waTheme.textLight};font-style:italic;">Delivery</span>
+        <span style="font-size:14px;font-weight:600;color:${waTheme.text};">${formatUSD(deliveryCost)}</span>
+      </div>
+      ` : ''}
+      <div style="display:flex;justify-content:space-between;align-items:baseline;">
+        <span style="font-size:14px;font-weight:600;color:${waTheme.textLight};">${isDivisaModeWA ? 'Total USD (Divisa)' : 'Total USD'}</span>
+        <span style="font-size:20px;font-weight:800;color:${waTheme.text};">${formatUSD(isDivisaModeWA ? totals.totalUSDDivisa! : totals.totalUSD)}</span>
+      </div>
+      ${(isDivisaModeWA || soloDivisas) ? '' : `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px;">
+        <span style="font-size:12px;color:${waTheme.textLight};">Total Bs.</span>
         <span style="font-size:15px;font-weight:700;color:#ea580c;">${formatBs(totals.totalBs)}</span>
       </div>`}
     </div>
 
     <!-- Footer -->
-    <div style="text-align:center;border-top:1px solid #e0f2fe;padding-top:8px;">
-      <div style="font-size:10px;color:#0ea5e9;">${date}</div>
-      <div style="font-size:10px;color:#0ea5e9;margin-top:2px;">WhatsApp: +58 414-214-5202</div>
-      <div style="font-size:9px;color:#7dd3fc;margin-top:4px;">Ref: ${noteNumber}</div>
+    <div style="text-align:center;border-top:1px solid ${waTheme.border};padding-top:8px;">
+      <div style="font-size:10px;color:${waTheme.accent};">${date}</div>
+      <div style="font-size:10px;color:${waTheme.accent};margin-top:2px;">WhatsApp: +58 414-214-5202</div>
+      <div style="font-size:9px;color:${waTheme.border};margin-top:4px;">Ref: ${noteNumber}</div>
     </div>
   </div>
 
@@ -1189,12 +1261,6 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
         <div style="font-size:13px;font-weight:600;color:#713f12;white-space:nowrap;">${formatUSD(item.subtotalUSDDivisa ?? item.subtotalUSD)}</div>
       </div>
     `).join('');
-    const divisaDelivery = deliveryCost > 0 ? `
-      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid #fefce8;">
-        <div style="flex:1;font-size:13px;color:#713f12;font-style:italic;">Delivery</div>
-        <div style="font-size:13px;font-weight:600;color:#713f12;white-space:nowrap;">${formatUSD(deliveryCost)}</div>
-      </div>
-    ` : '';
     return `
   <div style="width:320px;background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-top:16px;border:2px solid #fde68a;">
     <div style="text-align:center;margin-bottom:12px;">
@@ -1205,9 +1271,18 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
     ${customerName ? '<div style="font-size:12px;color:#92400e;text-align:center;margin-bottom:10px;">Cliente: <strong style="color:#713f12;">' + customerName + '</strong></div>' : ''}
     <div style="margin-bottom:12px;">
       ${divisaProductRows}
-      ${divisaDelivery}
     </div>
     <div style="border-top:2px solid #92400e;padding-top:10px;margin-bottom:12px;">
+      ${deliveryCost > 0 ? `
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+        <span style="font-size:12px;color:#92400e;">Subtotal</span>
+        <span style="font-size:14px;font-weight:600;color:#713f12;">${formatUSD((totals.totalUSDDivisa || 0) - deliveryCost)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+        <span style="font-size:12px;color:#92400e;font-style:italic;">Delivery</span>
+        <span style="font-size:14px;font-weight:600;color:#713f12;">${formatUSD(deliveryCost)}</span>
+      </div>
+      ` : ''}
       <div style="display:flex;justify-content:space-between;align-items:baseline;">
         <span style="font-size:14px;font-weight:600;color:#92400e;">Total USD (Divisa)</span>
         <span style="font-size:20px;font-weight:800;color:#713f12;">${formatUSD(totals.totalUSDDivisa!)}</span>
@@ -1269,10 +1344,14 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
           editingPresupuesto.id,
           items,
           totals.totalUSD,
-          (modoPrecio === 'divisa' || soloDivisas) ? 0 : totals.totalBs,
+          modoPrecio === 'divisa' ? 0 : totals.totalBs,
           effectiveCustomerName,
           customerAddress,
           modoPrecio === 'dual' ? totals.totalUSDDivisa : undefined,
+          soloDivisas && modoPrecio !== 'divisa', // hideRate: hide BCV rate but keep totalBs
+          deliveryCost, // delivery
+          modoPrecio, // pricing mode
+          useCustomDate ? customPresupuestoDate : undefined, // fecha
         );
         if (updated) {
           setSaveMessage(`Actualizado: ${editingPresupuesto.id}`);
@@ -1300,7 +1379,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                     date: txDate,
                     description: `Presupuesto ${editingPresupuesto.id}`,
                     amountUsd: totals.totalUSD,
-                    amountBs: (modoPrecio === 'divisa' || soloDivisas) ? 0 : totals.totalBs,
+                    amountBs: modoPrecio === 'divisa' ? 0 : totals.totalBs,
                     amountUsdDivisa: modoPrecio === 'dual' ? totals.totalUSDDivisa : undefined,
                     presupuestoId: editingPresupuesto.id,
                     currencyType: modoPrecio === 'divisa' ? 'divisas' : 'dolar_bcv',
@@ -1325,8 +1404,11 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
         result = await savePresupuesto({
           items,
           totalUSD: totals.totalUSD,
-          totalBs: (modoPrecio === 'divisa' || soloDivisas) ? 0 : totals.totalBs,
+          totalBs: modoPrecio === 'divisa' ? 0 : totals.totalBs,
           totalUSDDivisa: modoPrecio === 'dual' ? totals.totalUSDDivisa : undefined,
+          hideRate: soloDivisas && modoPrecio !== 'divisa', // hide BCV rate but keep totalBs
+          delivery: deliveryCost,
+          modoPrecio,
           customerName: effectiveCustomerName,
           customerAddress,
           status: markAsPaid ? 'pagado' : 'pendiente',
@@ -1350,7 +1432,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                   date: txDate,
                   description: `Presupuesto ${result.id}`,
                   amountUsd: totals.totalUSD,
-                  amountBs: (modoPrecio === 'divisa' || soloDivisas) ? 0 : totals.totalBs,
+                  amountBs: modoPrecio === 'divisa' ? 0 : totals.totalBs,
                   amountUsdDivisa: modoPrecio === 'dual' ? totals.totalUSDDivisa : undefined,
                   presupuestoId: result.id,
                   currencyType: modoPrecio === 'divisa' ? 'divisas' : 'dolar_bcv',
@@ -2092,10 +2174,10 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                                 </button>
                               )}
                             </div>
-                            <div className="flex items-center gap-2">
-                              {/* Editable price */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {/* Editable price (BCV) */}
                               <div className="flex items-center gap-1">
-                                <span className="text-[10px] text-ocean-500">P.U.:</span>
+                                <span className="text-[10px] text-ocean-500">{modoPrecio === 'dual' ? 'BCV:' : 'P.U.:'}</span>
                                 {selectedItems.get(product.id)?.customPrice !== null && selectedItems.get(product.id)?.customPrice !== undefined && (
                                   <span className="text-[10px] text-ocean-400 line-through">
                                     {formatUSD(getDisplayPrice(product))}
@@ -2137,10 +2219,11 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                                     onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                                     step="0.01"
                                     min="0"
-                                    className="w-20 pl-4 pr-1 py-0.5 text-xs text-right border border-ocean-200 rounded-md
-                                      focus:ring-1 focus:ring-ocean-500 focus:border-transparent outline-none
+                                    className={`w-16 pl-4 pr-1 py-0.5 text-xs text-right border rounded-md
+                                      focus:ring-1 focus:border-transparent outline-none
                                       [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
-                                      text-ocean-900 bg-ocean-50"
+                                      ${modoPrecio === 'dual' ? 'border-ocean-300 focus:ring-ocean-500 bg-ocean-50' : 'border-ocean-200 focus:ring-ocean-500 bg-ocean-50'}
+                                      text-ocean-900`}
                                   />
                                 </div>
                                 {selectedItems.get(product.id)?.customPrice !== null && selectedItems.get(product.id)?.customPrice !== undefined && (
@@ -2149,12 +2232,72 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                                     className="text-ocean-400 hover:text-ocean-600"
                                     title="Restaurar precio original"
                                   >
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                     </svg>
                                   </button>
                                 )}
                               </div>
+                              {/* Editable divisa price (dual mode only) */}
+                              {modoPrecio === 'dual' && (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[10px] text-amber-600">Div:</span>
+                                  <div className="relative">
+                                    <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-xs text-amber-500">$</span>
+                                    <input
+                                      type="number"
+                                      value={editingPricesDivisa.has(product.id) ? editingPricesDivisa.get(product.id) : getEffectivePriceDivisa(selectedItems.get(product.id)!)}
+                                      onFocus={() => {
+                                        setEditingPricesDivisa(prev => {
+                                          const next = new Map(prev);
+                                          next.set(product.id, String(getEffectivePriceDivisa(selectedItems.get(product.id)!)));
+                                          return next;
+                                        });
+                                      }}
+                                      onChange={(e) => {
+                                        setEditingPricesDivisa(prev => {
+                                          const next = new Map(prev);
+                                          next.set(product.id, e.target.value);
+                                          return next;
+                                        });
+                                      }}
+                                      onBlur={() => {
+                                        const editValue = editingPricesDivisa.get(product.id);
+                                        const val = parseFloat(editValue || '0') || 0;
+                                        const defaultDivisa = product.precioUSDDivisa ?? product.precioUSD;
+                                        if (val === defaultDivisa) {
+                                          updateCustomPriceDivisa(product.id, null);
+                                        } else {
+                                          updateCustomPriceDivisa(product.id, val);
+                                        }
+                                        setEditingPricesDivisa(prev => {
+                                          const next = new Map(prev);
+                                          next.delete(product.id);
+                                          return next;
+                                        });
+                                      }}
+                                      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                                      step="0.01"
+                                      min="0"
+                                      className="w-16 pl-4 pr-1 py-0.5 text-xs text-right border border-amber-300 rounded-md
+                                        focus:ring-1 focus:ring-amber-500 focus:border-transparent outline-none
+                                        [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
+                                        text-amber-900 bg-amber-50"
+                                    />
+                                  </div>
+                                  {selectedItems.get(product.id)?.customPriceDivisa !== null && selectedItems.get(product.id)?.customPriceDivisa !== undefined && (
+                                    <button
+                                      onClick={() => updateCustomPriceDivisa(product.id, null)}
+                                      className="text-amber-400 hover:text-amber-600"
+                                      title="Restaurar precio divisa original"
+                                    >
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                      </svg>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                               <span className="text-sm font-semibold text-coral-500">
                                 = {formatUSD(Math.round(getEffectivePrice(selectedItems.get(product.id)!) * quantity * 100) / 100)}
                               </span>
@@ -2360,7 +2503,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                                 $→{item.product.unidad}
                               </button>
                             </div>
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               {hasCustomPrice && (
                                 <span className="line-through text-ocean-400 text-[10px]">{formatUSD(item.product.precioUSD)}</span>
                               )}
@@ -2400,12 +2543,61 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                                   onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                                   step="0.01"
                                   min="0"
-                                  className="w-16 pl-3 pr-0.5 py-0.5 text-[11px] text-right border border-ocean-200 rounded
-                                    focus:ring-1 focus:ring-ocean-500 focus:border-transparent outline-none
+                                  className={`w-14 pl-3 pr-0.5 py-0.5 text-[11px] text-right border rounded
+                                    focus:ring-1 focus:border-transparent outline-none
                                     [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
-                                    text-ocean-900 bg-white"
+                                    ${modoPrecio === 'dual' ? 'border-ocean-300' : 'border-ocean-200'}
+                                    text-ocean-900 bg-white`}
+                                  title={modoPrecio === 'dual' ? 'Precio BCV' : 'Precio unitario'}
                                 />
                               </div>
+                              {/* Divisa price input for dual mode */}
+                              {modoPrecio === 'dual' && (
+                                <div className="relative">
+                                  <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[10px] text-amber-500">$</span>
+                                  <input
+                                    type="number"
+                                    value={editingSummaryPricesDivisa.has(item.product.id) ? editingSummaryPricesDivisa.get(item.product.id) : getEffectivePriceDivisa(item)}
+                                    onFocus={() => {
+                                      setEditingSummaryPricesDivisa(prev => {
+                                        const next = new Map(prev);
+                                        next.set(item.product.id, String(getEffectivePriceDivisa(item)));
+                                        return next;
+                                      });
+                                    }}
+                                    onChange={(e) => {
+                                      setEditingSummaryPricesDivisa(prev => {
+                                        const next = new Map(prev);
+                                        next.set(item.product.id, e.target.value);
+                                        return next;
+                                      });
+                                    }}
+                                    onBlur={() => {
+                                      const editValue = editingSummaryPricesDivisa.get(item.product.id);
+                                      const val = parseFloat(editValue || '0') || 0;
+                                      const defaultDivisa = item.product.precioUSDDivisa ?? item.product.precioUSD;
+                                      if (val === defaultDivisa) {
+                                        updateCustomPriceDivisa(item.product.id, null);
+                                      } else {
+                                        updateCustomPriceDivisa(item.product.id, val);
+                                      }
+                                      setEditingSummaryPricesDivisa(prev => {
+                                        const next = new Map(prev);
+                                        next.delete(item.product.id);
+                                        return next;
+                                      });
+                                    }}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                                    step="0.01"
+                                    min="0"
+                                    className="w-14 pl-3 pr-0.5 py-0.5 text-[11px] text-right border border-amber-300 rounded
+                                      focus:ring-1 focus:ring-amber-500 focus:border-transparent outline-none
+                                      [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
+                                      text-amber-900 bg-amber-50"
+                                    title="Precio Divisa"
+                                  />
+                                </div>
+                              )}
                               <span className="font-semibold text-coral-500 whitespace-nowrap">{formatUSD(effectivePrice * item.quantity)}</span>
                             </div>
                           </div>

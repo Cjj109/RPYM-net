@@ -8,6 +8,7 @@ const AdminBudgetBuilder = lazy(() => import('./AdminBudgetBuilder'));
 const AdminSettings = lazy(() => import('./AdminSettings'));
 const AdminProducts = lazy(() => import('./AdminProducts'));
 const AdminCustomers = lazy(() => import('./AdminCustomers'));
+const AdminFiscal = lazy(() => import('./AdminFiscal'));
 
 import {
   listPresupuestos,
@@ -43,13 +44,15 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}) {
-  const [activeTab, setActiveTab] = useState<'ver' | 'crear' | 'productos' | 'clientes' | 'config'>('ver');
+  const [activeTab, setActiveTab] = useState<'ver' | 'crear' | 'productos' | 'clientes' | 'config' | 'fiscal'>('ver');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [currentUser, setCurrentUser] = useState<AdminUser | null>(null);
   const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([]);
   const [stats, setStats] = useState<PresupuestoStats | null>(null);
   const [filter, setFilter] = useState<'all' | 'pendiente' | 'pagado'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPresupuesto, setSelectedPresupuesto] = useState<Presupuesto | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -70,7 +73,21 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   const whatsappCaptureRef = useRef<HTMLDivElement>(null);
   const [whatsappPopoverId, setWhatsappPopoverId] = useState<string | null>(null);
   const [rowWhatsappPhone, setRowWhatsappPhone] = useState('');
-  const [whatsappType, setWhatsappType] = useState<'presupuesto' | 'factura'>('presupuesto');
+  const [whatsappType, setWhatsappType] = useState<'presupuesto' | 'factura' | 'manual'>('presupuesto');
+
+  // Estado para copiar ID
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Función para copiar ID al portapapeles
+  const copyIdToClipboard = async (id: string) => {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (err) {
+      console.error('Error copying to clipboard:', err);
+    }
+  };
 
   // Verificar autenticación al cargar via API
   useEffect(() => {
@@ -134,12 +151,20 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     window.location.href = '/admin';
   };
 
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   // Cargar datos
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
       const [presupuestosData, statsData] = await Promise.all([
-        listPresupuestos(filter === 'all' ? undefined : filter),
+        listPresupuestos(filter === 'all' ? undefined : filter, debouncedSearch || undefined),
         getPresupuestoStats()
       ]);
       setPresupuestos(presupuestosData);
@@ -149,7 +174,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     } finally {
       setIsLoading(false);
     }
-  }, [filter]);
+  }, [filter, debouncedSearch]);
 
   // Cargar datos iniciales y configurar auto-refresh
   useEffect(() => {
@@ -175,18 +200,22 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   };
 
   // Eliminar presupuesto
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string, isLinked?: boolean) => {
+    if (isLinked) {
+      alert('No se puede eliminar: este presupuesto está vinculado a una cuenta de cliente');
+      return;
+    }
     if (!confirm('¿Estás seguro de ELIMINAR este presupuesto? Esta acción no se puede deshacer.')) return;
 
     setActionLoading(id);
-    const success = await deletePresupuesto(id);
-    if (success) {
+    const result = await deletePresupuesto(id);
+    if (result.success) {
       loadData();
       if (selectedPresupuesto?.id === id) {
         setSelectedPresupuesto(null);
       }
     } else {
-      alert('Error al eliminar');
+      alert(result.error || 'Error al eliminar');
     }
     setActionLoading(null);
   };
@@ -285,22 +314,45 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
       return rounded.toFixed(3).replace(/\.?0+$/, '');
     };
 
-    const isDual = presupuesto.totalUSDDivisa != null;
-    const isDivisasOnly = presupuesto.totalBs === 0;
+    // Use modoPrecio if available, otherwise infer from values (legacy support)
+    const modo = presupuesto.modoPrecio || (
+      presupuesto.totalUSDDivisa && presupuesto.totalBs && presupuesto.totalBs > 0 && presupuesto.totalUSDDivisa !== presupuesto.totalUSD
+        ? 'dual'
+        : presupuesto.totalBs === 0 && !presupuesto.hideRate
+          ? 'divisa'
+          : 'bcv'
+    );
+    const isDual = modo === 'dual';
+    const isDivisasOnly = modo === 'divisa';
+    // hideRateOnly = BCV mode but hiding the rate display
+    const hideRateOnly = presupuesto.hideRate === true && modo === 'bcv';
     const dateStr = new Date(presupuesto.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const customerName = presupuesto.customerName || '';
     const customerAddress = presupuesto.customerAddress || '';
 
-    // Filas de productos BCV
+    // Colores condicionales: amarillo/dorado para divisas, azul para BCV
+    const c = isDivisasOnly ? {
+      border: '#92400e', text: '#713f12', textLight: '#92400e', accent: '#fde68a',
+      bgHeader: '#fef3c7', bgAlt: '#fefce8', watermark: 'rgba(234,179,8,0.06)', footer: '#d97706'
+    } : {
+      border: '#075985', text: '#0c4a6e', textLight: '#0369a1', accent: '#7dd3fc',
+      bgHeader: '#e0f2fe', bgAlt: '#f0f9ff', watermark: 'rgba(14, 165, 233, 0.06)', footer: '#0ea5e9'
+    };
+
+    // Filas de productos
     const rows = presupuesto.items.map((item, i) => `
-      <tr style="background:${i % 2 === 0 ? '#fff' : '#f0f9ff'}">
-        <td style="border-right:1px solid #075985;padding:6px 10px;color:#0c4a6e;">${item.nombre}</td>
-        <td style="border-right:1px solid #075985;padding:6px 10px;text-align:center;color:#0c4a6e;">${fmtQty(item.cantidad)}</td>
-        <td style="border-right:1px solid #075985;padding:6px 10px;text-align:center;color:#0c4a6e;">${item.unidad}</td>
-        <td style="border-right:1px solid #075985;padding:6px 10px;text-align:right;color:#0c4a6e;">${formatUSD(item.precioUSD)}</td>
-        <td style="padding:6px 10px;text-align:right;font-weight:600;color:#0c4a6e;">${formatUSD(item.subtotalUSD)}</td>
+      <tr style="background:${i % 2 === 0 ? '#fff' : c.bgAlt}">
+        <td style="border-right:1px solid ${c.border};padding:6px 10px;color:${c.text};">${item.nombre}</td>
+        <td style="border-right:1px solid ${c.border};padding:6px 10px;text-align:center;color:${c.text};">${fmtQty(item.cantidad)}</td>
+        <td style="border-right:1px solid ${c.border};padding:6px 10px;text-align:center;color:${c.text};">${item.unidad}</td>
+        <td style="border-right:1px solid ${c.border};padding:6px 10px;text-align:right;color:${c.text};">${formatUSD(item.precioUSD)}</td>
+        <td style="padding:6px 10px;text-align:right;font-weight:600;color:${c.text};">${formatUSD(item.subtotalUSD)}</td>
       </tr>
     `).join('');
+
+    // Delivery (solo para mostrar en totales)
+    const deliveryCost = presupuesto.delivery || 0;
+    const subtotalUSD = presupuesto.totalUSD - deliveryCost;
 
     // Filas de productos Divisa (para presupuestos duales)
     const divisaRows = isDual ? presupuesto.items.map((item, i) => `
@@ -359,7 +411,17 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
           <div style="font-size:10px;color:#92400e;">Precios en USD efectivo</div>
         </div>
         <div style="width:200px;padding:10px 16px;">
-          <div style="display:flex;justify-content:space-between;font-size:13px;">
+          ${deliveryCost > 0 ? `
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;">
+            <span style="color:#92400e;">Subtotal:</span>
+            <span style="font-weight:600;color:#713f12;">${formatUSD(presupuesto.totalUSDDivisa! - deliveryCost)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;">
+            <span style="color:#92400e;">Delivery:</span>
+            <span style="font-weight:600;color:#713f12;">${formatUSD(deliveryCost)}</span>
+          </div>
+          ` : ''}
+          <div style="display:flex;justify-content:space-between;font-size:13px;${deliveryCost > 0 ? 'border-top:1px solid #fde68a;padding-top:6px;' : ''}">
             <span style="color:#92400e;font-weight:600;">Total USD:</span>
             <span style="font-weight:800;color:#713f12;">${formatUSD(presupuesto.totalUSDDivisa!)}</span>
           </div>
@@ -387,14 +449,31 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: white;
-      color: #0c4a6e;
+      color: ${c.text};
       padding: 12mm 15mm;
       position: relative;
     }
     table { width:100%; border-collapse:collapse; }
+    .close-btn {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      padding: 8px 16px;
+      background: #dc2626;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      z-index: 9999;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .close-btn:hover { background: #b91c1c; }
     @media print {
       body { padding: 0; }
       @page { size: A4; margin: 12mm 15mm; }
+      .no-print { display: none !important; }
     }
     .watermark {
       position: fixed;
@@ -403,7 +482,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
       transform: translate(-50%, -50%) rotate(-30deg);
       font-size: 80px;
       font-weight: 900;
-      color: rgba(14, 165, 233, 0.06);
+      color: ${c.watermark};
       letter-spacing: 12px;
       pointer-events: none;
       z-index: 0;
@@ -411,51 +490,52 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   </style>
 </head>
 <body>
+  <button class="close-btn no-print" onclick="window.close()">Cerrar</button>
   <div class="watermark">PRESUPUESTO</div>
 
   ${showPaid ? `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-15deg);border:6px solid #16a34a;border-radius:12px;padding:15px 40px;color:#16a34a;font-size:36px;font-weight:900;text-transform:uppercase;letter-spacing:3px;opacity:0.35;pointer-events:none;z-index:1;">PAGADO</div>` : ''}
 
   <!-- Header -->
-  <div style="display:flex;align-items:center;justify-content:space-between;border:2px solid #075985;padding:12px 16px;margin-bottom:16px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;border:2px solid ${c.border};padding:12px 16px;margin-bottom:16px;">
     <div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-        <div style="width:48px;height:48px;border-radius:50%;border:2px solid #7dd3fc;overflow:hidden;flex-shrink:0;background:white;display:flex;align-items:center;justify-content:center;">
+        <div style="width:48px;height:48px;border-radius:50%;border:2px solid ${c.accent};overflow:hidden;flex-shrink:0;background:white;display:flex;align-items:center;justify-content:center;">
           <img src="/camaronlogo-sm.webp" alt="RPYM" style="width:140%;height:140%;object-fit:contain;" />
         </div>
-        <div style="font-size:22px;font-weight:800;color:#0c4a6e;">RPYM</div>
+        <div style="font-size:22px;font-weight:800;color:${c.text};">RPYM</div>
       </div>
-      <div style="font-size:10px;color:#0369a1;">Muelle Pesquero "El Mosquero", Puesto 3 y 4, Maiquetia</div>
+      <div style="font-size:10px;color:${c.textLight};">Muelle Pesquero "El Mosquero", Puesto 3 y 4, Maiquetia</div>
     </div>
     <div style="text-align:right;">
-      <div style="font-size:16px;font-weight:700;color:#0c4a6e;border-bottom:2px solid #075985;padding-bottom:4px;margin-bottom:6px;">PRESUPUESTO</div>
-      ${isDivisasOnly ? '<div style="background:#dcfce7;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#166534;margin-bottom:4px;">PRECIOS USD</div>' : (isDual ? '<div style="background:#e0f2fe;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#075985;margin-bottom:4px;">PRECIOS BCV</div>' : '')}
-      <div style="font-size:10px;color:#0369a1;">No: <span style="font-family:monospace;font-weight:600;color:#0c4a6e;">${presupuesto.id}</span></div>
-      <div style="font-size:10px;color:#0369a1;margin-top:2px;">Fecha: <span style="font-weight:600;color:#0c4a6e;">${dateStr}</span></div>
+      <div style="font-size:16px;font-weight:700;color:${c.text};border-bottom:2px solid ${c.border};padding-bottom:4px;margin-bottom:6px;">PRESUPUESTO</div>
+      ${isDivisasOnly ? '<div style="background:#fef3c7;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#92400e;margin-bottom:4px;">PRECIOS DIVISA</div>' : '<div style="background:#e0f2fe;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#075985;margin-bottom:4px;">PRECIOS BCV</div>'}
+      <div style="font-size:10px;color:${c.textLight};">No: <span style="font-family:monospace;font-weight:600;color:${c.text};">${presupuesto.id}</span></div>
+      <div style="font-size:10px;color:${c.textLight};margin-top:2px;">Fecha: <span style="font-weight:600;color:${c.text};">${dateStr}</span></div>
     </div>
   </div>
 
   <!-- Client info -->
-  <div style="border:2px solid #075985;padding:10px 16px;margin-bottom:16px;">
+  <div style="border:2px solid ${c.border};padding:10px 16px;margin-bottom:16px;">
     <div style="margin-bottom:6px;">
-      <span style="font-size:10px;font-weight:600;color:#0369a1;">Cliente:</span>
-      <span style="font-size:12px;color:#0c4a6e;margin-left:8px;">${customerName || '---'}</span>
+      <span style="font-size:10px;font-weight:600;color:${c.textLight};">Cliente:</span>
+      <span style="font-size:12px;color:${c.text};margin-left:8px;">${customerName || '---'}</span>
     </div>
     <div>
-      <span style="font-size:10px;font-weight:600;color:#0369a1;">Direccion:</span>
-      <span style="font-size:12px;color:#0c4a6e;margin-left:8px;">${customerAddress || '---'}</span>
+      <span style="font-size:10px;font-weight:600;color:${c.textLight};">Direccion:</span>
+      <span style="font-size:12px;color:${c.text};margin-left:8px;">${customerAddress || '---'}</span>
     </div>
   </div>
 
   <!-- Products table -->
-  <div style="border:2px solid #075985;margin-bottom:16px;">
+  <div style="border:2px solid ${c.border};margin-bottom:16px;">
     <table>
       <thead>
-        <tr style="background:#e0f2fe;">
-          <th style="border-bottom:2px solid #075985;border-right:1px solid #075985;padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:#0c4a6e;">Producto</th>
-          <th style="border-bottom:2px solid #075985;border-right:1px solid #075985;padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:#0c4a6e;width:60px;">Cant</th>
-          <th style="border-bottom:2px solid #075985;border-right:1px solid #075985;padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:#0c4a6e;width:60px;">Unidad</th>
-          <th style="border-bottom:2px solid #075985;border-right:1px solid #075985;padding:8px 10px;text-align:right;font-size:11px;font-weight:700;color:#0c4a6e;width:80px;">P.Unitario</th>
-          <th style="border-bottom:2px solid #075985;padding:8px 10px;text-align:right;font-size:11px;font-weight:700;color:#0c4a6e;width:80px;">Subtotal</th>
+        <tr style="background:${c.bgHeader};">
+          <th style="border-bottom:2px solid ${c.border};border-right:1px solid ${c.border};padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:${c.text};">Producto</th>
+          <th style="border-bottom:2px solid ${c.border};border-right:1px solid ${c.border};padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:${c.text};width:60px;">Cant</th>
+          <th style="border-bottom:2px solid ${c.border};border-right:1px solid ${c.border};padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:${c.text};width:60px;">Unidad</th>
+          <th style="border-bottom:2px solid ${c.border};border-right:1px solid ${c.border};padding:8px 10px;text-align:right;font-size:11px;font-weight:700;color:${c.text};width:80px;">P.Unitario</th>
+          <th style="border-bottom:2px solid ${c.border};padding:8px 10px;text-align:right;font-size:11px;font-weight:700;color:${c.text};width:80px;">Subtotal</th>
         </tr>
       </thead>
       <tbody>
@@ -465,19 +545,29 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   </div>
 
   <!-- Totals -->
-  <div style="border:2px solid #075985;margin-bottom:16px;display:flex;">
-    <div style="flex:1;padding:10px 16px;border-right:2px solid #075985;">
-      <div style="font-size:10px;font-weight:600;color:#0369a1;margin-bottom:4px;">OBSERVACIONES:</div>
-      <div style="font-size:10px;color:#0369a1;">${isDivisasOnly ? 'Precios en USD efectivo' : 'Tasa BCV aplicada al momento de pago'}</div>
+  <div style="border:2px solid ${c.border};margin-bottom:16px;display:flex;">
+    <div style="flex:1;padding:10px 16px;border-right:2px solid ${c.border};">
+      <div style="font-size:10px;font-weight:600;color:${c.textLight};margin-bottom:4px;">OBSERVACIONES:</div>
+      <div style="font-size:10px;color:${c.textLight};">${isDivisasOnly ? 'Precios en USD efectivo' : 'Tasa BCV aplicada al momento de pago'}</div>
     </div>
     <div style="width:200px;padding:10px 16px;">
-      <div style="display:flex;justify-content:space-between;font-size:13px;">
-        <span style="color:#0369a1;font-weight:600;">Total USD:</span>
-        <span style="font-weight:800;color:#0c4a6e;">${formatUSD(presupuesto.totalUSD)}</span>
+      ${deliveryCost > 0 ? `
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;">
+        <span style="color:${c.textLight};">Subtotal:</span>
+        <span style="font-weight:600;color:${c.text};">${formatUSD(subtotalUSD)}</span>
       </div>
-      ${!isDivisasOnly ? `<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;border-top:1px solid #7dd3fc;padding-top:4px;">
-        <span style="color:#0369a1;">Total Bs.:</span>
-        <span style="font-weight:700;color:#ea580c;">${formatBs(presupuesto.totalBs)}</span>
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;">
+        <span style="color:${c.textLight};">Delivery:</span>
+        <span style="font-weight:600;color:${c.text};">${formatUSD(deliveryCost)}</span>
+      </div>
+      ` : ''}
+      <div style="display:flex;justify-content:space-between;font-size:13px;${deliveryCost > 0 ? `border-top:1px solid ${c.accent};padding-top:6px;` : ''}">
+        <span style="color:${c.textLight};font-weight:600;">Total USD:</span>
+        <span style="font-weight:800;color:${c.text};">${formatUSD(presupuesto.totalUSD)}</span>
+      </div>
+      ${(!isDivisasOnly && !presupuesto.hideRate && bcvRateValue > 0) ? `<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;border-top:1px solid ${c.accent};padding-top:4px;">
+        <span style="color:${c.textLight};">Total Bs.:</span>
+        <span style="font-weight:700;color:#ea580c;">${formatBs(presupuesto.totalUSD * bcvRateValue)}</span>
       </div>` : ''}
     </div>
   </div>
@@ -485,13 +575,13 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   <!-- Signatures -->
   <div style="display:flex;gap:40px;margin-top:40px;">
     <div style="flex:1;text-align:center;">
-      <div style="border-top:2px solid #075985;padding-top:6px;margin:0 30px;">
-        <span style="font-size:10px;font-weight:600;color:#0369a1;">CONFORME CLIENTE</span>
+      <div style="border-top:2px solid ${c.border};padding-top:6px;margin:0 30px;">
+        <span style="font-size:10px;font-weight:600;color:${c.textLight};">CONFORME CLIENTE</span>
       </div>
     </div>
     <div style="flex:1;text-align:center;">
-      <div style="border-top:2px solid #075985;padding-top:6px;margin:0 30px;">
-        <span style="font-size:10px;font-weight:600;color:#0369a1;">ENTREGADO POR</span>
+      <div style="border-top:2px solid ${c.border};padding-top:6px;margin:0 30px;">
+        <span style="font-size:10px;font-weight:600;color:${c.textLight};">ENTREGADO POR</span>
       </div>
     </div>
   </div>
@@ -504,8 +594,8 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   </div>
 
   <!-- Footer -->
-  <div style="margin-top:12px;padding-top:8px;border-top:1px solid #bae6fd;text-align:center;">
-    <span style="font-size:10px;color:#0ea5e9;">www.rpym.net • WhatsApp: +58 414-214-5202</span>
+  <div style="margin-top:12px;padding-top:8px;border-top:1px solid ${c.accent};text-align:center;">
+    <span style="font-size:10px;color:${c.footer};">www.rpym.net • WhatsApp: +58 414-214-5202</span>
   </div>
 
   ${divisaPageHtml}
@@ -520,8 +610,17 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   // Vista WhatsApp compacta del presupuesto (estilo card limpio)
   const handleWhatsAppView = (presupuesto: Presupuesto) => {
     const isPaid = presupuesto.estado === 'pagado';
-    const isDualWA = presupuesto.totalUSDDivisa != null;
-    const isDivisasOnlyWA = presupuesto.totalBs === 0;
+    // Use modoPrecio if available, otherwise infer from values (legacy support)
+    const modoWA = presupuesto.modoPrecio || (
+      presupuesto.totalUSDDivisa && presupuesto.totalBs && presupuesto.totalBs > 0 && presupuesto.totalUSDDivisa !== presupuesto.totalUSD
+        ? 'dual'
+        : presupuesto.totalBs === 0 && !presupuesto.hideRate
+          ? 'divisa'
+          : 'bcv'
+    );
+    const isDualWA = modoWA === 'dual';
+    const isDivisasOnlyWA = modoWA === 'divisa';
+    const hideRateOnlyWA = presupuesto.hideRate === true && modoWA === 'bcv';
     const fmtQty = (qty: number): string => {
       const rounded = Math.round(qty * 1000) / 1000;
       return rounded.toFixed(3).replace(/\.?0+$/, '');
@@ -534,11 +633,21 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
       return;
     }
 
+    const waDeliveryCost = presupuesto.delivery || 0;
+    const waSubtotalUSD = presupuesto.totalUSD - waDeliveryCost;
+
+    // Theme colors based on mode (amber for divisa, blue for BCV/dual first page)
+    const waColors = isDivisasOnlyWA ? {
+      bg: '#fffbeb', border: '#fde68a', borderDark: '#92400e', text: '#713f12', textLight: '#92400e', accent: '#d97706'
+    } : {
+      bg: '#f0f9ff', border: '#e0f2fe', borderDark: '#075985', text: '#0c4a6e', textLight: '#0369a1', accent: '#0ea5e9'
+    };
+
     const productRows = presupuesto.items.map(item => `
-      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid #f0f9ff;">
-        <div style="flex:1;font-size:13px;color:#0c4a6e;">${item.nombre}</div>
-        <div style="font-size:12px;color:#0369a1;margin:0 8px;white-space:nowrap;">${fmtQty(item.cantidad)} ${item.unidad}</div>
-        <div style="font-size:13px;font-weight:600;color:#0c4a6e;white-space:nowrap;">${formatUSD(item.subtotalUSD)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid ${waColors.border};">
+        <div style="flex:1;font-size:13px;color:${waColors.text};">${item.nombre}</div>
+        <div style="font-size:12px;color:${waColors.textLight};margin:0 8px;white-space:nowrap;">${fmtQty(item.cantidad)} ${item.unidad}</div>
+        <div style="font-size:13px;font-weight:600;color:${waColors.text};white-space:nowrap;">${formatUSD(item.subtotalUSD)}</div>
       </div>
     `).join('');
 
@@ -562,7 +671,17 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
           ${divisaProductRows}
         </div>
         <div style="border-top:2px solid #92400e;padding-top:10px;margin-bottom:12px;">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+          ${waDeliveryCost > 0 ? `
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+            <span style="font-size:12px;color:#92400e;">Subtotal</span>
+            <span style="font-size:14px;font-weight:600;color:#713f12;">${formatUSD(presupuesto.totalUSDDivisa! - waDeliveryCost)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+            <span style="font-size:12px;color:#92400e;">Delivery</span>
+            <span style="font-size:14px;font-weight:600;color:#713f12;">${formatUSD(waDeliveryCost)}</span>
+          </div>
+          ` : ''}
+          <div style="display:flex;justify-content:space-between;align-items:baseline;${waDeliveryCost > 0 ? 'border-top:1px solid #fde68a;padding-top:6px;' : ''}">
             <span style="font-size:14px;font-weight:600;color:#92400e;">Total USD (Divisa)</span>
             <span style="font-size:20px;font-weight:800;color:#713f12;">${formatUSD(presupuesto.totalUSDDivisa!)}</span>
           </div>
@@ -584,25 +703,40 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     * { margin:0; padding:0; box-sizing:border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #f0f9ff;
+      background: ${waColors.bg};
       display: flex;
       flex-direction: column;
       align-items: center;
       padding: 16px 0;
     }
+    .close-btn {
+      margin-bottom: 12px;
+      padding: 8px 20px;
+      background: #dc2626;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .close-btn:hover { background: #b91c1c; }
+    @media print { .no-print { display: none !important; } }
   </style>
 </head>
 <body>
-  <div style="width:320px;background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+  <button class="close-btn no-print" onclick="window.close()">Cerrar</button>
+  <div style="width:320px;background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);${isDivisasOnlyWA ? 'border:2px solid #fde68a;' : ''}">
     <!-- Logo -->
     <div style="text-align:center;margin-bottom:12px;">
       <img src="/camaronlogo-sm.webp" alt="RPYM" style="display:block;width:140px;height:auto;object-fit:contain;margin:0 auto;" />
-      <div style="font-size:12px;color:#0369a1;margin-top:4px;">Presupuesto</div>
-      ${isDivisasOnlyWA ? '<div style="background:#dcfce7;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#166534;margin-top:4px;">Precios USD</div>' : (isDualWA ? '<div style="background:#e0f2fe;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#075985;margin-top:4px;">Precios BCV</div>' : '')}
+      <div style="font-size:12px;color:${waColors.textLight};margin-top:4px;">Presupuesto</div>
+      ${isDivisasOnlyWA ? '<div style="background:#fef3c7;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#92400e;margin-top:4px;">Precios Divisa</div>' : (isDualWA ? '<div style="background:#e0f2fe;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#075985;margin-top:4px;">Precios BCV</div>' : '<div style="background:#e0f2fe;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#075985;margin-top:4px;">Precios BCV</div>')}
       ${isPaid ? '<div style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:9999px;margin-top:6px;">PAGADO</div>' : ''}
     </div>
 
-    ${presupuesto.customerName ? '<div style="font-size:12px;color:#0369a1;text-align:center;margin-bottom:10px;">Cliente: <strong style="color:#0c4a6e;">' + presupuesto.customerName + '</strong></div>' : ''}
+    ${presupuesto.customerName ? '<div style="font-size:12px;color:' + waColors.textLight + ';text-align:center;margin-bottom:10px;">Cliente: <strong style="color:' + waColors.text + ';">' + presupuesto.customerName + '</strong></div>' : ''}
 
     <!-- Products -->
     <div style="margin-bottom:12px;">
@@ -610,22 +744,32 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     </div>
 
     <!-- Totals -->
-    <div style="border-top:2px solid #075985;padding-top:10px;margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;">
-        <span style="font-size:14px;font-weight:600;color:#0369a1;">Total USD</span>
-        <span style="font-size:20px;font-weight:800;color:#0c4a6e;">${formatUSD(presupuesto.totalUSD)}</span>
+    <div style="border-top:2px solid ${waColors.borderDark};padding-top:10px;margin-bottom:12px;">
+      ${waDeliveryCost > 0 ? `
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+        <span style="font-size:12px;color:${waColors.textLight};">Subtotal</span>
+        <span style="font-size:14px;font-weight:600;color:${waColors.text};">${formatUSD(waSubtotalUSD)}</span>
       </div>
-      ${!isDivisasOnlyWA ? `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px;">
-        <span style="font-size:12px;color:#0369a1;">Total Bs.</span>
-        <span style="font-size:15px;font-weight:700;color:#ea580c;">${formatBs(presupuesto.totalBs)}</span>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+        <span style="font-size:12px;color:${waColors.textLight};">Delivery</span>
+        <span style="font-size:14px;font-weight:600;color:${waColors.text};">${formatUSD(waDeliveryCost)}</span>
+      </div>
+      ` : ''}
+      <div style="display:flex;justify-content:space-between;align-items:baseline;${waDeliveryCost > 0 ? 'border-top:1px solid ' + waColors.border + ';padding-top:6px;' : ''}">
+        <span style="font-size:14px;font-weight:600;color:${waColors.textLight};">${isDivisasOnlyWA ? 'Total USD (Divisa)' : 'Total USD'}</span>
+        <span style="font-size:20px;font-weight:800;color:${waColors.text};">${formatUSD(presupuesto.totalUSD)}</span>
+      </div>
+      ${(!isDivisasOnlyWA && !presupuesto.hideRate && bcvRateValue > 0) ? `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px;">
+        <span style="font-size:12px;color:${waColors.textLight};">Total Bs.</span>
+        <span style="font-size:15px;font-weight:700;color:#ea580c;">${formatBs(presupuesto.totalUSD * bcvRateValue)}</span>
       </div>` : ''}
     </div>
 
     <!-- Footer -->
-    <div style="text-align:center;border-top:1px solid #e0f2fe;padding-top:8px;">
-      <div style="font-size:10px;color:#0ea5e9;">${fechaStr}</div>
-      <div style="font-size:10px;color:#0ea5e9;margin-top:2px;">WhatsApp: +58 414-214-5202</div>
-      <div style="font-size:9px;color:#7dd3fc;margin-top:4px;">Ref: ${presupuesto.id}</div>
+    <div style="text-align:center;border-top:1px solid ${waColors.border};padding-top:8px;">
+      <div style="font-size:10px;color:${waColors.accent};">${fechaStr}</div>
+      <div style="font-size:10px;color:${waColors.accent};margin-top:2px;">WhatsApp: +58 414-214-5202</div>
+      <div style="font-size:9px;color:${waColors.border};margin-top:4px;">Ref: ${presupuesto.id}</div>
     </div>
   </div>
 
@@ -637,92 +781,129 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   };
 
   // Generar HTML para captura de WhatsApp (para html2canvas)
+  // Estructura idéntica a handleWhatsAppView: burbujas separadas para BCV y Divisa
   const buildWhatsAppHTML = (presupuesto: Presupuesto): string => {
     const isPaid = presupuesto.estado === 'pagado';
-    const isDualCapture = presupuesto.totalUSDDivisa != null;
-    const isDivisasOnlyCapture = presupuesto.totalBs === 0;
+    // Use modoPrecio if available, otherwise infer from values (legacy support)
+    const modoCapture = presupuesto.modoPrecio || (
+      presupuesto.totalUSDDivisa && presupuesto.totalBs && presupuesto.totalBs > 0 && presupuesto.totalUSDDivisa !== presupuesto.totalUSD
+        ? 'dual'
+        : presupuesto.totalBs === 0 && !presupuesto.hideRate
+          ? 'divisa'
+          : 'bcv'
+    );
+    const isDualCapture = modoCapture === 'dual';
+    const isDivisasOnlyCapture = modoCapture === 'divisa';
     const fmtQty = (qty: number): string => {
       const rounded = Math.round(qty * 1000) / 1000;
       return rounded.toFixed(3).replace(/\.?0+$/, '');
     };
     const fechaStr = new Date(presupuesto.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const deliveryCost = presupuesto.delivery || 0;
+    const subtotalUSD = presupuesto.totalUSD - deliveryCost;
 
-    const itemsHtml = presupuesto.items.map(item => `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #e0f2fe;">
-        <div style="font-weight:600;font-size:14px;color:#0c4a6e;">${item.nombre}</div>
-        <div style="display:flex;align-items:center;gap:12px;">
-          <span style="font-size:12px;color:#64748b;">${fmtQty(item.cantidad)} ${item.unidad}</span>
-          <span style="font-weight:700;font-size:14px;color:#ea580c;">${formatUSD(item.subtotalUSD)}</span>
-        </div>
+    // Theme colors (amber for divisa, blue for BCV)
+    const mainColors = isDivisasOnlyCapture ? {
+      bg: '#fffbeb', border: '#fde68a', borderDark: '#92400e', text: '#713f12', textLight: '#92400e', accent: '#d97706'
+    } : {
+      bg: '#f0f9ff', border: '#e0f2fe', borderDark: '#075985', text: '#0c4a6e', textLight: '#0369a1', accent: '#0ea5e9'
+    };
+
+    // Main bubble products
+    const productRows = presupuesto.items.map(item => `
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid ${mainColors.border};">
+        <div style="flex:1;font-size:13px;color:${mainColors.text};">${item.nombre}</div>
+        <div style="font-size:12px;color:${mainColors.textLight};margin:0 8px;white-space:nowrap;">${fmtQty(item.cantidad)} ${item.unidad}</div>
+        <div style="font-size:13px;font-weight:600;color:${mainColors.text};white-space:nowrap;">${formatUSD(item.subtotalUSD)}</div>
       </div>
     `).join('');
 
-    const divisaItemsHtmlCapture = isDualCapture ? presupuesto.items.map(item => `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #fef3c7;">
-        <div style="font-weight:600;font-size:14px;color:#0c4a6e;">${item.nombre}</div>
-        <div style="display:flex;align-items:center;gap:12px;">
-          <span style="font-size:12px;color:#64748b;">${fmtQty(item.cantidad)} ${item.unidad}</span>
-          <span style="font-weight:700;font-size:14px;color:#ea580c;">${formatUSD(item.subtotalUSDDivisa ?? item.subtotalUSD)}</span>
+    // Divisa bubble (for dual mode)
+    const divisaBubbleHtml = isDualCapture ? (() => {
+      const divisaProductRows = presupuesto.items.map(item => `
+        <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid #fefce8;">
+          <div style="flex:1;font-size:13px;color:#713f12;">${item.nombre}</div>
+          <div style="font-size:12px;color:#92400e;margin:0 8px;white-space:nowrap;">${fmtQty(item.cantidad)} ${item.unidad}</div>
+          <div style="font-size:13px;font-weight:600;color:#713f12;white-space:nowrap;">${formatUSD(item.subtotalUSDDivisa ?? item.subtotalUSD)}</div>
         </div>
-      </div>
-    `).join('') : '';
-
-    const divisaSectionHtml = isDualCapture ? `
-      <div style="height:3px;background:linear-gradient(90deg,#f59e0b,#eab308);border-radius:2px;margin-bottom:16px;"></div>
-
-      <div style="background:#fef3c7;padding:8px 12px;border-radius:6px;margin-bottom:12px;font-weight:700;font-size:14px;color:#92400e;text-align:center;">Precios Divisa</div>
-
-      <div style="margin-bottom:16px;">
-        ${divisaItemsHtmlCapture}
-      </div>
-
-      <div style="height:3px;background:linear-gradient(90deg,#f59e0b,#eab308);border-radius:2px;margin-bottom:16px;"></div>
-
-      <div style="margin-bottom:20px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-          <span style="font-weight:700;font-size:14px;color:#92400e;">Total USD (Divisa)</span>
-          <span style="font-weight:700;font-size:22px;color:#ea580c;">${formatUSD(presupuesto.totalUSDDivisa!)}</span>
+      `).join('');
+      return `
+      <div style="width:320px;background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-top:16px;border:2px solid #fde68a;">
+        <div style="text-align:center;margin-bottom:12px;">
+          <img src="${window.location.origin}/camaronlogo-sm.webp" alt="RPYM" style="display:block;width:140px;height:auto;object-fit:contain;margin:0 auto;" />
+          <div style="background:#fef3c7;display:inline-block;padding:3px 12px;border-radius:6px;font-size:12px;font-weight:700;color:#92400e;margin-top:4px;">Precios Divisa</div>
+          ${isPaid ? '<div style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:9999px;margin-top:6px;">PAGADO</div>' : ''}
         </div>
-      </div>
-    ` : '';
-
-    return `
-      <div style="font-family:'Inter',-apple-system,sans-serif;background:white;width:380px;padding:24px 20px;">
-        <div style="text-align:center;margin-bottom:20px;">
-          <img src="${window.location.origin}/camaronlogo-md.webp" style="display:block;margin:0 auto;width:160px;height:auto;" />
+        ${presupuesto.customerName ? '<div style="font-size:12px;color:#92400e;text-align:center;margin-bottom:10px;">Cliente: <strong style="color:#713f12;">' + presupuesto.customerName + '</strong></div>' : ''}
+        <div style="margin-bottom:12px;">
+          ${divisaProductRows}
         </div>
-
-        <div style="text-align:center;margin-bottom:16px;">
-          <div style="font-size:15px;color:#0369a1;font-weight:500;">Presupuesto</div>
-          ${isPaid ? '<div style="display:inline-block;background:#fef3c7;color:#92400e;font-size:13px;font-weight:700;padding:5px 20px;border-radius:6px;margin-top:8px;border:2px solid #f59e0b;">PAGADO</div>' : ''}
-        </div>
-
-        ${isDivisasOnlyCapture ? '<div style="background:#dcfce7;padding:8px 12px;border-radius:6px;margin-bottom:12px;font-weight:700;font-size:14px;color:#166534;text-align:center;">Precios USD</div>' : (isDualCapture ? '<div style="background:#e0f2fe;padding:8px 12px;border-radius:6px;margin-bottom:12px;font-weight:700;font-size:14px;color:#075985;text-align:center;">Precios BCV</div>' : '')}
-
-        <div style="margin-bottom:16px;">
-          ${itemsHtml}
-        </div>
-
-        <div style="height:3px;background:linear-gradient(90deg,#075985,#0ea5e9);border-radius:2px;margin-bottom:16px;"></div>
-
-        <div style="margin-bottom:20px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-            <span style="font-weight:700;font-size:14px;color:#0c4a6e;">Total USD</span>
-            <span style="font-weight:700;font-size:22px;color:#ea580c;">${formatUSD(presupuesto.totalUSD)}</span>
+        <div style="border-top:2px solid #92400e;padding-top:10px;margin-bottom:12px;">
+          ${deliveryCost > 0 ? `
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+            <span style="font-size:12px;color:#92400e;">Subtotal</span>
+            <span style="font-size:14px;font-weight:600;color:#713f12;">${formatUSD(presupuesto.totalUSDDivisa! - deliveryCost)}</span>
           </div>
-          ${!isDivisasOnlyCapture ? `<div style="display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:13px;color:#0c4a6e;">Total Bs.</span>
-            <span style="font-weight:600;font-size:15px;color:#0c4a6e;">${formatBs(presupuesto.totalBs)}</span>
-          </div>` : ''}
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+            <span style="font-size:12px;color:#92400e;">Delivery</span>
+            <span style="font-size:14px;font-weight:600;color:#713f12;">${formatUSD(deliveryCost)}</span>
+          </div>
+          ` : ''}
+          <div style="display:flex;justify-content:space-between;align-items:baseline;${deliveryCost > 0 ? 'border-top:1px solid #fde68a;padding-top:6px;' : ''}">
+            <span style="font-size:14px;font-weight:600;color:#92400e;">Total USD (Divisa)</span>
+            <span style="font-size:20px;font-weight:800;color:#713f12;">${formatUSD(presupuesto.totalUSDDivisa!)}</span>
+          </div>
+        </div>
+        <div style="text-align:center;border-top:1px solid #fde68a;padding-top:8px;">
+          <div style="font-size:10px;color:#d97706;">${fechaStr}</div>
+          <div style="font-size:10px;color:#d97706;margin-top:2px;">WhatsApp: +58 414-214-5202</div>
+          <div style="font-size:9px;color:#fde68a;margin-top:4px;">Ref: ${presupuesto.id}</div>
+        </div>
+      </div>`;
+    })() : '';
+
+    // Main bubble HTML (same structure as handleWhatsAppView)
+    return `
+      <div style="font-family:'Inter',-apple-system,sans-serif;background:#e5e7eb;padding:16px;display:flex;flex-direction:column;align-items:center;">
+        <!-- Main bubble -->
+        <div style="width:320px;background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:2px solid ${mainColors.borderDark};">
+          <div style="text-align:center;margin-bottom:12px;">
+            <img src="${window.location.origin}/camaronlogo-sm.webp" alt="RPYM" style="display:block;width:140px;height:auto;object-fit:contain;margin:0 auto;" />
+            ${isDivisasOnlyCapture ? '<div style="background:#fef3c7;display:inline-block;padding:3px 12px;border-radius:6px;font-size:12px;font-weight:700;color:#92400e;margin-top:4px;">PRECIOS DIVISA</div>' : '<div style="background:#e0f2fe;display:inline-block;padding:3px 12px;border-radius:6px;font-size:12px;font-weight:700;color:#075985;margin-top:4px;">PRECIOS BCV</div>'}
+            ${isPaid ? '<div style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:9999px;margin-top:6px;">PAGADO</div>' : ''}
+          </div>
+          ${presupuesto.customerName ? '<div style="font-size:12px;color:' + mainColors.textLight + ';text-align:center;margin-bottom:10px;">Cliente: <strong style="color:' + mainColors.text + ';">' + presupuesto.customerName + '</strong></div>' : ''}
+          <div style="margin-bottom:12px;">
+            ${productRows}
+          </div>
+          <div style="border-top:2px solid ${mainColors.borderDark};padding-top:10px;margin-bottom:12px;">
+            ${deliveryCost > 0 ? `
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+              <span style="font-size:12px;color:${mainColors.textLight};">Subtotal</span>
+              <span style="font-size:14px;font-weight:600;color:${mainColors.text};">${formatUSD(subtotalUSD)}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+              <span style="font-size:12px;color:${mainColors.textLight};">Delivery</span>
+              <span style="font-size:14px;font-weight:600;color:${mainColors.text};">${formatUSD(deliveryCost)}</span>
+            </div>
+            ` : ''}
+            <div style="display:flex;justify-content:space-between;align-items:baseline;${deliveryCost > 0 ? 'border-top:1px solid ' + mainColors.border + ';padding-top:6px;' : ''}">
+              <span style="font-size:14px;font-weight:600;color:${mainColors.textLight};">${isDivisasOnlyCapture ? 'Total USD (Divisa)' : 'Total USD'}</span>
+              <span style="font-size:20px;font-weight:800;color:${mainColors.text};">${formatUSD(presupuesto.totalUSD)}</span>
+            </div>
+            ${(!isDivisasOnlyCapture && !presupuesto.hideRate && bcvRateValue > 0) ? `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px;">
+              <span style="font-size:12px;color:${mainColors.textLight};">Total Bs.</span>
+              <span style="font-size:15px;font-weight:700;color:#ea580c;">${formatBs(presupuesto.totalUSD * bcvRateValue)}</span>
+            </div>` : ''}
+          </div>
+          <div style="text-align:center;border-top:1px solid ${mainColors.border};padding-top:8px;">
+            <div style="font-size:10px;color:${mainColors.accent};">${fechaStr}</div>
+            <div style="font-size:10px;color:${mainColors.accent};margin-top:2px;">WhatsApp: +58 414-214-5202</div>
+            <div style="font-size:9px;color:${mainColors.border};margin-top:4px;">Ref: ${presupuesto.id}</div>
+          </div>
         </div>
 
-        ${divisaSectionHtml}
-
-        <div style="text-align:center;padding-top:12px;border-top:1px solid #e0f2fe;font-size:11px;color:#0369a1;">
-          <div>${fechaStr}</div>
-          <div>WhatsApp: +58 414-214-5202</div>
-          <div>Ref: ${presupuesto.id}</div>
-        </div>
+        ${divisaBubbleHtml}
       </div>
     `;
   };
@@ -832,14 +1013,20 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     setWhatsappError(null);
 
     try {
-      // Preparar items para la factura
+      // Preparar items para la factura (incluyendo precios divisa si aplica)
       const facturaItems = presupuesto.items.map(item => ({
         producto: item.nombre,
         cantidad: item.cantidad,
         unidad: item.unidad,
         precioUnit: item.precioUSD,
-        subtotal: item.subtotalUSD
+        subtotal: item.subtotalUSD,
+        precioUnitDivisa: item.precioUSDDivisa,
+        subtotalDivisa: item.subtotalUSDDivisa
       }));
+
+      // Determine totalBs based on modoPrecio - only for BCV or dual modes
+      const modo = presupuesto.modoPrecio || 'bcv';
+      const shouldIncludeBs = modo === 'bcv' || modo === 'dual';
 
       const response = await fetch('/api/send-whatsapp-factura', {
         method: 'POST',
@@ -852,9 +1039,14 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
           items: facturaItems,
           subtotal: presupuesto.totalUSD,
           total: presupuesto.totalUSD,
-          totalBs: presupuesto.totalBs,
-          exchangeRate: presupuesto.totalBs / presupuesto.totalUSD,
-          date: new Date(presupuesto.fecha).toLocaleDateString('es-VE')
+          totalBs: shouldIncludeBs ? presupuesto.totalUSD * bcvRateValue : 0,
+          totalUSDDivisa: presupuesto.totalUSDDivisa,
+          exchangeRate: bcvRateValue,
+          date: new Date(presupuesto.fecha).toLocaleDateString('es-VE'),
+          isPaid: presupuesto.estado === 'pagado',
+          delivery: presupuesto.delivery || 0,
+          modoPrecio: modo,
+          hideRate: presupuesto.hideRate || false
         }),
       });
 
@@ -875,10 +1067,55 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     }
   };
 
+  // Enviar por WhatsApp manual (abre enlace web)
+  const sendWhatsAppManual = (presupuesto: Presupuesto, phoneOverride?: string) => {
+    const phone = phoneOverride || whatsappPhone;
+    if (!isValidPhone(phone)) {
+      setWhatsappError('Número inválido. Usa formato: 0414XXXXXXX');
+      return;
+    }
+
+    // Format phone for WhatsApp (58 + number without leading 0)
+    let formattedPhone = phone.replace(/\D/g, '');
+    if (formattedPhone.startsWith('0') && formattedPhone.length === 11) {
+      formattedPhone = '58' + formattedPhone.substring(1);
+    } else if (formattedPhone.length === 10) {
+      formattedPhone = '58' + formattedPhone;
+    }
+
+    // Build message with presupuesto details
+    const isDual = presupuesto.totalUSDDivisa != null;
+    const isDivisasOnly = presupuesto.totalBs === 0 && !presupuesto.hideRate;
+    const hideRateOnly = presupuesto.hideRate === true && presupuesto.totalBs > 0;
+    let message = `*Presupuesto RPYM #${presupuesto.id}*\n`;
+    if (presupuesto.customerName) message += `Cliente: ${presupuesto.customerName}\n`;
+    message += `\n`;
+
+    // Items
+    presupuesto.items.forEach(item => {
+      message += `• ${item.nombre} ${item.cantidad}${item.unidad} - $${item.subtotalUSD.toFixed(2)}\n`;
+    });
+
+    message += `\n*Total USD:* $${presupuesto.totalUSD.toFixed(2)}`;
+    if (isDual && presupuesto.totalUSDDivisa) {
+      message += ` (BCV) / $${presupuesto.totalUSDDivisa.toFixed(2)} (Divisa)`;
+    }
+    if (!isDivisasOnly && !hideRateOnly && bcvRateValue > 0) {
+      message += `\n*Total Bs:* Bs. ${(presupuesto.totalUSD * bcvRateValue).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+
+    // Open WhatsApp link
+    const waUrl = `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`;
+    window.open(waUrl, '_blank');
+    setWhatsappStatus('sent');
+  };
+
   // Función wrapper para enviar según el tipo seleccionado
   const handleWhatsAppSend = (presupuesto: Presupuesto, phoneOverride?: string) => {
     if (whatsappType === 'factura') {
       sendWhatsAppFactura(presupuesto, phoneOverride);
+    } else if (whatsappType === 'manual') {
+      sendWhatsAppManual(presupuesto, phoneOverride);
     } else {
       sendWhatsApp(presupuesto, phoneOverride);
     }
@@ -973,11 +1210,27 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
             >
               Config
             </button>
+            <button
+              onClick={() => setActiveTab('fiscal')}
+              className={`py-2 px-3 sm:flex-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                activeTab === 'fiscal'
+                  ? 'bg-white text-ocean-900'
+                  : 'text-ocean-200 hover:text-white'
+              }`}
+            >
+              Fiscal
+            </button>
           </div>
         </div>
       </header>
 
-      {activeTab === 'clientes' ? (
+      {activeTab === 'fiscal' ? (
+        <main className="max-w-7xl mx-auto p-4">
+          <Suspense fallback={<div className="text-center py-12 text-ocean-700">Cargando...</div>}>
+            <AdminFiscal bcvRate={bcvRate} />
+          </Suspense>
+        </main>
+      ) : activeTab === 'clientes' ? (
         <main className="max-w-7xl mx-auto p-4">
           <Suspense fallback={<div className="text-center py-12 text-ocean-700">Cargando...</div>}>
             <AdminCustomers />
@@ -1035,27 +1288,51 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
           </div>
         )}
 
+        {/* Buscador (mobile-first) */}
+        <div className="mb-3">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Buscar por ID o cliente..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-10 py-3 text-base border border-ocean-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-ocean-500 focus:border-transparent bg-white"
+            />
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-ocean-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-ocean-400 hover:text-ocean-600 rounded-full hover:bg-ocean-100"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Filtros */}
-        <div className="flex gap-2 mb-4">
+        <div className="flex flex-wrap gap-2 mb-4">
           {(['all', 'pendiente', 'pagado'] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 filter === f
                   ? 'bg-ocean-600 text-white'
                   : 'bg-white text-ocean-700 border border-ocean-200 hover:bg-ocean-50'
               }`}
             >
-              {f === 'all' ? 'Todos' : f === 'pendiente' ? '⏳ Pendientes' : '✅ Pagados'}
+              {f === 'all' ? 'Todos' : f === 'pendiente' ? '⏳' : '✅'}
             </button>
           ))}
           <button
             onClick={loadData}
             disabled={isLoading}
-            className="ml-auto px-4 py-2 bg-ocean-100 text-ocean-700 rounded-lg text-sm hover:bg-ocean-200 transition-colors"
+            className="ml-auto px-3 py-1.5 bg-ocean-100 text-ocean-700 rounded-lg text-sm hover:bg-ocean-200 transition-colors"
           >
-            {isLoading ? '...' : '🔄 Actualizar'}
+            {isLoading ? '...' : '🔄'}
           </button>
         </div>
 
@@ -1082,9 +1359,27 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                   {presupuestos.map((p) => (
                     <tr key={p.id} className="hover:bg-ocean-50/50">
                       <td className="px-4 py-3">
-                        <span className="font-mono text-sm text-ocean-900">{p.id}</span>
-                        {p.source === 'admin' && p.customerName && (
-                          <span className="ml-1.5 text-[10px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full font-medium truncate max-w-[80px] inline-block align-middle" title={p.customerName}>
+                        <button
+                          onClick={() => copyIdToClipboard(p.id)}
+                          className="font-mono text-sm text-ocean-900 hover:text-ocean-600 active:scale-95 transition-all flex items-center gap-1 group"
+                          title="Tocar para copiar ID"
+                        >
+                          {p.id}
+                          {copiedId === p.id ? (
+                            <span className="text-green-600 text-xs">✓</span>
+                          ) : (
+                            <svg className="w-3.5 h-3.5 text-ocean-400 opacity-0 group-hover:opacity-100 md:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          )}
+                        </button>
+                        {p.isLinked && (
+                          <span className="ml-1 text-[10px] bg-blue-100 text-blue-600 px-1 py-0.5 rounded font-medium" title="Vinculado a cuenta de cliente">
+                            🔗
+                          </span>
+                        )}
+                        {p.customerName && (
+                          <span className="ml-1 text-[10px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full font-medium truncate max-w-[80px] inline-block align-middle" title={p.customerName}>
                             {p.customerName.length > 12 ? p.customerName.substring(0, 12) + '...' : p.customerName}
                           </span>
                         )}
@@ -1100,7 +1395,9 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <span className="font-semibold text-coral-600">{formatUSD(p.totalUSD)}</span>
-                        <span className="block text-xs text-ocean-500">{formatBs(p.totalBs)}</span>
+                        {bcvRateValue > 0 && p.totalBs !== 0 && !p.hideRate && (
+                          <span className="block text-xs text-ocean-500">{formatBs(p.totalUSD * bcvRateValue)}</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
@@ -1166,10 +1463,14 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                             👁️
                           </button>
                           <button
-                            onClick={() => handleDelete(p.id)}
-                            disabled={actionLoading === p.id}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Eliminar"
+                            onClick={() => handleDelete(p.id, p.isLinked)}
+                            disabled={actionLoading === p.id || p.isLinked}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              p.isLinked
+                                ? 'text-gray-300 cursor-not-allowed'
+                                : 'text-red-600 hover:bg-red-50'
+                            }`}
+                            title={p.isLinked ? 'No se puede eliminar (vinculado a cuenta)' : 'Eliminar'}
                           >
                             🗑️
                           </button>
@@ -1196,7 +1497,20 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
           <div className="bg-white rounded-2xl max-w-lg w-full max-h-[80vh] overflow-auto shadow-2xl">
             <div className="sticky top-0 bg-white border-b border-ocean-100 p-4 flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-ocean-900">Presupuesto {selectedPresupuesto.id}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-ocean-900">Presupuesto {selectedPresupuesto.id}</h3>
+                  {(() => {
+                    const isDual = selectedPresupuesto.totalUSDDivisa != null && Number(selectedPresupuesto.totalUSDDivisa) > 0;
+                    const isDivisasOnly = (Number(selectedPresupuesto.totalBs) === 0 || selectedPresupuesto.totalBs == null) && !selectedPresupuesto.hideRate;
+                    if (isDual) {
+                      return <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-[10px] font-medium">Dual</span>;
+                    } else if (isDivisasOnly) {
+                      return <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-medium">USD</span>;
+                    } else {
+                      return <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-medium">BCV</span>;
+                    }
+                  })()}
+                </div>
                 <p className="text-xs text-ocean-600">{formatDate(selectedPresupuesto.fecha)}</p>
               </div>
               <button
@@ -1289,10 +1603,18 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                   <span className="text-ocean-700">Total USD:</span>
                   <span className="text-xl font-bold text-coral-600">{formatUSD(currentTotalUSD)}</span>
                 </div>
-                <div className="flex justify-between items-center mt-1">
-                  <span className="text-ocean-700">Total Bs:</span>
-                  <span className="font-semibold text-ocean-900">{formatBs(currentTotalBs)}</span>
-                </div>
+                {/* Mostrar Bs solo si no es modo divisas y tenemos tasa BCV */}
+                {bcvRateValue > 0 && selectedPresupuesto.totalBs !== 0 && !selectedPresupuesto.hideRate && (
+                  <div className="flex justify-between items-center mt-1">
+                    <span className="text-ocean-700">Total Bs:</span>
+                    <span className="font-semibold text-ocean-900">{formatBs(currentTotalBs)}</span>
+                  </div>
+                )}
+                {(selectedPresupuesto.totalBs === 0 || bcvRateValue === 0) && !selectedPresupuesto.hideRate && (
+                  <div className="flex justify-between items-center mt-1">
+                    <span className="text-ocean-500 text-sm italic">Solo precios en USD (divisas)</span>
+                  </div>
+                )}
               </div>
 
               {/* Guardar cambios de precios */}
@@ -1367,23 +1689,33 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                 <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg mb-3">
                   <button
                     onClick={() => setWhatsappType('presupuesto')}
-                    className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-md transition-colors ${
                       whatsappType === 'presupuesto'
                         ? 'bg-white text-green-700 shadow-sm'
                         : 'text-gray-600 hover:text-gray-800'
                     }`}
                   >
-                    📸 Presupuesto (Imagen)
+                    📸 Imagen
                   </button>
                   <button
                     onClick={() => setWhatsappType('factura')}
-                    className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-md transition-colors ${
                       whatsappType === 'factura'
                         ? 'bg-white text-purple-700 shadow-sm'
                         : 'text-gray-600 hover:text-gray-800'
                     }`}
                   >
-                    📄 Factura (PDF)
+                    📄 PDF
+                  </button>
+                  <button
+                    onClick={() => setWhatsappType('manual')}
+                    className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                      whatsappType === 'manual'
+                        ? 'bg-white text-blue-700 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-800'
+                    }`}
+                  >
+                    💬 Texto
                   </button>
                 </div>
 
@@ -1410,6 +1742,8 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                       flex items-center gap-1.5 whitespace-nowrap ${
                         whatsappType === 'factura'
                           ? 'bg-purple-600 hover:bg-purple-500 disabled:bg-purple-300'
+                          : whatsappType === 'manual'
+                          ? 'bg-blue-600 hover:bg-blue-500 disabled:bg-blue-300'
                           : 'bg-green-600 hover:bg-green-500 disabled:bg-green-300'
                       }`}
                   >
@@ -1511,7 +1845,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                   <div className="flex gap-2">
                     <button
                       onClick={() => setWhatsappType('presupuesto')}
-                      className={`flex-1 py-2.5 px-3 rounded-lg border-2 transition-all text-sm font-medium flex items-center justify-center gap-2 ${
+                      className={`flex-1 py-2 px-2 rounded-lg border-2 transition-all text-xs font-medium flex items-center justify-center gap-1 ${
                         whatsappType === 'presupuesto'
                           ? 'border-green-500 bg-green-50 text-green-700'
                           : 'border-gray-200 text-gray-600 hover:border-gray-300'
@@ -1521,13 +1855,23 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                     </button>
                     <button
                       onClick={() => setWhatsappType('factura')}
-                      className={`flex-1 py-2.5 px-3 rounded-lg border-2 transition-all text-sm font-medium flex items-center justify-center gap-2 ${
+                      className={`flex-1 py-2 px-2 rounded-lg border-2 transition-all text-xs font-medium flex items-center justify-center gap-1 ${
                         whatsappType === 'factura'
                           ? 'border-purple-500 bg-purple-50 text-purple-700'
                           : 'border-gray-200 text-gray-600 hover:border-gray-300'
                       }`}
                     >
                       📄 PDF
+                    </button>
+                    <button
+                      onClick={() => setWhatsappType('manual')}
+                      className={`flex-1 py-2 px-2 rounded-lg border-2 transition-all text-xs font-medium flex items-center justify-center gap-1 ${
+                        whatsappType === 'manual'
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
+                    >
+                      💬 Texto
                     </button>
                   </div>
                 </div>
@@ -1578,6 +1922,8 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                   className={`w-full py-3 text-white rounded-xl font-semibold transition-colors flex items-center justify-center gap-2 ${
                     whatsappType === 'factura'
                       ? 'bg-purple-600 hover:bg-purple-500 disabled:bg-purple-300'
+                      : whatsappType === 'manual'
+                      ? 'bg-blue-600 hover:bg-blue-500 disabled:bg-blue-300'
                       : 'bg-green-600 hover:bg-green-500 disabled:bg-green-300'
                   }`}
                 >

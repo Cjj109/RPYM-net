@@ -30,12 +30,16 @@ export interface Presupuesto {
   totalUSD: number;
   totalBs: number;
   totalUSDDivisa?: number;
+  hideRate?: boolean; // True = hide BCV rate in print (but NOT same as divisas mode)
+  delivery?: number; // Delivery cost in USD
+  modoPrecio?: 'bcv' | 'divisa' | 'dual'; // Pricing mode
   estado: 'pendiente' | 'pagado';
   clientIP?: string;
   fechaPago?: string;
   customerName?: string;
   customerAddress?: string;
   source?: 'admin' | 'cliente';
+  isLinked?: boolean; // True if linked to a customer transaction
 }
 
 export interface SavePresupuestoData {
@@ -43,6 +47,9 @@ export interface SavePresupuestoData {
   totalUSD: number;
   totalBs: number;
   totalUSDDivisa?: number;
+  hideRate?: boolean;
+  delivery?: number;
+  modoPrecio?: 'bcv' | 'divisa' | 'dual';
   customerName?: string;
   customerAddress?: string;
   status?: 'pendiente' | 'pagado';
@@ -88,6 +95,9 @@ export async function savePresupuesto(data: SavePresupuestoData): Promise<{ succ
         totalUSD: data.totalUSD,
         totalBs: data.totalBs,
         totalUSDDivisa: data.totalUSDDivisa || null,
+        hideRate: data.hideRate || false,
+        delivery: data.delivery || 0,
+        modoPrecio: data.modoPrecio || 'bcv',
         customerName: data.customerName || '',
         customerAddress: data.customerAddress || '',
         clientIP: clientIP,
@@ -130,10 +140,16 @@ export async function getPresupuesto(id: string): Promise<Presupuesto | null> {
 /**
  * Lista todos los presupuestos
  */
-export async function listPresupuestos(status?: 'pendiente' | 'pagado' | 'all'): Promise<Presupuesto[]> {
+export async function listPresupuestos(
+  status?: 'pendiente' | 'pagado' | 'all',
+  search?: string
+): Promise<Presupuesto[]> {
   try {
-    const statusParam = status ? `?status=${status}` : '';
-    const response = await fetch(`/api/presupuestos${statusParam}`);
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (search?.trim()) params.set('search', search.trim());
+    const queryString = params.toString();
+    const response = await fetch(`/api/presupuestos${queryString ? '?' + queryString : ''}`);
     const result = await response.json();
 
     return result.presupuestos || [];
@@ -177,7 +193,11 @@ export async function updatePresupuesto(
   totalBs: number,
   customerName?: string,
   customerAddress?: string,
-  totalUSDDivisa?: number
+  totalUSDDivisa?: number,
+  hideRate?: boolean,
+  delivery?: number,
+  modoPrecio?: 'bcv' | 'divisa' | 'dual',
+  fecha?: string
 ): Promise<boolean> {
   try {
     const response = await fetch(`/api/presupuestos/${encodeURIComponent(id)}`, {
@@ -190,8 +210,12 @@ export async function updatePresupuesto(
         totalUSD,
         totalBs,
         totalUSDDivisa: totalUSDDivisa || null,
+        hideRate: hideRate || false,
+        delivery: delivery || 0,
+        modoPrecio: modoPrecio || 'bcv',
         customerName: customerName || '',
         customerAddress: customerAddress || '',
+        fecha: fecha || null,
       })
     });
 
@@ -206,17 +230,17 @@ export async function updatePresupuesto(
 /**
  * Elimina un presupuesto
  */
-export async function deletePresupuesto(id: string): Promise<boolean> {
+export async function deletePresupuesto(id: string): Promise<{ success: boolean; error?: string }> {
   try {
     const response = await fetch(`/api/presupuestos/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     });
 
     const result = await response.json();
-    return result.success || false;
+    return { success: result.success || false, error: result.error };
   } catch (error) {
     console.error('Error eliminando presupuesto:', error);
-    return false;
+    return { success: false, error: 'Error de conexión' };
   }
 }
 

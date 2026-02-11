@@ -41,10 +41,55 @@ interface FacturaItem {
   unidad: string;
   precioUnit: number;
   subtotal: number;
+  precioUnitDivisa?: number;
+  subtotalDivisa?: number;
+}
+
+// Ocean blue theme colors (matching admin panel print)
+const COLORS = {
+  // BCV / Primary theme
+  primary: { r: 7, g: 89, b: 133 },      // #075985
+  primaryDark: { r: 12, g: 74, b: 110 }, // #0c4a6e
+  primaryLight: { r: 3, g: 105, b: 161 }, // #0369a1
+  primaryBg: { r: 224, g: 242, b: 254 },  // #e0f2fe
+  primaryAltBg: { r: 240, g: 249, b: 255 }, // #f0f9ff
+
+  // Divisa / Amber theme
+  amber: { r: 146, g: 64, b: 14 },        // #92400e
+  amberDark: { r: 113, g: 63, b: 18 },    // #713f12
+  amberBg: { r: 254, g: 243, b: 199 },    // #fef3c7
+  amberAltBg: { r: 254, g: 252, b: 232 }, // #fefce8
+
+  // USD Only / Green theme
+  green: { r: 22, g: 101, b: 52 },        // #166534
+  greenBg: { r: 220, g: 252, b: 231 },    // #dcfce7
+
+  // Orange for Bs
+  orange: { r: 234, g: 88, b: 12 },       // #ea580c
+
+  // Neutrals
+  white: { r: 255, g: 255, b: 255 },
+  gray: { r: 100, g: 100, b: 100 },
+  lightGray: { r: 245, g: 245, b: 245 },
+};
+
+// Format quantity without trailing zeros
+function fmtQty(qty: number): string {
+  const rounded = Math.round(qty * 1000) / 1000;
+  return rounded.toFixed(3).replace(/\.?0+$/, '');
+}
+
+// Format currency
+function formatUSD(amount: number): string {
+  return `$${amount.toFixed(2)}`;
+}
+
+function formatBs(amount: number): string {
+  return `Bs. ${amount.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 /**
- * Generate PDF factura using jsPDF
+ * Generate PDF presupuesto matching admin panel print design
  */
 function generateFacturaPDF(data: {
   facturaId: string;
@@ -56,9 +101,14 @@ function generateFacturaPDF(data: {
   iva?: number;
   total: number;
   totalBs?: number;
+  totalUSDDivisa?: number;
   exchangeRate?: number;
   date: string;
   notes?: string;
+  isPaid?: boolean;
+  delivery?: number;
+  modoPrecio?: 'bcv' | 'divisa' | 'dual';
+  hideRate?: boolean;
 }): ArrayBuffer {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -67,201 +117,437 @@ function generateFacturaPDF(data: {
   });
 
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 15;
-  let y = 20;
 
-  // Header - Company name
-  doc.setFontSize(24);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 102, 204); // Blue
-  doc.text('RPYM', margin, y);
+  // Use modoPrecio if available, otherwise infer from values (legacy support)
+  const modoPrecio = data.modoPrecio || (
+    data.totalUSDDivisa && data.totalBs && data.totalBs > 0 && data.totalUSDDivisa !== data.total
+      ? 'dual'
+      : data.totalUSDDivisa && data.totalUSDDivisa > 0 && (!data.totalBs || data.totalBs === 0)
+        ? 'divisa'
+        : 'bcv'
+  );
 
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(100, 100, 100);
-  doc.text('El Rey de los Pescados y Mariscos', margin, y + 6);
+  const isDual = modoPrecio === 'dual';
+  const isDivisasOnly = modoPrecio === 'divisa';
 
-  // Factura number - right aligned
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(50, 50, 50);
-  doc.text(`FACTURA #${data.facturaId}`, pageWidth - margin, y, { align: 'right' });
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Fecha: ${data.date}`, pageWidth - margin, y + 6, { align: 'right' });
-
-  y += 25;
-
-  // Divider line
-  doc.setDrawColor(200, 200, 200);
-  doc.setLineWidth(0.5);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 10;
-
-  // Customer info
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(50, 50, 50);
-  doc.text('CLIENTE:', margin, y);
-
-  doc.setFont('helvetica', 'normal');
-  doc.text(data.customerName, margin + 25, y);
-  y += 6;
-
-  if (data.customerPhone) {
-    doc.setFont('helvetica', 'bold');
-    doc.text('Telefono:', margin, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(data.customerPhone, margin + 25, y);
-    y += 6;
-  }
-
-  if (data.customerAddress) {
-    doc.setFont('helvetica', 'bold');
-    doc.text('Direccion:', margin, y);
-    doc.setFont('helvetica', 'normal');
-    // Word wrap for address
-    const addressLines = doc.splitTextToSize(data.customerAddress, pageWidth - margin - 40);
-    doc.text(addressLines, margin + 25, y);
-    y += 6 * addressLines.length;
-  }
-
-  y += 8;
-
-  // Items table header
-  const colWidths = {
-    producto: 70,
-    cantidad: 20,
-    unidad: 25,
-    precio: 30,
-    subtotal: 30
+  // Helper to set color from object
+  const setColor = (color: { r: number; g: number; b: number }, type: 'text' | 'draw' | 'fill') => {
+    if (type === 'text') doc.setTextColor(color.r, color.g, color.b);
+    else if (type === 'draw') doc.setDrawColor(color.r, color.g, color.b);
+    else doc.setFillColor(color.r, color.g, color.b);
   };
 
-  doc.setFillColor(0, 102, 204);
-  doc.rect(margin, y, pageWidth - 2 * margin, 8, 'F');
+  // Draw page function (can be called for BCV page and Divisa page)
+  const drawPage = (isDivisaPage: boolean = false) => {
+    const theme = isDivisaPage
+      ? { primary: COLORS.amber, primaryDark: COLORS.amberDark, primaryLight: COLORS.amber, primaryBg: COLORS.amberBg, primaryAltBg: COLORS.amberAltBg }
+      : { primary: COLORS.primary, primaryDark: COLORS.primaryDark, primaryLight: COLORS.primaryLight, primaryBg: COLORS.primaryBg, primaryAltBg: COLORS.primaryAltBg };
 
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(255, 255, 255);
+    let y = 15;
 
-  let x = margin + 2;
-  doc.text('Producto', x, y + 5.5);
-  x += colWidths.producto;
-  doc.text('Cant.', x, y + 5.5);
-  x += colWidths.cantidad;
-  doc.text('Unidad', x, y + 5.5);
-  x += colWidths.unidad;
-  doc.text('P. Unit.', x, y + 5.5);
-  x += colWidths.precio;
-  doc.text('Subtotal', x, y + 5.5);
-
-  y += 10;
-
-  // Items
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(50, 50, 50);
-
-  for (let i = 0; i < data.items.length; i++) {
-    const item = data.items[i];
-
-    // Alternate row colors
-    if (i % 2 === 0) {
-      doc.setFillColor(245, 245, 245);
-      doc.rect(margin, y - 1, pageWidth - 2 * margin, 7, 'F');
+    // PAGADO stamp (watermark style)
+    if (data.isPaid) {
+      doc.saveGraphicsState();
+      doc.setGState(new (doc as any).GState({ opacity: 0.15 }));
+      setColor(COLORS.green, 'text');
+      doc.setFontSize(48);
+      doc.setFont('helvetica', 'bold');
+      // Rotate and center the stamp
+      const centerX = pageWidth / 2;
+      const centerY = pageHeight / 2;
+      doc.text('PAGADO', centerX, centerY, { align: 'center', angle: -15 });
+      doc.restoreGraphicsState();
     }
 
-    x = margin + 2;
+    // === HEADER BOX ===
+    setColor(theme.primary, 'draw');
+    doc.setLineWidth(0.6);
+    doc.rect(margin, y, pageWidth - 2 * margin, 28);
 
-    // Truncate product name if too long
-    const productName = item.producto.length > 35
-      ? item.producto.substring(0, 32) + '...'
-      : item.producto;
-    doc.text(productName, x, y + 4);
+    // Left side - Logo area
+    const logoX = margin + 5;
+    const logoY = y + 8;
 
-    x += colWidths.producto;
-    doc.text(item.cantidad.toString(), x, y + 4);
+    // Circle for logo placeholder
+    setColor(theme.primaryBg, 'fill');
+    setColor(theme.primary, 'draw');
+    doc.setLineWidth(0.5);
+    doc.circle(logoX + 7, logoY + 5, 7, 'FD');
 
-    x += colWidths.cantidad;
-    doc.text(item.unidad, x, y + 4);
-
-    x += colWidths.unidad;
-    doc.text(`$${item.precioUnit.toFixed(2)}`, x, y + 4);
-
-    x += colWidths.precio;
-    doc.text(`$${item.subtotal.toFixed(2)}`, x, y + 4);
-
-    y += 7;
-
-    // Check if we need a new page
-    if (y > 260) {
-      doc.addPage();
-      y = 20;
-    }
-  }
-
-  y += 5;
-
-  // Divider
-  doc.setDrawColor(200, 200, 200);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 8;
-
-  // Totals section - right aligned
-  const totalsX = pageWidth - margin - 60;
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-
-  // Subtotal
-  doc.text('Subtotal:', totalsX, y);
-  doc.text(`$${data.subtotal.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
-  y += 6;
-
-  // IVA if applicable
-  if (data.iva && data.iva > 0) {
-    doc.text('IVA (16%):', totalsX, y);
-    doc.text(`$${data.iva.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
-    y += 6;
-  }
-
-  // Total USD
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.text('TOTAL USD:', totalsX, y);
-  doc.setTextColor(0, 102, 204);
-  doc.text(`$${data.total.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
-  y += 8;
-
-  // Total Bs if exchange rate provided
-  if (data.totalBs && data.exchangeRate) {
-    doc.setTextColor(50, 50, 50);
-    doc.setFontSize(10);
-    doc.text(`Tasa BCV: Bs. ${data.exchangeRate.toFixed(2)}`, totalsX, y);
-    y += 6;
+    // RPYM text inside circle area (stylized)
+    setColor(theme.primaryDark, 'text');
+    doc.setFontSize(6);
     doc.setFont('helvetica', 'bold');
-    doc.text('TOTAL Bs:', totalsX, y);
-    doc.setTextColor(34, 139, 34); // Green
-    doc.text(`Bs. ${data.totalBs.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
-    y += 8;
-  }
+    doc.text('RPYM', logoX + 7, logoY + 6, { align: 'center' });
 
-  // Notes
-  if (data.notes) {
-    y += 5;
-    doc.setTextColor(100, 100, 100);
+    // Company name
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    setColor(theme.primaryDark, 'text');
+    doc.text('RPYM', logoX + 20, logoY + 3);
+
+    // Address
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    setColor(theme.primaryLight, 'text');
+    doc.text('Muelle Pesquero "El Mosquero", Puesto 3 y 4, Maiquetia', logoX + 20, logoY + 9);
+
+    // Right side - Document info
+    const rightX = pageWidth - margin - 5;
+
+    // Title
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    setColor(theme.primaryDark, 'text');
+    doc.text('PRESUPUESTO', rightX, y + 10, { align: 'right' });
+
+    // Type badge
+    let badgeText = '';
+    let badgeColor = theme.primaryBg;
+    let badgeTextColor = theme.primary;
+
+    if (isDivisaPage) {
+      // Divisa page (second page of dual, or single page for divisa-only)
+      badgeText = 'PRECIOS DIVISA';
+      badgeColor = COLORS.amberBg;
+      badgeTextColor = COLORS.amber;
+    } else if (isDual) {
+      // First page of dual (BCV prices)
+      badgeText = 'PRECIOS BCV';
+    } else {
+      // BCV-only mode
+      badgeText = 'PRECIOS BCV';
+    }
+
+    if (badgeText) {
+      const badgeWidth = 30;
+      const badgeHeight = 5;
+      const badgeX = rightX - badgeWidth;
+      const badgeY = y + 13;
+      setColor(badgeColor, 'fill');
+      doc.roundedRect(badgeX, badgeY, badgeWidth, badgeHeight, 1, 1, 'F');
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      setColor(badgeTextColor, 'text');
+      doc.text(badgeText, badgeX + badgeWidth / 2, badgeY + 3.5, { align: 'center' });
+    }
+
+    // ID and date
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    setColor(theme.primaryLight, 'text');
+    doc.text('No:', rightX - 35, y + 22);
+    doc.setFont('helvetica', 'bold');
+    setColor(theme.primaryDark, 'text');
+    doc.text(data.facturaId, rightX - 28, y + 22);
+
+    doc.setFont('helvetica', 'normal');
+    setColor(theme.primaryLight, 'text');
+    doc.text('Fecha:', rightX - 35, y + 26);
+    doc.setFont('helvetica', 'bold');
+    setColor(theme.primaryDark, 'text');
+    doc.text(data.date, rightX - 22, y + 26);
+
+    y += 32;
+
+    // === CLIENT INFO BOX ===
+    setColor(theme.primary, 'draw');
+    doc.setLineWidth(0.6);
+    doc.rect(margin, y, pageWidth - 2 * margin, 16);
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    setColor(theme.primaryLight, 'text');
+    doc.text('Cliente:', margin + 3, y + 6);
+    doc.setFont('helvetica', 'normal');
+    setColor(theme.primaryDark, 'text');
+    doc.text(data.customerName || '---', margin + 20, y + 6);
+
+    doc.setFont('helvetica', 'bold');
+    setColor(theme.primaryLight, 'text');
+    doc.text('Direccion:', margin + 3, y + 12);
+    doc.setFont('helvetica', 'normal');
+    setColor(theme.primaryDark, 'text');
+    const addressText = data.customerAddress || '---';
+    const truncatedAddress = addressText.length > 80 ? addressText.substring(0, 77) + '...' : addressText;
+    doc.text(truncatedAddress, margin + 23, y + 12);
+
+    y += 20;
+
+    // === PRODUCTS TABLE ===
+    const tableWidth = pageWidth - 2 * margin;
+
+    // Define exact column boundaries (absolute X positions)
+    // Total width = 180mm (A4 width 210 - 2*15 margin)
+    // Columns: Producto(70) + Cant(20) + Unidad(25) + P.Unit(28) + Subtotal(37) = 180
+    const col = {
+      producto: { start: margin, width: 70 },
+      cantidad: { start: margin + 70, width: 20 },
+      unidad: { start: margin + 90, width: 25 },
+      precio: { start: margin + 115, width: 28 },
+      subtotal: { start: margin + 143, width: 37 }
+    };
+
+    const headerHeight = 8;
+    const rowHeight = 7;
+
+    // Draw table header background
+    setColor(theme.primaryBg, 'fill');
+    doc.rect(margin, y, tableWidth, headerHeight, 'F');
+
+    // Draw header border
+    setColor(theme.primary, 'draw');
+    doc.setLineWidth(0.5);
+    doc.rect(margin, y, tableWidth, headerHeight, 'S');
+
+    // Header text
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'italic');
-    const noteLines = doc.splitTextToSize(`Nota: ${data.notes}`, pageWidth - 2 * margin);
-    doc.text(noteLines, margin, y);
-  }
+    doc.setFont('helvetica', 'bold');
+    setColor(theme.primaryDark, 'text');
 
-  // Footer
-  const footerY = doc.internal.pageSize.getHeight() - 15;
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(150, 150, 150);
-  doc.text('Gracias por su compra - RPYM El Rey de los Pescados y Mariscos', pageWidth / 2, footerY, { align: 'center' });
+    const headerY = y + 5.5;
+    doc.text('Producto', col.producto.start + 3, headerY);
+    doc.text('Cant', col.cantidad.start + col.cantidad.width / 2, headerY, { align: 'center' });
+    doc.text('Unidad', col.unidad.start + col.unidad.width / 2, headerY, { align: 'center' });
+    doc.text('P.Unitario', col.precio.start + col.precio.width / 2, headerY, { align: 'center' });
+    doc.text('Subtotal', col.subtotal.start + col.subtotal.width / 2, headerY, { align: 'center' });
+
+    // Header vertical lines
+    setColor(theme.primary, 'draw');
+    doc.line(col.cantidad.start, y, col.cantidad.start, y + headerHeight);
+    doc.line(col.unidad.start, y, col.unidad.start, y + headerHeight);
+    doc.line(col.precio.start, y, col.precio.start, y + headerHeight);
+    doc.line(col.subtotal.start, y, col.subtotal.start, y + headerHeight);
+
+    y += headerHeight;
+    const bodyStartY = y;
+
+    // Table rows
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+
+    for (let i = 0; i < data.items.length; i++) {
+      const item = data.items[i];
+
+      // Alternate row background
+      if (i % 2 === 0) {
+        setColor(theme.primaryAltBg, 'fill');
+        doc.rect(margin, y, tableWidth, rowHeight, 'F');
+      }
+
+      setColor(theme.primaryDark, 'text');
+      const rowY = y + 5;
+
+      // Product name (truncate if needed)
+      const productName = item.producto.length > 35 ? item.producto.substring(0, 32) + '...' : item.producto;
+      doc.text(productName, col.producto.start + 3, rowY);
+
+      // Quantity - centered
+      doc.text(fmtQty(item.cantidad), col.cantidad.start + col.cantidad.width / 2, rowY, { align: 'center' });
+
+      // Unit - centered
+      doc.text(item.unidad, col.unidad.start + col.unidad.width / 2, rowY, { align: 'center' });
+
+      // Price and subtotal based on page type
+      const precioUnit = isDivisaPage ? (item.precioUnitDivisa ?? item.precioUnit) : item.precioUnit;
+      const subtotal = isDivisaPage ? (item.subtotalDivisa ?? item.subtotal) : item.subtotal;
+
+      // Price - right aligned with padding
+      doc.text(formatUSD(precioUnit), col.precio.start + col.precio.width - 3, rowY, { align: 'right' });
+
+      // Subtotal - right aligned with padding, bold
+      doc.setFont('helvetica', 'bold');
+      doc.text(formatUSD(subtotal), col.subtotal.start + col.subtotal.width - 3, rowY, { align: 'right' });
+      doc.setFont('helvetica', 'normal');
+
+      y += rowHeight;
+    }
+
+    // Delivery row (if applicable)
+    if (data.delivery && data.delivery > 0) {
+      // Amber background for delivery row
+      setColor({ r: 255, g: 251, b: 235 }, 'fill'); // #fffbeb
+      doc.rect(margin, y, tableWidth, rowHeight, 'F');
+
+      setColor(theme.primaryDark, 'text');
+      const rowY = y + 5;
+
+      doc.setFont('helvetica', 'italic');
+      doc.text('Delivery', col.producto.start + 3, rowY);
+
+      doc.setFont('helvetica', 'normal');
+      doc.text('1', col.cantidad.start + col.cantidad.width / 2, rowY, { align: 'center' });
+      doc.text('servicio', col.unidad.start + col.unidad.width / 2, rowY, { align: 'center' });
+      doc.text(formatUSD(data.delivery), col.precio.start + col.precio.width - 3, rowY, { align: 'right' });
+
+      doc.setFont('helvetica', 'bold');
+      doc.text(formatUSD(data.delivery), col.subtotal.start + col.subtotal.width - 3, rowY, { align: 'right' });
+      doc.setFont('helvetica', 'normal');
+
+      y += rowHeight;
+    }
+
+    // Draw body border (around all rows)
+    const bodyHeight = y - bodyStartY;
+    setColor(theme.primary, 'draw');
+    doc.rect(margin, bodyStartY, tableWidth, bodyHeight, 'S');
+
+    // Body vertical lines (same positions as header)
+    doc.line(col.cantidad.start, bodyStartY, col.cantidad.start, y);
+    doc.line(col.unidad.start, bodyStartY, col.unidad.start, y);
+    doc.line(col.precio.start, bodyStartY, col.precio.start, y);
+    doc.line(col.subtotal.start, bodyStartY, col.subtotal.start, y);
+
+    y += 4;
+
+    // === TOTALS BOX ===
+    const hasDelivery = data.delivery && data.delivery > 0;
+    const baseHeight = isDivisaPage || isDivisasOnly ? 18 : 26;
+    const totalsBoxHeight = hasDelivery ? baseHeight + 12 : baseHeight;
+    setColor(theme.primary, 'draw');
+    doc.rect(margin, y, tableWidth, totalsBoxHeight, 'S');
+
+    // Left side - Observations
+    const obsWidth = tableWidth * 0.6;
+    doc.line(margin + obsWidth, y, margin + obsWidth, y + totalsBoxHeight);
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    setColor(theme.primaryLight, 'text');
+    doc.text('OBSERVACIONES:', margin + 3, y + 5);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    if (isDivisaPage || isDivisasOnly) {
+      doc.text('Precios en USD efectivo', margin + 3, y + 10);
+    } else {
+      // BCV mode (with or without hideRate) - always show BCV note
+      doc.text('Tasa BCV aplicada al momento de pago', margin + 3, y + 10);
+    }
+
+    // Right side - Totals
+    const totalsX = margin + obsWidth + 5;
+    const totalsRightX = pageWidth - margin - 3;
+    let totalsY = y + 5;
+
+    // Show subtotal and delivery if delivery is present
+    if (hasDelivery) {
+      const subtotal = data.total - (data.delivery || 0);
+
+      doc.setFontSize(9);
+      setColor(theme.primaryLight, 'text');
+      doc.setFont('helvetica', 'normal');
+      doc.text('Subtotal:', totalsX, totalsY);
+      setColor(theme.primaryDark, 'text');
+      doc.text(formatUSD(subtotal), totalsRightX, totalsY, { align: 'right' });
+
+      totalsY += 5;
+      setColor(theme.primaryLight, 'text');
+      doc.text('Delivery:', totalsX, totalsY);
+      setColor(theme.primaryDark, 'text');
+      doc.text(formatUSD(data.delivery!), totalsRightX, totalsY, { align: 'right' });
+
+      totalsY += 3;
+      // Separator line
+      setColor(theme.primaryBg, 'draw');
+      doc.line(totalsX, totalsY, totalsRightX, totalsY);
+      totalsY += 4;
+    }
+
+    doc.setFontSize(10);
+    setColor(theme.primaryLight, 'text');
+    doc.setFont('helvetica', 'bold');
+    doc.text('Total USD:', totalsX, totalsY);
+
+    const totalAmount = isDivisaPage ? (data.totalUSDDivisa ?? data.total) : data.total;
+    setColor(theme.primaryDark, 'text');
+    doc.text(formatUSD(totalAmount), totalsRightX, totalsY, { align: 'right' });
+
+    // Show Bs only on BCV page (not divisa, not USD-only, not hideRate)
+    if (!isDivisaPage && !isDivisasOnly && !data.hideRate && data.totalBs) {
+      // Separator line
+      setColor(theme.primaryBg, 'draw');
+      doc.line(totalsX, totalsY + 4, totalsRightX, totalsY + 4);
+
+      doc.setFontSize(9);
+      setColor(theme.primaryLight, 'text');
+      doc.text('Total Bs.:', totalsX, totalsY + 10);
+
+      setColor(COLORS.orange, 'text');
+      doc.setFont('helvetica', 'bold');
+      doc.text(formatBs(data.totalBs), totalsRightX, totalsY + 10, { align: 'right' });
+    }
+
+    y += totalsBoxHeight + 8;
+
+    // === SIGNATURE LINES ===
+    const sigWidth = (tableWidth - 20) / 2;
+
+    setColor(theme.primary, 'draw');
+    doc.setLineWidth(0.5);
+
+    // Left signature
+    doc.line(margin + 10, y + 15, margin + 10 + sigWidth, y + 15);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    setColor(theme.primaryLight, 'text');
+    doc.text('CONFORME CLIENTE', margin + 10 + sigWidth / 2, y + 20, { align: 'center' });
+
+    // Right signature
+    const rightSigX = margin + 10 + sigWidth + 20;
+    doc.line(rightSigX, y + 15, rightSigX + sigWidth, y + 15);
+    doc.text('ENTREGADO POR', rightSigX + sigWidth / 2, y + 20, { align: 'center' });
+
+    y += 28;
+
+    // === THANK YOU MESSAGE (if paid) ===
+    if (data.isPaid) {
+      setColor(COLORS.greenBg, 'fill');
+      doc.roundedRect(margin, y, tableWidth, 10, 2, 2, 'F');
+      setColor(COLORS.green, 'text');
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Gracias por su compra!', pageWidth / 2, y + 7, { align: 'center' });
+      y += 14;
+    }
+
+    // === NON-FISCAL NOTICE ===
+    setColor({ r: 255, g: 251, b: 235 }, 'fill'); // #fffbeb
+    setColor({ r: 253, g: 230, b: 138 }, 'draw'); // #fde68a
+    doc.setLineWidth(0.3);
+    doc.roundedRect(margin, y, tableWidth, 8, 1, 1, 'FD');
+    setColor({ r: 180, g: 83, b: 9 }, 'text'); // #b45309
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Este documento no tiene validez fiscal - Solo para referencia', pageWidth / 2, y + 5, { align: 'center' });
+
+    y += 12;
+
+    // === FOOTER ===
+    setColor(theme.primaryBg, 'draw');
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pageWidth - margin, y);
+
+    doc.setFontSize(8);
+    setColor(theme.primaryLight, 'text');
+    doc.text('www.rpym.net  •  WhatsApp: +58 414-214-5202', pageWidth / 2, y + 5, { align: 'center' });
+  };
+
+  // Draw page(s) based on mode:
+  // - BCV only: single page with BCV theme (isDivisaPage = false)
+  // - Divisa only: single page with Divisa theme (isDivisaPage = true)
+  // - Dual: two pages (BCV first, then Divisa)
+  if (isDivisasOnly) {
+    drawPage(true); // Single divisa page with amber theme
+  } else {
+    drawPage(false); // BCV page with blue theme
+    if (isDual) {
+      doc.addPage();
+      drawPage(true); // Second page for divisa prices
+    }
+  }
 
   return doc.output('arraybuffer');
 }
@@ -318,9 +604,14 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       iva,
       total,
       totalBs,
+      totalUSDDivisa,
       exchangeRate,
       date,
-      notes
+      notes,
+      isPaid,
+      delivery,
+      modoPrecio,
+      hideRate
     } = body;
 
     if (!phone || !facturaId || !items || !Array.isArray(items) || items.length === 0 || !total) {
@@ -356,9 +647,14 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       iva,
       total,
       totalBs,
+      totalUSDDivisa,
       exchangeRate,
       date: date || new Date().toLocaleDateString('es-VE'),
-      notes
+      notes,
+      isPaid: isPaid || false,
+      delivery: delivery || 0,
+      modoPrecio: modoPrecio || undefined,
+      hideRate: hideRate || false
     });
 
     // Upload PDF to R2

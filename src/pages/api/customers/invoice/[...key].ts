@@ -1,25 +1,17 @@
 import type { APIRoute } from 'astro';
-import { getD1, getR2 } from '../../../../lib/d1-types';
-import { validateSession, getSessionFromCookie } from '../../../../lib/auth';
+import { getR2 } from '../../../../lib/d1-types';
+import { requireAuth } from '../../../../lib/require-auth';
 
 export const prerender = false;
 
 // GET /api/customers/invoice/:key - Serve invoice image from R2
 export const GET: APIRoute = async ({ params, request, locals }) => {
-  const db = getD1(locals);
+  const auth = await requireAuth(request, locals);
+  if (auth instanceof Response) return auth;
   const r2 = getR2(locals);
 
-  if (!db || !r2) {
+  if (!r2) {
     return new Response('Service unavailable', { status: 503 });
-  }
-
-  const sessionId = getSessionFromCookie(request.headers.get('Cookie'));
-  if (!sessionId) {
-    return new Response('Unauthorized', { status: 401 });
-  }
-  const user = await validateSession(db, sessionId);
-  if (!user) {
-    return new Response('Unauthorized', { status: 401 });
   }
 
   try {

@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
-import { getD1, getR2 } from '../../../lib/d1-types';
-import { validateSession, getSessionFromCookie } from '../../../lib/auth';
+import { getR2 } from '../../../lib/d1-types';
+import { requireAuth } from '../../../lib/require-auth';
 
 export const prerender = false;
 
@@ -8,31 +8,14 @@ const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 
 // POST /api/customers/upload-invoice - Upload invoice image to R2
 export const POST: APIRoute = async ({ request, locals }) => {
-  const db = getD1(locals);
+  const auth = await requireAuth(request, locals);
+  if (auth instanceof Response) return auth;
+  const { db } = auth;
   const r2 = getR2(locals);
-
-  if (!db) {
-    return new Response(JSON.stringify({ success: false, error: 'Database no disponible' }), {
-      status: 500, headers: { 'Content-Type': 'application/json' }
-    });
-  }
 
   if (!r2) {
     return new Response(JSON.stringify({ success: false, error: 'Almacenamiento de imagenes no disponible' }), {
       status: 500, headers: { 'Content-Type': 'application/json' }
-    });
-  }
-
-  const sessionId = getSessionFromCookie(request.headers.get('Cookie'));
-  if (!sessionId) {
-    return new Response(JSON.stringify({ success: false, error: 'No autenticado' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' }
-    });
-  }
-  const user = await validateSession(db, sessionId);
-  if (!user) {
-    return new Response(JSON.stringify({ success: false, error: 'Sesion invalida' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' }
     });
   }
 

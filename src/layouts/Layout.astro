@@ -30,7 +30,7 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
       (function() {
         try {
           var cached = localStorage.getItem('rpym_theme');
-          if (cached && ['ocean', 'carnival', 'christmas', 'easter'].includes(cached)) {
+          if (cached && ['ocean', 'carnival', 'christmas', 'easter', 'valentine', 'mundial', 'halloween'].includes(cached)) {
             document.documentElement.setAttribute('data-theme', cached);
           }
         } catch (e) {}
@@ -151,7 +151,7 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
     <script is:inline>
       (function() {
         var POLL_INTERVAL = 30000; // 30 seconds
-        var VALID_THEMES = ['ocean', 'carnival', 'christmas', 'easter'];
+        var VALID_THEMES = ['ocean', 'carnival', 'christmas', 'easter', 'valentine', 'mundial', 'halloween'];
 
         function applyTheme(theme) {
           if (!VALID_THEMES.includes(theme)) return;
@@ -162,7 +162,10 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
             ocean: '#0c4a6e',
             carnival: '#7e22ce',
             christmas: '#b91c1c',
-            easter: '#be185d'
+            easter: '#be185d',
+            valentine: '#e11d48',
+            mundial: '#16a34a',
+            halloween: '#f97316'
           };
           var metaTheme = document.querySelector('meta[name="theme-color"]');
           if (metaTheme) metaTheme.setAttribute('content', themeColors[theme]);
