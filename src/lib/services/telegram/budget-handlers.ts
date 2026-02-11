@@ -644,10 +644,15 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
       id: String(p.id), nombre: p.nombre, unidad: p.unidad, precioUSD: p.precioUSD, precioUSDDivisa: p.precioUSDDivisa
     }));
 
+    const customers = await db.prepare('SELECT id, name FROM customers WHERE is_active = 1').all<{ id: number; name: string }>();
     const response = await fetch(`${baseUrl}/api/parse-order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, products: productList }),
+      body: JSON.stringify({
+        text,
+        products: productList,
+        customers: customers?.results || []
+      }),
     });
     const result = await response.json();
 
@@ -750,6 +755,33 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
           totalUSD += subtotalMain;
           totalBs += subtotalMain * bcvRate.rate;
           totalUSDDivisa += subtotalDivisa;
+        } else if (item.customPrice && (item.requestedName || item.productName)) {
+          // Producto no en catálogo pero con precio: tratar como personalizado
+          const suggestedName = item.suggestedName || (item.requestedName || item.productName || '')
+            .replace(/^\d+(\.\d+)?\s*(kg|kilo|kilos|gr|g|cj|cajas?)\s*(de\s+)?/i, '')
+            .replace(/\s+a\s+\$?\d+.*$/i, '')
+            .trim()
+            .replace(/^\w/, c => c.toUpperCase());
+          const precioBCV = item.customPrice;
+          const precioDivisa = item.customPriceDivisa ?? precioBCV;
+          const precioMain = pricingMode === 'divisas' ? precioDivisa : precioBCV;
+          const subtotalMain = precioMain * item.quantity;
+          const subtotalDivisa = precioDivisa * item.quantity;
+          presupuestoItems.push({
+            nombre: suggestedName || 'Producto',
+            cantidad: item.quantity,
+            unidad: item.unit || 'kg',
+            precioUSD: precioMain,
+            precioBs: precioMain * bcvRate.rate,
+            subtotalUSD: subtotalMain,
+            subtotalBs: subtotalMain * bcvRate.rate,
+            precioUSDDivisa: pricingMode === 'dual' ? precioDivisa : precioMain,
+            subtotalUSDDivisa: pricingMode === 'dual' ? subtotalDivisa : subtotalMain
+          });
+          totalUSD += subtotalMain;
+          totalBs += subtotalMain * bcvRate.rate;
+          totalUSDDivisa += subtotalDivisa;
+          console.log(`[Telegram] Added custom product: ${suggestedName} x ${item.quantity} @ $${precioBCV}`);
         } else {
           console.log(`[Telegram] Could not find product by name: ${searchName}`);
         }
@@ -808,6 +840,8 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
       const linkResult = await linkBudgetToCustomer(db, id, result.customerName);
       if (linkResult.success) {
         responseText += `\n\n📋 Vinculado a cuenta de *${result.customerName}*`;
+      } else {
+        responseText += `\n\n⚠️ ${linkResult.message}`;
       }
     }
 

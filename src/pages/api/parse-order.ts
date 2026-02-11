@@ -29,6 +29,7 @@ interface ParsedItem {
 interface ParseRequest {
   text: string;
   products: ProductInfo[];
+  customers?: { id: number; name: string }[];
 }
 
 interface ParseResponse {
@@ -64,7 +65,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const body: ParseRequest = await request.json();
-    const { text, products } = body;
+    const { text, products, customers = [] } = body;
 
     if (!text || !products || products.length === 0) {
       return new Response(JSON.stringify({
@@ -236,10 +237,13 @@ DELIVERY:
 - Formatos: "delivery $5", "$5 delivery", "5$ de delivery", "envío 5 dólares"
 - Si no menciona delivery, delivery será null
 
-NOMBRE DEL CLIENTE:
-- Detecta si se menciona un nombre de cliente
+NOMBRE DEL CLIENTE (MUY IMPORTANTE - extrae SIEMPRE que se mencione):
 - Formatos: "cliente: Juan", "para Maria", "pedido de Pedro", "Juan Garcia", "cliente Juan"
-- Si hay un nombre propio al inicio o después de "cliente/para/pedido de", extraerlo
+- "a Delcy", "a Maria", "creale a Delcy", "crea presupuesto a Jose", "presupuesto a Carlos"
+- "para Delcy", "presupuesto para Maria", "de Delcy" = el presupuesto es DE ese cliente
+- Si hay un nombre propio después de "a", "para", "de", "cliente" → customerName con ese nombre
+- Si recibes lista CLIENTES REGISTRADOS: usa el nombre EXACTO de esa lista (ej: si dicen "Delcy" y en la lista está "Delcy Rodriguez", usa "Delcy Rodriguez")
+- Si no hay lista de clientes: devuelve el nombre tal como lo escribió el usuario
 - Si no se detecta nombre, customerName será null
 
 DIRECCIÓN DEL CLIENTE:
@@ -254,9 +258,10 @@ SOLO DÓLARES:
 - Si se menciona, dollarsOnly será true, sino false
 
 ESTADO PAGADO:
-- Detecta si el pedido ya está pagado
+- Detecta si el pedido ya está pagado O si el usuario pide marcarlo como pagado
 - Formatos: "pagado", "ya pago", "cancelado" (en el sentido de pagado), "ya pagó", "pago confirmado"
-- Si se menciona, isPaid será true, sino false
+- INSTRUCCIONES (también isPaid: true): "márcalo pagado", "marca como pagado", "márcalo como pagado", "y márcalo pagado"
+- Si el mensaje incluye cualquiera de estas frases al final o en el texto, isPaid será true
 
 MODO DE PRECIO:
 - Cada producto puede tener dos precios: "Precio BCV" (para pago en bolívares) y "Precio Divisa" (para pago en dólares efectivos)
@@ -287,12 +292,13 @@ FECHAS (MUY IMPORTANTE):
 - Si detectas una fecha, devuelve en formato "YYYY-MM-DD"
 - Si no se menciona fecha, date = null
 
-PRODUCTOS PERSONALIZADOS (no en catálogo):
-- Si el usuario menciona un producto que NO está en el catálogo PERO especifica un precio:
-  - "mariscos varios $25" → matched: false, productId: null, suggestedName: "Mariscos Varios", quantity: 1, customPrice: 25
-  - "2kg de producto especial a $15" → matched: false, productId: null, suggestedName: "Producto Especial", quantity: 2, customPrice: 15
-- Si el producto no está en catálogo Y no tiene precio especificado → va a "unmatched"
-- suggestedName debe ser un nombre limpio y capitalizado para el producto personalizado
+PRODUCTOS PERSONALIZADOS (fuera del catálogo):
+- PRODUCTO PERSONALIZADO = cualquier producto que NO está en el catálogo PERO tiene precio
+- Si el producto NO hace match con el catálogo Y el usuario dio precio → matched: false, suggestedName, customPrice
+- Ejemplos: "mariscos varios $25", "mojito a $8", "2kg producto especial a $15", "coctel a 12"
+- Cualquier cosa que no sea pescado/mariscos del catálogo (bebidas, fiambres, otros) → producto personalizado
+- suggestedName = nombre que escribió el usuario, capitalizado (ej: "Mariscos Varios", "Mojito")
+- Si NO está en catálogo Y NO tiene precio → va a "unmatched"
 
 MARCADOR DE PRODUCTO PERSONALIZADO (MUY IMPORTANTE):
 - Si el usuario escribe "(producto personalizado)", "(personalizado)", "(custom)", "(nuevo)" junto al nombre del producto:
@@ -332,16 +338,22 @@ Responde SOLO con un JSON válido con esta estructura:
   "date": "YYYY-MM-DD" o null (fecha específica si se mencionó)
 }`;
 
+    const customerList = customers.length > 0
+      ? `\nCLIENTES REGISTRADOS (usa el nombre EXACTO para customerName):\n${customers.map(c => `- ${c.name}`).join('\n')}\n`
+      : '';
     const userPrompt = `CATÁLOGO DE PRODUCTOS DISPONIBLES:
 ${productList}
-
+${customerList}
 LISTA DEL CLIENTE A INTERPRETAR:
 ${text}
 
 INSTRUCCIONES:
 1. Analiza la lista e identifica cada producto con su cantidad
 2. Haz el mejor match posible con el catálogo
-3. ¡¡¡CRÍTICO!!! Si un producto dice "a $X" o "a X", DEBES establecer customPrice con ese valor X
+3. Producto NO en catálogo pero CON precio → producto personalizado (matched: false, suggestedName, customPrice)
+4. SIEMPRE extrae customerName si mencionan "a X", "para X", "creale a X"
+5. Si el texto dice "márcalo pagado" o "marca como pagado" → isPaid: true
+6. ¡¡¡CRÍTICO!!! Si un producto dice "a $X" o "a X", DEBES establecer customPrice con ese valor X
    - Ejemplo: "2kg Pepitona a $2.5" → customPrice: 2.5
    - Ejemplo: "5kg langostino a $12" → customPrice: 12
    - Ejemplo: "2kg calamar nacional grande a $10" → customPrice: 10
