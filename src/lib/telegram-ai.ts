@@ -137,6 +137,10 @@ INTENCIONES POSIBLES:
    CLAVE: Usa esta cuando hay CANTIDADES de productos (kg, unidades, etc.) NO montos fijos en $
 
 3. budget_create - Crear presupuesto (puede incluir nombre de cliente)
+   ¡¡¡PRIORIDAD MÁXIMA!!! Si el mensaje empieza con "crea presupuesto", "presupuesto a X de", "presupuesto de" + lista de productos → SIEMPRE budget_create.
+   "y márcalo pagado" al final = instrucción para crear como pagado (va en rawText, parse-order detecta isPaid). NO es budget_action.
+
+   - "crea presupuesto a Delcy de 3kg calamar a 12, 2kg langostino y márcalo pagado" → params: {rawText: "crea presupuesto a Delcy de 3kg calamar a 12, 2kg langostino y márcalo pagado", modo: "bcv"}
    - "presupuesto de 2kg jumbo para Maria" → params: {rawText: "2kg jumbo para Maria", modo: "bcv"}
    - "presupuesto a Carlos de 2kg langostino" → params: {rawText: "Carlos 2kg langostino", modo: "bcv"}
    - "crea presupuesto a Juan de 1kg pulpo" → params: {rawText: "Juan 1kg pulpo", modo: "bcv"}
@@ -164,13 +168,15 @@ INTENCIONES POSIBLES:
    - "está pagado" → params: {action: "pagar_contexto"}
    - "ya pagó" → params: {action: "pagar_contexto"}
    - "pagado" → params: {action: "pagar_contexto"}
+   ¡¡¡EXCEPCIÓN!!! Si el mensaje tiene "crea presupuesto" o "presupuesto a X de [productos]" + "márcalo pagado" → budget_create, NO budget_action.
    - "márcalo pagado por zelle" → params: {action: "pagar_contexto", metodo: "zelle"}
    - "ya pagó con pago movil" → params: {action: "pagar_contexto", metodo: "pago_movil"}
    NOTA: Usa "pagar_contexto" cuando NO especifican el número de presupuesto pero quieren marcarlo pagado
 
-   COMANDOS COMPUESTOS (marcar pagado Y enviar - MUY IMPORTANTE):
+   COMANDOS COMPUESTOS (marcar pagado Y enviar - requiere TELÉFONO):
    - "márcalo pagado y envíaselo al 0414..." → params: {action: "pagar_y_whatsapp_contexto", telefono: "0414..."}
    - "pagado y mándaselo al 0412..." → params: {action: "pagar_y_whatsapp_contexto", telefono: "0412..."}
+   - Si dice "márcalo pagado" SIN teléfono y SIN lista de productos → pagar_contexto (NO pagar_y_whatsapp_contexto)
    - "está pagado, envíaselo al 0424..." → params: {action: "pagar_y_whatsapp_contexto", telefono: "0424..."}
    - "ya pagó, mándaselo al 0416..." → params: {action: "pagar_y_whatsapp_contexto", telefono: "0416..."}
    - "márcalo pagado por zelle y envíale al 0414..." → params: {action: "pagar_y_whatsapp_contexto", telefono: "0414...", metodo: "zelle"}

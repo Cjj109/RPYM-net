@@ -934,6 +934,22 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
 
   } catch (error) {
     console.error('[Telegram] Error:', error);
+    try {
+      const runtime = (locals as any).runtime;
+      const botToken = runtime?.env?.TELEGRAM_BOT_TOKEN || import.meta.env.TELEGRAM_BOT_TOKEN;
+      const body = await request.clone().json();
+      const chatId = body?.message?.chat?.id;
+      if (botToken && chatId) {
+        const errMsg = String((error as Error)?.message || error).slice(0, 200);
+        await sendTelegramMessage(
+          chatId,
+          `❌ *Error al procesar*\n\n\`${errMsg}\`\n\n_Revisa los logs o intenta de nuevo._`,
+          botToken
+        );
+      }
+    } catch (e) {
+      console.error('[Telegram] Error mandando mensaje de error:', e);
+    }
     return new Response('OK', { status: 200 });
   }
 };
