@@ -49,3 +49,54 @@ export async function findCustomerByName(
 
   return null;
 }
+
+/**
+ * Calcula similitud simple entre dos strings normalizados (0 = nada similar, 1 = iguales)
+ */
+function similarityScore(a: string, b: string): number {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  if (a.includes(b) || b.includes(a)) {
+    const minLen = Math.min(a.length, b.length);
+    const maxLen = Math.max(a.length, b.length);
+    return minLen / maxLen;
+  }
+  let matches = 0;
+  const aChars = new Set(a);
+  for (const c of b) {
+    if (aChars.has(c)) matches++;
+  }
+  return matches / Math.max(a.length, b.length);
+}
+
+/**
+ * Busca clientes similares al nombre dado (fuzzy con sugerencias)
+ * Útil cuando findCustomerByName retorna null - ofrece alternativas
+ */
+export async function findCustomerSuggestions(
+  db: D1Database,
+  searchName: string,
+  limit: number = 5
+): Promise<{ id: number; name: string; score: number }[]> {
+  if (!db || !searchName.trim()) return [];
+
+  const all = await db.prepare(`SELECT id, name FROM customers WHERE is_active = 1`).all<{ id: number; name: string }>();
+  const normalizedSearch = normalizeText(searchName.trim());
+  const results: { id: number; name: string; score: number }[] = [];
+
+  for (const c of all?.results || []) {
+    const normalizedName = normalizeText(c.name);
+    let score = 0;
+
+    if (normalizedName === normalizedSearch) score = 1;
+    else if (normalizedName.startsWith(normalizedSearch) || normalizedSearch.startsWith(normalizedName)) score = 0.9;
+    else if (normalizedName.includes(normalizedSearch) || normalizedSearch.includes(normalizedName)) score = 0.7;
+    else score = similarityScore(normalizedSearch, normalizedName);
+
+    if (score >= 0.3) results.push({ id: c.id, name: c.name, score });
+  }
+
+  return results
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+}

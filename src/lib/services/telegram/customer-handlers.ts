@@ -4,7 +4,7 @@
  */
 
 import type { D1Database } from '../../d1-types';
-import { findCustomerByName } from '../../repositories/customers';
+import { findCustomerByName, findCustomerSuggestions } from '../../repositories/customers';
 import { getBCVRate } from '../../sheets';
 import type { CustomerAction } from '../../telegram-ai';
 
@@ -47,11 +47,21 @@ export async function getCustomersList(db: D1Database | null): Promise<string> {
   }
 }
 
+async function notFoundWithSuggestions(db: D1Database | null, customerName: string): Promise<string> {
+  if (!db) return `❌ No encontré cliente "${customerName}"`;
+  const suggestions = await findCustomerSuggestions(db, customerName, 5);
+  let msg = `❌ No encontré cliente "${customerName}"`;
+  if (suggestions.length > 0) {
+    msg += `\n\n💡 _¿Quisiste decir?_\n` + suggestions.map(s => `• ${s.name}`).join('\n');
+  }
+  return msg;
+}
+
 export async function getCustomerBalance(db: D1Database | null, customerName: string): Promise<string> {
   if (!db) return '❌ No hay conexión a la base de datos';
   try {
     const foundCustomer = await findCustomerByName(db, customerName);
-    if (!foundCustomer) return `❌ No encontré cliente "${customerName}"`;
+    if (!foundCustomer) return await notFoundWithSuggestions(db, customerName);
 
     const customer = await db.prepare(`
       SELECT c.id, c.name, c.phone,
@@ -119,6 +129,7 @@ export async function getCustomerBalance(db: D1Database | null, customerName: st
 }
 
 interface TxRow {
+  id: number;
   date: string;
   type: string;
   description: string;
@@ -135,7 +146,7 @@ export async function getCustomerMovements(db: D1Database | null, customerName: 
   if (!db) return '❌ No hay conexión a la base de datos';
   try {
     const customer = await findCustomerByName(db, customerName);
-    if (!customer) return `❌ No encontré cliente "${customerName}"`;
+    if (!customer) return await notFoundWithSuggestions(db, customerName);
 
     const transactions = await db.prepare(`
       SELECT t.*, p.modo_precio, p.total_usd_divisa as presupuesto_total_divisa
@@ -213,7 +224,7 @@ export async function getCustomerMovements(db: D1Database | null, customerName: 
           estadoStr = isPaid ? (t.payment_method ? ` - ${PAYMENT_METHOD_NAMES[t.payment_method] || t.payment_method}` : ' - Pagado') : ' - Pendiente';
         }
         const presRef = t.presupuesto_id ? ` #${t.presupuesto_id}` : '';
-        text += `${emoji} ${desc}${presRef}\n`;
+        text += `${emoji} ${desc}${presRef} _(ID: ${t.id})_\n`;
         text += `   ${montoStr}${estadoStr}\n`;
       }
     }
@@ -222,6 +233,7 @@ export async function getCustomerMovements(db: D1Database | null, customerName: 
     const totalAbonos = transactions.results.filter((t: TxRow) => t.type === 'payment').length;
     text += `\n━━━━━━━━━━━━━━━━━━━━\n`;
     text += `📈 ${totalCompras} compra${totalCompras !== 1 ? 's' : ''}, ${totalAbonos} abono${totalAbonos !== 1 ? 's' : ''}`;
+    text += `\n\n💡 _"marca [ID] pagado" o "borra movimiento [ID]"_`;
     return text;
   } catch (error) {
     console.error('[Telegram] Error en getCustomerMovements:', error);
@@ -229,11 +241,210 @@ export async function getCustomerMovements(db: D1Database | null, customerName: 
   }
 }
 
+export async function markTransactionPaid(
+  db: D1Database | null,
+  customerName: string,
+  txId: string,
+  metodo?: string
+): Promise<string> {
+  if (!db) return '❌ No hay conexión a la base de datos';
+  try {
+    const customer = await findCustomerByName(db, customerName);
+    if (!customer) return await notFoundWithSuggestions(db, customerName);
+
+    const tx = await db.prepare(
+      'SELECT id, presupuesto_id FROM customer_transactions WHERE id = ? AND customer_id = ?'
+    ).bind(txId, customer.id).first<{ id: number; presupuesto_id: string | null }>();
+
+    if (!tx) return `❌ No encontré movimiento #${txId} de ${customerName}`;
+
+    const paymentMethod = metodo || null;
+    const paidDate = new Date().toISOString().split('T')[0];
+
+    await db.prepare(`
+      UPDATE customer_transactions
+      SET is_paid = 1, paid_method = ?, paid_date = ?, updated_at = datetime('now')
+      WHERE id = ? AND customer_id = ?
+    `).bind(paymentMethod, paidDate, txId, customer.id).run();
+
+    if (tx.presupuesto_id) {
+      await db.prepare(
+        "UPDATE presupuestos SET estado = 'pagado', updated_at = datetime('now') WHERE id = ?"
+      ).bind(tx.presupuesto_id).run();
+    }
+
+    const metodoStr = paymentMethod ? ` (${PAYMENT_METHOD_NAMES[paymentMethod] || paymentMethod})` : '';
+    return `✅ *Movimiento #${txId}* marcado como *PAGADO*${metodoStr}\n👤 ${customer.name}`;
+  } catch (error) {
+    console.error('[Telegram] Error en markTransactionPaid:', error);
+    return `❌ Error: ${error}`;
+  }
+}
+
+export async function markTransactionUnpaid(
+  db: D1Database | null,
+  customerName: string,
+  txId: string
+): Promise<string> {
+  if (!db) return '❌ No hay conexión a la base de datos';
+  try {
+    const customer = await findCustomerByName(db, customerName);
+    if (!customer) return await notFoundWithSuggestions(db, customerName);
+
+    const tx = await db.prepare(
+      'SELECT presupuesto_id FROM customer_transactions WHERE id = ? AND customer_id = ?'
+    ).bind(txId, customer.id).first<{ presupuesto_id: string | null }>();
+
+    if (!tx) return `❌ No encontré movimiento #${txId} de ${customerName}`;
+
+    await db.prepare(`
+      UPDATE customer_transactions
+      SET is_paid = 0, paid_method = NULL, paid_date = NULL, updated_at = datetime('now')
+      WHERE id = ? AND customer_id = ?
+    `).bind(txId, customer.id).run();
+
+    if (tx.presupuesto_id) {
+      await db.prepare(
+        "UPDATE presupuestos SET estado = 'pendiente', updated_at = datetime('now') WHERE id = ?"
+      ).bind(tx.presupuesto_id).run();
+    }
+
+    return `✅ *Movimiento #${txId}* marcado como *PENDIENTE*\n👤 ${customer.name}`;
+  } catch (error) {
+    console.error('[Telegram] Error en markTransactionUnpaid:', error);
+    return `❌ Error: ${error}`;
+  }
+}
+
+export async function deleteTransaction(
+  db: D1Database | null,
+  customerName: string,
+  txId: string
+): Promise<string> {
+  if (!db) return '❌ No hay conexión a la base de datos';
+  try {
+    const customer = await findCustomerByName(db, customerName);
+    if (!customer) return await notFoundWithSuggestions(db, customerName);
+
+    const tx = await db.prepare(
+      'SELECT id, type, description, amount_usd FROM customer_transactions WHERE id = ? AND customer_id = ?'
+    ).bind(txId, customer.id).first<{ id: number; type: string; description: string; amount_usd: number }>();
+
+    if (!tx) return `❌ No encontré movimiento #${txId} de ${customerName}`;
+
+    await db.prepare('DELETE FROM customer_transactions WHERE id = ? AND customer_id = ?')
+      .bind(txId, customer.id).run();
+
+    const tipo = tx.type === 'purchase' ? 'Compra' : 'Abono';
+    return `🗑️ *Movimiento #${txId} eliminado*\n\n👤 ${customer.name}\n${tipo}: $${Number(tx.amount_usd).toFixed(2)}`;
+  } catch (error) {
+    console.error('[Telegram] Error en deleteTransaction:', error);
+    return `❌ Error: ${error}`;
+  }
+}
+
+export async function deleteCustomer(db: D1Database | null, customerName: string): Promise<string> {
+  if (!db) return '❌ No hay conexión a la base de datos';
+  try {
+    const customer = await findCustomerByName(db, customerName);
+    if (!customer) return await notFoundWithSuggestions(db, customerName);
+
+    await db.prepare('UPDATE customers SET is_active = 0, updated_at = datetime(\'now\') WHERE id = ?')
+      .bind(customer.id).run();
+
+    return `🗑️ *Cliente "${customer.name}" desactivado*`;
+  } catch (error) {
+    console.error('[Telegram] Error en deleteCustomer:', error);
+    return `❌ Error: ${error}`;
+  }
+}
+
+export async function updateCustomer(
+  db: D1Database | null,
+  customerName: string,
+  updates: { nombre?: string; notes?: string }
+): Promise<string> {
+  if (!db) return '❌ No hay conexión a la base de datos';
+  try {
+    const customer = await findCustomerByName(db, customerName);
+    if (!customer) return await notFoundWithSuggestions(db, customerName);
+
+    const fields: string[] = [];
+    const values: unknown[] = [];
+
+    if (updates.nombre !== undefined && updates.nombre.trim()) {
+      fields.push('name = ?');
+      values.push(updates.nombre.trim());
+    }
+    if (updates.notes !== undefined) {
+      fields.push('notes = ?');
+      values.push(updates.notes?.trim() || null);
+    }
+    if (fields.length === 0) return '❓ No hay cambios que aplicar';
+
+    fields.push("updated_at = datetime('now')");
+    values.push(customer.id);
+
+    await db.prepare(`UPDATE customers SET ${fields.join(', ')} WHERE id = ?`).bind(...values).run();
+
+    const changes: string[] = [];
+    if (updates.nombre) changes.push(`nombre: ${updates.nombre}`);
+    if (updates.notes !== undefined) changes.push(`notas: ${updates.notes || '(vacío)'}`);
+    return `✅ *Cliente actualizado*\n\n👤 ${customer.name}\n📝 ${changes.join(', ')}`;
+  } catch (error) {
+    console.error('[Telegram] Error en updateCustomer:', error);
+    return `❌ Error: ${error}`;
+  }
+}
+
+function generateShareToken(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+export async function generateShareLink(
+  db: D1Database | null,
+  customerName: string,
+  baseUrl: string = 'https://rpym.net'
+): Promise<string> {
+  if (!db) return '❌ No hay conexión a la base de datos';
+  try {
+    const customer = await findCustomerByName(db, customerName);
+    if (!customer) return await notFoundWithSuggestions(db, customerName);
+
+    const token = generateShareToken();
+    await db.prepare('UPDATE customers SET share_token = ?, updated_at = datetime(\'now\') WHERE id = ?')
+      .bind(token, customer.id).run();
+
+    const url = `${baseUrl.replace(/\/$/, '')}/cuenta/${token}`;
+    return `📤 *Link generado*\n\n👤 ${customer.name}\n🔗 ${url}\n\n_Envía este link al cliente para que vea su cuenta._`;
+  } catch (error) {
+    console.error('[Telegram] Error en generateShareLink:', error);
+    return `❌ Error: ${error}`;
+  }
+}
+
+export async function revokeShareLink(db: D1Database | null, customerName: string): Promise<string> {
+  if (!db) return '❌ No hay conexión a la base de datos';
+  try {
+    const customer = await findCustomerByName(db, customerName);
+    if (!customer) return await notFoundWithSuggestions(db, customerName);
+
+    await db.prepare('UPDATE customers SET share_token = NULL, updated_at = datetime(\'now\') WHERE id = ?')
+      .bind(customer.id).run();
+
+    return `🔒 *Link revocado*\n\n👤 ${customer.name}\n\nEl cliente ya no podrá ver su cuenta con el enlace anterior.`;
+  } catch (error) {
+    console.error('[Telegram] Error en revokeShareLink:', error);
+    return `❌ Error: ${error}`;
+  }
+}
+
 export async function executeCustomerAction(db: D1Database | null, action: CustomerAction): Promise<string> {
   if (!db) return '❌ No hay conexión a la base de datos';
   try {
     const customer = await findCustomerByName(db, action.customerName);
-    if (!customer) return `❌ No encontré cliente "${action.customerName}"`;
+    if (!customer) return await notFoundWithSuggestions(db, action.customerName);
 
     const bcvRate = await getBCVRate();
     const amountBs = action.amountUsd * bcvRate.rate;
@@ -288,7 +499,7 @@ export async function updateCustomerPhone(db: D1Database | null, customerName: s
   if (!db) return '❌ No hay conexión a la base de datos';
   try {
     const customer = await findCustomerByName(db, customerName);
-    if (!customer) return `❌ No encontré cliente "${customerName}"`;
+    if (!customer) return await notFoundWithSuggestions(db, customerName);
     await db.prepare(`UPDATE customers SET phone = ? WHERE id = ?`).bind(phone, customer.id).run();
     return `✅ *Teléfono actualizado*\n\n👤 ${customer.name}\n📱 ${phone}`;
   } catch (error) {

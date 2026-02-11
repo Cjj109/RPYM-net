@@ -6,7 +6,7 @@
 import type { D1Database } from '../../d1-types';
 import { getProducts, getBCVRate } from '../../sheets';
 import { getAdminPresupuestoUrl } from '../../admin-token';
-import { findCustomerByName } from '../../repositories/customers';
+import { findCustomerByName, findCustomerSuggestions } from '../../repositories/customers';
 
 export const PAYMENT_METHOD_NAMES: Record<string, string> = {
   pago_movil: 'Pago Móvil',
@@ -19,7 +19,7 @@ export const PAYMENT_METHOD_NAMES: Record<string, string> = {
 };
 
 export interface BudgetEdit {
-  tipo: 'precio' | 'precio_divisa' | 'fecha' | 'quitar' | 'agregar' | 'cantidad' | 'cliente' | 'delivery' | 'sustituir' | 'restar';
+  tipo: 'precio' | 'precio_divisa' | 'fecha' | 'quitar' | 'agregar' | 'cantidad' | 'cliente' | 'delivery' | 'sustituir' | 'restar' | 'direccion';
   producto?: string;
   precio?: number;
   precioBcv?: number;
@@ -31,6 +31,7 @@ export interface BudgetEdit {
   monto?: number;
   productoOriginal?: string;
   productoNuevo?: string;
+  direccion?: string;
 }
 
 export async function getBudget(db: D1Database | null, budgetId: string, adminSecret: string): Promise<string> {
@@ -117,9 +118,9 @@ export async function markBudgetPaid(db: D1Database | null, budgetId: string, pa
 
     const txResult = await db.prepare(`
       UPDATE customer_transactions
-      SET is_paid = 1, paid_date = datetime('now', '-4 hours')${paymentMethod ? `, payment_method = '${paymentMethod}'` : ''}
+      SET is_paid = 1, paid_date = datetime('now', '-4 hours'), paid_method = ?
       WHERE presupuesto_id = ?
-    `).bind(budgetId).run();
+    `).bind(paymentMethod || null, budgetId).run();
 
     let response = `✅ *Presupuesto #${budgetId}* marcado como *PAGADO*`;
     if (paymentMethod) {
@@ -144,7 +145,7 @@ export async function updatePaymentMethod(db: D1Database | null, budgetId: strin
     if (!budget) return `❌ No encontré presupuesto #${budgetId}`;
 
     await db.prepare(`UPDATE presupuestos SET payment_method = ? WHERE id = ?`).bind(paymentMethod, budgetId).run();
-    await db.prepare(`UPDATE customer_transactions SET payment_method = ? WHERE presupuesto_id = ?`).bind(paymentMethod, budgetId).run();
+    await db.prepare(`UPDATE customer_transactions SET paid_method = ? WHERE presupuesto_id = ?`).bind(paymentMethod, budgetId).run();
 
     return `✅ Método de pago de #${budgetId} actualizado a *${PAYMENT_METHOD_NAMES[paymentMethod] || paymentMethod}*`;
   } catch (error) {
@@ -226,6 +227,12 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
       case 'fecha': {
         await db.prepare(`UPDATE presupuestos SET fecha = ? WHERE id = ?`).bind(edicion.fecha + ' 12:00:00', budgetId).run();
         return `✅ Fecha de #${budgetId} cambiada a *${edicion.fecha}*`;
+      }
+
+      case 'direccion': {
+        const dir = edicion.direccion?.trim() || '';
+        await db.prepare(`UPDATE presupuestos SET customer_address = ? WHERE id = ?`).bind(dir || null, budgetId).run();
+        return dir ? `✅ Dirección de #${budgetId}: *${dir}*` : `✅ Dirección de #${budgetId} eliminada`;
       }
 
       case 'quitar': {
@@ -581,17 +588,25 @@ export async function linkBudgetToCustomer(db: D1Database | null, budgetId: stri
       customer = await findCustomerByName(db, customerNameOrId);
     }
 
-    if (!customer) return { success: false, message: `❌ No encontré cliente "${customerNameOrId}"` };
+    if (!customer) {
+      const suggestions = await findCustomerSuggestions(db, String(customerNameOrId), 5);
+      let msg = `❌ No encontré cliente "${customerNameOrId}"`;
+      if (suggestions.length > 0) {
+        msg += `\n\n💡 _¿Quisiste decir?_\n` + suggestions.map(s => `• ${s.name}`).join('\n');
+      }
+      return { success: false, message: msg };
+    }
 
     const items = JSON.parse(budget.items || '[]');
     const description = items.map((i: any) => `${i.nombre} ${i.cantidad}${i.unidad || 'kg'}`).join(', ') || `Presupuesto #${budgetId}`;
     const currencyType = (budget.modo_precio === 'divisas' || budget.modo_precio === 'divisa') ? 'divisas' : 'dolar_bcv';
     const bcvRate = await getBCVRate();
+    const isPaid = budget.estado === 'pagado' ? 1 : 0;
 
     await db.prepare(`
       INSERT INTO customer_transactions
       (customer_id, type, date, description, amount_usd, amount_bs, amount_usd_divisa, currency_type, presupuesto_id, exchange_rate, is_paid)
-      VALUES (?, datetime(?, 'localtime'), ?, ?, ?, ?, ?, ?, ?, ?, 0)
+      VALUES (?, datetime(?, 'localtime'), ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       customer.id,
       budget.fecha,
@@ -602,6 +617,7 @@ export async function linkBudgetToCustomer(db: D1Database | null, budgetId: stri
       currencyType,
       budgetId,
       bcvRate.rate,
+      isPaid
     ).run();
 
     if (!budget.customer_name) {
@@ -757,17 +773,20 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
     const id = String(Math.floor(10000 + Math.random() * 90000));
     const fechaPresupuesto = result.date ? `${result.date} 12:00:00` : null;
     const fechaSql = fechaPresupuesto ? `'${fechaPresupuesto}'` : `datetime('now', '-4 hours')`;
+    const estado = result.isPaid ? 'pagado' : 'pendiente';
 
     await db.prepare(`
-      INSERT INTO presupuestos (id, fecha, items, total_usd, total_bs, total_usd_divisa, modo_precio, delivery, hide_rate, estado, source, customer_name)
-      VALUES (?, ${fechaSql}, ?, ?, ?, ?, ?, ?, ?, 'pendiente', 'telegram', ?)
+      INSERT INTO presupuestos (id, fecha, items, total_usd, total_bs, total_usd_divisa, modo_precio, delivery, hide_rate, estado, source, customer_name, customer_address)
+      VALUES (?, ${fechaSql}, ?, ?, ?, ?, ?, ?, ?, ?, 'telegram', ?, ?)
     `).bind(
       id, JSON.stringify(presupuestoItems), totalUSD, totalBs,
       pricingMode !== 'bcv' ? totalUSDDivisa : null,
       pricingMode,
       result.delivery || 0,
       (hideRate || pricingMode === 'divisas') ? 1 : 0,
-      result.customerName || null
+      estado,
+      result.customerName || null,
+      result.customerAddress || null
     ).run();
 
     const shouldHideBs = hideRate || pricingMode === 'divisas';
@@ -843,7 +862,13 @@ export async function createCustomerPurchaseWithProducts(
     }
 
     if (!customer) {
-      return `❌ No encontré cliente "${result.customerName || 'sin nombre'}". Créalo primero o especifica el nombre.`;
+      const name = result.customerName || 'sin nombre';
+      const suggestions = await findCustomerSuggestions(db, name, 5);
+      let msg = `❌ No encontré cliente "${name}". Créalo primero o especifica el nombre.`;
+      if (suggestions.length > 0) {
+        msg += `\n\n💡 _¿Quisiste decir?_\n` + suggestions.map(s => `• ${s.name}`).join('\n');
+      }
+      return msg;
     }
 
     const presupuestoItems: any[] = [];

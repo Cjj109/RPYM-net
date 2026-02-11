@@ -14,6 +14,9 @@ const images = [
   { input: 'pesca.jpeg', name: 'pesca' },
   { input: 'camaronlogo.jpeg', name: 'camaronlogo' },
   { input: 'camaronchef.jpeg', name: 'camaronchef' },
+  { input: 'sanvalentin.png', name: 'sanvalentin' },
+  { input: 'carnaval.png', name: 'carnaval' },
+  { input: 'image.png', name: 'navidad' },
 ];
 
 // Tamaños de salida

@@ -10,6 +10,13 @@ import {
   executeCustomerAction,
   createCustomer,
   updateCustomerPhone,
+  markTransactionPaid,
+  markTransactionUnpaid,
+  deleteTransaction,
+  deleteCustomer,
+  updateCustomer,
+  generateShareLink,
+  revokeShareLink,
 } from '../../lib/services/telegram/customer-handlers';
 import { getStats, changeTheme } from '../../lib/services/telegram/config-handlers';
 import { getProductsList, updateProductPrice, updateProductAvailability } from '../../lib/services/telegram/products-handlers';
@@ -43,6 +50,75 @@ const NUMBER_EMOJIS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣'];
 // Thresholds de confianza
 const CONFIDENCE_THRESHOLD_EXECUTE = 0.7;  // Por debajo de esto, pedir clarificación
 const CONFIDENCE_THRESHOLD_LOG = 0.85;     // Por debajo de esto, loggear como low confidence
+
+function isConfirmationResponse(text: string): boolean {
+  const t = text.toLowerCase().trim();
+  return /^(s[ií]|si|confirmar|confirmo|dale|ok|vale|bueno|yes)$/.test(t) ||
+    t === '👍' || t === '✅';
+}
+
+function isCancellationResponse(text: string): boolean {
+  const t = text.toLowerCase().trim();
+  return /^(no|nope|cancelar|cancelo|mejor no|olvidalo)$/.test(t) ||
+    t === '👎' || t === '❌';
+}
+
+async function getPendingConfirmation(db: any, chatId: number): Promise<{ intent: string; params: Record<string, any> } | null> {
+  if (!db) return null;
+  try {
+    const row = await db.prepare(`
+      SELECT intent, params FROM telegram_pending_confirmations
+      WHERE chat_id = ? AND created_at > datetime('now', '-5 minutes')
+    `).bind(chatId).first();
+    if (!row) return null;
+    return { intent: row.intent, params: JSON.parse(row.params || '{}') };
+  } catch {
+    return null;
+  }
+}
+
+async function savePendingConfirmation(db: any, chatId: number, intent: string, params: Record<string, any>): Promise<void> {
+  if (!db) return;
+  try {
+    await db.prepare(`
+      INSERT OR REPLACE INTO telegram_pending_confirmations (chat_id, intent, params, created_at)
+      VALUES (?, ?, ?, datetime('now'))
+    `).bind(chatId, intent, JSON.stringify(params)).run();
+  } catch (e) {
+    console.error('[Telegram] Error saving pending confirmation:', e);
+  }
+}
+
+async function clearPendingConfirmation(db: any, chatId: number): Promise<void> {
+  if (!db) return;
+  try {
+    await db.prepare('DELETE FROM telegram_pending_confirmations WHERE chat_id = ?').bind(chatId).run();
+  } catch (e) {
+    console.error('[Telegram] Error clearing pending confirmation:', e);
+  }
+}
+
+function buildConfirmationMessage(intent: string, params: Record<string, any>): string {
+  switch (intent) {
+    case 'customer_action':
+      if (params.action === 'transaction_eliminar' || params.action === 'transaction_eliminar_contexto') {
+        return `⚠️ *¿Confirmas eliminar el movimiento #${params.id}*${params.cliente ? ` de ${params.cliente}` : ''}?\n\n_Responde "sí" para confirmar o "no" para cancelar._`;
+      }
+      if (params.action === 'eliminar') {
+        return `⚠️ *¿Confirmas eliminar/desactivar al cliente "${params.cliente}"?*\n\n_Responde "sí" para confirmar o "no" para cancelar._`;
+      }
+      if (params.action === 'revocar_link') {
+        return `⚠️ *¿Confirmas revocar el link de cuenta de "${params.cliente}"?*\n\nEl cliente ya no podrá ver su cuenta con el enlace anterior.\n\n_Responde "sí" para confirmar o "no" para cancelar._`;
+      }
+      break;
+    case 'budget_action':
+      if (params.action === 'eliminar') {
+        return `⚠️ *¿Confirmas eliminar el presupuesto #${params.id}?*\n\n_Responde "sí" para confirmar o "no" para cancelar._`;
+      }
+      break;
+  }
+  return `⚠️ ¿Confirmas esta acción?\n\n_Responde "sí" o "no"._`;
+}
 
 /**
  * Construye un mensaje de clarificación amigable
@@ -122,6 +198,12 @@ function getIntentDescription(intent: string, params: Record<string, any>): stri
       if (params.action === 'movimientos') return `Ver movimientos de ${params.cliente || 'cliente'}`;
       if (params.action === 'crear') return `Crear cliente ${params.nombre || ''}`;
       if (params.action === 'listar') return 'Ver lista de clientes';
+      if (params.action === 'eliminar') return `Eliminar cliente ${params.cliente || ''}`;
+      if (params.action === 'compartir') return `Generar link de cuenta para ${params.cliente || 'cliente'}`;
+      if (params.action === 'revocar_link') return `Revocar link de cuenta de ${params.cliente || 'cliente'}`;
+      if (params.action === 'transaction_pagar' || params.action === 'transaction_pagar_contexto') return `Marcar movimiento #${params.id} como pagado`;
+      if (params.action === 'transaction_desmarcar' || params.action === 'transaction_desmarcar_contexto') return `Marcar movimiento #${params.id} como pendiente`;
+      if (params.action === 'transaction_eliminar' || params.action === 'transaction_eliminar_contexto') return `Eliminar movimiento #${params.id}`;
       if (params.rawText) return `Anotar transacción: ${params.rawText.substring(0, 30)}...`;
       return 'Acción de cliente';
 
@@ -321,6 +403,54 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // PASO 0: Verificar si es respuesta a confirmación pendiente
+    // ═══════════════════════════════════════════════════════════════
+    const pendingConfirm = await getPendingConfirmation(db, chatId);
+    if (pendingConfirm) {
+      if (isConfirmationResponse(text)) {
+        await clearPendingConfirmation(db, chatId);
+        let response = '';
+        const { intent, params } = pendingConfirm;
+
+        if (intent === 'customer_action') {
+          if (params.action === 'transaction_eliminar' && params.cliente && params.id) {
+            response = await deleteTransaction(db, params.cliente, params.id);
+          } else if (params.action === 'transaction_eliminar_contexto' && params.cliente && params.id) {
+            response = await deleteTransaction(db, params.cliente, params.id);
+          } else if (params.action === 'eliminar' && params.cliente) {
+            response = await deleteCustomer(db, params.cliente);
+          } else if (params.action === 'revocar_link' && params.cliente) {
+            response = await revokeShareLink(db, params.cliente);
+          }
+        } else if (intent === 'budget_action' && params.action === 'eliminar' && params.id) {
+          response = await deleteBudget(db, params.id);
+        }
+
+        if (response) {
+          await saveChatMessage(db, chatId, 'user', text);
+          await sendTelegramMessage(chatId, response, botToken);
+          await saveChatMessage(db, chatId, 'assistant', response.substring(0, 500));
+        }
+        return new Response('OK', { status: 200 });
+      }
+      if (isCancellationResponse(text)) {
+        await clearPendingConfirmation(db, chatId);
+        const cancelMsg = '❌ _Acción cancelada._';
+        await saveChatMessage(db, chatId, 'user', text);
+        await sendTelegramMessage(chatId, cancelMsg, botToken);
+        await saveChatMessage(db, chatId, 'assistant', cancelMsg);
+        return new Response('OK', { status: 200 });
+      }
+      // Usuario dijo algo distinto: cancelar para evitar confusión
+      await clearPendingConfirmation(db, chatId);
+      const unclearMsg = '❌ _No entendí. Acción cancelada. Puedes intentar de nuevo._';
+      await saveChatMessage(db, chatId, 'user', text);
+      await sendTelegramMessage(chatId, unclearMsg, botToken);
+      await saveChatMessage(db, chatId, 'assistant', unclearMsg);
+      return new Response('OK', { status: 200 });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // COMANDO /debug - Prueba el router sin ejecutar la acción
     // ═══════════════════════════════════════════════════════════════
     if (text.startsWith('/debug ')) {
@@ -475,6 +605,85 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
           }
         } else if (intent.params.action === 'editar_cliente' && intent.params.cliente && intent.params.telefono) {
           response = await updateCustomerPhone(db, intent.params.cliente, intent.params.telefono);
+        } else if (intent.params.action === 'eliminar' && intent.params.cliente) {
+          await savePendingConfirmation(db, chatId, 'customer_action', { action: 'eliminar', cliente: intent.params.cliente });
+          response = buildConfirmationMessage('customer_action', { action: 'eliminar', cliente: intent.params.cliente });
+          await saveChatMessage(db, chatId, 'user', text);
+          await sendTelegramMessage(chatId, response, botToken);
+          await saveChatMessage(db, chatId, 'assistant', response.substring(0, 500));
+          return new Response('OK', { status: 200 });
+        } else if (intent.params.action === 'compartir' && intent.params.cliente) {
+          response = await generateShareLink(db, intent.params.cliente, url.origin);
+        } else if (intent.params.action === 'revocar_link' && intent.params.cliente) {
+          await savePendingConfirmation(db, chatId, 'customer_action', { action: 'revocar_link', cliente: intent.params.cliente });
+          response = buildConfirmationMessage('customer_action', { action: 'revocar_link', cliente: intent.params.cliente });
+          await saveChatMessage(db, chatId, 'user', text);
+          await sendTelegramMessage(chatId, response, botToken);
+          await saveChatMessage(db, chatId, 'assistant', response.substring(0, 500));
+          return new Response('OK', { status: 200 });
+        } else if ((intent.params.action === 'editar_cliente_contexto' || intent.params.action === 'editar_cliente') && (intent.params.nombre || intent.params.notes !== undefined)) {
+          const customerName = intent.params.cliente || (() => {
+            const lastCustomerMatch = [...chatHistory].reverse().find(m =>
+              m.role === 'assistant' && (m.content.includes('👤 *') || m.content.includes('✅ Cliente creado:'))
+            );
+            const match = lastCustomerMatch?.content.match(/👤 \*([^*]+)\*/) ||
+                         lastCustomerMatch?.content.match(/Cliente creado: \*([^*]+)\*/);
+            return match?.[1];
+          })();
+          if (customerName) {
+            response = await updateCustomer(db, customerName, {
+              nombre: intent.params.nombre,
+              notes: intent.params.notes
+            });
+          } else {
+            response = '❓ No encontré un cliente reciente. Especifica: "edita cliente [nombre], ponle nombre [nuevo]"';
+          }
+        } else if (intent.params.action === 'transaction_pagar' && intent.params.cliente && intent.params.id) {
+          response = await markTransactionPaid(db, intent.params.cliente, intent.params.id, intent.params.metodo);
+        } else if (intent.params.action === 'transaction_pagar_contexto' && intent.params.id) {
+          const lastCustomerMatch = [...chatHistory].reverse().find(m =>
+            m.role === 'assistant' && m.content.includes('👤 *')
+          );
+          const customerMatch = lastCustomerMatch?.content.match(/👤 \*([^*]+)\*/);
+          if (customerMatch) {
+            response = await markTransactionPaid(db, customerMatch[1], intent.params.id, intent.params.metodo);
+          } else {
+            response = '❓ No encontré un cliente reciente. Dime de quién: "marca movimiento 12345 de [nombre] pagado"';
+          }
+        } else if (intent.params.action === 'transaction_desmarcar' && intent.params.cliente && intent.params.id) {
+          response = await markTransactionUnpaid(db, intent.params.cliente, intent.params.id);
+        } else if (intent.params.action === 'transaction_desmarcar_contexto' && intent.params.id) {
+          const lastCustomerMatch = [...chatHistory].reverse().find(m =>
+            m.role === 'assistant' && m.content.includes('👤 *')
+          );
+          const customerMatch = lastCustomerMatch?.content.match(/👤 \*([^*]+)\*/);
+          if (customerMatch) {
+            response = await markTransactionUnpaid(db, customerMatch[1], intent.params.id);
+          } else {
+            response = '❓ No encontré un cliente reciente. Dime de quién: "desmarca 12345 de [nombre]"';
+          }
+        } else if (intent.params.action === 'transaction_eliminar' && intent.params.cliente && intent.params.id) {
+          await savePendingConfirmation(db, chatId, 'customer_action', { action: 'transaction_eliminar', cliente: intent.params.cliente, id: intent.params.id });
+          response = buildConfirmationMessage('customer_action', { action: 'transaction_eliminar', cliente: intent.params.cliente, id: intent.params.id });
+          await saveChatMessage(db, chatId, 'user', text);
+          await sendTelegramMessage(chatId, response, botToken);
+          await saveChatMessage(db, chatId, 'assistant', response.substring(0, 500));
+          return new Response('OK', { status: 200 });
+        } else if (intent.params.action === 'transaction_eliminar_contexto' && intent.params.id) {
+          const lastCustomerMatch = [...chatHistory].reverse().find(m =>
+            m.role === 'assistant' && m.content.includes('👤 *')
+          );
+          const customerMatch = lastCustomerMatch?.content.match(/👤 \*([^*]+)\*/);
+          if (customerMatch) {
+            await savePendingConfirmation(db, chatId, 'customer_action', { action: 'transaction_eliminar_contexto', cliente: customerMatch[1], id: intent.params.id });
+            response = buildConfirmationMessage('customer_action', { action: 'transaction_eliminar_contexto', cliente: customerMatch[1], id: intent.params.id });
+            await saveChatMessage(db, chatId, 'user', text);
+            await sendTelegramMessage(chatId, response, botToken);
+            await saveChatMessage(db, chatId, 'assistant', response.substring(0, 500));
+            return new Response('OK', { status: 200 });
+          } else {
+            response = '❓ No encontré un cliente reciente. Dime de quién: "elimina movimiento 12345 de [nombre]"';
+          }
         } else if (intent.params.rawText) {
           console.log('[Telegram] Parsing customer action with rawText');
           // Usar customer-ai para parsear la anotación
@@ -523,7 +732,12 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
         if (intent.params.action === 'ver' && intent.params.id) {
           response = await getBudget(db, intent.params.id, adminSecret);
         } else if (intent.params.action === 'eliminar' && intent.params.id) {
-          response = await deleteBudget(db, intent.params.id);
+          await savePendingConfirmation(db, chatId, 'budget_action', { action: 'eliminar', id: intent.params.id });
+          response = buildConfirmationMessage('budget_action', { action: 'eliminar', id: intent.params.id });
+          await saveChatMessage(db, chatId, 'user', text);
+          await sendTelegramMessage(chatId, response, botToken);
+          await saveChatMessage(db, chatId, 'assistant', response.substring(0, 500));
+          return new Response('OK', { status: 200 });
         } else if (intent.params.action === 'pagar' && intent.params.id) {
           response = await markBudgetPaid(db, intent.params.id, intent.params.metodo);
         } else if (intent.params.action === 'pagar_multiple' && intent.params.ids?.length) {
@@ -699,8 +913,8 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
 
       case 'help':
         response = `📖 *Comandos RPYM*\n\n` +
-          `*Clientes*\n• "anota a X $Y de Z"\n• "abona X $Y"\n• "ver clientes" / "como está X"\n\n` +
-          `*Presupuestos*\n• "presupuesto de 2kg jumbo para Maria"\n• "presupuesto dual de..."\n• "ver/eliminar presupuesto 12345"\n\n` +
+          `*Clientes*\n• "anota a X $Y de Z"\n• "abona X $Y"\n• "ver clientes" / "como está X"\n• "movimientos de X" (ver IDs)\n• "marca [ID] pagado" / "borra movimiento [ID]"\n• "elimina cliente X" / "genera link de cuenta para X"\n\n` +
+          `*Presupuestos*\n• "presupuesto de 2kg jumbo para Maria"\n• "presupuesto dual de..."\n• "ver/eliminar presupuesto 12345"\n• "ponle dirección Av. X"\n\n` +
           `*Productos*\n• "ver productos"\n• "sube jumbo a $15"\n• "no hay pulpo"\n\n` +
           `*Config*\n• "tema navidad/normal"\n• "estadísticas"\n• "tasa bcv"`;
         break;

@@ -163,12 +163,89 @@
     50% { transform: translateY(-10px); opacity: 1; }
   }
 
+  /* === Corazones San Valentín === */
+  .valentine-hearts {
+    display: flex;
+    justify-content: space-around;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 4px 10% 0;
+  }
+
+  .valentine-heart-icon {
+    font-size: 1rem;
+    animation: heart-float 2.5s ease-in-out infinite;
+    filter: drop-shadow(0 2px 4px rgba(225, 29, 72, 0.3));
+  }
+
+  .valentine-heart-icon:nth-child(odd) {
+    animation-delay: 0.3s;
+  }
+
+  @keyframes heart-float {
+    0%, 100% { transform: translateY(0) scale(1); opacity: 0.9; }
+    50% { transform: translateY(-6px) scale(1.1); opacity: 1; }
+  }
+
+  /* === Calabazas Halloween === */
+  .halloween-pumpkins {
+    display: flex;
+    justify-content: space-around;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 2px 8% 0;
+  }
+
+  .halloween-pumpkin-icon {
+    font-size: 1.1rem;
+    animation: pumpkin-glow 2s ease-in-out infinite;
+    filter: drop-shadow(0 2px 6px rgba(249, 115, 22, 0.5));
+  }
+
+  .halloween-pumpkin-icon:nth-child(even) {
+    animation-delay: 0.5s;
+  }
+
+  @keyframes pumpkin-glow {
+    0%, 100% { transform: scale(1); filter: drop-shadow(0 2px 6px rgba(249, 115, 22, 0.5)); }
+    50% { transform: scale(1.15); filter: drop-shadow(0 0 12px rgba(249, 115, 22, 0.8)); }
+  }
+
+  /* === Mundial - Estrellas === */
+  .mundial-stars {
+    display: flex;
+    justify-content: space-around;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 4px 10% 0;
+  }
+
+  .mundial-star-icon {
+    font-size: 1rem;
+    animation: star-sparkle 2s ease-in-out infinite;
+    filter: drop-shadow(0 2px 4px rgba(251, 191, 36, 0.5));
+  }
+
+  @keyframes star-sparkle {
+    0%, 100% { opacity: 0.8; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.2); }
+  }
+
   /* Reduced motion */
   @media (prefers-reduced-motion: reduce) {
     .christmas-light,
     .streamer,
     .easter-flower,
-    .header-bubble {
+    .header-bubble,
+    .valentine-heart-icon,
+    .halloween-pumpkin-icon,
+    .mundial-star-icon {
       animation: none;
     }
   }
@@ -223,6 +300,35 @@
         <span class="easter-flower">🌼</span>
         <span class="easter-flower">🌸</span>
         <span class="easter-flower">🌷</span>
+      </div>
+    `,
+    valentine: () => `
+      <div class="valentine-hearts">
+        <span class="valentine-heart-icon">❤️</span>
+        <span class="valentine-heart-icon">💕</span>
+        <span class="valentine-heart-icon">💗</span>
+        <span class="valentine-heart-icon">❤️</span>
+        <span class="valentine-heart-icon">💕</span>
+        <span class="valentine-heart-icon">💗</span>
+        <span class="valentine-heart-icon">❤️</span>
+      </div>
+    `,
+    halloween: () => `
+      <div class="halloween-pumpkins">
+        <span class="halloween-pumpkin-icon">🎃</span>
+        <span class="halloween-pumpkin-icon">🎃</span>
+        <span class="halloween-pumpkin-icon">🎃</span>
+        <span class="halloween-pumpkin-icon">🎃</span>
+        <span class="halloween-pumpkin-icon">🎃</span>
+      </div>
+    `,
+    mundial: () => `
+      <div class="mundial-stars">
+        <span class="mundial-star-icon">⭐</span>
+        <span class="mundial-star-icon">⭐</span>
+        <span class="mundial-star-icon">⭐</span>
+        <span class="mundial-star-icon">⭐</span>
+        <span class="mundial-star-icon">⭐</span>
       </div>
     `
   };

@@ -63,6 +63,25 @@ INTENCIONES POSIBLES:
 
    - "ver clientes" → params: {action: "listar"}
    - "crea cliente X" → params: {action: "crear", nombre: "X", telefono: opcional}
+   - "elimina cliente X" / "borra cliente X" → params: {action: "eliminar", cliente: "X"}
+   - "elimina a delcy" / "desactiva jose" → params: {action: "eliminar", cliente: "delcy"}
+   - "genera link de cuenta para X" / "compartir cuenta de X" → params: {action: "compartir", cliente: "X"}
+   - "revoca link de X" / "revocar enlace de jose" → params: {action: "revocar_link", cliente: "X"}
+   - "ponle nombre Carlos" (con contexto de cliente) → params: {action: "editar_cliente_contexto", nombre: "Carlos"}
+   - "cambia el nombre a Maria" (con contexto) → params: {action: "editar_cliente_contexto", nombre: "Maria"}
+   - "sus notas son: paga los viernes" → params: {action: "editar_cliente_contexto", notes: "paga los viernes"}
+   - "edita cliente X, ponle nombre Y" → params: {action: "editar_cliente", cliente: "X", nombre: "Y"}
+   - "notas de jose: cliente preferencial" → params: {action: "editar_cliente", cliente: "jose", notes: "cliente preferencial"}
+
+   ACCIONES SOBRE TRANSACCIONES/MOVIMIENTOS (usar ID mostrado en movimientos):
+   - "marca 12345 pagado" (con contexto de cliente) → params: {action: "transaction_pagar_contexto", id: "12345"}
+   - "marca movimiento 12345 de delcy pagado" → params: {action: "transaction_pagar", cliente: "delcy", id: "12345"}
+   - "marca 12345 pagado por zelle" → params: {action: "transaction_pagar_contexto", id: "12345", metodo: "zelle"}
+   - "marca 12345 de delcy como pendiente" → params: {action: "transaction_desmarcar", cliente: "delcy", id: "12345"}
+   - "desmarca 12345" (con contexto) → params: {action: "transaction_desmarcar_contexto", id: "12345"}
+   - "borra movimiento 12345" (con contexto) → params: {action: "transaction_eliminar_contexto", id: "12345"}
+   - "elimina movimiento 12345 de delcy" → params: {action: "transaction_eliminar", cliente: "delcy", id: "12345"}
+   NOTA: "12345" es el ID del movimiento (aparece como "ID: 12345" en la lista de movimientos)
 
    EDITAR CLIENTE CON CONTEXTO (cuando ya se habló de un cliente):
    - "ponle el número 04241234567" → params: {action: "editar_cliente_contexto", telefono: "04241234567"}
@@ -188,6 +207,8 @@ INTENCIONES POSIBLES:
    - "agrega 1kg de pulpo a $18" → params: {action: "editar", edicion: {tipo: "agregar", producto: "pulpo", cantidad: 1, unidad: "kg", precio: 18}}
    - "cambia la cantidad a 3kg" → params: {action: "editar", edicion: {tipo: "cantidad", producto: null, cantidad: 3}}
    - "ponle el nombre Carlos" → params: {action: "editar", edicion: {tipo: "cliente", nombre: "Carlos"}}
+   - "ponle dirección Av. Principal 123" → params: {action: "editar", edicion: {tipo: "direccion", direccion: "Av. Principal 123"}}
+   - "la dirección es Calle 5 con 6" → params: {action: "editar", edicion: {tipo: "direccion", direccion: "Calle 5 con 6"}}
 
    RESTAR CANTIDAD DE UN PRODUCTO (reducir sin eliminar):
    - "resta 1kg de langostino" → params: {action: "editar", edicion: {tipo: "restar", producto: "langostino", cantidad: 1}}

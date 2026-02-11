@@ -37,6 +37,7 @@ interface ParseResponse {
   unmatched: string[];
   delivery?: number | null;
   customerName?: string | null;
+  customerAddress?: string | null;
   dollarsOnly?: boolean;
   isPaid?: boolean;
   pricingMode?: 'bcv' | 'divisa' | 'dual' | null;
@@ -241,6 +242,12 @@ NOMBRE DEL CLIENTE:
 - Si hay un nombre propio al inicio o después de "cliente/para/pedido de", extraerlo
 - Si no se detecta nombre, customerName será null
 
+DIRECCIÓN DEL CLIENTE:
+- Detecta si se menciona una dirección de entrega
+- Formatos: "dirección: Av. Principal 123", "envío a Calle 5 con 6", "entrega en Urbanización X", "para: Av. Bolívar"
+- También: "cliente: Juan, dirección: ...", "envío a..."
+- Si no se detecta dirección, customerAddress será null
+
 SOLO DÓLARES:
 - Detecta si el pedido es solo en dólares (sin bolívares)
 - Formatos: "solo dolares", "sin bolivares", "en dolares", "puro dolar", "solo $", "factura en dolares"
@@ -318,6 +325,7 @@ Responde SOLO con un JSON válido con esta estructura:
   "unmatched": ["items que no pudiste identificar"],
   "delivery": número o null (costo de delivery si se mencionó),
   "customerName": "nombre del cliente" o null,
+  "customerAddress": "dirección de entrega" o null,
   "dollarsOnly": true/false,
   "isPaid": true/false,
   "pricingMode": "bcv" | "divisa" | "dual" | null,
@@ -395,6 +403,7 @@ INSTRUCCIONES:
       unmatched: parsedResult.unmatched || [],
       delivery: parsedResult.delivery || null,
       customerName: parsedResult.customerName || null,
+      customerAddress: parsedResult.customerAddress || null,
       dollarsOnly: parsedResult.dollarsOnly || false,
       isPaid: parsedResult.isPaid || false,
       pricingMode: parsedResult.pricingMode || null,
