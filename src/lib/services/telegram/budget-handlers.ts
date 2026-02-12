@@ -1208,12 +1208,22 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
     const adminUrl = await getAdminPresupuestoUrl(id, adminSecret, 'https://rpym.net');
     responseText += `\n🔗 ${adminUrl}`;
 
+    // Intentar vincular con timeout de 5 segundos para evitar que el worker expire
     if (result.customerName) {
-      const linkResult = await linkBudgetToCustomer(db, id, result.customerName, bcvRate);
-      if (linkResult.success) {
-        responseText += `\n\n📋 Vinculado a cuenta de *${result.customerName}*`;
-      } else {
-        responseText += `\n\n⚠️ ${linkResult.message}`;
+      try {
+        const linkPromise = linkBudgetToCustomer(db, id, result.customerName, bcvRate);
+        const timeoutPromise = new Promise<{ success: false; message: string }>((resolve) =>
+          setTimeout(() => resolve({ success: false, message: '⏱️ Timeout al vincular - intenta manualmente' }), 5000)
+        );
+        const linkResult = await Promise.race([linkPromise, timeoutPromise]);
+        if (linkResult.success) {
+          responseText += `\n\n📋 Vinculado a cuenta de *${result.customerName}*`;
+        } else {
+          responseText += `\n\n⚠️ ${linkResult.message}`;
+        }
+      } catch (linkError) {
+        console.error('[Telegram] Error vinculando presupuesto:', linkError);
+        responseText += `\n\n⚠️ No se pudo vincular automáticamente`;
       }
     }
 
