@@ -994,7 +994,7 @@ export async function linkBudgetToCustomer(db: D1Database | null, budgetId: stri
     await db.prepare(`
       INSERT INTO customer_transactions
       (customer_id, type, date, description, amount_usd, amount_bs, amount_usd_divisa, currency_type, presupuesto_id, exchange_rate, is_paid)
-      VALUES (?, 'compra', datetime(?, 'localtime'), ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, 'purchase', datetime(?, 'localtime'), ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       customer.id,
       budget.fecha,
