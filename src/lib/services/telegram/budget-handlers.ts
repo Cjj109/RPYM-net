@@ -571,7 +571,7 @@ export async function sendBudgetWhatsApp(db: D1Database | null, budgetId: string
   }
 }
 
-export async function linkBudgetToCustomer(db: D1Database | null, budgetId: string, customerNameOrId: string | number): Promise<{ success: boolean; message: string; customerId?: number }> {
+export async function linkBudgetToCustomer(db: D1Database | null, budgetId: string, customerNameOrId: string | number, existingBcvRate?: { rate: number }): Promise<{ success: boolean; message: string; customerId?: number }> {
   if (!db) return { success: false, message: '❌ No hay conexión a la base de datos' };
 
   try {
@@ -600,7 +600,7 @@ export async function linkBudgetToCustomer(db: D1Database | null, budgetId: stri
     const items = JSON.parse(budget.items || '[]');
     const description = items.map((i: any) => `${i.nombre} ${i.cantidad}${i.unidad || 'kg'}`).join(', ') || `Presupuesto #${budgetId}`;
     const currencyType = (budget.modo_precio === 'divisas' || budget.modo_precio === 'divisa') ? 'divisas' : 'dolar_bcv';
-    const bcvRate = await getBCVRate(db);
+    const bcvRate = existingBcvRate || await getBCVRate(db);
     const isPaid = budget.estado === 'pagado' ? 1 : 0;
 
     await db.prepare(`
@@ -837,7 +837,7 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
     responseText += `\n🔗 ${adminUrl}`;
 
     if (result.customerName) {
-      const linkResult = await linkBudgetToCustomer(db, id, result.customerName);
+      const linkResult = await linkBudgetToCustomer(db, id, result.customerName, bcvRate);
       if (linkResult.success) {
         responseText += `\n\n📋 Vinculado a cuenta de *${result.customerName}*`;
       } else {

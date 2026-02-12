@@ -845,7 +845,8 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
           response = await searchBudgetsByCustomer(db, intent.params.cliente);
         } else if (intent.params.action === 'asignar' && intent.params.id && intent.params.cliente) {
           // Asignar presupuesto explícito a cliente explícito
-          const linkResult = await linkBudgetToCustomer(db, intent.params.id, intent.params.cliente);
+          const bcvRateForLink = await getBCVRate(db);
+          const linkResult = await linkBudgetToCustomer(db, intent.params.id, intent.params.cliente, bcvRateForLink);
           response = linkResult.message;
         } else if (intent.params.action === 'asignar_contexto') {
           // Buscar el último presupuesto y cliente mencionados en el contexto
@@ -880,7 +881,8 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
           }
 
           if (budgetId && customerName) {
-            const linkResult = await linkBudgetToCustomer(db, budgetId, customerName);
+            const bcvRateForLink = await getBCVRate(db);
+            const linkResult = await linkBudgetToCustomer(db, budgetId, customerName, bcvRateForLink);
             response = linkResult.message;
           } else if (!budgetId) {
             response = '❓ No encontré un presupuesto reciente. Especifica: "asigna el presupuesto 12345 a [cliente]"';
