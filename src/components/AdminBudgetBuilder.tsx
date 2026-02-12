@@ -7,6 +7,8 @@ interface Props {
   bcvRate: BCVRate;
   editingPresupuesto?: Presupuesto | null;
   onEditComplete?: () => void;
+  onSaveComplete?: (presupuestoId: string) => void | Promise<void>;
+  onClearEdit?: () => void;
 }
 
 interface AdminSelectedItem {
@@ -50,7 +52,7 @@ const categoryIcons: Record<string, string> = {
   'Especiales': '👑',
 };
 
-export default function AdminBudgetBuilder({ categories: initialCategories, bcvRate, editingPresupuesto, onEditComplete }: Props) {
+export default function AdminBudgetBuilder({ categories: initialCategories, bcvRate, editingPresupuesto, onEditComplete, onSaveComplete, onClearEdit }: Props) {
   // Dynamic categories from API (refreshes on mount)
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
@@ -1419,6 +1421,9 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
           setPresupuestoId(result.id);
           setSaveMessage(`Guardado con ID: ${result.id}`);
 
+          // Switch to edit mode so next save updates instead of creating again
+          onSaveComplete?.(result.id);
+
           // If assigned to a customer, create a transaction in their ledger
           if (assignToCustomer) {
             const txDate = useCustomDate ? customPresupuestoDate : new Date().toISOString().split('T')[0];
@@ -2720,10 +2725,17 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
                   )}
 
                   <button
-                    onClick={clearSelection}
+                    onClick={editingPresupuesto ? () => {
+                      clearSelection();
+                      setCustomerName('');
+                      setCustomerAddress('');
+                      setAssignToCustomer(null);
+                      setDeliveryCost(0);
+                      onClearEdit?.();
+                    } : clearSelection}
                     className="w-full py-2 text-ocean-600 hover:text-ocean-800 text-sm transition-colors"
                   >
-                    Limpiar seleccion
+                    {editingPresupuesto ? 'Crear nuevo' : 'Limpiar seleccion'}
                   </button>
                 </div>
 
@@ -3110,13 +3122,29 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
 
                 {/* Action buttons */}
                 <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={clearSelection}
-                    disabled={selectedItems.size === 0}
-                    className="py-2.5 text-sm text-ocean-600 border border-ocean-200 rounded-lg disabled:opacity-50"
-                  >
-                    Limpiar
-                  </button>
+                  {editingPresupuesto ? (
+                    <button
+                      onClick={() => {
+                        clearSelection();
+                        setCustomerName('');
+                        setCustomerAddress('');
+                        setAssignToCustomer(null);
+                        setDeliveryCost(0);
+                        onClearEdit?.();
+                      }}
+                      className="py-2.5 text-sm text-ocean-600 border border-ocean-200 rounded-lg"
+                    >
+                      Crear nuevo
+                    </button>
+                  ) : (
+                    <button
+                      onClick={clearSelection}
+                      disabled={selectedItems.size === 0}
+                      className="py-2.5 text-sm text-ocean-600 border border-ocean-200 rounded-lg disabled:opacity-50"
+                    >
+                      Limpiar
+                    </button>
+                  )}
                   <button
                     onClick={handleSave}
                     disabled={selectedItems.size === 0 || isSaving}

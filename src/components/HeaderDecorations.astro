@@ -175,9 +175,36 @@
   }
 
   .valentine-heart-icon {
-    font-size: 1rem;
+    --heart-size: 12px;
+    width: var(--heart-size);
+    height: var(--heart-size);
+    position: relative;
+    transform: rotate(-45deg);
+    background: linear-gradient(135deg, #f43f5e 0%, #be123c 100%);
+    border-radius: 2px;
     animation: heart-float 2.5s ease-in-out infinite;
-    filter: drop-shadow(0 2px 4px rgba(225, 29, 72, 0.3));
+    filter: drop-shadow(0 2px 4px rgba(190, 18, 60, 0.35));
+    opacity: 0.92;
+  }
+
+  .valentine-heart-icon::before,
+  .valentine-heart-icon::after {
+    content: '';
+    position: absolute;
+    width: var(--heart-size);
+    height: var(--heart-size);
+    background: inherit;
+    border-radius: 50%;
+  }
+
+  .valentine-heart-icon::before {
+    top: calc(var(--heart-size) * -0.5);
+    left: 0;
+  }
+
+  .valentine-heart-icon::after {
+    top: 0;
+    left: calc(var(--heart-size) * 0.5);
   }
 
   .valentine-heart-icon:nth-child(odd) {
@@ -304,13 +331,13 @@
     `,
     valentine: () => `
       <div class="valentine-hearts">
-        <span class="valentine-heart-icon">❤️</span>
-        <span class="valentine-heart-icon">💕</span>
-        <span class="valentine-heart-icon">💗</span>
-        <span class="valentine-heart-icon">❤️</span>
-        <span class="valentine-heart-icon">💕</span>
-        <span class="valentine-heart-icon">💗</span>
-        <span class="valentine-heart-icon">❤️</span>
+        <span class="valentine-heart-icon"></span>
+        <span class="valentine-heart-icon"></span>
+        <span class="valentine-heart-icon"></span>
+        <span class="valentine-heart-icon"></span>
+        <span class="valentine-heart-icon"></span>
+        <span class="valentine-heart-icon"></span>
+        <span class="valentine-heart-icon"></span>
       </div>
     `,
     halloween: () => `

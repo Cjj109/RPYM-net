@@ -16,6 +16,7 @@ import {
   updatePresupuesto,
   deletePresupuesto,
   getPresupuestoStats,
+  getPresupuesto,
   type Presupuesto,
   type PresupuestoItem,
   type PresupuestoStats
@@ -1256,9 +1257,15 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
               bcvRate={bcvRate}
               editingPresupuesto={editingPresupuesto}
               onEditComplete={() => {
-                setEditingPresupuesto(null);
+                // Solo refrescar la lista; no limpiar editingPresupuesto para permitir múltiples actualizaciones
                 loadData();
               }}
+              onSaveComplete={async (newId) => {
+                const p = await getPresupuesto(newId);
+                if (p) setEditingPresupuesto(p);
+                loadData();
+              }}
+              onClearEdit={() => setEditingPresupuesto(null)}
             />
           </Suspense>
         </main>

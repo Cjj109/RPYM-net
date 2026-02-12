@@ -31,20 +31,39 @@
       }
     },
     carnival: {
-      count: 25,
+      count: 28,
       create: (i) => {
         const colors = ['#a855f7', '#eab308', '#22c55e', '#ec4899', '#f97316'];
-        const confetti = document.createElement('div');
-        confetti.className = 'confetti-piece';
-        confetti.style.left = `${Math.random() * 100}%`;
-        confetti.style.backgroundColor = colors[i % colors.length];
-        confetti.style.animationDuration = `${5 + Math.random() * 8}s`;
-        confetti.style.animationDelay = `${Math.random() * 10}s`;
-        confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
-        confetti.style.width = `${6 + Math.random() * 8}px`;
-        confetti.style.height = `${6 + Math.random() * 8}px`;
-        confetti.style.opacity = `${0.6 + Math.random() * 0.4}`;
-        return confetti;
+        const element = document.createElement('div');
+        const type = i % 8;
+
+        if (type < 5) {
+          element.className = 'confetti-piece';
+          element.style.backgroundColor = colors[i % colors.length];
+          element.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+          element.style.width = `${6 + Math.random() * 8}px`;
+          element.style.height = `${6 + Math.random() * 8}px`;
+          element.style.opacity = `${0.65 + Math.random() * 0.3}`;
+          const drift = -14 + Math.random() * 28;
+          element.style.setProperty('--confetti-drift', `${drift}px`);
+          element.style.animation = `confetti-fall ${7 + Math.random() * 5}s linear ${Math.random() * 7}s infinite, confetti-spin ${4 + Math.random() * 2.5}s linear ${Math.random() * 2}s infinite`;
+        } else if (type < 7) {
+          element.className = 'carnival-streamer';
+          element.style.setProperty('--streamer-color', colors[i % colors.length]);
+          element.style.setProperty('--streamer-length', `${32 + Math.random() * 22}px`);
+          element.style.setProperty('--streamer-width', `${4 + Math.random() * 3}px`);
+          element.style.opacity = `${0.45 + Math.random() * 0.25}`;
+          element.style.animation = `streamer-fall ${10 + Math.random() * 6}s linear ${Math.random() * 8}s infinite, streamer-swing ${4.2 + Math.random() * 2.2}s ease-in-out ${Math.random() * 2}s infinite`;
+        } else {
+          element.className = 'carnival-mask';
+          element.style.setProperty('--mask-color', colors[i % colors.length]);
+          element.style.setProperty('--mask-size', `${14 + Math.random() * 10}px`);
+          element.style.opacity = `${0.42 + Math.random() * 0.22}`;
+          element.style.animation = `mask-float ${11 + Math.random() * 6}s linear ${Math.random() * 9}s infinite, mask-tilt ${5 + Math.random() * 2}s ease-in-out ${Math.random() * 2}s infinite`;
+        }
+
+        element.style.left = `${Math.random() * 100}%`;
+        return element;
       }
     },
     christmas: {
@@ -100,20 +119,37 @@
       }
     },
     valentine: {
-      count: 18,
+      count: 28,
       create: (i) => {
+        const element = document.createElement('div');
         const colors = ['#e11d48', '#f43f5e', '#fb7185', '#fda4af', '#be123c'];
-        const heart = document.createElement('div');
-        heart.className = 'valentine-heart';
-        const size = 8 + Math.random() * 10;
-        heart.style.setProperty('--heart-size', `${size}px`);
-        heart.style.setProperty('--heart-color', colors[i % colors.length]);
-        heart.style.left = `${Math.random() * 100}%`;
-        heart.style.opacity = `${0.5 + Math.random() * 0.4}`;
-        const duration = 6 + Math.random() * 6;
-        const delay = Math.random() * 3;
-        heart.style.animation = `heart-fall ${duration}s linear ${delay}s infinite, heart-sway 3s ease-in-out ${delay}s infinite`;
-        return heart;
+        const type = i % 7;
+        const delay = Math.random() * 6;
+        const duration = 6 + Math.random() * 7;
+
+        if (type < 5) {
+          element.className = 'valentine-heart';
+          const size = 10 + Math.random() * 13;
+          element.style.setProperty('--heart-size', `${size}px`);
+          element.style.setProperty('--heart-color', colors[i % colors.length]);
+          element.style.opacity = `${0.38 + Math.random() * 0.35}`;
+          element.style.animation = `heart-fall ${duration}s linear ${delay}s infinite, heart-sway 4s ease-in-out ${delay}s infinite, heart-glow 2.4s ease-in-out ${delay}s infinite`;
+        } else if (type === 5) {
+          element.className = 'valentine-spark';
+          element.style.setProperty('--spark-size', `${8 + Math.random() * 8}px`);
+          element.style.setProperty('--spark-color', ['#fda4af', '#fbcfe8', '#fef3c7'][i % 3]);
+          element.style.opacity = `${0.35 + Math.random() * 0.3}`;
+          element.style.animation = `spark-fall ${7 + Math.random() * 6}s linear ${delay}s infinite, spark-twinkle ${1.7 + Math.random() * 1.4}s ease-in-out ${delay}s infinite`;
+        } else {
+          element.className = 'valentine-petal';
+          element.style.setProperty('--petal-size', `${9 + Math.random() * 9}px`);
+          element.style.setProperty('--petal-color', ['#fb7185', '#f43f5e', '#fda4af'][i % 3]);
+          element.style.opacity = `${0.3 + Math.random() * 0.3}`;
+          element.style.animation = `petal-fall ${8 + Math.random() * 6}s linear ${delay}s infinite, petal-spin ${2.2 + Math.random() * 1.5}s ease-in-out ${delay}s infinite`;
+        }
+
+        element.style.left = `${Math.random() * 100}%`;
+        return element;
       }
     },
     mundial: {

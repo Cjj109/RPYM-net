@@ -233,12 +233,16 @@ INTENCIONES POSIBLES:
    - "era camarón desvenado, no entero" → params: {action: "editar", edicion: {tipo: "sustituir", productoOriginal: "camarón entero", productoNuevo: "camarón desvenado"}}
    NOTA: Usa "sustituir" cuando el usuario indica que un producto en el presupuesto debería ser otro diferente
 
-   DELIVERY (cargo de envío - NO es un producto):
+   DELIVERY (cargo de envío - NO es un producto; monto SIEMPRE es número):
    - "agrega $5 de delivery" → params: {action: "editar", edicion: {tipo: "delivery", monto: 5}}
    - "súmale $5 de delivery" → params: {action: "editar", edicion: {tipo: "delivery", monto: 5}}
+   - "suma $10 de delivery al presupuesto 56409" → params: {action: "editar", id: "56409", edicion: {tipo: "delivery", monto: 10}}
+   - "suma $5 de delivery al presupuesto 25376" → params: {action: "editar", id: "25376", edicion: {tipo: "delivery", monto: 5}}
+   - "agrega $5 de delivery al presupuesto 12345" → params: {action: "editar", id: "12345", edicion: {tipo: "delivery", monto: 5}}
    - "ponle delivery de $10" → params: {action: "editar", edicion: {tipo: "delivery", monto: 10}}
    - "quita el delivery" → params: {action: "editar", edicion: {tipo: "delivery", monto: 0}}
    - "sin delivery" → params: {action: "editar", edicion: {tipo: "delivery", monto: 0}}
+   IMPORTANTE: Cuando el usuario menciona un número de presupuesto ("25376", "presupuesto 12345", "al 25376"), SIEMPRE incluir id en params.
    IMPORTANTE: "delivery" es un CARGO ESPECIAL, no un producto. Usar tipo: "delivery" cuando mencionan delivery/envío.
 
    MÚLTIPLES EDICIONES EN UN MENSAJE (MUY IMPORTANTE):

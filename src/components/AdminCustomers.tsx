@@ -193,6 +193,8 @@ export default function AdminCustomers() {
     date: string | null;
     description: string;
     pricingMode: 'bcv' | 'divisas' | 'dual';
+    delivery?: number | null;
+    hideRate?: boolean; // Solo divisas: ocultar Bs en print/WhatsApp
   } | null>(null);
   const [aiUnmatched, setAiUnmatched] = useState<string[]>([]);
 
@@ -225,6 +227,29 @@ export default function AdminCustomers() {
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  };
+
+  const recalcTotals = (
+    prev: NonNullable<typeof aiProductAction>,
+    newItems: NonNullable<typeof aiProductAction>['items']
+  ) => {
+    const deliveryAmt = prev.delivery ?? 0;
+    const itemsTotalUSD = newItems.reduce((sum, it) => sum + it.subtotalUSD, 0);
+    const newTotalUSD = itemsTotalUSD + deliveryAmt;
+    const newTotalBs = prev.pricingMode === 'divisas' ? 0 : Math.round(newTotalUSD * (bcvRate || 1) * 100) / 100;
+    const itemsTotalDivisa = prev.pricingMode === 'dual'
+      ? newItems.reduce((sum, it) => sum + (it.subtotalUSDDivisa || it.subtotalUSD), 0)
+      : 0;
+    const newTotalUSDDivisa = prev.pricingMode === 'dual'
+      ? itemsTotalDivisa + deliveryAmt
+      : null;
+    return {
+      ...prev,
+      items: newItems,
+      totalUSD: Math.round(newTotalUSD * 100) / 100,
+      totalBs: Math.round(newTotalBs * 100) / 100,
+      totalUSDDivisa: newTotalUSDDivisa ? Math.round(newTotalUSDDivisa * 100) / 100 : null
+    };
   };
 
   // ─── Cargar tasa BCV ────────────────────────────────────────────────
@@ -1240,6 +1265,7 @@ export default function AdminCustomers() {
         const txDate = action.date || today;
 
         // 1. Create presupuesto
+        const modoPrecio = action.pricingMode === 'divisas' ? 'divisa' : action.pricingMode;
         const presRes = await fetch('/api/presupuestos', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1248,10 +1274,13 @@ export default function AdminCustomers() {
             totalUSD: action.totalUSD,
             totalBs: action.totalBs,
             totalUSDDivisa: action.totalUSDDivisa,
+            delivery: action.delivery ?? 0,
             customerName: action.customerName,
             status: 'pendiente',
             source: 'admin',
             customDate: txDate,
+            modoPrecio,
+            hideRate: (action.hideRate && action.pricingMode !== 'divisas') || false,
           }),
           credentials: 'include'
         });
@@ -1582,21 +1611,53 @@ export default function AdminCustomers() {
             </div>
 
             {/* Items table */}
-            <div className="bg-white rounded border border-purple-200 overflow-hidden mb-2">
-              <table className="w-full text-xs">
+            <div className="bg-white rounded border border-purple-200 overflow-x-auto mb-2">
+              <table className="w-full text-xs min-w-[400px]">
                 <thead className="bg-purple-100">
                   <tr>
                     <th className="px-2 py-1 text-left text-purple-700">Producto</th>
                     <th className="px-2 py-1 text-center text-purple-700">Cant</th>
                     <th className="px-2 py-1 text-right text-purple-700">P.Unit</th>
                     <th className="px-2 py-1 text-right text-purple-700">Subtotal</th>
+                    {aiProductAction.pricingMode === 'dual' && (
+                      <>
+                        <th className="px-2 py-1 text-right text-amber-700">P.Unit Div</th>
+                        <th className="px-2 py-1 text-right text-amber-700">Subtotal Div</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-purple-100">
                   {aiProductAction.items.map((item, i) => (
                     <tr key={i}>
                       <td className="px-2 py-1 text-ocean-800">{item.nombre}</td>
-                      <td className="px-2 py-1 text-center text-ocean-600">{item.cantidad} {item.unidad}</td>
+                      <td className="px-2 py-1 text-center">
+                        <input
+                          type="number"
+                          step={item.unidad === 'kg' ? '0.1' : '1'}
+                          min="0"
+                          value={item.cantidad}
+                          onChange={(e) => {
+                            const newQty = parseFloat(e.target.value) || 0;
+                            setAiProductAction(prev => {
+                              if (!prev) return null;
+                              const newItems = [...prev.items];
+                              const it = newItems[i];
+                              newItems[i] = {
+                                ...it,
+                                cantidad: newQty,
+                                subtotalUSD: Math.round(it.precioUSD * newQty * 100) / 100,
+                                ...(prev.pricingMode === 'dual' ? {
+                                  subtotalUSDDivisa: Math.round((it.precioUSDDivisa ?? it.precioUSD) * newQty * 100) / 100
+                                } : {})
+                              };
+                              return recalcTotals(prev, newItems);
+                            });
+                          }}
+                          className="w-14 px-1 py-0.5 text-center text-ocean-700 border border-ocean-200 rounded focus:outline-none focus:ring-1 focus:ring-ocean-400 text-xs"
+                        />
+                        <span className="ml-0.5 text-ocean-500">{item.unidad}</span>
+                      </td>
                       <td className="px-2 py-1 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <span className="text-ocean-400">$</span>
@@ -1614,25 +1675,11 @@ export default function AdminCustomers() {
                                   ...newItems[i],
                                   precioUSD: newPrice,
                                   subtotalUSD: Math.round(newPrice * newItems[i].cantidad * 100) / 100,
-                                  // For dual mode, also update divisa prices
                                   ...(prev.pricingMode === 'dual' ? {
-                                    precioUSDDivisa: newPrice,
-                                    subtotalUSDDivisa: Math.round(newPrice * newItems[i].cantidad * 100) / 100
+                                    subtotalUSDDivisa: Math.round((newItems[i].precioUSDDivisa ?? newPrice) * newItems[i].cantidad * 100) / 100
                                   } : {})
                                 };
-                                // Recalculate totals
-                                const newTotalUSD = newItems.reduce((sum, it) => sum + it.subtotalUSD, 0);
-                                const newTotalBs = prev.pricingMode === 'divisas' ? 0 : Math.round(newTotalUSD * bcvRate * 100) / 100;
-                                const newTotalUSDDivisa = prev.pricingMode === 'dual'
-                                  ? newItems.reduce((sum, it) => sum + (it.subtotalUSDDivisa || it.subtotalUSD), 0)
-                                  : null;
-                                return {
-                                  ...prev,
-                                  items: newItems,
-                                  totalUSD: Math.round(newTotalUSD * 100) / 100,
-                                  totalBs: Math.round(newTotalBs * 100) / 100,
-                                  totalUSDDivisa: newTotalUSDDivisa ? Math.round(newTotalUSDDivisa * 100) / 100 : null
-                                };
+                                return recalcTotals(prev, newItems);
                               });
                             }}
                             className="w-14 px-1 py-0.5 text-right text-ocean-700 border border-ocean-200 rounded focus:outline-none focus:ring-1 focus:ring-ocean-400 text-xs"
@@ -1642,8 +1689,54 @@ export default function AdminCustomers() {
                       <td className="px-2 py-1 text-right font-medium text-ocean-800">
                         ${item.subtotalUSD.toFixed(2)}
                       </td>
+                      {aiProductAction.pricingMode === 'dual' && (
+                        <>
+                          <td className="px-2 py-1 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="text-amber-500">$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={item.precioUSDDivisa ?? item.precioUSD}
+                                onChange={(e) => {
+                                  const newPriceDiv = parseFloat(e.target.value) || 0;
+                                  setAiProductAction(prev => {
+                                    if (!prev) return null;
+                                    const newItems = [...prev.items];
+                                    newItems[i] = {
+                                      ...newItems[i],
+                                      precioUSDDivisa: newPriceDiv,
+                                      subtotalUSDDivisa: Math.round(newPriceDiv * newItems[i].cantidad * 100) / 100
+                                    };
+                                    return recalcTotals(prev, newItems);
+                                  });
+                                }}
+                                className="w-14 px-1 py-0.5 text-right text-amber-700 border border-amber-200 rounded focus:outline-none focus:ring-1 focus:ring-amber-400 text-xs"
+                              />
+                            </div>
+                          </td>
+                          <td className="px-2 py-1 text-right font-medium text-amber-700">
+                            ${(item.subtotalUSDDivisa ?? item.subtotalUSD).toFixed(2)}
+                          </td>
+                        </>
+                      )}
                     </tr>
                   ))}
+                  {aiProductAction.delivery != null && aiProductAction.delivery > 0 && (
+                    <tr className="bg-amber-50/50 border-t border-amber-200">
+                      <td className="px-2 py-1 text-amber-700 italic">Delivery</td>
+                      <td className="px-2 py-1 text-center text-amber-600">-</td>
+                      <td className="px-2 py-1 text-right text-amber-600">-</td>
+                      <td className="px-2 py-1 text-right font-medium text-amber-700">${aiProductAction.delivery.toFixed(2)}</td>
+                      {aiProductAction.pricingMode === 'dual' && (
+                        <>
+                          <td className="px-2 py-1 text-right text-amber-600">-</td>
+                          <td className="px-2 py-1 text-right font-medium text-amber-700">${aiProductAction.delivery.toFixed(2)}</td>
+                        </>
+                      )}
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1667,6 +1760,21 @@ export default function AdminCustomers() {
                 </div>
               )}
             </div>
+
+            {/* Toggle Solo divisas (ocultar Bs) - solo en BCV o Dual */}
+            {aiProductAction.pricingMode !== 'divisas' && (
+              <div className="flex items-center justify-between py-2 mb-2">
+                <label htmlFor="ai-solo-divisas" className="text-xs text-ocean-600 cursor-pointer">Solo divisas (ocultar Bs en print/WhatsApp)</label>
+                <button
+                  id="ai-solo-divisas"
+                  type="button"
+                  onClick={() => setAiProductAction(prev => prev ? { ...prev, hideRate: !prev.hideRate } : null)}
+                  className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${aiProductAction.hideRate ? 'bg-coral-500' : 'bg-ocean-200'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${aiProductAction.hideRate ? 'translate-x-4' : ''}`} />
+                </button>
+              </div>
+            )}
 
             <div className="flex gap-2">
               <button
@@ -3298,17 +3406,20 @@ export default function AdminCustomers() {
                           <td className="text-right px-3 py-1.5 font-semibold text-ocean-800">${item.subtotalUSD.toFixed(2)}</td>
                         </tr>
                       ))}
-                      {/* Delivery row if total > sum of items */}
+                      {/* Delivery row: usar p.delivery o diff si total > items */}
                       {(() => {
+                        const deliveryAmt = (p.delivery ?? 0) > 0 ? p.delivery : null;
                         const itemsSum = p.items.reduce((sum: number, item: any) => sum + (item.subtotalUSD || 0), 0);
-                        const diff = Math.round((p.totalUSD - itemsSum) * 100) / 100;
-                        if (diff > 0.01) {
+                        const diff = !deliveryAmt ? Math.round((p.totalUSD - itemsSum) * 100) / 100 : null;
+                        const showDelivery = (deliveryAmt != null && deliveryAmt > 0) || (diff != null && diff > 0.01);
+                        const amount = deliveryAmt ?? diff ?? 0;
+                        if (showDelivery && amount > 0) {
                           return (
                             <tr className="bg-amber-50/50 border-t border-amber-200">
                               <td className="px-3 py-1.5 text-amber-700 italic">Delivery</td>
                               <td className="text-center px-2 py-1.5 text-amber-600">-</td>
                               <td className="text-right px-3 py-1.5 text-amber-600">-</td>
-                              <td className="text-right px-3 py-1.5 font-semibold text-amber-700">${diff.toFixed(2)}</td>
+                              <td className="text-right px-3 py-1.5 font-semibold text-amber-700">${amount.toFixed(2)}</td>
                             </tr>
                           );
                         }
@@ -3355,17 +3466,22 @@ export default function AdminCustomers() {
                             <td className="text-right px-3 py-1.5 font-semibold text-ocean-800">${(item.subtotalUSDDivisa ?? item.subtotalUSD).toFixed(2)}</td>
                           </tr>
                         ))}
-                        {/* Delivery row if total > sum of items */}
+                        {/* Delivery row: usar p.delivery o diff si total > items */}
                         {(() => {
+                          const deliveryAmt = (p.delivery ?? 0) > 0 ? p.delivery : null;
                           const itemsSum = p.items.reduce((sum: number, item: any) => sum + (item.subtotalUSDDivisa ?? item.subtotalUSD ?? 0), 0);
-                          const diff = Math.round((p.totalUSDDivisa - itemsSum) * 100) / 100;
-                          if (diff > 0.01) {
+                          const diff = !deliveryAmt && p.totalUSDDivisa != null
+                            ? Math.round((p.totalUSDDivisa - itemsSum) * 100) / 100
+                            : null;
+                          const showDelivery = (deliveryAmt != null && deliveryAmt > 0) || (diff != null && diff > 0.01);
+                          const amount = deliveryAmt ?? diff ?? 0;
+                          if (showDelivery && amount > 0) {
                             return (
                               <tr className="bg-amber-100/50 border-t border-amber-300">
                                 <td className="px-3 py-1.5 text-amber-700 italic">Delivery</td>
                                 <td className="text-center px-2 py-1.5 text-amber-600">-</td>
                                 <td className="text-right px-3 py-1.5 text-amber-600">-</td>
-                                <td className="text-right px-3 py-1.5 font-semibold text-amber-700">${diff.toFixed(2)}</td>
+                                <td className="text-right px-3 py-1.5 font-semibold text-amber-700">${amount.toFixed(2)}</td>
                               </tr>
                             );
                           }

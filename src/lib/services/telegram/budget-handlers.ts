@@ -765,22 +765,25 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
       }
 
       case 'delivery': {
-        const nuevoDelivery = edicion.monto || 0;
+        // Ensure monto is a number (LLM may return string)
+        const nuevoDelivery = Math.max(0, Number(edicion.monto) || 0);
 
-        await db.prepare(`UPDATE presupuestos SET delivery = ? WHERE id = ?`).bind(nuevoDelivery, budgetId).run();
+        const itemsTotal = items.reduce((sum: number, i: any) => sum + (i.subtotalUSD || 0), 0);
+        const itemsTotalBs = items.reduce((sum: number, i: any) => sum + (i.subtotalBs || 0), 0);
+        const itemsTotalDivisa = items.reduce((sum: number, i: any) => sum + (i.subtotalUSDDivisa || i.subtotalUSD || 0), 0);
 
-        const itemsTotal = items.reduce((sum: number, i: any) => sum + i.subtotalUSD, 0);
-        const itemsTotalBs = items.reduce((sum: number, i: any) => sum + i.subtotalBs, 0);
-        const itemsTotalDivisa = items.reduce((sum: number, i: any) => sum + (i.subtotalUSDDivisa || i.subtotalUSD), 0);
+        // Total = subtotal (productos) + delivery. Subtotal NO incluye delivery.
+        const newTotalUSD = Math.round((itemsTotal + nuevoDelivery) * 100) / 100;
+        const newTotalBs = Math.round((itemsTotalBs + nuevoDelivery * bcvRate.rate) * 100) / 100;
+        const newTotalDivisa = budget.modo_precio !== 'bcv'
+          ? Math.round((itemsTotalDivisa + nuevoDelivery) * 100) / 100
+          : null;
 
-        const newTotalUSD = itemsTotal + nuevoDelivery;
-        const newTotalBs = itemsTotalBs + (nuevoDelivery * bcvRate.rate);
-        const newTotalDivisa = itemsTotalDivisa + nuevoDelivery;
-
+        // Update presupuesto: delivery Y totales en una sola operación
         await db.prepare(`
-          UPDATE presupuestos SET total_usd = ?, total_bs = ?, total_usd_divisa = ?
+          UPDATE presupuestos SET delivery = ?, total_usd = ?, total_bs = ?, total_usd_divisa = ?
           WHERE id = ?
-        `).bind(newTotalUSD, newTotalBs, budget.modo_precio !== 'bcv' ? newTotalDivisa : null, budgetId).run();
+        `).bind(nuevoDelivery, newTotalUSD, newTotalBs, newTotalDivisa, budgetId).run();
 
         await db.prepare(`
           UPDATE customer_transactions SET amount_usd = ?, amount_bs = ?, amount_usd_divisa = ?

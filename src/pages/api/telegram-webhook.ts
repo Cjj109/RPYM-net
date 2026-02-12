@@ -814,7 +814,13 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
           }
         } else if (intent.params.action === 'editar' && intent.params.edicion) {
           // Editar presupuesto (precio, cantidad, fecha, items)
-          let budgetId = intent.params.id;
+          let budgetId = intent.params.id ? String(intent.params.id).trim() : null;
+          if (!budgetId) {
+            // Extraer ID del texto: "presupuesto 56409", "#25376", "presupuesto #56409", "al presupuesto 56409"
+            const idInText = text.match(/(?:presupuesto\s*#?\s*|#|al\s+presupuesto\s*#?\s*)(\d{4,6})\b/i)
+              || text.match(/presupuesto\s+(\d{4,6})\b/i);
+            if (idInText) budgetId = idInText[1];
+          }
           if (!budgetId) {
             const lastBudgetMatch = [...chatHistory].reverse().find(m =>
               m.role === 'assistant' && m.content.includes('Presupuesto #')
@@ -822,6 +828,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
             const idMatch = lastBudgetMatch?.content.match(/#(\d+)/);
             budgetId = idMatch?.[1];
           }
+          console.log('[Telegram] budget_action editar: budgetId=', budgetId, 'edicion=', JSON.stringify(intent.params.edicion));
           if (budgetId) {
             // Handle both single edit and array of edits
             const ediciones = Array.isArray(intent.params.edicion)

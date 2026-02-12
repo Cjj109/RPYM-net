@@ -56,6 +56,7 @@ interface ParsedAction {
   date: string | null;
   description: string;
   pricingMode: 'bcv' | 'divisas' | 'dual';
+  delivery: number | null;
 }
 
 // Generate unique presupuesto ID (same as in presupuestos/index.ts)
@@ -102,6 +103,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // Get current date info
     const now = new Date();
     const todayISO = now.toISOString().split('T')[0];
+    const currentYear = now.getFullYear();
     const dayOfWeek = now.getDay();
     const dayNames = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
     const todayName = dayNames[dayOfWeek];
@@ -165,14 +167,22 @@ MONTOS EN DOLARES:
 - "$20 de calamar" → calcular cantidad = monto / precio del producto
 - Usar el precio segun el modo de precio especificado
 
-FECHAS:
+FECHAS (CRITICO - año actual es ${currentYear}):
 - Por defecto, date = null (significa hoy)
+- Si NO se especifica el año, SIEMPRE usar el año actual: ${currentYear}
+- "11 de enero", "el 11 enero", "11/01" = ${currentYear}-01-11 (año actual)
 - "ayer" = fecha de ayer
 - "el lunes/martes/etc" = el ultimo dia de la semana mencionado
 - "hace 2 dias" = restar 2 dias a hoy
-- "el 03 de febrero", "03/febrero", "el dia 03/febrero" = 2025-02-03 (año actual)
-- "04/feb", "4 de febrero", "el 4 febrero" = fecha correspondiente
+- "el 03 de febrero", "03/febrero", "el dia 03/febrero" = ${currentYear}-02-03
+- "04/feb", "4 de febrero", "el 4 febrero" = fecha correspondiente en ${currentYear}
 - "antier/anteayer" = hace 2 dias
+
+DELIVERY (OPCIONAL - cargo de envio):
+- Si el usuario menciona "delivery", "envio", "envío", "flete", extrae el costo en dolares
+- Formatos: "delivery $5", "$5 delivery", "5$ de delivery", "envío 5 dolares", "mas $5 de delivery", "agrega $5 de delivery"
+- Si NO menciona delivery, delivery sera null
+- Ejemplos: "2kg calamar y 1kg jumbo, mas $5 de delivery para Delcy" → delivery: 5
 
 Responde SOLO con un JSON valido:
 {
@@ -192,6 +202,7 @@ Responde SOLO con un JSON valido:
     }
   ],
   "date": "YYYY-MM-DD" o null,
+  "delivery": numero o null (costo de delivery en USD si se menciono),
   "unmatched": ["productos que no se pudieron identificar"]
 }`;
 
@@ -291,14 +302,19 @@ Responde SOLO con un JSON valido:
       }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // Calculate totals based on mode
-    const totalUSD = presupuestoItems.reduce((sum, i) => sum + i.subtotalUSD, 0);
+    // Calculate totals based on mode (items + optional delivery)
+    const delivery = typeof parsed.delivery === 'number' && parsed.delivery > 0 ? parsed.delivery : 0;
+    const itemsTotalUSD = presupuestoItems.reduce((sum, i) => sum + i.subtotalUSD, 0);
+    const totalUSD = Math.round((itemsTotalUSD + delivery) * 100) / 100;
     // For divisas mode: no Bs total (set to 0)
     // For BCV and dual: calculate Bs
     const totalBs = pricingMode === 'divisas' ? 0 : Math.round(totalUSD * bcvRate * 100) / 100;
     // Only set totalUSDDivisa for dual mode
-    const totalUSDDivisa = pricingMode === 'dual'
+    const itemsTotalDivisa = pricingMode === 'dual'
       ? presupuestoItems.reduce((sum, i) => sum + (i.subtotalUSDDivisa || i.subtotalUSD), 0)
+      : 0;
+    const totalUSDDivisa = pricingMode === 'dual'
+      ? Math.round((itemsTotalDivisa + delivery) * 100) / 100
       : null;
 
     // Build description
@@ -310,12 +326,13 @@ Responde SOLO con un JSON valido:
       customerName: parsed.customerName || 'Cliente',
       customerId: parsed.customerId || null,
       items: presupuestoItems,
-      totalUSD: Math.round(totalUSD * 100) / 100,
+      totalUSD,
       totalBs: Math.round(totalBs * 100) / 100,
-      totalUSDDivisa: totalUSDDivisa ? Math.round(totalUSDDivisa * 100) / 100 : null,
+      totalUSDDivisa: totalUSDDivisa ?? null,
       date: parsed.date || null,
       description,
-      pricingMode
+      pricingMode,
+      delivery: delivery > 0 ? delivery : null
     };
 
     return new Response(JSON.stringify({
