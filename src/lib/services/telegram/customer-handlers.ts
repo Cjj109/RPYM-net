@@ -446,7 +446,7 @@ export async function executeCustomerAction(db: D1Database | null, action: Custo
     const customer = await findCustomerByName(db, action.customerName);
     if (!customer) return await notFoundWithSuggestions(db, action.customerName);
 
-    const bcvRate = await getBCVRate();
+    const bcvRate = await getBCVRate(db);
     const amountBs = action.amountUsd * bcvRate.rate;
 
     await db.prepare(`

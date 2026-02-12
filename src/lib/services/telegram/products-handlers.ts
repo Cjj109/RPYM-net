@@ -6,7 +6,7 @@ import type { D1Database } from '../../d1-types';
 import { getProducts, getBCVRate } from '../../sheets';
 
 export async function getProductsList(db: D1Database | null): Promise<string> {
-  const bcvRate = await getBCVRate();
+  const bcvRate = await getBCVRate(db);
   const products = await getProducts(bcvRate.rate, db ?? undefined);
   let text = `📋 *Productos RPYM*\n💱 Tasa: Bs. ${bcvRate.rate.toFixed(2)}\n\n`;
   const categorias = new Map<string, typeof products>();

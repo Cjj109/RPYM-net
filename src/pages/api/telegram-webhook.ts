@@ -896,7 +896,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
         } else if (intent.params.action === 'stats') {
           response = await getStats(db);
         } else if (intent.params.action === 'tasa') {
-          const bcvRate = await getBCVRate();
+          const bcvRate = await getBCVRate(db);
           response = `💱 *Tasa BCV*\n\nBs. ${bcvRate.rate.toFixed(2)} por dólar\nFuente: ${bcvRate.source}`;
         }
         break;

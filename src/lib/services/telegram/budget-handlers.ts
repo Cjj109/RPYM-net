@@ -186,7 +186,7 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
     let items = typeof budget.items === 'string' ? JSON.parse(budget.items) : budget.items;
     let mensaje = '';
 
-    const bcvRate = await getBCVRate();
+    const bcvRate = await getBCVRate(db);
 
     switch (edicion.tipo) {
       case 'precio': {
@@ -535,7 +535,7 @@ export async function sendBudgetWhatsApp(db: D1Database | null, budgetId: string
     const modoPrecio = budget.modo_precio === 'divisas' ? 'divisa' : (budget.modo_precio || 'bcv');
     const shouldIncludeBs = modoPrecio === 'bcv' || modoPrecio === 'dual';
 
-    const bcvRate = await getBCVRate();
+    const bcvRate = await getBCVRate(db);
     const dynamicTotalBs = shouldIncludeBs ? budget.total_usd * bcvRate.rate : 0;
 
     const response = await fetch(`${baseUrl}/api/send-whatsapp-factura`, {
@@ -600,7 +600,7 @@ export async function linkBudgetToCustomer(db: D1Database | null, budgetId: stri
     const items = JSON.parse(budget.items || '[]');
     const description = items.map((i: any) => `${i.nombre} ${i.cantidad}${i.unidad || 'kg'}`).join(', ') || `Presupuesto #${budgetId}`;
     const currencyType = (budget.modo_precio === 'divisas' || budget.modo_precio === 'divisa') ? 'divisas' : 'dolar_bcv';
-    const bcvRate = await getBCVRate();
+    const bcvRate = await getBCVRate(db);
     const isPaid = budget.estado === 'pagado' ? 1 : 0;
 
     await db.prepare(`
@@ -638,7 +638,7 @@ export async function linkBudgetToCustomer(db: D1Database | null, budgetId: stri
 export async function createBudgetFromText(db: D1Database | null, text: string, mode: string, baseUrl: string, apiKey: string, adminSecret: string, hideRate: boolean = false): Promise<string> {
   if (!db) return '❌ No hay conexión a la base de datos';
   try {
-    const bcvRate = await getBCVRate();
+    const bcvRate = await getBCVRate(db);
     const products = await getProducts(bcvRate.rate, db);
     const productList = products.map(p => ({
       id: String(p.id), nombre: p.nombre, unidad: p.unidad, precioUSD: p.precioUSD, precioUSDDivisa: p.precioUSDDivisa
@@ -864,7 +864,7 @@ export async function createCustomerPurchaseWithProducts(
   if (!db) return '❌ No hay conexión a la base de datos';
 
   try {
-    const bcvRate = await getBCVRate();
+    const bcvRate = await getBCVRate(db);
     const products = await getProducts(bcvRate.rate, db);
     const pricingMode = mode || 'bcv';
 

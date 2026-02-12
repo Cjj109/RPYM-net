@@ -14,7 +14,7 @@ export async function getStats(db: D1Database | null): Promise<string> {
              SUM(CASE WHEN estado = 'pagado' THEN total_usd ELSE 0 END) as vendido
       FROM presupuestos WHERE date(fecha) = ?
     `).bind(today).first<{ total: number; pagados: number; vendido: number }>();
-    const bcvRate = await getBCVRate();
+    const bcvRate = await getBCVRate(db);
     let text = `📊 *Estadísticas Hoy*\n\n`;
     text += `• Presupuestos: ${todayStats?.total || 0}\n`;
     text += `• Pagados: ${todayStats?.pagados || 0}\n`;

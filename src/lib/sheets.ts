@@ -4,17 +4,9 @@
 // URL: https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit
 // IMPORTANTE: El Sheet debe estar compartido como "Cualquier persona con el enlace puede ver"
 
-const SHEET_ID = import.meta.env.PUBLIC_SHEET_ID || 'TU_SHEET_ID_AQUI';
+import type { D1Database } from './d1-types';
 
-// D1 Database type (simplified for product queries)
-type D1Database = {
-  prepare: (sql: string) => {
-    all: <T>() => Promise<{ results: T[] }>;
-    bind: (...values: unknown[]) => {
-      all: <T>() => Promise<{ results: T[] }>;
-    };
-  };
-};
+const SHEET_ID = import.meta.env.PUBLIC_SHEET_ID || 'TU_SHEET_ID_AQUI';
 
 interface D1ProductRow {
   id: number;
@@ -785,14 +777,60 @@ const SAMPLE_DATA: Omit<Product, 'precioBs' | 'descripcionCorta' | 'descripcionH
 /**
  * Obtiene la tasa del dolar BCV del dia
  * Usa múltiples APIs con fallback para mayor confiabilidad
+ * @param db - Opcional: D1 database para cache/fallback
  */
-export async function getBCVRate(): Promise<BCVRate> {
+export async function getBCVRate(db?: D1Database | null): Promise<BCVRate> {
+  const TIMEOUT_MS = 8000;
+
+  // Helper: fetch con timeout usando AbortController
+  async function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
+    }
+  }
+
+  // Helper: guardar tasa en D1 para futuro fallback
+  async function saveToD1(rate: number, source: string, date: string): Promise<void> {
+    if (!db) return;
+    try {
+      await db.batch([
+        db.prepare("INSERT OR REPLACE INTO site_config (key, value, updated_at) VALUES ('bcv_rate_auto', ?, datetime('now'))").bind(String(rate)),
+        db.prepare("INSERT OR REPLACE INTO site_config (key, value, updated_at) VALUES ('bcv_rate_source', ?, datetime('now'))").bind(source),
+        db.prepare("INSERT OR REPLACE INTO site_config (key, value, updated_at) VALUES ('bcv_rate_date', ?, datetime('now'))").bind(date),
+      ]);
+    } catch (e) {
+      console.error('[BCV] Error saving to D1:', e);
+    }
+  }
+
+  // Helper: leer última tasa de D1 (fallback)
+  async function getFromD1(): Promise<BCVRate | null> {
+    if (!db) return null;
+    try {
+      const result = await db.prepare("SELECT value FROM site_config WHERE key = 'bcv_rate_auto'").first<{ value: string }>();
+      if (result?.value) {
+        const rate = parseFloat(result.value);
+        if (rate > 0) {
+          return { rate, date: new Date().toLocaleDateString('es-VE'), source: 'BCV (cache)' };
+        }
+      }
+    } catch (e) {
+      console.error('[BCV] Error reading from D1:', e);
+    }
+    return null;
+  }
+
   // API 1: exchangedyn.com (más rápida en actualizar la tasa BCV)
   try {
-    const response = await fetch('https://api.exchangedyn.com/markets/quotes/usdves/bcv', {
-      headers: {
-        'Accept': 'application/json',
-      },
+    const response = await fetchWithTimeout('https://api.exchangedyn.com/markets/quotes/usdves/bcv', {
+      headers: { 'Accept': 'application/json' },
     });
 
     if (response.ok) {
@@ -803,43 +841,54 @@ export async function getBCVRate(): Promise<BCVRate> {
         const fecha = bcvData.last_retrieved
           ? new Date(bcvData.last_retrieved).toLocaleDateString('es-VE')
           : new Date().toLocaleDateString('es-VE');
-        return {
-          rate,
-          date: fecha,
-          source: 'BCV',
-        };
+        // Guardar en D1 para futuro fallback
+        saveToD1(rate, 'BCV', fecha);
+        return { rate, date: fecha, source: 'BCV' };
       }
     }
-  } catch (error) {
-    console.error('Error con exchangedyn.com:', error);
+  } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      console.warn('[BCV] Timeout con exchangedyn.com');
+    } else {
+      console.error('[BCV] Error con exchangedyn.com:', error);
+    }
   }
 
   // API 2: bcvapi.tech (fallback)
   try {
-    const response = await fetch('https://bcvapi.tech/api/v1/dolar/public', {
-      headers: {
-        'Accept': 'application/json',
-      },
+    const response = await fetchWithTimeout('https://bcvapi.tech/api/v1/dolar/public', {
+      headers: { 'Accept': 'application/json' },
     });
 
     if (response.ok) {
       const data = await response.json();
       if (data.tasa) {
-        return {
-          rate: Math.round(data.tasa * 100) / 100,
-          date: data.fecha || new Date().toLocaleDateString('es-VE'),
-          source: 'BCV',
-        };
+        const rate = Math.round(data.tasa * 100) / 100;
+        const fecha = data.fecha || new Date().toLocaleDateString('es-VE');
+        // Guardar en D1 para futuro fallback
+        saveToD1(rate, 'BCV', fecha);
+        return { rate, date: fecha, source: 'BCV' };
       }
     }
-  } catch (error) {
-    console.error('Error con bcvapi.tech:', error);
+  } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      console.warn('[BCV] Timeout con bcvapi.tech');
+    } else {
+      console.error('[BCV] Error con bcvapi.tech:', error);
+    }
   }
 
-  // Último fallback: tasa de respaldo
-  console.warn('⚠️ Usando tasa de respaldo - APIs no disponibles');
+  // Fallback: leer última tasa de D1
+  const cached = await getFromD1();
+  if (cached) {
+    console.log('[BCV] Usando tasa cacheada de D1:', cached.rate);
+    return cached;
+  }
+
+  // Último fallback: tasa hardcodeada
+  console.warn('[BCV] Usando tasa de respaldo - APIs y D1 no disponibles');
   return {
-    rate: 70.00, // Tasa de respaldo actualizada
+    rate: 70.00,
     date: new Date().toLocaleDateString('es-VE'),
     source: 'Referencial',
   };
