@@ -723,18 +723,17 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
         break;
 
       case 'budget_create':
-        console.log('[Telegram] budget_create - rawText:', intent.params.rawText, 'modo:', intent.params.modo, 'sinBs:', intent.params.sinBs);
+        console.log('[Telegram] ===== BUDGET_CREATE START =====');
+        console.log('[Telegram] rawText:', intent.params.rawText?.substring(0, 100));
+        console.log('[Telegram] modo:', intent.params.modo, 'sinBs:', intent.params.sinBs);
         try {
-          // Timeout de 25 segundos para evitar que Cloudflare mate el worker
-          const createPromise = createBudgetFromText(db, intent.params.rawText || text, intent.params.modo || 'bcv', url.origin, geminiApiKey, adminSecret, intent.params.sinBs || false);
-          const timeoutPromise = new Promise<string>((resolve) =>
-            setTimeout(() => resolve('⏱️ Timeout - el presupuesto puede haberse creado. Revisa el panel admin.'), 25000)
-          );
-          response = await Promise.race([createPromise, timeoutPromise]);
-          console.log('[Telegram] budget_create response:', response.substring(0, 200));
-        } catch (budgetError) {
-          console.error('[Telegram] budget_create error:', budgetError);
-          response = `❌ Error creando presupuesto: ${String(budgetError).slice(0, 100)}`;
+          response = await createBudgetFromText(db, intent.params.rawText || text, intent.params.modo || 'bcv', url.origin, geminiApiKey, adminSecret, intent.params.sinBs || false);
+          console.log('[Telegram] ===== BUDGET_CREATE SUCCESS =====');
+          console.log('[Telegram] response length:', response?.length, 'first 200:', response?.substring(0, 200));
+        } catch (budgetError: any) {
+          console.error('[Telegram] ===== BUDGET_CREATE ERROR =====');
+          console.error('[Telegram] error:', budgetError?.message || budgetError);
+          response = `❌ Error: ${String(budgetError?.message || budgetError).slice(0, 150)}`;
         }
         break;
 

@@ -951,23 +951,31 @@ export async function sendBudgetWhatsApp(db: D1Database | null, budgetId: string
 }
 
 export async function linkBudgetToCustomer(db: D1Database | null, budgetId: string, customerNameOrId: string | number, existingBcvRate?: { rate: number }): Promise<{ success: boolean; message: string; customerId?: number }> {
+  console.log('[linkBudgetToCustomer] START - budgetId:', budgetId, 'customer:', customerNameOrId);
   if (!db) return { success: false, message: '❌ No hay conexión a la base de datos' };
 
   try {
+    console.log('[linkBudgetToCustomer] Checking budget...');
     const budget = await db.prepare(`SELECT * FROM presupuestos WHERE id = ?`).bind(budgetId).first();
     if (!budget) return { success: false, message: `❌ No encontré presupuesto #${budgetId}` };
+    console.log('[linkBudgetToCustomer] Budget found');
 
+    console.log('[linkBudgetToCustomer] Checking existing tx...');
     const existingTx = await db.prepare(`SELECT id FROM customer_transactions WHERE presupuesto_id = ?`).bind(budgetId).first();
     if (existingTx) return { success: false, message: `⚠️ Presupuesto #${budgetId} ya está asignado a una cuenta` };
+    console.log('[linkBudgetToCustomer] No existing tx');
 
     let customer: any;
     if (typeof customerNameOrId === 'number') {
       customer = await db.prepare(`SELECT id, name FROM customers WHERE id = ? AND is_active = 1`).bind(customerNameOrId).first();
     } else {
+      console.log('[linkBudgetToCustomer] Finding customer by name:', customerNameOrId);
       customer = await findCustomerByName(db, customerNameOrId);
     }
+    console.log('[linkBudgetToCustomer] Customer found:', customer?.id, customer?.name);
 
     if (!customer) {
+      console.log('[linkBudgetToCustomer] Customer NOT found, getting suggestions...');
       const suggestions = await findCustomerSuggestions(db, String(customerNameOrId), 5);
       let msg = `❌ No encontré cliente "${customerNameOrId}"`;
       if (suggestions.length > 0) {
@@ -1015,18 +1023,29 @@ export async function linkBudgetToCustomer(db: D1Database | null, budgetId: stri
 }
 
 export async function createBudgetFromText(db: D1Database | null, text: string, mode: string, baseUrl: string, apiKey: string, adminSecret: string, hideRate: boolean = false): Promise<string> {
+  console.log('[createBudgetFromText] START');
   if (!db) return '❌ No hay conexión a la base de datos';
   try {
+    console.log('[createBudgetFromText] Getting BCV rate...');
     const bcvRate = await getBCVRate(db);
+    console.log('[createBudgetFromText] BCV rate:', bcvRate.rate);
+
+    console.log('[createBudgetFromText] Getting products...');
     const products = await getProducts(bcvRate.rate, db);
+    console.log('[createBudgetFromText] Products count:', products.length);
+
     const productList = products.map(p => ({
       id: String(p.id), nombre: p.nombre, unidad: p.unidad, precioUSD: p.precioUSD, precioUSDDivisa: p.precioUSDDivisa
     }));
 
+    console.log('[createBudgetFromText] Getting customers...');
     const customers = await db.prepare('SELECT id, name FROM customers WHERE is_active = 1').all<{ id: number; name: string }>();
+    console.log('[createBudgetFromText] Customers count:', customers?.results?.length);
 
     // Llamada directa a Gemini (evita subrequest HTTP que falla en CF Workers)
+    console.log('[createBudgetFromText] Calling parseOrderDirect...');
     const result = await parseOrderDirect(text, productList, customers?.results || [], apiKey);
+    console.log('[createBudgetFromText] parseOrderDirect done, success:', result.success, 'customerName:', result.customerName);
 
     if (!result.success || !result.items?.length) {
       console.log('[Telegram] parse-order failed:', JSON.stringify(result));
@@ -1193,6 +1212,8 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
       result.customerAddress || null
     ).run();
 
+    console.log('[createBudgetFromText] Presupuesto inserted, id:', id);
+
     const shouldHideBs = hideRate || pricingMode === 'divisas';
 
     let responseText = `✅ *Presupuesto #${id}*\n`;
@@ -1205,32 +1226,34 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
     if (result.delivery > 0) responseText += `• 🚗 Delivery: $${result.delivery.toFixed(2)}\n`;
     responseText += `\n*Total: $${totalUSD.toFixed(2)}*`;
     if (pricingMode === 'dual') responseText += ` / DIV: $${totalUSDDivisa.toFixed(2)}`;
+
+    console.log('[createBudgetFromText] Getting admin URL...');
     const adminUrl = await getAdminPresupuestoUrl(id, adminSecret, 'https://rpym.net');
     responseText += `\n🔗 ${adminUrl}`;
+    console.log('[createBudgetFromText] Admin URL added');
 
-    // Intentar vincular con timeout de 5 segundos para evitar que el worker expire
+    // Vincular a cliente si se especificó nombre
     if (result.customerName) {
+      console.log('[createBudgetFromText] Linking to customer:', result.customerName);
       try {
-        const linkPromise = linkBudgetToCustomer(db, id, result.customerName, bcvRate);
-        const timeoutPromise = new Promise<{ success: false; message: string }>((resolve) =>
-          setTimeout(() => resolve({ success: false, message: '⏱️ Timeout al vincular - intenta manualmente' }), 5000)
-        );
-        const linkResult = await Promise.race([linkPromise, timeoutPromise]);
+        const linkResult = await linkBudgetToCustomer(db, id, result.customerName, bcvRate);
+        console.log('[createBudgetFromText] Link result:', linkResult.success, linkResult.message?.substring(0, 50));
         if (linkResult.success) {
           responseText += `\n\n📋 Vinculado a cuenta de *${result.customerName}*`;
         } else {
           responseText += `\n\n⚠️ ${linkResult.message}`;
         }
-      } catch (linkError) {
-        console.error('[Telegram] Error vinculando presupuesto:', linkError);
+      } catch (linkError: any) {
+        console.error('[createBudgetFromText] Link error:', linkError?.message || linkError);
         responseText += `\n\n⚠️ No se pudo vincular automáticamente`;
       }
     }
 
+    console.log('[createBudgetFromText] SUCCESS - returning response, length:', responseText.length);
     return responseText;
-  } catch (error) {
-    console.error('[Telegram] Error creando presupuesto:', error);
-    return `❌ Error: ${error}`;
+  } catch (error: any) {
+    console.error('[createBudgetFromText] FATAL ERROR:', error?.message || error);
+    return `❌ Error: ${error?.message || error}`;
   }
 }
 
