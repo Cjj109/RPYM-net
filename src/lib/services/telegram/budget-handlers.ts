@@ -990,10 +990,11 @@ export async function linkBudgetToCustomer(db: D1Database | null, budgetId: stri
     const bcvRate = existingBcvRate || await getBCVRate(db);
     const isPaid = budget.estado === 'pagado' ? 1 : 0;
 
+    console.log('[linkBudgetToCustomer] Inserting transaction...');
     await db.prepare(`
       INSERT INTO customer_transactions
       (customer_id, type, date, description, amount_usd, amount_bs, amount_usd_divisa, currency_type, presupuesto_id, exchange_rate, is_paid)
-      VALUES (?, datetime(?, 'localtime'), ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, 'compra', datetime(?, 'localtime'), ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       customer.id,
       budget.fecha,
@@ -1006,6 +1007,7 @@ export async function linkBudgetToCustomer(db: D1Database | null, budgetId: stri
       bcvRate.rate,
       isPaid
     ).run();
+    console.log('[linkBudgetToCustomer] Transaction inserted successfully');
 
     if (!budget.customer_name) {
       await db.prepare(`UPDATE presupuestos SET customer_name = ? WHERE id = ?`).bind(customer.name, budgetId).run();
