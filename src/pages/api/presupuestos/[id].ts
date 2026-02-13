@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getD1, type D1Presupuesto } from '../../../lib/d1-types';
+import { linkBudgetToCustomer } from '../../../lib/services/telegram/budget-handlers';
 
 export const prerender = false;
 
@@ -136,11 +137,25 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
     } else if ('customerName' in body && Object.keys(body).length === 1) {
       // Customer name only update (when assigning presupuesto to customer)
       const { customerName } = body;
-      await db.prepare(`
-        UPDATE presupuestos
-        SET customer_name = ?, updated_at = datetime('now')
-        WHERE id = ?
-      `).bind(customerName || null, id).run();
+
+      // Try to link budget to customer account (creates transaction with correct is_paid status)
+      if (customerName) {
+        const linkResult = await linkBudgetToCustomer(db, id, customerName);
+        if (!linkResult.success) {
+          // If linking failed (customer not found, etc.), just update the name
+          await db.prepare(`
+            UPDATE presupuestos
+            SET customer_name = ?, updated_at = datetime('now')
+            WHERE id = ?
+          `).bind(customerName, id).run();
+        }
+      } else {
+        await db.prepare(`
+          UPDATE presupuestos
+          SET customer_name = ?, updated_at = datetime('now')
+          WHERE id = ?
+        `).bind(null, id).run();
+      }
     } else {
       // Full update (items, totals, customer info)
       const { items, totalUSD, totalBs, totalUSDDivisa, hideRate, delivery, modoPrecio, customerName, customerAddress, fecha } = body;

@@ -148,7 +148,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     const id = generatePresupuestoId();
     // Allow custom date for admin-created presupuestos (past purchases)
-    const fecha = customDate ? new Date(customDate).toISOString() : new Date().toISOString();
+    const fecha = customDate ? `${customDate}T12:00:00.000Z` : new Date().toISOString();
 
     await db.prepare(`
       INSERT INTO presupuestos (id, fecha, items, total_usd, total_bs, total_usd_divisa, hide_rate, delivery, modo_precio, estado, customer_name, customer_address, client_ip, source, created_at, updated_at)

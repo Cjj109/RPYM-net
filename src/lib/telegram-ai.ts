@@ -151,6 +151,11 @@ INTENCIONES POSIBLES:
    - "presupuesto de 1kg pulpo, oculta bolivares" → params: {rawText: "1kg pulpo", modo: "bcv", sinBs: true}
    OCULTAR BOLÍVARES: Si dice "oculta bs", "sin bolivares", "no pongas bs", "solo dolares" → sinBs: true
    CLIENTE: Si dice "a [nombre]" o "para [nombre]", incluir el nombre en rawText al inicio
+   CONTEXTO DE CLIENTE (MUY IMPORTANTE): Si el usuario dice "créale", "hazle", "crea un presupuesto" SIN especificar nombre de cliente, pero en el historial reciente se mencionó o creó un cliente → INCLUIR el nombre del cliente al inicio de rawText.
+   Ejemplos con contexto:
+   - Historial: "✅ Cliente creado: La Sazón de La Negra" → Usuario: "créale un presupuesto de 2kg vivito" → rawText: "La Sazón de La Negra 2kg vivito"
+   - Historial: "👤 Guarete" → Usuario: "hazle presupuesto de 1kg calamar" → rawText: "Guarete 1kg calamar"
+   - Historial: se habló del cliente "Delcy" → Usuario: "créale presupuesto de 3kg jumbo y márcalo pagado" → rawText: "Delcy 3kg jumbo y márcalo pagado"
    CLAVE: Solo cuando dice "presupuesto" explícitamente
 
 4. budget_action - Acciones sobre presupuestos existentes
@@ -231,6 +236,8 @@ INTENCIONES POSIBLES:
    - "cambia el jumbo por langostino" → params: {action: "editar", edicion: {tipo: "sustituir", productoOriginal: "jumbo", productoNuevo: "langostino"}}
    - "el producto era pulpo, no calamar" → params: {action: "editar", edicion: {tipo: "sustituir", productoOriginal: "calamar", productoNuevo: "pulpo"}}
    - "era camarón desvenado, no entero" → params: {action: "editar", edicion: {tipo: "sustituir", productoOriginal: "camarón entero", productoNuevo: "camarón desvenado"}}
+   - "es desvenado normal no jumbo" → params: {action: "editar", edicion: {tipo: "sustituir", productoOriginal: "camarón desvenado jumbo", productoNuevo: "camarón desvenado"}}
+   - "era el desvenado normal, no el jumbo" → params: {action: "editar", edicion: {tipo: "sustituir", productoOriginal: "camarón desvenado jumbo", productoNuevo: "camarón desvenado"}}
    NOTA: Usa "sustituir" cuando el usuario indica que un producto en el presupuesto debería ser otro diferente
 
    DELIVERY (cargo de envío - NO es un producto; monto SIEMPRE es número):

@@ -9,6 +9,47 @@ import { getAdminPresupuestoUrl } from '../../admin-token';
 import { findCustomerByName, findCustomerSuggestions } from '../../repositories/customers';
 import { callGeminiWithRetry } from '../../gemini-client';
 
+/** Normaliza texto para comparación: minúsculas y sin acentos */
+function normalize(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+/** Busca el mejor match de producto por nombre: prefiere exact > shortest match */
+function findBestProductMatch<T extends { nombre: string }>(items: T[], query: string): T | undefined {
+  const q = normalize(query);
+  // 1. Exact match (after normalization)
+  const exact = items.find(p => normalize(p.nombre) === q);
+  if (exact) return exact;
+  // 2. Collect all partial matches
+  const matches = items.filter(p =>
+    normalize(p.nombre).includes(q) || q.includes(normalize(p.nombre))
+  );
+  if (matches.length === 0) return undefined;
+  // 3. Prefer shortest name (most specific match)
+  return matches.sort((a, b) => a.nombre.length - b.nombre.length)[0];
+}
+
+/** Busca item en array por nombre normalizado */
+function findItemIndex(items: { nombre: string }[], query: string): number {
+  const q = normalize(query);
+  // 1. Exact match first
+  const exactIdx = items.findIndex(i => normalize(i.nombre) === q);
+  if (exactIdx !== -1) return exactIdx;
+  // 2. Partial match - prefer shortest name
+  let bestIdx = -1;
+  let bestLen = Infinity;
+  for (let idx = 0; idx < items.length; idx++) {
+    const n = normalize(items[idx].nombre);
+    if (n.includes(q) || q.includes(n)) {
+      if (items[idx].nombre.length < bestLen) {
+        bestLen = items[idx].nombre.length;
+        bestIdx = idx;
+      }
+    }
+  }
+  return bestIdx;
+}
+
 interface ProductInfo {
   id: string;
   nombre: string;
@@ -152,7 +193,9 @@ CONOCIMIENTO DE PRODUCTOS (TU EXPERIENCIA EN RPYM):
 CAMARONES (producto estrella):
 - "camaron", "camarones" → buscar por talla si la mencionan (41/50, 61/70, 71/90, etc.)
 - "camaron pelado" = camarón pelado (sin concha, puede ser desvenado o no)
-- "camaron desvenado", "pelado y desvenado", "P&D" = Camarón Pelado y Desvenado
+- "camaron desvenado", "pelado y desvenado", "P&D" = Camarón Desvenado (NORMAL, talla 41/50, $17/kg)
+- "camaron desvenado jumbo", "desvenado jumbo", "jumbo desvenado" = Camarón Desvenado Jumbo (talla 31/35-36/40, $22/kg)
+- IMPORTANTE: Si dicen solo "desvenado" SIN "jumbo" → SIEMPRE usar Camarón Desvenado (normal). Solo usar Jumbo si dicen "jumbo" explícitamente.
 - "camaron con concha", "camarones conchas", "concha" = Camarón en Concha
 - "camaron vivito", "vivitos", "camarones vivos" = Camarón Vivito (fresco, vivo)
 - Si dicen "#16" o "# 16" después del camarón, es el PRECIO personalizado $16/kg
@@ -569,8 +612,8 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
 
     switch (edicion.tipo) {
       case 'precio': {
-        const producto = edicion.producto?.toLowerCase();
-        const itemIndex = items.findIndex((i: any) => i.nombre.toLowerCase().includes(producto || ''));
+        const producto = edicion.producto || '';
+        const itemIndex = findItemIndex(items, producto);
         if (itemIndex === -1) return `❌ No encontré "${edicion.producto}" en el presupuesto`;
 
         const item = items[itemIndex];
@@ -615,8 +658,8 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
       }
 
       case 'quitar': {
-        const producto = edicion.producto?.toLowerCase();
-        const itemIndex = items.findIndex((i: any) => i.nombre.toLowerCase().includes(producto || ''));
+        const producto = edicion.producto || '';
+        const itemIndex = findItemIndex(items, producto);
         if (itemIndex === -1) return `❌ No encontré "${edicion.producto}" en el presupuesto`;
 
         const removed = items.splice(itemIndex, 1)[0];
@@ -628,12 +671,9 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
         const modoPrecioRaw = budget.modo_precio || 'bcv';
         const modoPrecio = modoPrecioRaw === 'divisa' ? 'divisas' : modoPrecioRaw;
         const cantidadAgregar = edicion.cantidad || 1;
-        const productoNombre = (edicion.producto || '').toLowerCase();
+        const productoNombre = edicion.producto || '';
 
-        const existingItemIndex = items.findIndex((i: any) =>
-          i.nombre.toLowerCase().includes(productoNombre) ||
-          productoNombre.includes(i.nombre.toLowerCase())
-        );
+        const existingItemIndex = findItemIndex(items, productoNombre);
 
         if (existingItemIndex !== -1 && !edicion.precio && !edicion.precioBcv) {
           const item = items[existingItemIndex];
@@ -661,10 +701,7 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
 
         if (!edicion.precio && !edicion.precioBcv) {
           const products = await getProducts(bcvRate.rate, db);
-          const foundProduct = products.find(p =>
-            p.nombre.toLowerCase().includes(productoNombre) ||
-            productoNombre.includes(p.nombre.toLowerCase())
-          );
+          const foundProduct = findBestProductMatch(products, productoNombre);
           if (foundProduct) {
             precioBCV = foundProduct.precioUSD;
             precioDivisa = foundProduct.precioUSDDivisa || foundProduct.precioUSD;
@@ -707,10 +744,10 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
       }
 
       case 'cantidad': {
-        const producto = edicion.producto?.toLowerCase();
+        const producto = edicion.producto || '';
         let itemIndex = 0;
         if (producto) {
-          itemIndex = items.findIndex((i: any) => i.nombre.toLowerCase().includes(producto));
+          itemIndex = findItemIndex(items, producto);
           if (itemIndex === -1) return `❌ No encontré "${edicion.producto}"`;
         } else if (items.length > 1) {
           return `❓ Hay varios productos. Especifica cuál: "cambia la cantidad del [producto] a X"`;
@@ -730,13 +767,10 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
       }
 
       case 'restar': {
-        const productoRestar = edicion.producto?.toLowerCase();
+        const productoRestar = edicion.producto || '';
         if (!productoRestar) return `❌ Especifica qué producto quieres restar`;
 
-        const itemIdx = items.findIndex((i: any) =>
-          i.nombre.toLowerCase().includes(productoRestar) ||
-          productoRestar.includes(i.nombre.toLowerCase())
-        );
+        const itemIdx = findItemIndex(items, productoRestar);
         if (itemIdx === -1) return `❌ No encontré "${edicion.producto}" en el presupuesto`;
 
         const item = items[itemIdx];
@@ -804,12 +838,12 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
       }
 
       case 'sustituir': {
-        const productoOriginal = edicion.productoOriginal?.toLowerCase();
+        const productoOriginal = edicion.productoOriginal || '';
         const productoNuevo = edicion.productoNuevo || '';
 
         let itemIndex = -1;
         if (productoOriginal) {
-          itemIndex = items.findIndex((i: any) => i.nombre.toLowerCase().includes(productoOriginal));
+          itemIndex = findItemIndex(items, productoOriginal);
         } else if (items.length === 1) {
           itemIndex = 0;
         }
@@ -822,9 +856,7 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
         const oldName = item.nombre;
 
         const products = await getProducts(bcvRate.rate, db);
-        const newProduct = products.find(p =>
-          p.nombre.toLowerCase().includes(productoNuevo.toLowerCase()) ||
-          productoNuevo.toLowerCase().includes(p.nombre.toLowerCase())
+        const newProduct = findBestProductMatch(products, productoNuevo
         );
 
         if (newProduct) {
