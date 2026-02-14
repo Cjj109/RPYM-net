@@ -238,7 +238,7 @@ export default function CuentaPublica() {
     if (!showPresupuestoModal) return null;
 
     const p = viewingPresupuesto;
-    const isDual = p && p.modoPrecio === 'dual';
+    const isDual = p && (p.modoPrecio === 'dual' || (p.modoPrecio !== 'divisa' && p.totalUSDDivisa != null && p.totalUSDDivisa > 0));
     const isDivisasOnly = p && (p.modoPrecio === 'divisa' || (p.totalBs === 0 && !isDual));
     const fechaStr = p ? new Date(p.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
 

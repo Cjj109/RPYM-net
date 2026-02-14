@@ -315,7 +315,7 @@ export default function AdminCustomers() {
       const data = await res.json();
       if (data.success && data.presupuesto) {
         const p = data.presupuesto;
-        const isDual = p.modoPrecio === 'dual';
+        const isDual = p.modoPrecio === 'dual' || (p.modoPrecio !== 'divisa' && p.totalUSDDivisa != null && p.totalUSDDivisa > 0);
         const isDivisasOnly = p.modoPrecio === 'divisa' || (p.totalBs === 0 && !isDual);
         setFetchedPresupuesto({
           id: p.id,
@@ -3316,7 +3316,7 @@ export default function AdminCustomers() {
     if (!showPresupuestoModal) return null;
 
     const p = viewingPresupuesto;
-    const isDual = p && p.modoPrecio === 'dual';
+    const isDual = p && (p.modoPrecio === 'dual' || (p.modoPrecio !== 'divisa' && p.totalUSDDivisa != null && Number(p.totalUSDDivisa) > 0));
     const isDivisasOnly = p && (p.modoPrecio === 'divisa' || ((Number(p.totalBs) === 0 || p.totalBs == null) && !isDual));
     const fechaStr = p ? new Date(p.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
 

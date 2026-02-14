@@ -1085,7 +1085,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     }
 
     // Build message with presupuesto details
-    const isDual = presupuesto.modoPrecio === 'dual';
+    const isDual = presupuesto.modoPrecio === 'dual' || (presupuesto.modoPrecio !== 'divisa' && presupuesto.totalUSDDivisa != null && Number(presupuesto.totalUSDDivisa) > 0);
     const isDivisasOnly = presupuesto.modoPrecio === 'divisa' || (presupuesto.totalBs === 0 && !presupuesto.hideRate && !isDual);
     const hideRateOnly = presupuesto.hideRate === true && presupuesto.totalBs > 0;
     let message = `*Presupuesto RPYM #${presupuesto.id}*\n`;
@@ -1507,7 +1507,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold text-ocean-900">Presupuesto {selectedPresupuesto.id}</h3>
                   {(() => {
-                    const isDual = selectedPresupuesto.modoPrecio === 'dual';
+                    const isDual = selectedPresupuesto.modoPrecio === 'dual' || (selectedPresupuesto.modoPrecio !== 'divisa' && selectedPresupuesto.totalUSDDivisa != null && Number(selectedPresupuesto.totalUSDDivisa) > 0);
                     const isDivisasOnly = selectedPresupuesto.modoPrecio === 'divisa' || ((Number(selectedPresupuesto.totalBs) === 0 || selectedPresupuesto.totalBs == null) && !selectedPresupuesto.hideRate && !isDual);
                     if (isDual) {
                       return <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-[10px] font-medium">Dual</span>;
