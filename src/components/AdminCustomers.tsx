@@ -3431,7 +3431,7 @@ export default function AdminCustomers() {
                   <span className="text-sm font-semibold text-ocean-700">Total USD</span>
                   <span className="text-lg font-bold text-ocean-900">${p.totalUSD.toFixed(2)}</span>
                 </div>
-                {bcvRate > 0 && p.totalBs !== 0 && (
+                {bcvRate > 0 && p.totalBs !== 0 && !isDivisasOnly && (
                   <div className="flex justify-between items-center px-1">
                     <span className="text-xs text-ocean-500">Total Bs @{bcvRate.toFixed(2)}</span>
                     <span className="text-sm font-semibold text-orange-600">Bs {(p.totalUSD * bcvRate).toFixed(2)}</span>
