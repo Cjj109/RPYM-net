@@ -755,6 +755,70 @@
   color: #6b21a8 !important;
 }
 
+/* Carnival: Header - mantener texto claro sobre fondo púrpura */
+[data-theme="carnival"] header h1,
+[data-theme="carnival"] header h2,
+[data-theme="carnival"] header h3 {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="carnival"] header a:not(.themed-button):not([class*="bg-coral"]):not([class*="text-ocean-7"]) {
+  color: #fef3c7 !important;
+}
+
+[data-theme="carnival"] header a:not(.themed-button):not([class*="bg-coral"]):not([class*="text-ocean-7"]):hover {
+  color: #ffffff !important;
+}
+
+[data-theme="carnival"] header button {
+  color: #fef3c7 !important;
+}
+
+[data-theme="carnival"] header [class*="text-ocean-200"],
+[data-theme="carnival"] header [class*="text-ocean-100"] {
+  color: #fef3c7 !important;
+}
+
+[data-theme="carnival"] header [class*="text-ocean-300"] {
+  color: #fde68a !important;
+}
+
+[data-theme="carnival"] header .header-logo .font-display {
+  color: #fef3c7 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="carnival"] header .header-logo span:not(.font-display) {
+  color: #fde68a !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.22);
+}
+
+/* Carnival & Valentine: Modal de producto - mantener texto blanco sobre gradiente */
+[data-theme="carnival"] [class*="from-ocean-6"] h3,
+[data-theme="carnival"] [class*="from-ocean-6"] [class*="text-ocean-2"],
+[data-theme="carnival"] [class*="from-ocean-6"] span {
+  text-shadow: none;
+}
+
+[data-theme="carnival"] [class*="from-ocean-6"] h3 {
+  color: #ffffff !important;
+}
+
+[data-theme="carnival"] [class*="from-ocean-6"] [class*="text-ocean-2"] {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
+[data-theme="valentine"] [class*="from-ocean-6"] h3 {
+  color: #ffffff !important;
+  text-shadow: none;
+  font-family: inherit;
+}
+
+[data-theme="valentine"] [class*="from-ocean-6"] [class*="text-ocean-2"] {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
 @keyframes carnival-btn-shine {
   0% { left: -120%; }
   45%, 100% { left: 160%; }
@@ -1004,11 +1068,11 @@
   border-bottom: 1px solid rgba(254, 205, 211, 0.25);
 }
 
-[data-theme="valentine"] header a:not(.themed-button):not([class*="bg-coral"]) {
+[data-theme="valentine"] header a:not(.themed-button):not([class*="bg-coral"]):not([class*="text-ocean-7"]) {
   color: #ffe4e6 !important;
 }
 
-[data-theme="valentine"] header a:not(.themed-button):not([class*="bg-coral"]):hover {
+[data-theme="valentine"] header a:not(.themed-button):not([class*="bg-coral"]):not([class*="text-ocean-7"]):hover {
   color: #ffffff !important;
 }
 
