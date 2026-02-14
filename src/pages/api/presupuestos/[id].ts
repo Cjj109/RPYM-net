@@ -161,13 +161,15 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
       const { items, totalUSD, totalBs, totalUSDDivisa, hideRate, delivery, modoPrecio, customerName, customerAddress, fecha } = body;
 
       // Build update query - include fecha if provided
-      if (fecha) {
+      // Normalize date to noon UTC to avoid timezone issues (YYYY-MM-DD → YYYY-MM-DDT12:00:00.000Z)
+      const fechaNormalized = fecha && fecha.length === 10 ? `${fecha}T12:00:00.000Z` : fecha;
+      if (fechaNormalized) {
         await db.prepare(`
           UPDATE presupuestos
           SET fecha = ?, items = ?, total_usd = ?, total_bs = ?, total_usd_divisa = ?, hide_rate = ?, delivery = ?, modo_precio = ?, customer_name = ?, customer_address = ?, updated_at = datetime('now')
           WHERE id = ?
         `).bind(
-          fecha,
+          fechaNormalized,
           JSON.stringify(items),
           totalUSD,
           totalBs,
