@@ -70,7 +70,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
       SELECT id, type, date, description, amount_usd, amount_bs, amount_usd_divisa, presupuesto_id, invoice_image_key, currency_type, payment_method, exchange_rate, is_paid, paid_method, paid_date, notes, created_at
       FROM customer_transactions
       WHERE customer_id = ?
-      ORDER BY date DESC, id DESC
+      ORDER BY date DESC, created_at DESC, id DESC
     `).bind(customer.id).all<{
       id: number;
       type: string;

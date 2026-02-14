@@ -52,6 +52,12 @@ const categoryIcons: Record<string, string> = {
   'Especiales': '👑',
 };
 
+/** Returns today's date in YYYY-MM-DD using local browser time (not UTC) */
+function getLocalDateStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export default function AdminBudgetBuilder({ categories: initialCategories, bcvRate, editingPresupuesto, onEditComplete, onSaveComplete, onClearEdit }: Props) {
   // Dynamic categories from API (refreshes on mount)
   const [categories, setCategories] = useState<Category[]>(initialCategories);
@@ -1360,7 +1366,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
 
           // If assigned to a customer (and wasn't before), create a transaction in their ledger
           if (assignToCustomer) {
-            const txDate = useCustomDate ? customPresupuestoDate : new Date().toISOString().split('T')[0];
+            const txDate = useCustomDate ? customPresupuestoDate : getLocalDateStr();
             try {
               // First check if this presupuesto already has a transaction for this customer
               const existingTxRes = await fetch(`/api/customers/${assignToCustomer}/transactions`, {
@@ -1426,7 +1432,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
 
           // If assigned to a customer, create a transaction in their ledger
           if (assignToCustomer) {
-            const txDate = useCustomDate ? customPresupuestoDate : new Date().toISOString().split('T')[0];
+            const txDate = useCustomDate ? customPresupuestoDate : getLocalDateStr();
             try {
               await fetch(`/api/customers/${assignToCustomer}/transactions`, {
                 method: 'POST',

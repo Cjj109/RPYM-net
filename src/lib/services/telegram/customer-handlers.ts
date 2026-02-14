@@ -153,7 +153,7 @@ export async function getCustomerMovements(db: D1Database | null, customerName: 
       FROM customer_transactions t
       LEFT JOIN presupuestos p ON t.presupuesto_id = p.id
       WHERE t.customer_id = ?
-      ORDER BY t.date DESC
+      ORDER BY t.date DESC, t.created_at DESC, t.id DESC
       LIMIT 20
     `).bind(customer.id).all();
 

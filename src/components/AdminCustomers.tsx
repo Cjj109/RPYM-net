@@ -1261,8 +1261,7 @@ export default function AdminCustomers() {
           }
         }
 
-        const today = new Date().toISOString().split('T')[0];
-        const txDate = action.date || today;
+        const txDate = action.date || todayStr();
 
         // 1. Create presupuesto
         const modoPrecio = action.pricingMode === 'divisas' ? 'divisa' : action.pricingMode;

@@ -17,7 +17,7 @@ export const GET: APIRoute = async ({ params, request, locals }) => {
     const results = await db.prepare(`
       SELECT * FROM customer_transactions
       WHERE customer_id = ?
-      ORDER BY date DESC, id DESC
+      ORDER BY date DESC, created_at DESC, id DESC
     `).bind(customerId).all<D1CustomerTransaction>();
 
     return new Response(JSON.stringify({

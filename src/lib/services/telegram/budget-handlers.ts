@@ -1026,13 +1026,15 @@ export async function linkBudgetToCustomer(db: D1Database | null, budgetId: stri
     const isPaid = budget.estado === 'pagado' ? 1 : 0;
 
     console.log('[linkBudgetToCustomer] Inserting transaction...');
+    // Extract YYYY-MM-DD from budget.fecha regardless of format (ISO, space-separated, etc.)
+    const txDate = String(budget.fecha).split('T')[0].split(' ')[0];
     await db.prepare(`
       INSERT INTO customer_transactions
       (customer_id, type, date, description, amount_usd, amount_bs, amount_usd_divisa, currency_type, presupuesto_id, exchange_rate, is_paid)
-      VALUES (?, 'purchase', datetime(?, 'localtime'), ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, 'purchase', ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       customer.id,
-      budget.fecha,
+      txDate,
       description,
       budget.total_usd,
       budget.total_bs,
@@ -1231,15 +1233,24 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
     }
 
     const id = String(Math.floor(10000 + Math.random() * 90000));
-    const fechaPresupuesto = result.date ? `${result.date} 12:00:00` : null;
-    const fechaSql = fechaPresupuesto ? `'${fechaPresupuesto}'` : `datetime('now', '-4 hours')`;
+    // Consistent date format: YYYY-MM-DDT12:00:00.000Z (noon UTC avoids timezone day shift)
+    let fechaPresupuesto: string;
+    if (result.date) {
+      fechaPresupuesto = `${result.date}T12:00:00.000Z`;
+    } else {
+      // Get Venezuela date (UTC-4) and use noon UTC
+      const now = new Date();
+      const vzNow = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+      const vzDate = vzNow.toISOString().split('T')[0];
+      fechaPresupuesto = `${vzDate}T12:00:00.000Z`;
+    }
     const estado = result.isPaid ? 'pagado' : 'pendiente';
 
     await db.prepare(`
       INSERT INTO presupuestos (id, fecha, items, total_usd, total_bs, total_usd_divisa, modo_precio, delivery, hide_rate, estado, source, customer_name, customer_address)
-      VALUES (?, ${fechaSql}, ?, ?, ?, ?, ?, ?, ?, ?, 'telegram', ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'telegram', ?, ?)
     `).bind(
-      id, JSON.stringify(presupuestoItems), totalUSD, totalBs,
+      id, fechaPresupuesto, JSON.stringify(presupuestoItems), totalUSD, totalBs,
       pricingMode !== 'bcv' ? totalUSDDivisa : null,
       pricingMode,
       result.delivery || 0,
