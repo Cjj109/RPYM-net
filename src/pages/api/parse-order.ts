@@ -173,10 +173,14 @@ CONOCIMIENTO DE PRODUCTOS (TU EXPERIENCIA EN RPYM):
 
 CAMARONES (producto estrella):
 - "camaron", "camarones" → buscar por talla si la mencionan (41/50, 61/70, 71/90, etc.)
+- "camaron jumbo", "jumbo", "camarones jumbo" = Camarón Jumbo (en concha) - ES EL PRODUCTO JUMBO POR DEFECTO
 - "camaron pelado" = camarón pelado (sin concha, puede ser desvenado o no)
 - "camaron desvenado", "pelado y desvenado", "P&D" = Camarón Desvenado (NORMAL, talla 41/50, $17/kg)
 - "camaron desvenado jumbo", "desvenado jumbo", "jumbo desvenado" = Camarón Desvenado Jumbo (talla 31/35-36/40, $22/kg)
-- IMPORTANTE: Si dicen solo "desvenado" SIN "jumbo" → SIEMPRE usar Camarón Desvenado (normal). Solo usar Jumbo si dicen "jumbo" explícitamente.
+- IMPORTANTE "jumbo" vs "desvenado jumbo":
+  * "jumbo" o "camaron jumbo" SIN "desvenado" → SIEMPRE Camarón Jumbo (en concha)
+  * "desvenado jumbo" o "jumbo desvenado" → Camarón Desvenado Jumbo
+  * Si dicen solo "desvenado" SIN "jumbo" → SIEMPRE Camarón Desvenado (normal)
 - "camaron con concha", "camarones conchas", "concha" = Camarón en Concha
 - "camaron vivito", "vivitos", "camarones vivos" = Camarón Vivito (fresco, vivo)
 - Si dicen "#16" o "# 16" después del camarón, es el PRECIO personalizado $16/kg

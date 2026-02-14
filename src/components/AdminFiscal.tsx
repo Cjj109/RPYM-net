@@ -2016,6 +2016,28 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
                           PDF
                         </button>
                         <button
+                          onClick={() => {
+                            setEditingFactura(f);
+                            setFacturaFormData({
+                              proveedorId: f.proveedorId,
+                              numeroFactura: f.numeroFactura,
+                              numeroControl: f.numeroControl || '',
+                              fechaFactura: f.fechaFactura,
+                              fechaRecepcion: f.fechaRecepcion,
+                              subtotalExento: f.subtotalExento,
+                              subtotalGravable: f.subtotalGravable,
+                              iva: f.iva,
+                              paymentCurrency: f.paymentCurrency,
+                              exchangeRate: f.exchangeRate,
+                              notes: f.notes || '',
+                            });
+                            setShowFacturaModal(true);
+                          }}
+                          className="text-ocean-600 hover:text-ocean-800"
+                        >
+                          Editar
+                        </button>
+                        <button
                           onClick={() => handleDeleteFactura(f.id)}
                           className="text-red-600 hover:text-red-800"
                         >
@@ -2757,7 +2779,6 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
                 ref={facturaFileInputRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
                 onChange={handleFacturaImageUpload}
                 className="hidden"
               />
