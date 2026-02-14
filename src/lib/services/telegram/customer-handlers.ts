@@ -447,22 +447,36 @@ export async function executeCustomerAction(db: D1Database | null, action: Custo
     if (!customer) return await notFoundWithSuggestions(db, action.customerName);
 
     const bcvRate = await getBCVRate(db);
-    const amountBs = action.amountUsd * bcvRate.rate;
+    const amountBs = action.currencyType === 'divisas' ? 0 : action.amountUsd * bcvRate.rate;
+
+    // Calculate Venezuela date (UTC-4) for consistent date storage
+    let txDate: string;
+    if (action.date) {
+      txDate = action.date;
+    } else {
+      const now = new Date();
+      const vzNow = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+      txDate = vzNow.toISOString().split('T')[0];
+    }
+
+    const pm = action.paymentMethod || null;
 
     await db.prepare(`
       INSERT INTO customer_transactions
-      (customer_id, type, date, description, amount_usd, amount_bs, amount_usd_divisa, currency_type, presupuesto_id, exchange_rate, is_paid)
-      VALUES (?, ?, datetime('now', '-4 hours'), ?, ?, ?, ?, ?, ?, ?, 0)
+      (customer_id, type, date, description, amount_usd, amount_bs, amount_usd_divisa, currency_type, presupuesto_id, exchange_rate, is_paid, payment_method)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
     `).bind(
       customer.id,
       action.type,
+      txDate,
       action.description,
       action.amountUsd,
       amountBs,
       action.amountUsdDivisa || null,
       action.currencyType,
       action.presupuestoId || null,
-      bcvRate.rate
+      bcvRate.rate,
+      pm
     ).run();
 
     const balanceQuery = action.currencyType === 'divisas'
@@ -475,8 +489,9 @@ export async function executeCustomerAction(db: D1Database | null, action: Custo
     const emoji = action.type === 'purchase' ? '🛒' : '💰';
     const actionText = action.type === 'purchase' ? 'Compra' : 'Abono';
     const curr = action.currencyType === 'divisas' ? 'DIV' : 'BCV';
+    const pmStr = pm ? ` (${PAYMENT_METHOD_NAMES[pm] || pm})` : '';
 
-    return `${emoji} *${actionText} registrada*\n\n👤 ${customer.name}\n💵 $${action.amountUsd.toFixed(2)} (${curr})\n📝 ${action.description}\n\n💼 Nuevo balance ${curr}: $${newBalance.toFixed(2)}`;
+    return `${emoji} *${actionText} registrada*\n\n👤 ${customer.name}\n💵 $${action.amountUsd.toFixed(2)} (${curr})${pmStr}\n📝 ${action.description}\n\n💼 Nuevo balance ${curr}: $${newBalance.toFixed(2)}`;
   } catch (error) {
     console.error('[Telegram] Error en executeCustomerAction:', error);
     return `❌ Error: ${error}`;

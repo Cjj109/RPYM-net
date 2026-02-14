@@ -403,7 +403,7 @@ REGLAS DE INTERPRETACION:
 - Si un cliente no existe en la lista, devolver customerId: null y el nombre tal como se escribio
 - Extraer montos en dolares (ej: "$100", "100 dolares", "100$")
 - Puede haber MULTIPLES acciones en un solo texto separadas por comas, puntos o lineas
-- La descripcion debe ser concisa (ej: "Calamar", "Pedido", "Abono cuenta")
+- La descripcion debe ser concisa e incluir el metodo de pago si se menciona (ej: "Calamar", "Pedido", "Abono por tarjeta", "Abono Zelle", "Abono pago movil")
 
 METODOS DE PAGO Y SU MONEDA (MUY IMPORTANTE):
 - zelle, usdt, paypal, binance, cripto → currencyType: "divisas" (son pagos en USD)
