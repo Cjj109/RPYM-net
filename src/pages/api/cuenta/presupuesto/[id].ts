@@ -68,6 +68,8 @@ export const GET: APIRoute = async ({ params, request, locals }) => {
         totalUSD: result.total_usd,
         totalBs: result.total_bs,
         totalUSDDivisa: result.total_usd_divisa,
+        delivery: result.delivery || 0,
+        modoPrecio: result.modo_precio || 'bcv',
         estado: result.estado,
         customerName: result.customer_name,
         customerAddress: result.customer_address,

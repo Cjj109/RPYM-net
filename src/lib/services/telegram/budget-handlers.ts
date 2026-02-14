@@ -669,7 +669,7 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
 
       case 'agregar': {
         const modoPrecioRaw = budget.modo_precio || 'bcv';
-        const modoPrecio = modoPrecioRaw === 'divisa' ? 'divisas' : modoPrecioRaw;
+        const modoPrecio = modoPrecioRaw === 'divisas' ? 'divisa' : modoPrecioRaw;
         const cantidadAgregar = edicion.cantidad || 1;
         const productoNombre = edicion.producto || '';
 
@@ -685,7 +685,7 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
             item.subtotalUSDDivisa = item.precioUSDDivisa * item.cantidad;
           }
 
-          if (modoPrecio === 'divisas') {
+          if (modoPrecio === 'divisa') {
             mensaje = `➕ *${item.nombre}*: ${oldQty} + ${cantidadAgregar} = ${item.cantidad}${item.unidad} x $${item.precioUSD.toFixed(2)} (DIV)`;
           } else if (modoPrecio === 'dual') {
             mensaje = `➕ *${item.nombre}*: ${oldQty} + ${cantidadAgregar} = ${item.cantidad}${item.unidad} x $${item.precioUSD.toFixed(2)} / DIV: $${item.precioUSDDivisa.toFixed(2)}`;
@@ -712,7 +712,7 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
         let precioParaItem: number;
         let subtotalParaItem: number;
 
-        if (modoPrecio === 'divisas') {
+        if (modoPrecio === 'divisa') {
           precioParaItem = precioDivisa;
           subtotalParaItem = precioDivisa * cantidadAgregar;
         } else {
@@ -733,7 +733,7 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
         };
         items.push(newItem);
 
-        if (modoPrecio === 'divisas') {
+        if (modoPrecio === 'divisa') {
           mensaje = `➕ *${newItem.nombre}* agregado: ${cantidadAgregar}${newItem.unidad} x $${precioDivisa.toFixed(2)} (DIV)`;
         } else if (modoPrecio === 'dual') {
           mensaje = `➕ *${newItem.nombre}* agregado: ${cantidadAgregar}${newItem.unidad} x $${precioBCV.toFixed(2)} / DIV: $${precioDivisa.toFixed(2)}`;
@@ -861,12 +861,12 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
 
         if (newProduct) {
           const modoPrecioRaw = budget.modo_precio || 'bcv';
-          const modoPrecio = modoPrecioRaw === 'divisa' ? 'divisas' : modoPrecioRaw;
+          const modoPrecio = modoPrecioRaw === 'divisas' ? 'divisa' : modoPrecioRaw;
           const precioBCV = newProduct.precioUSD;
           const precioDivisa = newProduct.precioUSDDivisa || newProduct.precioUSD;
 
           let precioParaItem: number;
-          if (modoPrecio === 'divisas') {
+          if (modoPrecio === 'divisa') {
             precioParaItem = precioDivisa;
           } else {
             precioParaItem = precioBCV;
@@ -880,7 +880,7 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
           item.precioUSDDivisa = modoPrecio === 'dual' ? precioDivisa : precioParaItem;
           item.subtotalUSDDivisa = modoPrecio === 'dual' ? precioDivisa * item.cantidad : precioParaItem * item.cantidad;
 
-          if (modoPrecio === 'divisas') {
+          if (modoPrecio === 'divisa') {
             mensaje = `🔄 *${oldName}* → *${newProduct.nombre}*\n💰 Precio: $${precioDivisa.toFixed(2)} (DIV)`;
           } else if (modoPrecio === 'dual') {
             mensaje = `🔄 *${oldName}* → *${newProduct.nombre}*\n💰 Precio: $${precioBCV.toFixed(2)} / DIV: $${precioDivisa.toFixed(2)}`;
@@ -907,7 +907,7 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
     await db.prepare(`
       UPDATE presupuestos SET items = ?, total_usd = ?, total_bs = ?, total_usd_divisa = ?
       WHERE id = ?
-    `).bind(JSON.stringify(items), totalUSD, totalBs, budget.modo_precio !== 'bcv' ? totalUSDDivisa : null, budgetId).run();
+    `).bind(JSON.stringify(items), totalUSD, totalBs, budget.modo_precio === 'dual' ? totalUSDDivisa : null, budgetId).run();
 
     await db.prepare(`
       UPDATE customer_transactions SET amount_usd = ?, amount_bs = ?, amount_usd_divisa = ?
@@ -916,8 +916,8 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
 
     mensaje += `\n\n📋 *Presupuesto #${budgetId}*`;
     if (budget.customer_name) mensaje += `\n👤 ${budget.customer_name}`;
-    const modoPrecioFinal = budget.modo_precio === 'divisa' ? 'divisas' : budget.modo_precio;
-    if (modoPrecioFinal === 'divisas') {
+    const modoPrecioFinal = budget.modo_precio === 'divisas' ? 'divisa' : (budget.modo_precio || 'bcv');
+    if (modoPrecioFinal === 'divisa') {
       mensaje += `\n💵 Total: $${totalUSDDivisa.toFixed(2)} (DIV)`;
     } else if (modoPrecioFinal === 'dual') {
       mensaje += `\n💵 Total: $${totalUSD.toFixed(2)} / DIV: $${totalUSDDivisa.toFixed(2)}`;
@@ -1107,7 +1107,8 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
 
     const presupuestoItems: any[] = [];
     let totalUSD = 0, totalBs = 0, totalUSDDivisa = 0;
-    const pricingMode = result.pricingMode || mode || 'bcv';
+    const rawPricingMode = result.pricingMode || mode || 'bcv';
+    const pricingMode = rawPricingMode === 'divisas' ? 'divisa' : rawPricingMode;
 
     for (const item of result.items) {
       if (item.matched && item.productId) {
@@ -1125,7 +1126,7 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
         const precioBCV = item.customPrice ?? product.precioUSD;
         const precioDivisa = item.customPriceDivisa ?? product.precioUSDDivisa ?? precioBCV;
 
-        const precioMain = pricingMode === 'divisas' ? precioDivisa : precioBCV;
+        const precioMain = pricingMode === 'divisa' ? precioDivisa : precioBCV;
         const subtotalMain = precioMain * item.quantity;
         const subtotalDivisa = precioDivisa * item.quantity;
 
@@ -1145,7 +1146,7 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
         const precioBCV = item.customPrice;
         const precioDivisa = item.customPriceDivisa ?? precioBCV;
 
-        const precioMain = pricingMode === 'divisas' ? precioDivisa : precioBCV;
+        const precioMain = pricingMode === 'divisa' ? precioDivisa : precioBCV;
         const subtotalMain = precioMain * item.quantity;
         const subtotalDivisa = precioDivisa * item.quantity;
 
@@ -1178,7 +1179,7 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
         if (product) {
           const precioBCV = item.customPrice ?? product.precioUSD;
           const precioDivisa = item.customPriceDivisa ?? product.precioUSDDivisa ?? precioBCV;
-          const precioMain = pricingMode === 'divisas' ? precioDivisa : precioBCV;
+          const precioMain = pricingMode === 'divisa' ? precioDivisa : precioBCV;
           const subtotalMain = precioMain * item.quantity;
           const subtotalDivisa = precioDivisa * item.quantity;
 
@@ -1202,7 +1203,7 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
             .replace(/^\w/, c => c.toUpperCase());
           const precioBCV = item.customPrice;
           const precioDivisa = item.customPriceDivisa ?? precioBCV;
-          const precioMain = pricingMode === 'divisas' ? precioDivisa : precioBCV;
+          const precioMain = pricingMode === 'divisa' ? precioDivisa : precioBCV;
           const subtotalMain = precioMain * item.quantity;
           const subtotalDivisa = precioDivisa * item.quantity;
           presupuestoItems.push({
@@ -1259,10 +1260,10 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'telegram', ?, ?)
     `).bind(
       id, fechaPresupuesto, JSON.stringify(presupuestoItems), totalUSD, totalBs,
-      pricingMode !== 'bcv' ? totalUSDDivisa : null,
+      pricingMode === 'dual' ? totalUSDDivisa : null,
       pricingMode,
       result.delivery || 0,
-      (hideRate || pricingMode === 'divisas') ? 1 : 0,
+      (hideRate || pricingMode === 'divisa') ? 1 : 0,
       estado,
       result.customerName || null,
       result.customerAddress || null
@@ -1270,7 +1271,7 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
 
     console.log('[createBudgetFromText] Presupuesto inserted, id:', id);
 
-    const shouldHideBs = hideRate || pricingMode === 'divisas';
+    const shouldHideBs = hideRate || pricingMode === 'divisa';
 
     let responseText = `✅ *Presupuesto #${id}*\n`;
     if (result.customerName) responseText += `👤 ${result.customerName}\n`;
@@ -1327,7 +1328,8 @@ export async function createCustomerPurchaseWithProducts(
   try {
     const bcvRate = await getBCVRate(db);
     const products = await getProducts(bcvRate.rate, db);
-    const pricingMode = mode || 'bcv';
+    const rawMode = mode || 'bcv';
+    const pricingMode = rawMode === 'divisas' ? 'divisa' : rawMode;
 
     // Llamada directa a Gemini (evita subrequest HTTP que falla en CF Workers)
     const productList = products.map(p => ({
@@ -1370,7 +1372,7 @@ export async function createCustomerPurchaseWithProducts(
         const precioUSD = item.customPrice ?? product.precioUSD;
         const precioUSDDivisa = item.customPriceDivisa ?? product.precioUSDDivisa ?? precioUSD;
 
-        const precioMain = pricingMode === 'divisas' ? precioUSDDivisa : precioUSD;
+        const precioMain = pricingMode === 'divisa' ? precioUSDDivisa : precioUSD;
         const subtotalMain = precioMain * item.quantity;
         const subtotalUSDDivisa = precioUSDDivisa * item.quantity;
 
@@ -1393,7 +1395,7 @@ export async function createCustomerPurchaseWithProducts(
       else if (!item.matched && item.suggestedName && item.customPrice) {
         const precioUSD = item.customPrice;
         const precioUSDDivisa = item.customPriceDivisa ?? precioUSD;
-        const precioMain = pricingMode === 'divisas' ? precioUSDDivisa : precioUSD;
+        const precioMain = pricingMode === 'divisa' ? precioUSDDivisa : precioUSD;
         const subtotalMain = precioMain * item.quantity;
         const subtotalUSDDivisa = precioUSDDivisa * item.quantity;
 
@@ -1433,14 +1435,14 @@ export async function createCustomerPurchaseWithProducts(
       JSON.stringify(presupuestoItems),
       totalUSD,
       totalBs,
-      pricingMode !== 'bcv' ? totalUSDDivisa : null,
+      pricingMode === 'dual' ? totalUSDDivisa : null,
       pricingMode,
       result.delivery || 0,
-      (hideRate || pricingMode === 'divisas') ? 1 : 0,
+      (hideRate || pricingMode === 'divisa') ? 1 : 0,
       customer.name
     ).run();
 
-    const currencyType = pricingMode === 'divisas' ? 'divisas' : 'dolar_bcv';
+    const currencyType = pricingMode === 'divisa' ? 'divisas' : 'dolar_bcv';
 
     await db.prepare(`
       INSERT INTO customer_transactions

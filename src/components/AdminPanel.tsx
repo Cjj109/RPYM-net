@@ -1085,8 +1085,8 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     }
 
     // Build message with presupuesto details
-    const isDual = presupuesto.totalUSDDivisa != null;
-    const isDivisasOnly = presupuesto.totalBs === 0 && !presupuesto.hideRate;
+    const isDual = presupuesto.modoPrecio === 'dual';
+    const isDivisasOnly = presupuesto.modoPrecio === 'divisa' || (presupuesto.totalBs === 0 && !presupuesto.hideRate && !isDual);
     const hideRateOnly = presupuesto.hideRate === true && presupuesto.totalBs > 0;
     let message = `*Presupuesto RPYM #${presupuesto.id}*\n`;
     if (presupuesto.customerName) message += `Cliente: ${presupuesto.customerName}\n`;
@@ -1507,8 +1507,8 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold text-ocean-900">Presupuesto {selectedPresupuesto.id}</h3>
                   {(() => {
-                    const isDual = selectedPresupuesto.totalUSDDivisa != null && Number(selectedPresupuesto.totalUSDDivisa) > 0;
-                    const isDivisasOnly = (Number(selectedPresupuesto.totalBs) === 0 || selectedPresupuesto.totalBs == null) && !selectedPresupuesto.hideRate;
+                    const isDual = selectedPresupuesto.modoPrecio === 'dual';
+                    const isDivisasOnly = selectedPresupuesto.modoPrecio === 'divisa' || ((Number(selectedPresupuesto.totalBs) === 0 || selectedPresupuesto.totalBs == null) && !selectedPresupuesto.hideRate && !isDual);
                     if (isDual) {
                       return <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-[10px] font-medium">Dual</span>;
                     } else if (isDivisasOnly) {

@@ -99,7 +99,7 @@ INTENCIONES POSIBLES:
 2. customer_purchase_products - Anotaciones CON PRODUCTOS (cantidades de productos)
    EJEMPLOS SIMPLES:
    - "anota a delcy 2kg jumbo" → params: {rawText: "delcy 2kg jumbo", modo: "bcv"}
-   - "anota a maria 1kg pota en divisas" → params: {rawText: "maria 1kg pota", modo: "divisas"}
+   - "anota a maria 1kg pota en divisas" → params: {rawText: "maria 1kg pota", modo: "divisa"}
    - "registra a jose 3kg camaron dual" → params: {rawText: "jose 3kg camaron", modo: "dual"}
 
    EJEMPLOS CON PRECIOS PERSONALIZADOS:
@@ -117,7 +117,7 @@ INTENCIONES POSIBLES:
    - Si menciona DOS precios por producto → modo: "dual"
      * Formatos duales: "a $X/$Y", "a X en divisas y Y en bs", "a X div y Y bcv", "a X divisa y Y bolivares", "X en div Y en bcv"
      * Ejemplos: "a 10 en divisas y 12 en bs", "a 10/12", "a 10 div y 13 bcv", "$10 div $13 bcv"
-   - Si SOLO menciona "en divisas" o "divisa" (sin mencionar bs/bcv) → modo: "divisas"
+   - Si SOLO menciona "en divisas" o "divisa" (sin mencionar bs/bcv) → modo: "divisa"
    - Si SOLO menciona "en bs", "bcv", "bolivares" (sin mencionar divisas) → modo: "bcv"
    - IMPORTANTE: "bcv" = "bs" = "bolivares" (son sinónimos del precio en bolívares)
 
