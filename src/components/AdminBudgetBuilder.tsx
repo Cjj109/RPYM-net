@@ -1363,42 +1363,8 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
         );
         if (updated) {
           setSaveMessage(`Actualizado: ${editingPresupuesto.id}`);
-
-          // If assigned to a customer (and wasn't before), create a transaction in their ledger
-          if (assignToCustomer) {
-            const txDate = useCustomDate ? customPresupuestoDate : getLocalDateStr();
-            try {
-              // First check if this presupuesto already has a transaction for this customer
-              const existingTxRes = await fetch(`/api/customers/${assignToCustomer}/transactions`, {
-                credentials: 'include'
-              });
-              const existingTxData = await existingTxRes.json();
-              const alreadyAssigned = existingTxData.transactions?.some(
-                (tx: any) => tx.presupuestoId === editingPresupuesto.id
-              );
-
-              if (!alreadyAssigned) {
-                await fetch(`/api/customers/${assignToCustomer}/transactions`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  credentials: 'include',
-                  body: JSON.stringify({
-                    type: 'purchase',
-                    date: txDate,
-                    description: `Presupuesto ${editingPresupuesto.id}`,
-                    amountUsd: totals.totalUSD,
-                    amountBs: modoPrecio === 'divisa' ? 0 : totals.totalBs,
-                    amountUsdDivisa: modoPrecio === 'dual' ? totals.totalUSDDivisa : undefined,
-                    presupuestoId: editingPresupuesto.id,
-                    currencyType: modoPrecio === 'divisa' ? 'divisas' : 'dolar_bcv',
-                  })
-                });
-                setSaveMessage(`Actualizado y asignado: ${editingPresupuesto.id}`);
-              }
-            } catch (err) {
-              console.error('Error assigning to customer:', err);
-            }
-          }
+          // Note: Customer linking/relinking is handled server-side by the PUT endpoint
+          // via linkBudgetToCustomer(), which correctly handles deduplication and relinking
 
           onEditComplete?.();
         } else {

@@ -213,6 +213,12 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
         SET ${txUpdateFields}
         WHERE presupuesto_id = ? AND type = 'purchase'
       `).bind(...txParams).run();
+
+      // If customerName is set, ensure budget is linked to the correct customer
+      // (handles relinking if customer changed)
+      if (customerName) {
+        await linkBudgetToCustomer(db, id, customerName);
+      }
     }
 
     return new Response(JSON.stringify({

@@ -996,9 +996,7 @@ export async function linkBudgetToCustomer(db: D1Database | null, budgetId: stri
     console.log('[linkBudgetToCustomer] Budget found');
 
     console.log('[linkBudgetToCustomer] Checking existing tx...');
-    const existingTx = await db.prepare(`SELECT id FROM customer_transactions WHERE presupuesto_id = ?`).bind(budgetId).first();
-    if (existingTx) return { success: false, message: `⚠️ Presupuesto #${budgetId} ya está asignado a una cuenta` };
-    console.log('[linkBudgetToCustomer] No existing tx');
+    const existingTx = await db.prepare(`SELECT id, customer_id FROM customer_transactions WHERE presupuesto_id = ?`).bind(budgetId).first() as { id: number; customer_id: number } | null;
 
     let customer: any;
     if (typeof customerNameOrId === 'number') {
@@ -1017,6 +1015,17 @@ export async function linkBudgetToCustomer(db: D1Database | null, budgetId: stri
         msg += `\n\n💡 _¿Quisiste decir?_\n` + suggestions.map(s => `• ${s.name}`).join('\n');
       }
       return { success: false, message: msg };
+    }
+
+    // Handle existing transaction: same customer = skip, different customer = relink
+    if (existingTx) {
+      if (existingTx.customer_id === customer.id) {
+        console.log('[linkBudgetToCustomer] Already linked to same customer, skipping');
+        return { success: true, message: `✅ Presupuesto #${budgetId} ya está asignado a *${customer.name}*`, customerId: customer.id };
+      }
+      // Different customer - delete old transaction to relink
+      console.log('[linkBudgetToCustomer] Relinking: removing old tx', existingTx.id, 'from customer', existingTx.customer_id);
+      await db.prepare(`DELETE FROM customer_transactions WHERE id = ?`).bind(existingTx.id).run();
     }
 
     const items = JSON.parse(budget.items || '[]');
@@ -1046,9 +1055,8 @@ export async function linkBudgetToCustomer(db: D1Database | null, budgetId: stri
     ).run();
     console.log('[linkBudgetToCustomer] Transaction inserted successfully');
 
-    if (!budget.customer_name) {
-      await db.prepare(`UPDATE presupuestos SET customer_name = ? WHERE id = ?`).bind(customer.name, budgetId).run();
-    }
+    // Always update customer_name on presupuesto when linking
+    await db.prepare(`UPDATE presupuestos SET customer_name = ? WHERE id = ?`).bind(customer.name, budgetId).run();
 
     return {
       success: true,
