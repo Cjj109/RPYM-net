@@ -246,7 +246,15 @@ Responde SOLO con un JSON valido:
     // Build presupuesto items with prices based on mode
     const presupuestoItems: ParsedAction['items'] = [];
 
-    // Regex para detectar montos en dólares en requestedName
+    // Pre-escanear texto original para "$X de producto"
+    const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const textDollarRegex2 = /\$\s*(\d+(?:\.\d+)?)\s*(?:de|del)\s+([^,\n$]+)/gi;
+    const dollarFromText: { amount: number; fragment: string }[] = [];
+    let dm2;
+    while ((dm2 = textDollarRegex2.exec(text)) !== null) {
+      dollarFromText.push({ amount: parseFloat(dm2[1]), fragment: normalize(dm2[2].trim()) });
+    }
+
     const dollarAmountRegex = /^\$\s*(\d+(?:\.\d+)?)|^(\d+(?:\.\d+)?)\s*\$|^(\d+(?:\.\d+)?)\s*(?:dolares?|dollars?|usd)\s/i;
     const dollarDeRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|d\s)/i;
 
@@ -254,15 +262,27 @@ Responde SOLO con un JSON valido:
       if (item.matched && item.productId) {
         const product = products.find(p => String(p.id) === String(item.productId));
         if (product) {
-          // Detectar dollarAmount: del campo, o extraer del requestedName
           let effectiveDollarAmount = item.dollarAmount && item.dollarAmount > 0 ? item.dollarAmount : null;
           let effectiveCustomPrice = item.customPrice;
 
-          // Detectar patrón "$X de" en requestedName → es dollarAmount
           if (item.requestedName) {
             const m = item.requestedName.match(dollarDeRegex) || item.requestedName.match(dollarAmountRegex);
             if (m) {
               effectiveDollarAmount = parseFloat(m[1] || m[2] || m[3]);
+              effectiveCustomPrice = null;
+            }
+          }
+
+          // Buscar en texto original del usuario
+          if (!effectiveDollarAmount) {
+            const prodName = normalize(product.nombre);
+            const match = dollarFromText.find(d => {
+              const f = d.fragment;
+              return prodName.includes(f) || f.includes(prodName) ||
+                prodName.split(' ').some(w => w.length > 3 && f.includes(w));
+            });
+            if (match) {
+              effectiveDollarAmount = match.amount;
               effectiveCustomPrice = null;
             }
           }

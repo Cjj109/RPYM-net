@@ -425,7 +425,15 @@ INSTRUCCIONES:
       });
     }
 
-    // Post-process: corregir cuando Gemini no calcula bien quantity para montos en dólares
+    // Pre-escanear texto original para "$X de producto"
+    const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const textDollarRegex = /\$\s*(\d+(?:\.\d+)?)\s*(?:de|del)\s+([^,\n$]+)/gi;
+    const dollarFromText: { amount: number; fragment: string }[] = [];
+    let dm;
+    while ((dm = textDollarRegex.exec(text)) !== null) {
+      dollarFromText.push({ amount: parseFloat(dm[1]), fragment: normalize(dm[2].trim()) });
+    }
+
     const dollarAmountRegex = /^\$\s*(\d+(?:\.\d+)?)|^(\d+(?:\.\d+)?)\s*\$|^(\d+(?:\.\d+)?)\s*(?:dolares?|dollars?|usd)\s/i;
     const dollarDeRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|d\s)/i;
 
@@ -434,7 +442,6 @@ INSTRUCCIONES:
       const product = products.find((p: any) => String(p.id) === String(item.productId));
       if (!product || product.precioUSD <= 0) return item;
 
-      // Determinar dollarAmount: del campo AI, o extraer del requestedName
       let dollarAmount = item.dollarAmount && item.dollarAmount > 0 ? item.dollarAmount : null;
 
       if (!dollarAmount && item.requestedName) {
@@ -442,11 +449,15 @@ INSTRUCCIONES:
         if (m) dollarAmount = parseFloat(m[1] || m[2] || m[3]);
       }
 
-      if (!dollarAmount && item.customPrice && item.customPrice > 0 && item.requestedName) {
-        const m = item.requestedName.match(dollarDeRegex) || item.requestedName.match(dollarAmountRegex);
-        if (m) {
-          dollarAmount = parseFloat(m[1] || m[2] || m[3]);
-        }
+      // Buscar en texto original del usuario
+      if (!dollarAmount) {
+        const prodName = normalize(product.nombre);
+        const match = dollarFromText.find(d => {
+          const f = d.fragment;
+          return prodName.includes(f) || f.includes(prodName) ||
+            prodName.split(' ').some(w => w.length > 3 && f.includes(w));
+        });
+        if (match) dollarAmount = match.amount;
       }
 
       if (dollarAmount && dollarAmount > 0) {

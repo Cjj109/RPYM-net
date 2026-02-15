@@ -698,13 +698,12 @@ export default function AdminCustomers() {
           if (item.matched && item.productId) {
             // Producto del catálogo
             const product = productInfo.find((p: any) => String(p.id) === String(item.productId));
-            // Detectar si es monto en dólares del requestedName
+            // Detectar dollarAmount del campo AI, requestedName, o texto original
             const dollarDeRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|d\s)/i;
             const dollarRegex = /^\$\s*(\d+(?:\.\d+)?)|^(\d+(?:\.\d+)?)\s*\$/;
             let effectiveDollarAmount = item.dollarAmount && item.dollarAmount > 0 ? item.dollarAmount : null;
             let effectiveCustomPrice = item.customPrice;
 
-            // Detectar patrón "$X de" en requestedName → es dollarAmount
             if (item.requestedName) {
               const m = item.requestedName.match(dollarDeRegex) || item.requestedName.match(dollarRegex);
               if (m) {
@@ -713,8 +712,23 @@ export default function AdminCustomers() {
               }
             }
 
+            // Buscar en texto original del usuario
+            if (!effectiveDollarAmount && product) {
+              const nrm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+              const txtRx = /\$\s*(\d+(?:\.\d+)?)\s*(?:de|del)\s+([^,\n$]+)/gi;
+              let mx;
+              while ((mx = txtRx.exec(presupuestoTextInput)) !== null) {
+                const frag = nrm(mx[2].trim());
+                const pn = nrm(product.nombre);
+                if (pn.includes(frag) || frag.includes(pn) || pn.split(' ').some((w: string) => w.length > 3 && frag.includes(w))) {
+                  effectiveDollarAmount = parseFloat(mx[1]);
+                  effectiveCustomPrice = null;
+                  break;
+                }
+              }
+            }
+
             const precio = effectiveCustomPrice || product?.precioUSD || 0;
-            // Si hay dollarAmount, SIEMPRE recalcular qty con precio real del catálogo
             let qty = item.quantity;
             if (effectiveDollarAmount && effectiveDollarAmount > 0 && precio > 0) {
               qty = Math.round((effectiveDollarAmount / precio) * 1000) / 1000;

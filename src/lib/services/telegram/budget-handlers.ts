@@ -427,8 +427,15 @@ INSTRUCCIONES:
       return { success: false, items: [], unmatched: [], error: 'Error interpretando la respuesta. Intenta reformular tu lista.' };
     }
 
-    // Post-process: corregir cuando Gemini no calcula bien quantity para montos en dólares
-    // Regex amplio: "$20 de calamar", "20$ de calamar", "20 dolares de calamar", "$20 calamar"
+    // Pre-escanear texto original para "$X de producto" — no depender de requestedName de Gemini
+    const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const textDollarRegex = /\$\s*(\d+(?:\.\d+)?)\s*(?:de|del)\s+([^,\n$]+)/gi;
+    const dollarFromText: { amount: number; fragment: string }[] = [];
+    let dm;
+    while ((dm = textDollarRegex.exec(text)) !== null) {
+      dollarFromText.push({ amount: parseFloat(dm[1]), fragment: normalize(dm[2].trim()) });
+    }
+
     const dollarAmountRegex = /^\$\s*(\d+(?:\.\d+)?)|^(\d+(?:\.\d+)?)\s*\$|^(\d+(?:\.\d+)?)\s*(?:dolares?|dollars?|usd)\s/i;
     const dollarDeRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|d\s)/i;
 
@@ -437,21 +444,28 @@ INSTRUCCIONES:
       const product = products.find(p => String(p.id) === String(item.productId));
       if (!product || product.precioUSD <= 0) return item;
 
-      // Determinar dollarAmount: del campo AI, o extraer del requestedName
+      // 1. Del campo AI
       let dollarAmount = item.dollarAmount && item.dollarAmount > 0 ? item.dollarAmount : null;
 
+      // 2. Del requestedName
       if (!dollarAmount && item.requestedName) {
         const m = item.requestedName.match(dollarDeRegex) || item.requestedName.match(dollarAmountRegex);
         if (m) dollarAmount = parseFloat(m[1] || m[2] || m[3]);
       }
 
-      if (!dollarAmount && item.customPrice && item.customPrice > 0 && item.requestedName) {
-        const m = item.requestedName.match(dollarDeRegex) || item.requestedName.match(dollarAmountRegex);
-        if (m) dollarAmount = parseFloat(m[1] || m[2] || m[3]);
+      // 3. Del texto original del usuario — buscar "$X de [algo que coincida con este producto]"
+      if (!dollarAmount) {
+        const prodName = normalize(product.nombre);
+        const match = dollarFromText.find(d => {
+          const f = d.fragment;
+          // "camarón desvenado" ↔ "camaron desvenado"
+          return prodName.includes(f) || f.includes(prodName) ||
+            prodName.split(' ').some(w => w.length > 3 && f.includes(w));
+        });
+        if (match) dollarAmount = match.amount;
       }
 
       // Si hay dollarAmount, SIEMPRE recalcular qty con precio real del catálogo
-      // (Gemini puede haber usado un precio incorrecto)
       if (dollarAmount && dollarAmount > 0) {
         const calculatedQty = Math.round((dollarAmount / product.precioUSD) * 1000) / 1000;
         return { ...item, quantity: calculatedQty, dollarAmount, customPrice: null };
@@ -1176,7 +1190,6 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
 
         const precioMain = pricingMode === 'divisa' ? precioDivisa : precioBCV;
 
-        // Si hay dollarAmount, el subtotal ES el dollarAmount (lo que pidió el cliente)
         const subtotalMain = precioMain * item.quantity;
         const subtotalDivisa = precioDivisa * item.quantity;
 
