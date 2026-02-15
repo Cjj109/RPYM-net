@@ -465,9 +465,14 @@ INSTRUCCIONES:
         if (match) dollarAmount = match.amount;
       }
 
-      // Si hay dollarAmount, SIEMPRE recalcular qty con precio real del catálogo
+      // Si hay dollarAmount, SIEMPRE recalcular qty con precio según modo
       if (dollarAmount && dollarAmount > 0) {
-        const calculatedQty = Math.round((dollarAmount / product.precioUSD) * 1000) / 1000;
+        const rawMode = parsedResult.pricingMode || 'bcv';
+        const effectiveMode = rawMode === 'divisas' ? 'divisa' : rawMode;
+        const priceForCalc = effectiveMode === 'divisa'
+          ? (product.precioUSDDivisa || product.precioUSD)
+          : product.precioUSD;
+        const calculatedQty = Math.round((dollarAmount / priceForCalc) * 1000) / 1000;
         return { ...item, quantity: calculatedQty, dollarAmount, customPrice: null };
       }
 
