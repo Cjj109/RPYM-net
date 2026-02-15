@@ -163,8 +163,12 @@ PRODUCTOS:
   * Poner customPrice con el precio dado
   * Si hay precio dual, poner tambien customPriceDivisa
 
-MONTOS EN DOLARES:
-- "$20 de calamar" → calcular cantidad = monto / precio del producto
+MONTOS EN DOLARES (¡¡¡MUY IMPORTANTE!!!):
+- "$X de producto" o "X$ de producto" = el cliente quiere COMPRAR por ese monto total
+- DEBES calcular: quantity = monto / precio del producto. NUNCA pongas quantity: 0
+- "$20 de calamar" (precio $18/kg) → quantity: 20/18 = 1.111 kg, dollarAmount: 20, customPrice: null
+- "$15 de langostino" (precio $12/kg) → quantity: 15/12 = 1.25 kg, dollarAmount: 15, customPrice: null
+- ¡¡¡NO confundas dollarAmount con customPrice!!! dollarAmount = cuanto dinero gastar, customPrice = precio por unidad
 - Usar el precio segun el modo de precio especificado
 
 FECHAS (CRITICO - año actual es ${currentYear}):
@@ -242,11 +246,25 @@ Responde SOLO con un JSON valido:
     // Build presupuesto items with prices based on mode
     const presupuestoItems: ParsedAction['items'] = [];
 
+    // Regex para detectar "$X de producto" en requestedName (monto en dólares, no customPrice)
+    const dollarAmountRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|d\s)/i;
+
     for (const item of parsed.items || []) {
       if (item.matched && item.productId) {
         const product = products.find(p => String(p.id) === String(item.productId));
         if (product) {
-          const precioBcv = item.customPrice || product.precioUSD;
+          // Detectar si Gemini confundió dollarAmount con customPrice
+          let effectiveCustomPrice = item.customPrice;
+          let effectiveDollarAmount = item.dollarAmount;
+          if ((!item.quantity || item.quantity <= 0) && item.customPrice && item.requestedName) {
+            const match = item.requestedName.match(dollarAmountRegex);
+            if (match) {
+              effectiveDollarAmount = parseFloat(match[1]);
+              effectiveCustomPrice = null; // No es precio personalizado
+            }
+          }
+
+          const precioBcv = effectiveCustomPrice || product.precioUSD;
           const precioDivisa = item.customPriceDivisa || product.precioUSDDivisa || precioBcv;
 
           // For divisas mode: use divisa price as the main price
@@ -254,18 +272,24 @@ Responde SOLO con un JSON valido:
           // For dual mode: use BCV as main, divisa as secondary
           const precioMain = pricingMode === 'divisas' ? precioDivisa : precioBcv;
 
+          // Fallback: si quantity=0 y hay dollarAmount, calcular server-side
+          let qty = item.quantity;
+          if (effectiveDollarAmount && effectiveDollarAmount > 0 && (!qty || qty <= 0) && precioMain > 0) {
+            qty = Math.round((effectiveDollarAmount / precioMain) * 1000) / 1000;
+          }
+
           const itemData: any = {
             nombre: item.productName || product.nombre,
-            cantidad: item.quantity,
+            cantidad: qty,
             unidad: item.unit || product.unidad,
             precioUSD: precioMain,
-            subtotalUSD: Math.round(precioMain * item.quantity * 100) / 100,
+            subtotalUSD: Math.round(precioMain * qty * 100) / 100,
           };
 
           // Only add divisa prices for dual mode
           if (pricingMode === 'dual') {
             itemData.precioUSDDivisa = precioDivisa;
-            itemData.subtotalUSDDivisa = Math.round(precioDivisa * item.quantity * 100) / 100;
+            itemData.subtotalUSDDivisa = Math.round(precioDivisa * qty * 100) / 100;
           }
 
           presupuestoItems.push(itemData);

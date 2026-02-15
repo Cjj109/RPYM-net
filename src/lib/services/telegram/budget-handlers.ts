@@ -129,7 +129,6 @@ Tu tarea es:
 4. Si el usuario especifica un MONTO EN DÓLARES (ej: "$20 de calamar"), CALCULAR la cantidad dividiendo el monto entre el precio del producto
 
 REGLAS DE INTERPRETACIÓN:
-- MONTOS EN DÓLARES: "$20 de calamar nacional" → buscar precio del calamar ($18/kg) → cantidad = 20/18 = 1.11 kg
 - "1/2 kg", "medio kilo", "500g", "500gr" = 0.5 kg
 - "1kg", "1 kilo", "un kilo" = 1 kg
 - "1½", "1 1/2", "uno y medio" = 1.5 kg
@@ -140,16 +139,27 @@ REGLAS DE INTERPRETACIÓN:
 - Para camarones, las tallas como "41/50", "61/70" son importantes para el match
 - Redondear cantidades calculadas a 3 decimales
 
+¡¡¡MONTOS EN DÓLARES - ULTRA CRÍTICO - LEE CON MUCHA ATENCIÓN!!!
+Cuando el $ va ANTES del nombre del producto (con "de" en medio), es un MONTO TOTAL a gastar.
+El cliente quiere COMPRAR por ese monto → DEBES calcular la cantidad = monto / precio por kg.
+- PATRÓN: "$X de [producto]" o "X$ de [producto]" o "X dólares de [producto]"
+- dollarAmount = X, customPrice = null (NO es precio personalizado)
+- quantity = dollarAmount / precio del producto del catálogo
+- EJEMPLOS:
+  * "$20 de camarón desvenado" (precio catálogo: $17/kg) → dollarAmount: 20, quantity: 20/17 = 1.176 kg, customPrice: null
+  * "$15 de langostino" (precio catálogo: $12/kg) → dollarAmount: 15, quantity: 15/12 = 1.25 kg, customPrice: null
+  * "$10 de pulpo" (precio catálogo: $22/kg) → dollarAmount: 10, quantity: 10/22 = 0.455 kg, customPrice: null
+  * "20$ de calamar" (precio catálogo: $18/kg) → dollarAmount: 20, quantity: 20/18 = 1.111 kg, customPrice: null
+  * "20 dolares de calamar" → dollarAmount: 20, quantity: 20/18 = 1.111 kg, customPrice: null
+- ¡¡¡NUNCA pongas quantity: 0 cuando hay dollarAmount!!! SIEMPRE calcula quantity = dollarAmount / precio
+- ¡¡¡NUNCA confundas dollarAmount con customPrice!!! Son cosas distintas:
+  * dollarAmount = CUÁNTO DINERO quiere gastar → calcular cantidad
+  * customPrice = PRECIO POR UNIDAD diferente al del catálogo
+
 PRECIOS CON HASHTAG (# = precio personalizado):
 - "camaron #16" o "camaron # 16" → precio personalizado $16/kg
 - "4kg calamar #18" → 4kg a precio personalizado $18/kg
 - El número después del # es el precio en USD por unidad (customPrice)
-
-FORMATOS DE MONTO VÁLIDOS:
-- "$20 de producto" → monto = 20, calcular cantidad
-- "20$ de producto" → monto = 20
-- "20 dolares de producto" → monto = 20
-- "veinte dolares de producto" → monto = 20
 
 PRECIOS PERSONALIZADOS - ¡¡¡CRÍTICO - LEE ESTO!!!:
 Cuando el usuario escribe "a $X" o "a X" DESPUÉS de la cantidad/producto, ese X es el PRECIO PERSONALIZADO por unidad.
@@ -417,9 +427,35 @@ INSTRUCCIONES:
       return { success: false, items: [], unmatched: [], error: 'Error interpretando la respuesta. Intenta reformular tu lista.' };
     }
 
+    // Post-process: corregir cuando Gemini confunde dollarAmount con customPrice
+    const dollarAmountRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|d\s)/i;
+    const items = (parsedResult.items || []).map((item: any) => {
+      if (!item.matched || !item.productId) return item;
+      const product = products.find(p => String(p.id) === String(item.productId));
+      if (!product || product.precioUSD <= 0) return item;
+
+      // Caso 1: AI devolvió dollarAmount pero quantity=0
+      if (item.dollarAmount && item.dollarAmount > 0 && (!item.quantity || item.quantity <= 0)) {
+        const calculatedQty = Math.round((item.dollarAmount / product.precioUSD) * 1000) / 1000;
+        return { ...item, quantity: calculatedQty };
+      }
+
+      // Caso 2: AI confundió dollarAmount con customPrice (quantity=0, customPrice=monto)
+      if ((!item.quantity || item.quantity <= 0) && item.customPrice && item.requestedName) {
+        const match = item.requestedName.match(dollarAmountRegex);
+        if (match) {
+          const dollarAmount = parseFloat(match[1]);
+          const calculatedQty = Math.round((dollarAmount / product.precioUSD) * 1000) / 1000;
+          return { ...item, quantity: calculatedQty, dollarAmount, customPrice: null };
+        }
+      }
+
+      return item;
+    });
+
     return {
       success: true,
-      items: parsedResult.items || [],
+      items,
       unmatched: parsedResult.unmatched || [],
       delivery: parsedResult.delivery || null,
       customerName: parsedResult.customerName || null,
