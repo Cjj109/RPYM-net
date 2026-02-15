@@ -96,7 +96,8 @@ async function parseOrderDirect(
   products: ProductInfo[],
   customers: { id: number; name: string }[],
   apiKey: string,
-  externalMode?: string
+  externalMode?: string,
+  originalText?: string
 ): Promise<ParseOrderResult> {
   if (!text || !products || products.length === 0) {
     return { success: false, items: [], unmatched: [], error: 'Texto o productos no proporcionados' };
@@ -429,12 +430,22 @@ INSTRUCCIONES:
     }
 
     // Pre-escanear texto original para "$X de producto" — no depender de requestedName de Gemini
+    // Escanear AMBOS: el texto enviado a Gemini Y el texto original del usuario (si disponible)
     const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const textDollarRegex = /\$\s*(\d+(?:\.\d+)?)\s*(?:de|del)\s+([^,\n$]+)/gi;
     const dollarFromText: { amount: number; fragment: string }[] = [];
-    let dm;
-    while ((dm = textDollarRegex.exec(text)) !== null) {
-      dollarFromText.push({ amount: parseFloat(dm[1]), fragment: normalize(dm[2].trim()) });
+    const textsToScan = originalText && originalText !== text ? [text, originalText] : [text];
+    for (const scanText of textsToScan) {
+      textDollarRegex.lastIndex = 0;
+      let dm;
+      while ((dm = textDollarRegex.exec(scanText)) !== null) {
+        const amount = parseFloat(dm[1]);
+        const fragment = normalize(dm[2].trim());
+        // Evitar duplicados
+        if (!dollarFromText.some(d => d.amount === amount && d.fragment === fragment)) {
+          dollarFromText.push({ amount, fragment });
+        }
+      }
     }
 
     const dollarAmountRegex = /^\$\s*(\d+(?:\.\d+)?)|^(\d+(?:\.\d+)?)\s*\$|^(\d+(?:\.\d+)?)\s*(?:dolares?|dollars?|usd)\s/i;
@@ -467,8 +478,9 @@ INSTRUCCIONES:
       }
 
       // Si hay dollarAmount, SIEMPRE recalcular qty con precio según modo
+      // externalMode tiene prioridad (viene del router que ya extrajo "en divisas" del texto)
       if (dollarAmount && dollarAmount > 0) {
-        const rawMode = parsedResult.pricingMode || externalMode || 'bcv';
+        const rawMode = externalMode || parsedResult.pricingMode || 'bcv';
         const effectiveMode = rawMode === 'divisas' ? 'divisa' : rawMode;
         const priceForCalc = effectiveMode === 'divisa'
           ? (product.precioUSDDivisa || product.precioUSD)
@@ -1137,7 +1149,7 @@ export async function linkBudgetToCustomer(db: D1Database | null, budgetId: stri
   }
 }
 
-export async function createBudgetFromText(db: D1Database | null, text: string, mode: string, baseUrl: string, apiKey: string, adminSecret: string, hideRate: boolean = false): Promise<string> {
+export async function createBudgetFromText(db: D1Database | null, text: string, mode: string, baseUrl: string, apiKey: string, adminSecret: string, hideRate: boolean = false, originalText?: string): Promise<string> {
   console.log('[createBudgetFromText] START');
   if (!db) return '❌ No hay conexión a la base de datos';
   try {
@@ -1159,7 +1171,7 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
 
     // Llamada directa a Gemini (evita subrequest HTTP que falla en CF Workers)
     console.log('[createBudgetFromText] Calling parseOrderDirect...');
-    const result = await parseOrderDirect(text, productList, customers?.results || [], apiKey, mode);
+    const result = await parseOrderDirect(text, productList, customers?.results || [], apiKey, mode, originalText);
     console.log('[createBudgetFromText] parseOrderDirect done, success:', result.success, 'customerName:', result.customerName);
 
     if (!result.success || !result.items?.length) {
@@ -1406,7 +1418,8 @@ export async function createCustomerPurchaseWithProducts(
   baseUrl: string,
   apiKey: string,
   adminSecret: string,
-  hideRate: boolean = false
+  hideRate: boolean = false,
+  originalText?: string
 ): Promise<string> {
   if (!db) return '❌ No hay conexión a la base de datos';
 
@@ -1424,7 +1437,7 @@ export async function createCustomerPurchaseWithProducts(
       precioUSD: p.precioUSD,
       precioUSDDivisa: p.precioUSDDivisa
     }));
-    const result = await parseOrderDirect(text, productList, [], apiKey, mode);
+    const result = await parseOrderDirect(text, productList, [], apiKey, mode, originalText);
     console.log('[Telegram] parse-order result:', JSON.stringify(result).substring(0, 500));
 
     if (!result.success || !result.items?.length) {

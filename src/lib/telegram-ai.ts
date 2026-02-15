@@ -134,7 +134,12 @@ INTENCIONES POSIBLES:
      * "anota a maria 1kg pota dual sin bolivares" → params: {rawText: "maria 1kg pota", modo: "dual", sinBs: true}
    - Default: sinBs no se incluye (o false)
 
-   CLAVE: Usa esta cuando hay CANTIDADES de productos (kg, unidades, etc.) NO montos fijos en $
+   EJEMPLOS CON MONTO EN DÓLARES ($X de producto):
+   - "anota a delcy $20 de camarón desvenado" → params: {rawText: "delcy $20 de camarón desvenado", modo: "bcv"}
+   - "anota a maria $5 de jaiba en divisas" → params: {rawText: "maria $5 de jaiba", modo: "divisa"}
+   IMPORTANTE: SIEMPRE preservar "$X de" en rawText. NUNCA eliminar el monto.
+
+   CLAVE: Usa esta cuando hay CANTIDADES de productos (kg, unidades, etc.) O MONTOS EN $ de productos
 
 3. budget_create - Crear presupuesto (puede incluir nombre de cliente)
    ¡¡¡PRIORIDAD MÁXIMA!!! Si el mensaje empieza con "crea presupuesto", "presupuesto a X de", "presupuesto de" + lista de productos → SIEMPRE budget_create.
@@ -146,9 +151,13 @@ INTENCIONES POSIBLES:
    - "crea presupuesto a Juan de 1kg pulpo" → params: {rawText: "Juan 1kg pulpo", modo: "bcv"}
    - "presupuesto dual de..." → params: {rawText: "...", modo: "dual"}
    - "presupuesto en divisas..." → params: {rawText: "...", modo: "divisa"}
+   - "presupuesto en divisas de $20 de camarón" → params: {rawText: "$20 de camarón", modo: "divisa"}
+   - "$20 de camarón desvenado en divisas" → params: {rawText: "$20 de camarón desvenado", modo: "divisa"}
+   - "presupuesto de $5 de jaiba, $20 de desvenado" → params: {rawText: "$5 de jaiba, $20 de desvenado", modo: "bcv"}
    - "presupuesto a Carlos de 2kg jumbo a $10 en divisas y $12 en bs" → params: {rawText: "Carlos 2kg jumbo a $10 en divisas y $12 en bs", modo: "dual"}
    - "presupuesto dual de 2kg jumbo sin bs" → params: {rawText: "2kg jumbo", modo: "dual", sinBs: true}
    - "presupuesto de 1kg pulpo, oculta bolivares" → params: {rawText: "1kg pulpo", modo: "bcv", sinBs: true}
+   MONTO EN DÓLARES: Si dice "$X de [producto]" (ej: "$20 de camarón"), SIEMPRE preservar "$X de" en rawText. NUNCA eliminar el monto del rawText.
    OCULTAR BOLÍVARES: Si dice "oculta bs", "sin bolivares", "no pongas bs", "solo dolares" → sinBs: true
    CLIENTE: Si dice "a [nombre]" o "para [nombre]", incluir el nombre en rawText al inicio
    CONTEXTO DE CLIENTE (MUY IMPORTANTE): Si el usuario dice "créale", "hazle", "crea un presupuesto" SIN especificar nombre de cliente, pero en el historial reciente se mencionó o creó un cliente → INCLUIR el nombre del cliente al inicio de rawText.

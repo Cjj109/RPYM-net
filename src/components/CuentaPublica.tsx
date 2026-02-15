@@ -354,7 +354,7 @@ export default function CuentaPublica() {
                       <div key={i} className="px-3 py-2 flex justify-between items-baseline">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-ocean-800 font-medium">{item.nombre}</p>
-                          <p className="text-xs text-ocean-400">{formatQuantity(item.cantidad)} {item.unidad} x {formatUSD((item.precioUSDDivisa ?? item.precioUSD))}</p>
+                          <p className="text-xs text-ocean-400">{formatQuantity(item.cantidadDivisa ?? item.cantidad)} {item.unidad} x {formatUSD((item.precioUSDDivisa ?? item.precioUSD))}</p>
                         </div>
                         <p className="font-semibold text-amber-800 text-sm ml-2">{formatUSD((item.subtotalUSDDivisa ?? item.subtotalUSD))}</p>
                       </div>

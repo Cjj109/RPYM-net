@@ -719,7 +719,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
 
       case 'customer_purchase_products':
         console.log('[Telegram] customer_purchase_products - rawText:', intent.params.rawText, 'modo:', intent.params.modo, 'sinBs:', intent.params.sinBs);
-        response = await createCustomerPurchaseWithProducts(db, intent.params.rawText || text, intent.params.modo || 'bcv', url.origin, geminiApiKey, adminSecret, intent.params.sinBs || false);
+        response = await createCustomerPurchaseWithProducts(db, intent.params.rawText || text, intent.params.modo || 'bcv', url.origin, geminiApiKey, adminSecret, intent.params.sinBs || false, text);
         break;
 
       case 'budget_create':
@@ -727,7 +727,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
         console.log('[Telegram] rawText:', intent.params.rawText?.substring(0, 100));
         console.log('[Telegram] modo:', intent.params.modo, 'sinBs:', intent.params.sinBs);
         try {
-          response = await createBudgetFromText(db, intent.params.rawText || text, intent.params.modo || 'bcv', url.origin, geminiApiKey, adminSecret, intent.params.sinBs || false);
+          response = await createBudgetFromText(db, intent.params.rawText || text, intent.params.modo || 'bcv', url.origin, geminiApiKey, adminSecret, intent.params.sinBs || false, text);
           console.log('[Telegram] ===== BUDGET_CREATE SUCCESS =====');
           console.log('[Telegram] response length:', response?.length, 'first 200:', response?.substring(0, 200));
         } catch (budgetError: any) {
@@ -1025,13 +1025,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
         case 'customer_purchase_products':
           executionLog.push(`Customer purchase with products: ${intent.params.rawText}, mode: ${intent.params.modo}, sinBs: ${intent.params.sinBs}`);
-          response = await createCustomerPurchaseWithProducts(db, intent.params.rawText || simulate, intent.params.modo || 'bcv', url.origin, geminiApiKey, adminSecret, intent.params.sinBs || false);
+          response = await createCustomerPurchaseWithProducts(db, intent.params.rawText || simulate, intent.params.modo || 'bcv', url.origin, geminiApiKey, adminSecret, intent.params.sinBs || false, simulate);
           executionLog.push(`Response: ${response}`);
           break;
 
         case 'budget_create':
           executionLog.push(`Creating budget: ${intent.params.rawText}, mode: ${intent.params.modo}, sinBs: ${intent.params.sinBs}`);
-          response = await createBudgetFromText(db, intent.params.rawText || simulate, intent.params.modo || 'bcv', url.origin, geminiApiKey, adminSecret, intent.params.sinBs || false);
+          response = await createBudgetFromText(db, intent.params.rawText || simulate, intent.params.modo || 'bcv', url.origin, geminiApiKey, adminSecret, intent.params.sinBs || false, simulate);
           executionLog.push(`Response: ${response}`);
           break;
       }

@@ -106,6 +106,7 @@ export default function AdminCustomers() {
     subtotalUSD: number;
     precioUSDDivisa?: number;
     subtotalUSDDivisa?: number;
+    cantidadDivisa?: number;
   }>>([]);
   const [presupuestoTextInput, setPresupuestoTextInput] = useState('');
   const [isParsingNewPresupuesto, setIsParsingNewPresupuesto] = useState(false);
@@ -736,9 +737,11 @@ export default function AdminCustomers() {
             if (effectiveDollarAmount && effectiveDollarAmount > 0 && precio > 0) {
               qty = Math.round((effectiveDollarAmount / precio) * 1000) / 1000;
             }
-            // Divisa subtotal: si hay dollarAmount, ambos lados = dollarAmount
+            // Divisa: si hay dollarAmount, calcular cantidad divisa independiente
             let subtotalDivisa: number;
-            if (effectiveDollarAmount && effectiveDollarAmount > 0) {
+            let qtyDivisa: number | undefined;
+            if (effectiveDollarAmount && effectiveDollarAmount > 0 && precioDivisa > 0) {
+              qtyDivisa = Math.round((effectiveDollarAmount / precioDivisa) * 1000) / 1000;
               subtotalDivisa = effectiveDollarAmount;
             } else {
               subtotalDivisa = Math.round(precioDivisa * qty * 100) / 100;
@@ -751,6 +754,7 @@ export default function AdminCustomers() {
               subtotalUSD: Math.round(precio * qty * 100) / 100,
               precioUSDDivisa: precioDivisa,
               subtotalUSDDivisa: subtotalDivisa,
+              ...(qtyDivisa != null ? { cantidadDivisa: qtyDivisa } : {}),
             });
           } else if (!item.matched && item.suggestedName && item.customPrice) {
             // Producto personalizado (no en catálogo pero con nombre y precio)
@@ -3487,7 +3491,7 @@ export default function AdminCustomers() {
                         {p.items.map((item: any, i: number) => (
                           <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-amber-50/30'}>
                             <td className="px-3 py-1.5 text-ocean-800">{item.nombre}</td>
-                            <td className="text-center px-2 py-1.5 text-ocean-600">{formatQuantity(item.cantidad)} {item.unidad}</td>
+                            <td className="text-center px-2 py-1.5 text-ocean-600">{formatQuantity(item.cantidadDivisa ?? item.cantidad)} {item.unidad}</td>
                             <td className="text-right px-3 py-1.5 text-ocean-700">{formatUSD((item.precioUSDDivisa ?? item.precioUSD))}</td>
                             <td className="text-right px-3 py-1.5 font-semibold text-ocean-800">{formatUSD((item.subtotalUSDDivisa ?? item.subtotalUSD))}</td>
                           </tr>
