@@ -308,7 +308,14 @@ Responde SOLO con un JSON valido:
           // Only add divisa prices for dual mode
           if (pricingMode === 'dual') {
             itemData.precioUSDDivisa = precioDivisa;
-            itemData.subtotalUSDDivisa = Math.round(precioDivisa * qty * 100) / 100;
+            // Dual + dollarAmount: ambos subtotales = dollarAmount
+            if (effectiveDollarAmount && effectiveDollarAmount > 0 && precioDivisa > 0) {
+              const cantidadDivisa = Math.round((effectiveDollarAmount / precioDivisa) * 1000) / 1000;
+              itemData.subtotalUSDDivisa = effectiveDollarAmount;
+              itemData.cantidadDivisa = cantidadDivisa;
+            } else {
+              itemData.subtotalUSDDivisa = Math.round(precioDivisa * qty * 100) / 100;
+            }
           }
 
           presupuestoItems.push(itemData);

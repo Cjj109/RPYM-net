@@ -1189,16 +1189,31 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
         const precioDivisa = item.customPriceDivisa ?? product.precioUSDDivisa ?? precioBCV;
 
         const precioMain = pricingMode === 'divisa' ? precioDivisa : precioBCV;
+        const hasDollarAmount = item.dollarAmount && item.dollarAmount > 0;
 
-        const subtotalMain = precioMain * item.quantity;
-        const subtotalDivisa = precioDivisa * item.quantity;
+        // Cantidad principal (calculada con precioMain en post-processing)
+        const qty = item.quantity;
+        const subtotalMain = precioMain * qty;
+
+        // Para dual + dollarAmount: calcular cantidad divisa independiente
+        // "$20 de camarón" → BCV: 20/precioBCV kg = $20, Divisa: 20/precioDivisa kg = $20
+        let subtotalDivisa: number;
+        let cantidadDivisa: number;
+        if (pricingMode === 'dual' && hasDollarAmount && precioDivisa > 0) {
+          cantidadDivisa = Math.round((item.dollarAmount / precioDivisa) * 1000) / 1000;
+          subtotalDivisa = item.dollarAmount;
+        } else {
+          cantidadDivisa = qty;
+          subtotalDivisa = precioDivisa * qty;
+        }
 
         presupuestoItems.push({
-          nombre: product.nombre, cantidad: item.quantity, unidad: item.unit || product.unidad,
+          nombre: product.nombre, cantidad: qty, unidad: item.unit || product.unidad,
           precioUSD: precioMain, precioBs: precioMain * bcvRate.rate,
           subtotalUSD: subtotalMain, subtotalBs: subtotalMain * bcvRate.rate,
           precioUSDDivisa: pricingMode === 'dual' ? precioDivisa : precioMain,
-          subtotalUSDDivisa: pricingMode === 'dual' ? subtotalDivisa : subtotalMain
+          subtotalUSDDivisa: pricingMode === 'dual' ? subtotalDivisa : subtotalMain,
+          ...(pricingMode === 'dual' && hasDollarAmount ? { cantidadDivisa } : {})
         });
 
         totalUSD += subtotalMain;
