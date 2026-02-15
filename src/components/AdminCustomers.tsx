@@ -698,21 +698,35 @@ export default function AdminCustomers() {
           if (item.matched && item.productId) {
             // Producto del catálogo
             const product = productInfo.find((p: any) => String(p.id) === String(item.productId));
-            // Si dollarAmount fue corregido server-side, customPrice será null
-            const precio = item.customPrice || product?.precioUSD || 0;
-            // Fallback: si quantity sigue en 0, usar dollarAmount para calcular
-            let qty = item.quantity;
-            if ((!qty || qty <= 0) && precio > 0) {
-              if (item.dollarAmount && item.dollarAmount > 0) {
-                qty = Math.round((item.dollarAmount / precio) * 1000) / 1000;
+            // Detectar si es monto en dólares del requestedName
+            const dollarDeRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|d\s)/i;
+            const dollarRegex = /^\$\s*(\d+(?:\.\d+)?)|^(\d+(?:\.\d+)?)\s*\$/;
+            let effectiveDollarAmount = item.dollarAmount && item.dollarAmount > 0 ? item.dollarAmount : null;
+            let effectiveCustomPrice = item.customPrice;
+
+            if ((!item.quantity || item.quantity <= 0) && item.requestedName) {
+              const m = item.requestedName.match(dollarDeRegex) || item.requestedName.match(dollarRegex);
+              if (m) {
+                effectiveDollarAmount = parseFloat(m[1] || m[2]);
+                effectiveCustomPrice = null;
               }
             }
+
+            const precio = effectiveCustomPrice || product?.precioUSD || 0;
+            let qty = item.quantity;
+            if ((!qty || qty <= 0) && effectiveDollarAmount && effectiveDollarAmount > 0 && precio > 0) {
+              qty = Math.round((effectiveDollarAmount / precio) * 1000) / 1000;
+            }
+            // Si hay dollarAmount, el subtotal es exactamente ese monto
+            const subtotal = effectiveDollarAmount && effectiveDollarAmount > 0
+              ? effectiveDollarAmount
+              : Math.round(precio * qty * 100) / 100;
             items.push({
               nombre: item.productName || item.requestedName,
               cantidad: qty,
               unidad: item.unit || product?.unidad || 'kg',
               precioUSD: precio,
-              subtotalUSD: Math.round(precio * qty * 100) / 100,
+              subtotalUSD: subtotal,
             });
           } else if (!item.matched && item.suggestedName && item.customPrice) {
             // Producto personalizado (no en catálogo pero con nombre y precio)

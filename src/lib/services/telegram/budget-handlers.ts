@@ -427,27 +427,41 @@ INSTRUCCIONES:
       return { success: false, items: [], unmatched: [], error: 'Error interpretando la respuesta. Intenta reformular tu lista.' };
     }
 
-    // Post-process: corregir cuando Gemini confunde dollarAmount con customPrice
-    const dollarAmountRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|d\s)/i;
+    // Post-process: corregir cuando Gemini no calcula bien quantity para montos en dólares
+    // Regex amplio: "$20 de calamar", "20$ de calamar", "20 dolares de calamar", "$20 calamar"
+    const dollarAmountRegex = /^\$\s*(\d+(?:\.\d+)?)|^(\d+(?:\.\d+)?)\s*\$|^(\d+(?:\.\d+)?)\s*(?:dolares?|dollars?|usd)\s/i;
+    const dollarDeRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|d\s)/i;
+
     const items = (parsedResult.items || []).map((item: any) => {
       if (!item.matched || !item.productId) return item;
       const product = products.find(p => String(p.id) === String(item.productId));
       if (!product || product.precioUSD <= 0) return item;
 
-      // Caso 1: AI devolvió dollarAmount pero quantity=0
-      if (item.dollarAmount && item.dollarAmount > 0 && (!item.quantity || item.quantity <= 0)) {
-        const calculatedQty = Math.round((item.dollarAmount / product.precioUSD) * 1000) / 1000;
-        return { ...item, quantity: calculatedQty };
+      // Si quantity ya está bien (> 0), no tocar
+      if (item.quantity && item.quantity > 0) return item;
+
+      // quantity es 0 o vacío — intentar calcular del dollarAmount o requestedName
+      let dollarAmount = item.dollarAmount && item.dollarAmount > 0 ? item.dollarAmount : null;
+
+      // Si no hay dollarAmount, intentar extraerlo del requestedName
+      if (!dollarAmount && item.requestedName) {
+        const m = item.requestedName.match(dollarDeRegex) || item.requestedName.match(dollarAmountRegex);
+        if (m) {
+          dollarAmount = parseFloat(m[1] || m[2] || m[3]);
+        }
       }
 
-      // Caso 2: AI confundió dollarAmount con customPrice (quantity=0, customPrice=monto)
-      if ((!item.quantity || item.quantity <= 0) && item.customPrice && item.requestedName) {
-        const match = item.requestedName.match(dollarAmountRegex);
-        if (match) {
-          const dollarAmount = parseFloat(match[1]);
-          const calculatedQty = Math.round((dollarAmount / product.precioUSD) * 1000) / 1000;
-          return { ...item, quantity: calculatedQty, dollarAmount, customPrice: null };
+      // Si no hay dollarAmount, intentar usar customPrice como dollarAmount (confusión de Gemini)
+      if (!dollarAmount && item.customPrice && item.customPrice > 0 && item.requestedName) {
+        const m = item.requestedName.match(dollarDeRegex) || item.requestedName.match(dollarAmountRegex);
+        if (m) {
+          dollarAmount = parseFloat(m[1] || m[2] || m[3]);
         }
+      }
+
+      if (dollarAmount && dollarAmount > 0) {
+        const calculatedQty = Math.round((dollarAmount / product.precioUSD) * 1000) / 1000;
+        return { ...item, quantity: calculatedQty, dollarAmount, customPrice: null };
       }
 
       return item;
@@ -1168,8 +1182,11 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
         const precioDivisa = item.customPriceDivisa ?? product.precioUSDDivisa ?? precioBCV;
 
         const precioMain = pricingMode === 'divisa' ? precioDivisa : precioBCV;
-        const subtotalMain = precioMain * item.quantity;
-        const subtotalDivisa = precioDivisa * item.quantity;
+
+        // Si hay dollarAmount, el subtotal ES el dollarAmount (lo que pidió el cliente)
+        const hasDollarAmount = item.dollarAmount && item.dollarAmount > 0;
+        const subtotalMain = hasDollarAmount ? item.dollarAmount : precioMain * item.quantity;
+        const subtotalDivisa = hasDollarAmount ? item.dollarAmount : precioDivisa * item.quantity;
 
         presupuestoItems.push({
           nombre: product.nombre, cantidad: item.quantity, unidad: item.unit || product.unidad,

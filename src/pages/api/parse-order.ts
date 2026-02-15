@@ -425,30 +425,38 @@ INSTRUCCIONES:
       });
     }
 
-    // Post-process: corregir cuando Gemini confunde dollarAmount con customPrice
-    // Detecta "$X de producto" en requestedName → es dollarAmount, no customPrice
-    const dollarAmountRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|d\s)/i;
+    // Post-process: corregir cuando Gemini no calcula bien quantity para montos en dólares
+    const dollarAmountRegex = /^\$\s*(\d+(?:\.\d+)?)|^(\d+(?:\.\d+)?)\s*\$|^(\d+(?:\.\d+)?)\s*(?:dolares?|dollars?|usd)\s/i;
+    const dollarDeRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|d\s)/i;
 
     const items = (parsedResult.items || []).map((item: any) => {
       if (!item.matched || !item.productId) return item;
-      const product = products.find(p => String(p.id) === String(item.productId));
+      const product = products.find((p: any) => String(p.id) === String(item.productId));
       if (!product || product.precioUSD <= 0) return item;
 
-      // Caso 1: AI devolvió dollarAmount pero quantity=0
-      if (item.dollarAmount && item.dollarAmount > 0 && (!item.quantity || item.quantity <= 0)) {
-        const calculatedQty = Math.round((item.dollarAmount / product.precioUSD) * 1000) / 1000;
-        return { ...item, quantity: calculatedQty };
+      // Si quantity ya está bien (> 0), no tocar
+      if (item.quantity && item.quantity > 0) return item;
+
+      // quantity es 0 o vacío — intentar calcular del dollarAmount o requestedName
+      let dollarAmount = item.dollarAmount && item.dollarAmount > 0 ? item.dollarAmount : null;
+
+      if (!dollarAmount && item.requestedName) {
+        const m = item.requestedName.match(dollarDeRegex) || item.requestedName.match(dollarAmountRegex);
+        if (m) {
+          dollarAmount = parseFloat(m[1] || m[2] || m[3]);
+        }
       }
 
-      // Caso 2: AI confundió dollarAmount con customPrice (quantity=0, customPrice=monto)
-      // Detectar por requestedName que empieza con "$X de"
-      if ((!item.quantity || item.quantity <= 0) && item.customPrice && item.requestedName) {
-        const match = item.requestedName.match(dollarAmountRegex);
-        if (match) {
-          const dollarAmount = parseFloat(match[1]);
-          const calculatedQty = Math.round((dollarAmount / product.precioUSD) * 1000) / 1000;
-          return { ...item, quantity: calculatedQty, dollarAmount, customPrice: null };
+      if (!dollarAmount && item.customPrice && item.customPrice > 0 && item.requestedName) {
+        const m = item.requestedName.match(dollarDeRegex) || item.requestedName.match(dollarAmountRegex);
+        if (m) {
+          dollarAmount = parseFloat(m[1] || m[2] || m[3]);
         }
+      }
+
+      if (dollarAmount && dollarAmount > 0) {
+        const calculatedQty = Math.round((dollarAmount / product.precioUSD) * 1000) / 1000;
+        return { ...item, quantity: calculatedQty, dollarAmount, customPrice: null };
       }
 
       return item;
