@@ -127,6 +127,12 @@ INTENCIONES POSIBLES:
    - Solo cambia el modo si dice EXPLÍCITAMENTE: "en divisas", "pago en divisas", "modo divisa"
    - Default: "bcv" (SIEMPRE)
 
+   CRÍTICO - NO CONFUNDIR DOLLARAMOUNT CON DUAL:
+   - "$X de [producto]" = MONTO a gastar (dollarAmount), NO es un segundo precio
+   - "camarón a $15 y $5.4 de calamar" = DOS productos separados: camarón a precio $15 + $5.4 de calamar → modo "bcv"
+   - "1kg desvenado a $15 y $5 de jaiba" = camarón a $15/kg + $5 de jaiba → modo "bcv"
+   - Solo es dual si dice EXPLÍCITAMENTE "en divisas y en bs", "a $X/$Y", "dual"
+
    OCULTAR BOLÍVARES (sinBs):
    - Si dice "oculta bs", "sin bolivares", "no pongas bs", "oculta el monto en bs", "solo dolares" → sinBs: true
    - Ejemplos:
@@ -154,6 +160,7 @@ INTENCIONES POSIBLES:
    - "presupuesto en divisas de $20 de camarón" → params: {rawText: "$20 de camarón", modo: "divisa"}
    - "$20 de camarón desvenado en divisas" → params: {rawText: "$20 de camarón desvenado", modo: "divisa"}
    - "presupuesto de $5 de jaiba, $20 de desvenado" → params: {rawText: "$5 de jaiba, $20 de desvenado", modo: "bcv"}
+   - "presupuesto a Chon de 1kg desvenado a $15 y $5.4 de calamar" → params: {rawText: "Chon 1kg desvenado a $15 y $5.4 de calamar", modo: "bcv"} (NO dual - "$5.4 de calamar" es monto, no segundo precio)
    - "presupuesto a Carlos de 2kg jumbo a $10 en divisas y $12 en bs" → params: {rawText: "Carlos 2kg jumbo a $10 en divisas y $12 en bs", modo: "dual"}
    - "presupuesto dual de 2kg jumbo sin bs" → params: {rawText: "2kg jumbo", modo: "dual", sinBs: true}
    - "presupuesto de 1kg pulpo, oculta bolivares" → params: {rawText: "1kg pulpo", modo: "bcv", sinBs: true}
