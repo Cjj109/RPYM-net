@@ -4,6 +4,7 @@
 
 import type { D1Database } from '../../d1-types';
 import { getBCVRate } from '../../sheets';
+import { formatUSD } from '../../format';
 
 export async function getStats(db: D1Database | null): Promise<string> {
   if (!db) return '❌ No hay conexión a la base de datos';
@@ -18,7 +19,7 @@ export async function getStats(db: D1Database | null): Promise<string> {
     let text = `📊 *Estadísticas Hoy*\n\n`;
     text += `• Presupuestos: ${todayStats?.total || 0}\n`;
     text += `• Pagados: ${todayStats?.pagados || 0}\n`;
-    text += `• Vendido: $${(todayStats?.vendido || 0).toFixed(2)}\n`;
+    text += `• Vendido: ${formatUSD((todayStats?.vendido || 0))}\n`;
     text += `\n💱 Tasa: Bs. ${bcvRate.rate.toFixed(2)}`;
     return text;
   } catch (error) {

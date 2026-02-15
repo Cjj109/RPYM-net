@@ -3,6 +3,7 @@
  * Formato IDENTICO al AdminPanel.tsx printNote()
  * Usado por PresupuestoViewer.tsx y PresupuestoAdminViewer.tsx
  */
+import { formatUSD, formatBs, formatQuantity } from './format';
 
 export interface PrintItem {
   nombre: string;
@@ -29,13 +30,6 @@ export interface PrintPresupuesto {
   customerAddress?: string;
 }
 
-// Helpers de formato
-const formatUSD = (amount: number) => `$${Number(amount).toFixed(2)}`;
-const formatBs = (amount: number) => `Bs. ${Number(amount).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const fmtQty = (qty: number): string => {
-  const rounded = Math.round(qty * 1000) / 1000;
-  return rounded.toFixed(3).replace(/\.?0+$/, '');
-};
 
 /**
  * Abre una ventana de impresión con formato de Nota de Entrega A4
@@ -75,7 +69,7 @@ export function printDeliveryNote(presupuesto: PrintPresupuesto, bcvRate?: numbe
   const rows = presupuesto.items.map((item, i) => `
     <tr style="background:${i % 2 === 0 ? '#fff' : '#f0f9ff'}">
       <td style="border-right:1px solid #075985;padding:6px 10px;color:#0c4a6e;">${item.nombre}</td>
-      <td style="border-right:1px solid #075985;padding:6px 10px;text-align:center;color:#0c4a6e;">${fmtQty(item.cantidad)}</td>
+      <td style="border-right:1px solid #075985;padding:6px 10px;text-align:center;color:#0c4a6e;">${formatQuantity(item.cantidad)}</td>
       <td style="border-right:1px solid #075985;padding:6px 10px;text-align:center;color:#0c4a6e;">${item.unidad}</td>
       <td style="border-right:1px solid #075985;padding:6px 10px;text-align:right;color:#0c4a6e;">${formatUSD(item.precioUSD)}</td>
       <td style="padding:6px 10px;text-align:right;font-weight:600;color:#0c4a6e;">${formatUSD(item.subtotalUSD)}</td>
@@ -91,7 +85,7 @@ export function printDeliveryNote(presupuesto: PrintPresupuesto, bcvRate?: numbe
     return `
     <tr style="background:${i % 2 === 0 ? '#fff' : '#fefce8'}">
       <td style="border-right:1px solid #92400e;padding:6px 10px;color:#713f12;">${item.nombre}</td>
-      <td style="border-right:1px solid #92400e;padding:6px 10px;text-align:center;color:#713f12;">${fmtQty(item.cantidad)}</td>
+      <td style="border-right:1px solid #92400e;padding:6px 10px;text-align:center;color:#713f12;">${formatQuantity(item.cantidad)}</td>
       <td style="border-right:1px solid #92400e;padding:6px 10px;text-align:center;color:#713f12;">${item.unidad}</td>
       <td style="border-right:1px solid #92400e;padding:6px 10px;text-align:right;color:#713f12;">${formatUSD(precio)}</td>
       <td style="padding:6px 10px;text-align:right;font-weight:600;color:#713f12;">${formatUSD(subtotal)}</td>

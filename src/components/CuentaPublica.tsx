@@ -3,6 +3,7 @@
  * Accesible sin autenticacion via token unico
  */
 import { useState, useEffect, useMemo } from 'react';
+import { formatUSD, formatEUR, formatQuantity, formatDateMonthShort, formatMonthYear } from '../lib/format';
 
 interface PublicTransaction {
   id: number;
@@ -105,25 +106,7 @@ export default function CuentaPublica() {
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    const parts = dateStr.split('-');
-    if (parts.length === 3) {
-      const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-      const month = months[parseInt(parts[1]) - 1] || parts[1];
-      return `${parts[2]} ${month} ${parts[0]}`;
-    }
-    return dateStr;
-  };
-
-  const formatMonthYear = (dateStr: string) => {
-    const parts = dateStr.split('-');
-    if (parts.length === 3) {
-      const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-      const month = months[parseInt(parts[1]) - 1] || parts[1];
-      return `${month} ${parts[0]}`;
-    }
-    return dateStr;
-  };
+  const formatDate = formatDateMonthShort;
 
   // Check if customer has dual transactions
   const hasDualTransactions = useMemo(() => {
@@ -242,11 +225,6 @@ export default function CuentaPublica() {
     const isDivisasOnly = p && (p.modoPrecio === 'divisa' || (p.totalBs === 0 && !isDual));
     const fechaStr = p ? new Date(p.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
 
-    const formatQty = (qty: number): string => {
-      const rounded = Math.round(qty * 1000) / 1000;
-      return rounded.toFixed(3).replace(/\.?0+$/, '');
-    };
-
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto" onClick={() => { setShowPresupuestoModal(false); setViewingPresupuesto(null); }}>
         <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl my-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -327,9 +305,9 @@ export default function CuentaPublica() {
                     <div key={i} className="px-3 py-2 flex justify-between items-baseline">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-ocean-800 font-medium">{item.nombre}</p>
-                        <p className="text-xs text-ocean-400">{formatQty(item.cantidad)} {item.unidad} x ${item.precioUSD.toFixed(2)}</p>
+                        <p className="text-xs text-ocean-400">{formatQuantity(item.cantidad)} {item.unidad} x {formatUSD(item.precioUSD)}</p>
                       </div>
-                      <p className="font-semibold text-ocean-800 text-sm ml-2">${item.subtotalUSD.toFixed(2)}</p>
+                      <p className="font-semibold text-ocean-800 text-sm ml-2">{formatUSD(item.subtotalUSD)}</p>
                     </div>
                   ))}
                   {/* Delivery row if total > sum of items */}
@@ -342,7 +320,7 @@ export default function CuentaPublica() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm text-amber-700 font-medium italic">Delivery</p>
                           </div>
-                          <p className="font-semibold text-amber-700 text-sm ml-2">${diff.toFixed(2)}</p>
+                          <p className="font-semibold text-amber-700 text-sm ml-2">{formatUSD(diff)}</p>
                         </div>
                       );
                     }
@@ -352,7 +330,7 @@ export default function CuentaPublica() {
                 <div className="bg-ocean-50 px-3 py-2.5 flex justify-between items-center border-t border-ocean-200">
                   <span className="font-semibold text-ocean-700 text-sm">Total</span>
                   <div className="text-right">
-                    <span className="text-lg font-bold text-ocean-900">${p.totalUSD.toFixed(2)}</span>
+                    <span className="text-lg font-bold text-ocean-900">{formatUSD(p.totalUSD)}</span>
                     {bcvRate > 0 && !isDivisasOnly && (
                       <p className="text-xs text-ocean-500">Bs {(p.totalUSD * bcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     )}
@@ -376,9 +354,9 @@ export default function CuentaPublica() {
                       <div key={i} className="px-3 py-2 flex justify-between items-baseline">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-ocean-800 font-medium">{item.nombre}</p>
-                          <p className="text-xs text-ocean-400">{formatQty(item.cantidad)} {item.unidad} x ${(item.precioUSDDivisa ?? item.precioUSD).toFixed(2)}</p>
+                          <p className="text-xs text-ocean-400">{formatQuantity(item.cantidad)} {item.unidad} x {formatUSD((item.precioUSDDivisa ?? item.precioUSD))}</p>
                         </div>
-                        <p className="font-semibold text-amber-800 text-sm ml-2">${(item.subtotalUSDDivisa ?? item.subtotalUSD).toFixed(2)}</p>
+                        <p className="font-semibold text-amber-800 text-sm ml-2">{formatUSD((item.subtotalUSDDivisa ?? item.subtotalUSD))}</p>
                       </div>
                     ))}
                     {/* Delivery row if total > sum of items */}
@@ -391,7 +369,7 @@ export default function CuentaPublica() {
                             <div className="flex-1 min-w-0">
                               <p className="text-sm text-amber-700 font-medium italic">Delivery</p>
                             </div>
-                            <p className="font-semibold text-amber-700 text-sm ml-2">${diff.toFixed(2)}</p>
+                            <p className="font-semibold text-amber-700 text-sm ml-2">{formatUSD(diff)}</p>
                           </div>
                         );
                       }
@@ -400,7 +378,7 @@ export default function CuentaPublica() {
                   </div>
                   <div className="bg-amber-50 px-3 py-2.5 flex justify-between items-center border-t border-amber-200">
                     <span className="font-semibold text-amber-700 text-sm">Total Divisa</span>
-                    <span className="text-lg font-bold text-amber-900">${p.totalUSDDivisa.toFixed(2)}</span>
+                    <span className="text-lg font-bold text-amber-900">{formatUSD(p.totalUSDDivisa)}</span>
                   </div>
                 </div>
               )}
@@ -504,7 +482,7 @@ export default function CuentaPublica() {
               <div className="p-4 text-center">
                 <p className="text-xs text-ocean-400 mb-1">Balance pendiente</p>
                 <p className={`text-3xl font-bold tracking-tight ${totalBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  ${Math.abs(totalBalance).toFixed(2)}
+                  {formatUSD(Math.abs(totalBalance))}
                 </p>
                 {/* Show Bs equivalent when balance has BCV component */}
                 {bcvRate > 0 && displayBcv !== 0 && dualView === 'bcv' && (
@@ -529,7 +507,7 @@ export default function CuentaPublica() {
                     <div className="p-3 text-center">
                       <p className="text-[10px] text-ocean-400 font-medium uppercase tracking-wider">BCV</p>
                       <p className={`text-base font-bold mt-0.5 ${displayBcv > 0 ? 'text-red-600' : displayBcv < 0 ? 'text-green-600' : 'text-ocean-400'}`}>
-                        ${Math.abs(displayBcv).toFixed(2)}
+                        {formatUSD(Math.abs(displayBcv))}
                       </p>
                       {bcvRate > 0 && displayBcv !== 0 && (
                         <p className="text-[10px] text-ocean-500 font-medium">
@@ -543,7 +521,7 @@ export default function CuentaPublica() {
                     <div className="p-3 text-center">
                       <p className="text-[10px] text-ocean-400 font-medium uppercase tracking-wider">Divisas</p>
                       <p className={`text-base font-bold mt-0.5 ${displayDivisas > 0 ? 'text-red-600' : displayDivisas < 0 ? 'text-green-600' : 'text-ocean-400'}`}>
-                        ${Math.abs(displayDivisas).toFixed(2)}
+                        {formatUSD(Math.abs(displayDivisas))}
                       </p>
                       <p className="text-[10px] text-ocean-400 mt-0.5">USD efectivo</p>
                     </div>
@@ -552,7 +530,7 @@ export default function CuentaPublica() {
                     <div className="p-3 text-center">
                       <p className="text-[10px] text-ocean-400 font-medium uppercase tracking-wider">€ Euro</p>
                       <p className={`text-base font-bold mt-0.5 ${displayEuro > 0 ? 'text-red-600' : displayEuro < 0 ? 'text-green-600' : 'text-ocean-400'}`}>
-                        €{Math.abs(displayEuro).toFixed(2)}
+                        {formatEUR(Math.abs(displayEuro))}
                       </p>
                       <p className="text-[10px] text-ocean-400 mt-0.5">Pago en EUR</p>
                     </div>
@@ -717,7 +695,7 @@ export default function CuentaPublica() {
                               tx.isPaid ? 'text-ocean-300 line-through' :
                               tx.type === 'purchase' ? 'text-red-600' : 'text-green-600'
                             }`}>
-                              {tx.type === 'purchase' ? '+' : '-'}${displayAmt.toFixed(2)}
+                              {tx.type === 'purchase' ? '+' : '-'}{formatUSD(displayAmt)}
                             </p>
                             {isDual && !tx.isPaid && (
                               <p className="text-[10px] text-ocean-400 mt-0.5">

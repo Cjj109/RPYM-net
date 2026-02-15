@@ -1,18 +1,11 @@
 import { useState } from 'react';
 import type { Product } from '../lib/sheets';
 import { ProductModal } from './ProductModal';
+import { formatUSD, formatBs } from '../lib/format';
 
 interface ProductCardInteractiveProps {
   product: Product;
   compact?: boolean;
-}
-
-function formatUSD(price: number): string {
-  return `$${price.toFixed(2)}`;
-}
-
-function formatBs(price: number): string {
-  return `Bs. ${price.toFixed(2)}`;
 }
 
 export function ProductCardInteractive({ product, compact = false }: ProductCardInteractiveProps) {

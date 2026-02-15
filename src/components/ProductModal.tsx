@@ -1,18 +1,11 @@
 import { useState, useEffect } from 'react';
 import type { Product } from '../lib/sheets';
+import { formatUSD, formatBs } from '../lib/format';
 
 interface ProductModalProps {
   product: Product;
   isOpen: boolean;
   onClose: () => void;
-}
-
-function formatUSD(price: number): string {
-  return `$${price.toFixed(2)}`;
-}
-
-function formatBs(price: number): string {
-  return `Bs. ${price.toFixed(2)}`;
 }
 
 export function ProductModal({ product, isOpen, onClose }: ProductModalProps) {

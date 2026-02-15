@@ -1,38 +1,8 @@
 import type { APIRoute } from 'astro';
 import { getR2 } from '../../lib/d1-types';
+import { formatVenezuelanPhone } from '../../lib/phone-ve';
 
 export const prerender = false;
-
-// Valid Venezuelan mobile prefixes (all operators)
-// Movistar: 414, 424 | Digitel: 412, 422 | Movilnet: 416, 426
-const VALID_PREFIXES = ['412', '414', '416', '422', '424', '426'];
-
-/**
- * Convert Venezuelan phone number to WhatsApp format (without + prefix)
- * Input: 04141234567 or 0414-123-4567 or 584141234567 or +584141234567
- * Output: 584141234567
- */
-function formatVenezuelanPhone(raw: string): string | null {
-  const digits = raw.replace(/\D/g, '');
-
-  let normalized: string;
-  if (digits.startsWith('58') && digits.length === 12) {
-    normalized = digits;
-  } else if (digits.startsWith('0') && digits.length === 11) {
-    normalized = '58' + digits.substring(1);
-  } else if (digits.length === 10 && digits.startsWith('4')) {
-    normalized = '58' + digits;
-  } else {
-    return null;
-  }
-
-  const prefix = normalized.substring(2, 5);
-  if (!VALID_PREFIXES.includes(prefix)) {
-    return null;
-  }
-
-  return normalized;
-}
 
 /**
  * Send presupuesto image via Meta WhatsApp Cloud API

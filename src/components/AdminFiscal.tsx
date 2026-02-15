@@ -3,6 +3,7 @@
  * Gestión fiscal: Reportes Z, Proveedores, Facturas, Retenciones, Simulador, Consultas AI
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { formatUSD, formatBs, formatDateDMY, formatDateReadable } from '../lib/format';
 import html2canvas from 'html2canvas';
 import type {
   FiscalProveedor,
@@ -829,14 +830,6 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
           // Format numbers Venezuelan style
           const formatNum = (n: number) => n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-          // Format date as DD/MM/YYYY
-          const formatDateDMY = (dateStr: string) => {
-            if (!dateStr) return '-';
-            const parts = dateStr.split('-');
-            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-            return dateStr;
-          };
-
           // Calculate alícuota from actual IVA (iva / base * 100)
           const alicuota = factura.subtotalGravable > 0
             ? Math.round((factura.iva / factura.subtotalGravable) * 100)
@@ -1246,12 +1239,6 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
       const [periodoYear, periodoMonth] = comprobante.periodoFiscal.split('-');
 
       const formatNum = (n: number) => n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      const formatDateDMY = (dateStr: string) => {
-        if (!dateStr) return '-';
-        const parts = dateStr.split('-');
-        if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-        return dateStr;
-      };
 
       const alicuota = factura.subtotalGravable > 0
         ? Math.round((factura.iva / factura.subtotalGravable) * 100)
@@ -1579,25 +1566,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
   // Render Helpers
   // =====================
 
-  const formatCurrency = (value: number, currency: 'bs' | 'usd' = 'bs') => {
-    if (currency === 'usd') {
-      return `$${value.toFixed(2)}`;
-    }
-    return `Bs. ${value.toLocaleString('es-VE', { minimumFractionDigits: 2 })}`;
-  };
-
   const formatPercent = (value: number) => `${value.toFixed(1)}%`;
-
-  // Format date from YYYY-MM-DD to "7 de febrero"
-  const formatDateReadable = (dateStr: string) => {
-    const months = [
-      'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
-    ];
-    const [, month, day] = dateStr.split('-').map(Number);
-    const monthName = months[month - 1];
-    return `${day} de ${monthName}`;
-  };
 
   // =====================
   // Render Components
@@ -1631,19 +1600,19 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-ocean-700">Total Ventas</span>
-                <span className="font-semibold text-ocean-900">{formatCurrency(dashboardData.totalVentasBs)}</span>
+                <span className="font-semibold text-ocean-900">{formatBs(dashboardData.totalVentasBs)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-ocean-700">IVA Cobrado</span>
-                <span className="font-semibold text-green-600">{formatCurrency(dashboardData.ivaCobradoBs)}</span>
+                <span className="font-semibold text-green-600">{formatBs(dashboardData.ivaCobradoBs)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-ocean-500">Exentas</span>
-                <span className="text-ocean-600">{formatCurrency(dashboardData.ventasExentas)}</span>
+                <span className="text-ocean-600">{formatBs(dashboardData.ventasExentas)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-ocean-500">Gravables</span>
-                <span className="text-ocean-600">{formatCurrency(dashboardData.ventasGravables)}</span>
+                <span className="text-ocean-600">{formatBs(dashboardData.ventasGravables)}</span>
               </div>
             </div>
           </div>
@@ -1654,19 +1623,19 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-ocean-700">Total Compras</span>
-                <span className="font-semibold text-ocean-900">{formatCurrency(dashboardData.totalComprasBs)}</span>
+                <span className="font-semibold text-ocean-900">{formatBs(dashboardData.totalComprasBs)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-ocean-700">IVA Pagado</span>
-                <span className="font-semibold text-red-600">{formatCurrency(dashboardData.ivaComprasBs)}</span>
+                <span className="font-semibold text-red-600">{formatBs(dashboardData.ivaComprasBs)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-ocean-500">Exentas</span>
-                <span className="text-ocean-600">{formatCurrency(dashboardData.comprasExentas)}</span>
+                <span className="text-ocean-600">{formatBs(dashboardData.comprasExentas)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-ocean-500">Gravables</span>
-                <span className="text-ocean-600">{formatCurrency(dashboardData.comprasGravables)}</span>
+                <span className="text-ocean-600">{formatBs(dashboardData.comprasGravables)}</span>
               </div>
             </div>
           </div>
@@ -1677,19 +1646,19 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-ocean-700">Retención IVA</span>
-                <span className="font-semibold text-purple-600">{formatCurrency(dashboardData.retencionIvaTotal)}</span>
+                <span className="font-semibold text-purple-600">{formatBs(dashboardData.retencionIvaTotal)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-ocean-700">Anticipo ISLR</span>
-                <span className="font-semibold text-amber-600">{formatCurrency(dashboardData.anticipoIslrAcumulado)}</span>
+                <span className="font-semibold text-amber-600">{formatBs(dashboardData.anticipoIslrAcumulado)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-ocean-700">IGTF Pagado (compras)</span>
-                <span className="font-semibold text-ocean-600">{formatCurrency(dashboardData.igtfPagado)}</span>
+                <span className="font-semibold text-ocean-600">{formatBs(dashboardData.igtfPagado)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-ocean-700">SUMAT (2.5%)</span>
-                <span className="font-semibold text-rose-600">{formatCurrency(dashboardData.sumatPendiente)}</span>
+                <span className="font-semibold text-rose-600">{formatBs(dashboardData.sumatPendiente)}</span>
               </div>
             </div>
           </div>
@@ -1700,11 +1669,11 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-green-700">BI IGTF (Ventas en $)</span>
-                <span className="font-semibold text-green-800">{formatCurrency(dashboardData.baseImponibleIgtfVentas || 0)}</span>
+                <span className="font-semibold text-green-800">{formatBs(dashboardData.baseImponibleIgtfVentas || 0)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-green-700">IGTF Cobrado (3%)</span>
-                <span className="font-semibold text-green-900 text-lg">{formatCurrency(dashboardData.igtfVentasCobrado || 0)}</span>
+                <span className="font-semibold text-green-900 text-lg">{formatBs(dashboardData.igtfVentasCobrado || 0)}</span>
               </div>
             </div>
             <p className="text-xs text-green-600 mt-3">
@@ -1716,7 +1685,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
           <div className="bg-gradient-to-br from-ocean-50 to-ocean-100 rounded-xl p-6 shadow-sm border border-ocean-200">
             <h3 className="text-sm font-medium text-ocean-700 mb-4">Balance IVA</h3>
             <div className="text-3xl font-bold text-ocean-900">
-              {formatCurrency(dashboardData.ivaBalance)}
+              {formatBs(dashboardData.ivaBalance)}
             </div>
             <p className="text-xs text-ocean-600 mt-2">
               IVA Cobrado - IVA Pagado + Retenciones
@@ -1747,7 +1716,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
             <div className="bg-white rounded-xl p-6 shadow-sm border border-ocean-100">
               <h3 className="text-sm font-medium text-ocean-600 mb-4">Tasa BCV</h3>
               <div className="text-2xl font-bold text-ocean-900">
-                {formatCurrency(bcvRate.rate)}
+                {formatBs(bcvRate.rate)}
               </div>
               <p className="text-xs text-ocean-600 mt-2">
                 Actualizado: {bcvRate.date}
@@ -1895,11 +1864,11 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
                 {reportesZ.map((r) => (
                   <tr key={r.id} className="hover:bg-ocean-50/50">
                     <td className="px-4 py-3 text-sm font-medium text-ocean-900">{formatDateReadable(r.fecha)}</td>
-                    <td className="px-4 py-3 text-sm text-right text-ocean-600">{formatCurrency(r.subtotalGravable)}</td>
-                    <td className="px-4 py-3 text-sm text-right text-green-600 font-medium">{formatCurrency(r.ivaCobrado)}</td>
-                    <td className="px-4 py-3 text-sm text-right text-amber-600">{formatCurrency(r.baseImponibleIgtf)}</td>
-                    <td className="px-4 py-3 text-sm text-right text-amber-700 font-medium">{formatCurrency(r.igtfVentas)}</td>
-                    <td className="px-4 py-3 text-sm text-right text-ocean-900 font-semibold">{formatCurrency(r.totalVentas)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-ocean-600">{formatBs(r.subtotalGravable)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-green-600 font-medium">{formatBs(r.ivaCobrado)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-amber-600">{formatBs(r.baseImponibleIgtf)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-amber-700 font-medium">{formatBs(r.igtfVentas)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-ocean-900 font-semibold">{formatBs(r.totalVentas)}</td>
                     <td className="px-4 py-3 text-center">
                       {r.ocrVerified ? (
                         <span className="text-green-600">Verificado</span>
@@ -1994,9 +1963,9 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
                     <td className="px-4 py-3 text-sm text-ocean-900">{formatDateReadable(f.fechaFactura)}</td>
                     <td className="px-4 py-3 text-sm text-ocean-600">{f.proveedorNombre}</td>
                     <td className="px-4 py-3 text-sm font-mono text-ocean-900">{f.numeroFactura}</td>
-                    <td className="px-4 py-3 text-sm text-right text-ocean-900 font-semibold">{formatCurrency(f.total)}</td>
-                    <td className="px-4 py-3 text-sm text-right text-purple-600">{formatCurrency(f.retencionIva)}</td>
-                    <td className="px-4 py-3 text-sm text-right text-amber-600">{formatCurrency(f.anticipoIslr)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-ocean-900 font-semibold">{formatBs(f.total)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-purple-600">{formatBs(f.retencionIva)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-amber-600">{formatBs(f.anticipoIslr)}</td>
                     <td className="px-4 py-3 text-center">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         f.paymentCurrency === 'usd'
@@ -2158,7 +2127,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
                 <div className="text-xs text-ocean-600">Retenciones</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">{formatCurrency(retencionesTotals.montoRetenido)}</div>
+                <div className="text-2xl font-bold text-purple-600">{formatBs(retencionesTotals.montoRetenido)}</div>
                 <div className="text-xs text-purple-600">Total Retenido</div>
               </div>
               <div className="text-center col-span-2 sm:col-span-2">
@@ -2211,7 +2180,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
                     <td className="px-4 py-3 text-sm text-ocean-900">{r.proveedorNombre || '-'}</td>
                     <td className="px-4 py-3 text-sm font-mono text-ocean-600">{r.numeroFactura || '-'}</td>
                     <td className="px-4 py-3 text-sm text-right text-purple-600 font-semibold">
-                      {formatCurrency(r.montoRetenido)}
+                      {formatBs(r.montoRetenido)}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex justify-center gap-2">
@@ -2324,11 +2293,11 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-white rounded-lg p-4">
               <div className="text-sm text-ocean-600">Ingresos Brutos</div>
-              <div className="text-xl font-bold text-ocean-900">{formatCurrency(simuladorResult.ingresosBrutos)}</div>
+              <div className="text-xl font-bold text-ocean-900">{formatBs(simuladorResult.ingresosBrutos)}</div>
             </div>
             <div className="bg-white rounded-lg p-4">
               <div className="text-sm text-ocean-600">Costo Total</div>
-              <div className="text-xl font-bold text-red-600">{formatCurrency(simuladorResult.costoTotal)}</div>
+              <div className="text-xl font-bold text-red-600">{formatBs(simuladorResult.costoTotal)}</div>
             </div>
           </div>
 
@@ -2336,7 +2305,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
             <div className="flex justify-between items-center">
               <div>
                 <div className="text-sm text-ocean-600">Margen Bruto</div>
-                <div className="text-xl font-bold text-green-600">{formatCurrency(simuladorResult.margenBruto)}</div>
+                <div className="text-xl font-bold text-green-600">{formatBs(simuladorResult.margenBruto)}</div>
               </div>
               <div className="text-2xl font-bold text-green-600">{formatPercent(simuladorResult.margenBrutoPct)}</div>
             </div>
@@ -2346,21 +2315,21 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
             <div className="text-sm font-medium text-ocean-700">Impuestos Estimados</div>
             <div className="flex justify-between text-sm">
               <span className="text-ocean-600">IVA (8%)</span>
-              <span className="text-ocean-900">{formatCurrency(simuladorResult.iva)}</span>
+              <span className="text-ocean-900">{formatBs(simuladorResult.iva)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-ocean-600">ISLR Estimado (1%)</span>
-              <span className="text-ocean-900">{formatCurrency(simuladorResult.islrEstimado)}</span>
+              <span className="text-ocean-900">{formatBs(simuladorResult.islrEstimado)}</span>
             </div>
             {simuladorInput.pagoEnUsd && (
               <div className="flex justify-between text-sm">
                 <span className="text-ocean-600">IGTF (3%)</span>
-                <span className="text-ocean-900">{formatCurrency(simuladorResult.igtf)}</span>
+                <span className="text-ocean-900">{formatBs(simuladorResult.igtf)}</span>
               </div>
             )}
             <div className="flex justify-between text-sm">
               <span className="text-ocean-600">SUMAT (2.5%)</span>
-              <span className="text-ocean-900">{formatCurrency(simuladorResult.sumat)}</span>
+              <span className="text-ocean-900">{formatBs(simuladorResult.sumat)}</span>
             </div>
           </div>
 
@@ -2368,7 +2337,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
             <div className="flex justify-between items-center">
               <div>
                 <div className="text-sm text-ocean-200">Margen Neto</div>
-                <div className="text-2xl font-bold">{formatCurrency(simuladorResult.margenNeto)}</div>
+                <div className="text-2xl font-bold">{formatBs(simuladorResult.margenNeto)}</div>
               </div>
               <div className="text-3xl font-bold">{formatPercent(simuladorResult.margenNetoPct)}</div>
             </div>
@@ -2988,21 +2957,21 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="text-purple-600">Retención IVA ({proveedor.retencionIvaPct}%)</span>
-                      <span className="text-purple-800 font-medium">{formatCurrency(calc.retencionIva)}</span>
+                      <span className="text-purple-800 font-medium">{formatBs(calc.retencionIva)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-purple-600">Anticipo ISLR (1%)</span>
-                      <span className="text-purple-800 font-medium">{formatCurrency(calc.anticipoIslr)}</span>
+                      <span className="text-purple-800 font-medium">{formatBs(calc.anticipoIslr)}</span>
                     </div>
                     {calc.igtf && (
                       <div className="flex justify-between">
                         <span className="text-purple-600">IGTF (3%)</span>
-                        <span className="text-purple-800 font-medium">{formatCurrency(calc.igtf)}</span>
+                        <span className="text-purple-800 font-medium">{formatBs(calc.igtf)}</span>
                       </div>
                     )}
                     <div className="flex justify-between pt-1 border-t border-purple-200">
                       <span className="text-purple-700 font-medium">Total Factura</span>
-                      <span className="text-purple-900 font-bold">{formatCurrency(calc.total)}</span>
+                      <span className="text-purple-900 font-bold">{formatBs(calc.total)}</span>
                     </div>
                   </div>
                 );
@@ -3130,7 +3099,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
                 <option value={0}>Sin factura asociada</option>
                 {facturas.map((f) => (
                   <option key={f.id} value={f.id}>
-                    {f.numeroFactura} - {f.proveedorNombre} ({formatCurrency(f.total)})
+                    {f.numeroFactura} - {f.proveedorNombre} ({formatBs(f.total)})
                   </option>
                 ))}
               </select>

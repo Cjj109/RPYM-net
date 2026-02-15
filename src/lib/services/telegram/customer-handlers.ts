@@ -7,6 +7,7 @@ import type { D1Database } from '../../d1-types';
 import { findCustomerByName, findCustomerSuggestions } from '../../repositories/customers';
 import { getBCVRate } from '../../sheets';
 import type { CustomerAction } from '../../telegram-ai';
+import { formatUSD, formatEUR } from '../../format';
 
 const PAYMENT_METHOD_NAMES: Record<string, string> = {
   pago_movil: 'Pago Móvil',
@@ -36,8 +37,8 @@ export async function getCustomersList(db: D1Database | null): Promise<string> {
     let text = `👥 *Clientes RPYM*\n\n`;
     for (const c of customers.results) {
       const bal = [];
-      if (c.balance_divisas !== 0) bal.push(`DIV: $${Number(c.balance_divisas).toFixed(2)}`);
-      if (c.balance_bcv !== 0) bal.push(`BCV: $${Number(c.balance_bcv).toFixed(2)}`);
+      if (c.balance_divisas !== 0) bal.push(`DIV: ${formatUSD(c.balance_divisas)}`);
+      if (c.balance_bcv !== 0) bal.push(`BCV: ${formatUSD(c.balance_bcv)}`);
       text += `• ${c.name}${bal.length ? ` (${bal.join(', ')})` : ''}\n`;
     }
     return text;
@@ -93,11 +94,11 @@ export async function getCustomerBalance(db: D1Database | null, customerName: st
 
     let text = `👤 *${customer!.name}*\n\n`;
     if (dualBcv !== 0 || dualDivisa !== 0) {
-      text += `💰 *Dual:* $${dualBcv.toFixed(2)} (BCV) ó $${dualDivisa.toFixed(2)} (Divisas)\n`;
+      text += `💰 *Dual:* ${formatUSD(dualBcv)} (BCV) ó ${formatUSD(dualDivisa)} (Divisas)\n`;
     }
-    if (divisasPuro !== 0) text += `💵 Divisas: $${divisasPuro.toFixed(2)}\n`;
-    if (bcvPuro !== 0) text += `📊 BCV: $${bcvPuro.toFixed(2)}\n`;
-    if (euro !== 0) text += `💶 Euro: €${euro.toFixed(2)}\n`;
+    if (divisasPuro !== 0) text += `💵 Divisas: ${formatUSD(divisasPuro)}\n`;
+    if (bcvPuro !== 0) text += `📊 BCV: ${formatUSD(bcvPuro)}\n`;
+    if (euro !== 0) text += `💶 Euro: ${formatEUR(euro)}\n`;
     if (dualBcv === 0 && dualDivisa === 0 && divisasPuro === 0 && bcvPuro === 0 && euro === 0) {
       text += `✅ Sin saldo pendiente\n`;
     }
@@ -116,8 +117,8 @@ export async function getCustomerBalance(db: D1Database | null, customerName: st
       for (const p of presupuestos.results as { id: string; fecha: string; total_usd: number; total_usd_divisa: number | null; estado: string }[]) {
         const fecha = new Date(p.fecha).toLocaleDateString('es-VE');
         const estado = p.estado === 'pagado' ? '✅' : '⏳';
-        const dual = p.total_usd_divisa ? ` / $${Number(p.total_usd_divisa).toFixed(2)}` : '';
-        text += `${estado} #${p.id} - $${Number(p.total_usd).toFixed(2)}${dual} (${fecha})\n`;
+        const dual = p.total_usd_divisa ? ` / ${formatUSD(p.total_usd_divisa)}` : '';
+        text += `${estado} #${p.id} - ${formatUSD(p.total_usd)}${dual} (${fecha})\n`;
       }
       text += `\n💡 _"marca [ID] pagado" o "movimientos de ${customer!.name}"_`;
     }
@@ -185,10 +186,10 @@ export async function getCustomerMovements(db: D1Database | null, customerName: 
     if (hasBalance) {
       text += `📊 *Balance actual:*\n`;
       if (dualBcv !== 0 || dualDivisa !== 0) {
-        text += `   💰 Dual: $${dualBcv.toFixed(2)} (BCV) ó $${dualDivisa.toFixed(2)} (DIV)\n`;
+        text += `   💰 Dual: ${formatUSD(dualBcv)} (BCV) ó ${formatUSD(dualDivisa)} (DIV)\n`;
       }
-      if (divisasPuro !== 0) text += `   💵 DIV: $${divisasPuro.toFixed(2)}\n`;
-      if (bcvPuro !== 0) text += `   📊 BCV: $${bcvPuro.toFixed(2)}\n`;
+      if (divisasPuro !== 0) text += `   💵 DIV: ${formatUSD(divisasPuro)}\n`;
+      if (bcvPuro !== 0) text += `   📊 BCV: ${formatUSD(bcvPuro)}\n`;
       text += `\n`;
     }
     text += `📋 *Movimientos:*\n`;
@@ -214,10 +215,10 @@ export async function getCustomerMovements(db: D1Database | null, customerName: 
         if (desc.length > 30) desc = desc.substring(0, 27) + '...';
         let montoStr = '';
         if (isDual) {
-          montoStr = `💰 $${Number(t.amount_usd).toFixed(2)} (BCV) ó $${Number(t.amount_usd_divisa).toFixed(2)} (DIV)`;
+          montoStr = `💰 ${formatUSD(t.amount_usd)} (BCV) ó ${formatUSD(t.amount_usd_divisa)} (DIV)`;
         } else {
           const currLabel = t.currency_type === 'divisas' ? 'DIV' : 'BCV';
-          montoStr = `$${Number(t.amount_usd).toFixed(2)} (${currLabel})`;
+          montoStr = `${formatUSD(t.amount_usd)} (${currLabel})`;
         }
         let estadoStr = '';
         if (isPurchase) {
@@ -336,7 +337,7 @@ export async function deleteTransaction(
       .bind(txId, customer.id).run();
 
     const tipo = tx.type === 'purchase' ? 'Compra' : 'Abono';
-    return `🗑️ *Movimiento #${txId} eliminado*\n\n👤 ${customer.name}\n${tipo}: $${Number(tx.amount_usd).toFixed(2)}`;
+    return `🗑️ *Movimiento #${txId} eliminado*\n\n👤 ${customer.name}\n${tipo}: ${formatUSD(tx.amount_usd)}`;
   } catch (error) {
     console.error('[Telegram] Error en deleteTransaction:', error);
     return `❌ Error: ${error}`;
@@ -491,7 +492,7 @@ export async function executeCustomerAction(db: D1Database | null, action: Custo
     const curr = action.currencyType === 'divisas' ? 'DIV' : 'BCV';
     const pmStr = pm ? ` (${PAYMENT_METHOD_NAMES[pm] || pm})` : '';
 
-    return `${emoji} *${actionText} registrada*\n\n👤 ${customer.name}\n💵 $${action.amountUsd.toFixed(2)} (${curr})${pmStr}\n📝 ${action.description}\n\n💼 Nuevo balance ${curr}: $${newBalance.toFixed(2)}`;
+    return `${emoji} *${actionText} registrada*\n\n👤 ${customer.name}\n💵 ${formatUSD(action.amountUsd)} (${curr})${pmStr}\n📝 ${action.description}\n\n💼 Nuevo balance ${curr}: ${formatUSD(newBalance)}`;
   } catch (error) {
     console.error('[Telegram] Error en executeCustomerAction:', error);
     return `❌ Error: ${error}`;

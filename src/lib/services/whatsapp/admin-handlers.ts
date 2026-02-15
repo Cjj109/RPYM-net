@@ -5,10 +5,8 @@
 import { ADMIN_PHONES, MAX_MESSAGES_PER_DAY } from './config';
 import { getNegocioStatus, setNegocioOverride, isMonday } from './negocio';
 import { clearProductCache } from './product-cache';
-
-export function normalizePhone(phone: string): string {
-  return phone.replace(/\D/g, '');
-}
+import { normalizePhone } from '../../phone-ve';
+export { normalizePhone };
 
 export function isAdmin(phone: string): boolean {
   const normalized = normalizePhone(phone);

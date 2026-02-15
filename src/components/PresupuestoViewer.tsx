@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { getPresupuesto, type Presupuesto } from '../lib/presupuesto-storage';
 import { printDeliveryNote } from '../lib/print-delivery-note';
+import { formatUSD, formatBs, formatDateWithTime } from '../lib/format';
 
 export default function PresupuestoViewer() {
   const [presupuesto, setPresupuesto] = useState<Presupuesto | null>(null);
@@ -50,21 +51,7 @@ export default function PresupuestoViewer() {
     loadPresupuesto();
   }, []);
 
-  // Formatear fecha
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('es-VE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  // Formatear moneda
-  const formatUSD = (amount: number) => `$${Number(amount).toFixed(2)}`;
-  const formatBs = (amount: number) => `Bs. ${Number(amount).toFixed(2)}`;
+  const formatDate = formatDateWithTime;
 
   // Función para imprimir en formato tarjeta WhatsApp
   const handlePrint = () => {
@@ -86,8 +73,8 @@ export default function PresupuestoViewer() {
       <tr>
         <td style="padding:6px 8px;border-bottom:1px solid #e0f2fe;font-size:11px;">${item.nombre}</td>
         <td style="padding:6px 8px;border-bottom:1px solid #e0f2fe;text-align:center;font-size:11px;">${item.cantidad} ${item.unidad}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #e0f2fe;text-align:right;font-size:11px;">$${Number(item.precioUSD).toFixed(2)}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #e0f2fe;text-align:right;font-size:11px;font-weight:600;">$${Number(item.subtotalUSD).toFixed(2)}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #e0f2fe;text-align:right;font-size:11px;">$\{formatUSD(item.precioUSD)\}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #e0f2fe;text-align:right;font-size:11px;font-weight:600;">$\{formatUSD(item.subtotalUSD)\}</td>
       </tr>
     `).join('');
 
@@ -99,8 +86,8 @@ export default function PresupuestoViewer() {
         <tr>
           <td style="padding:6px 8px;border-bottom:1px solid #fef3c7;font-size:11px;">${item.nombre}</td>
           <td style="padding:6px 8px;border-bottom:1px solid #fef3c7;text-align:center;font-size:11px;">${item.cantidad} ${item.unidad}</td>
-          <td style="padding:6px 8px;border-bottom:1px solid #fef3c7;text-align:right;font-size:11px;">$${Number(precioDivisa).toFixed(2)}</td>
-          <td style="padding:6px 8px;border-bottom:1px solid #fef3c7;text-align:right;font-size:11px;font-weight:600;">$${Number(subtotalDivisa).toFixed(2)}</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #fef3c7;text-align:right;font-size:11px;">$\{formatUSD(precioDivisa)\}</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #fef3c7;text-align:right;font-size:11px;font-weight:600;">$\{formatUSD(subtotalDivisa)\}</td>
         </tr>
       `;
     }).join('') : '';
@@ -160,8 +147,8 @@ export default function PresupuestoViewer() {
             <tr style="background:#fef3c7;">
               <td style="padding:6px 8px;border-bottom:1px solid #e0f2fe;font-size:11px;font-style:italic;">Delivery</td>
               <td style="padding:6px 8px;border-bottom:1px solid #e0f2fe;text-align:center;font-size:11px;">1</td>
-              <td style="padding:6px 8px;border-bottom:1px solid #e0f2fe;text-align:right;font-size:11px;">$${delivery.toFixed(2)}</td>
-              <td style="padding:6px 8px;border-bottom:1px solid #e0f2fe;text-align:right;font-size:11px;font-weight:600;">$${delivery.toFixed(2)}</td>
+              <td style="padding:6px 8px;border-bottom:1px solid #e0f2fe;text-align:right;font-size:11px;">$\{formatUSD(delivery)\}</td>
+              <td style="padding:6px 8px;border-bottom:1px solid #e0f2fe;text-align:right;font-size:11px;font-weight:600;">$\{formatUSD(delivery)\}</td>
             </tr>
             ` : ''}
           </tbody>
@@ -171,12 +158,12 @@ export default function PresupuestoViewer() {
       <div style="background:#fff7ed;padding:10px;border-radius:8px;margin-bottom:12px;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <span style="font-size:12px;color:#0369a1;">Total USD:</span>
-          <span style="font-size:18px;font-weight:700;color:#ea580c;">$${Number(totalUSD).toFixed(2)}</span>
+          <span style="font-size:18px;font-weight:700;color:#ea580c;">$\{formatUSD(totalUSD)\}</span>
         </div>
         ${!hideRateBs && bcvRate > 0 ? `
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
           <span style="font-size:11px;color:#64748b;">Total Bs:</span>
-          <span style="font-size:12px;font-weight:600;color:#0c4a6e;">Bs. ${(totalUSD * bcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          <span style="font-size:12px;font-weight:600;color:#0c4a6e;">$\{formatBs((totalUSD * bcvRate))\}</span>
         </div>
         ` : ''}
       </div>
@@ -213,8 +200,8 @@ export default function PresupuestoViewer() {
             <tr style="background:#fef3c7;">
               <td style="padding:6px 8px;border-bottom:1px solid #fde68a;font-size:11px;font-style:italic;">Delivery</td>
               <td style="padding:6px 8px;border-bottom:1px solid #fde68a;text-align:center;font-size:11px;">1</td>
-              <td style="padding:6px 8px;border-bottom:1px solid #fde68a;text-align:right;font-size:11px;">$${delivery.toFixed(2)}</td>
-              <td style="padding:6px 8px;border-bottom:1px solid #fde68a;text-align:right;font-size:11px;font-weight:600;">$${delivery.toFixed(2)}</td>
+              <td style="padding:6px 8px;border-bottom:1px solid #fde68a;text-align:right;font-size:11px;">$\{formatUSD(delivery)\}</td>
+              <td style="padding:6px 8px;border-bottom:1px solid #fde68a;text-align:right;font-size:11px;font-weight:600;">$\{formatUSD(delivery)\}</td>
             </tr>
             ` : ''}
           </tbody>
@@ -223,7 +210,7 @@ export default function PresupuestoViewer() {
       <div style="background:#fffbeb;padding:10px;border-radius:8px;margin-bottom:12px;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <span style="font-size:12px;color:#92400e;">Total USD:</span>
-          <span style="font-size:18px;font-weight:700;color:#d97706;">$${Number(totalUSDDivisa).toFixed(2)}</span>
+          <span style="font-size:18px;font-weight:700;color:#d97706;">$\{formatUSD(totalUSDDivisa)\}</span>
         </div>
       </div>
       <div style="text-align:center;padding-top:8px;border-top:1px dashed #fde68a;">
@@ -264,7 +251,7 @@ export default function PresupuestoViewer() {
     // Solo mostrar Bs si no es modo divisas, no tiene hideRate, y tenemos tasa BCV
     const showBsInMsg = !presupuesto.hideRate && !['divisa', 'divisas'].includes(presupuesto.modoPrecio || '') && bcvRate > 0;
     if (showBsInMsg) {
-      message += `(Bs. ${(presupuesto.totalUSD * bcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})\n`;
+      message += `($\{formatBs((presupuesto.totalUSD * bcvRate))\})\n`;
     }
     message += `\n¿Está disponible? Gracias.`;
 

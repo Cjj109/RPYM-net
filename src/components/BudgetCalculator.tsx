@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import type { Product, Category, BCVRate } from '../lib/sheets';
 import ChefJose from './ChefJose';
+import { formatUSD, formatBs, formatQuantity, getCurrentDateDisplay } from '../lib/format';
 
 interface Props {
   categories: Category[];
@@ -114,7 +115,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
     selectedItems.forEach(({ product, quantity }) => {
       const formattedQty = formatQuantity(quantity);
       const subtotal = product.precioUSD * quantity;
-      message += `• ${product.nombre}: ${formattedQty} ${product.unidad} ($${subtotal.toFixed(2)})\n`;
+      message += `• ${product.nombre}: ${formattedQty} ${product.unidad} (${formatUSD(subtotal)})\n`;
     });
 
     message += `\n─────────────────\n`;
@@ -133,16 +134,6 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
     }
   };
 
-  // Formatear precios
-  const formatUSD = (price: number) => `$${price.toFixed(2)}`;
-  const formatBs = (price: number) => `Bs. ${price.toFixed(2)}`;
-
-  // Formatear cantidad sin ceros innecesarios
-  const formatQuantity = (qty: number): string => {
-    if (qty === 0) return '';
-    const formatted = qty.toFixed(3);
-    return formatted.replace(/\.?0+$/, '');
-  };
 
   // Obtener mínimo para un producto
   const getMinQuantity = (product: Product): number => {
@@ -480,15 +471,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
     return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
   };
 
-  // Obtener fecha actual formateada
-  const getCurrentDate = () => {
-    const now = new Date();
-    return now.toLocaleDateString('es-VE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
+  const getCurrentDate = getCurrentDateDisplay;
 
   return (
     <div className="space-y-4">

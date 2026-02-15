@@ -21,6 +21,11 @@ import {
   type PresupuestoItem,
   type PresupuestoStats
 } from '../lib/presupuesto-storage';
+import { printDeliveryNote, type PrintPresupuesto } from '../lib/print-delivery-note';
+import { openWhatsAppCardWindow, renderWhatsAppCardHTML, type WhatsAppCardData } from '../lib/presupuesto-whatsapp-card';
+import { formatUSD, formatBs, formatDateWithTime } from '../lib/format';
+import { formatPhoneDisplay, isValidVenezuelanPhone } from '../lib/phone-ve';
+import { inferModoPrecio } from '../lib/presupuesto-utils';
 
 interface Category {
   name: string;
@@ -272,641 +277,70 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     setEditedItems(items);
   };
 
-  // Formatear fecha
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('es-VE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  const formatDate = formatDateWithTime;
+  const isValidPhone = isValidVenezuelanPhone;
 
-  // Formatear moneda
-  const formatUSD = (amount: number) => `$${Number(amount).toFixed(2)}`;
-  const formatBs = (amount: number) => `Bs. ${Number(amount).toFixed(2)}`;
+  // Imprimir nota de entrega - usa utilidad compartida print-delivery-note.ts
+  const printNote = (presupuesto: Presupuesto) => {
+    const modo = inferModoPrecio(presupuesto);
 
-  // Formatear teléfono para mostrar: 0414-XXX-XXXX
-  const formatPhoneDisplay = (value: string): string => {
-    const digits = value.replace(/\D/g, '');
-    if (digits.length <= 4) return digits;
-    if (digits.length <= 7) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
-    return `${digits.slice(0, 4)}-${digits.slice(4, 7)}-${digits.slice(7, 11)}`;
-  };
-
-  // Validar teléfono venezolano (todos los operadores)
-  const isValidPhone = (value: string): boolean => {
-    const d = value.replace(/\D/g, '');
-    return d.length === 11 && ['0412', '0414', '0416', '0424', '0426', '0422'].includes(d.slice(0, 4));
-  };
-
-  // Imprimir nota de entrega (con o sin sello de pagado) - Estilo profesional con bordes
-  const printNote = (presupuesto: Presupuesto, showPaid: boolean) => {
-    const printWindow = window.open('', '_blank', 'width=800,height=600');
-    if (!printWindow) {
-      alert('No se pudo abrir la ventana de impresion. Verifica que no esten bloqueados los popups.');
-      return;
-    }
-
-    const fmtQty = (qty: number): string => {
-      const rounded = Math.round(qty * 1000) / 1000;
-      return rounded.toFixed(3).replace(/\.?0+$/, '');
+    const printData: PrintPresupuesto = {
+      id: presupuesto.id,
+      fecha: presupuesto.fecha,
+      items: presupuesto.items.map(item => ({
+        nombre: item.nombre,
+        cantidad: item.cantidad,
+        unidad: item.unidad,
+        precioUSD: item.precioUSD,
+        subtotalUSD: item.subtotalUSD,
+        precioUSDDivisa: item.precioUSDDivisa,
+        subtotalUSDDivisa: item.subtotalUSDDivisa,
+      })),
+      totalUSD: presupuesto.totalUSD,
+      totalBs: presupuesto.totalBs,
+      totalUSDDivisa: presupuesto.totalUSDDivisa,
+      hideRate: presupuesto.hideRate,
+      delivery: presupuesto.delivery,
+      modoPrecio: modo,
+      estado: presupuesto.estado,
+      customerName: presupuesto.customerName,
+      customerAddress: presupuesto.customerAddress,
     };
 
-    // Use modoPrecio if available, otherwise infer from values (legacy support)
-    const modo = presupuesto.modoPrecio || (
-      presupuesto.totalUSDDivisa && presupuesto.totalBs && presupuesto.totalBs > 0 && presupuesto.totalUSDDivisa !== presupuesto.totalUSD
-        ? 'dual'
-        : presupuesto.totalBs === 0 && !presupuesto.hideRate
-          ? 'divisa'
-          : 'bcv'
-    );
-    const isDual = modo === 'dual';
-    const isDivisasOnly = modo === 'divisa';
-    // hideRateOnly = BCV mode but hiding the rate display
-    const hideRateOnly = presupuesto.hideRate === true && modo === 'bcv';
-    const dateStr = new Date(presupuesto.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    const customerName = presupuesto.customerName || '';
-    const customerAddress = presupuesto.customerAddress || '';
+    printDeliveryNote(printData, bcvRateValue);
+  };
 
-    // Colores condicionales: amarillo/dorado para divisas, azul para BCV
-    const c = isDivisasOnly ? {
-      border: '#92400e', text: '#713f12', textLight: '#92400e', accent: '#fde68a',
-      bgHeader: '#fef3c7', bgAlt: '#fefce8', watermark: 'rgba(234,179,8,0.06)', footer: '#d97706'
-    } : {
-      border: '#075985', text: '#0c4a6e', textLight: '#0369a1', accent: '#7dd3fc',
-      bgHeader: '#e0f2fe', bgAlt: '#f0f9ff', watermark: 'rgba(14, 165, 233, 0.06)', footer: '#0ea5e9'
+  // Mapeo Presupuesto -> WhatsAppCardData (legacy modoPrecio inference)
+  const mapToWhatsAppCard = (presupuesto: Presupuesto): WhatsAppCardData => {
+    const modo = inferModoPrecio(presupuesto);
+    return {
+      id: presupuesto.id,
+      fecha: presupuesto.fecha,
+      items: presupuesto.items.map(item => ({
+        nombre: item.nombre,
+        cantidad: item.cantidad,
+        unidad: item.unidad,
+        subtotalUSD: item.subtotalUSD,
+        subtotalUSDDivisa: item.subtotalUSDDivisa,
+      })),
+      totalUSD: presupuesto.totalUSD,
+      totalUSDDivisa: presupuesto.totalUSDDivisa,
+      hideRate: presupuesto.hideRate,
+      delivery: presupuesto.delivery,
+      modoPrecio: modo,
+      estado: presupuesto.estado,
+      customerName: presupuesto.customerName,
     };
-
-    // Filas de productos
-    const rows = presupuesto.items.map((item, i) => `
-      <tr style="background:${i % 2 === 0 ? '#fff' : c.bgAlt}">
-        <td style="border-right:1px solid ${c.border};padding:6px 10px;color:${c.text};">${item.nombre}</td>
-        <td style="border-right:1px solid ${c.border};padding:6px 10px;text-align:center;color:${c.text};">${fmtQty(item.cantidad)}</td>
-        <td style="border-right:1px solid ${c.border};padding:6px 10px;text-align:center;color:${c.text};">${item.unidad}</td>
-        <td style="border-right:1px solid ${c.border};padding:6px 10px;text-align:right;color:${c.text};">${formatUSD(item.precioUSD)}</td>
-        <td style="padding:6px 10px;text-align:right;font-weight:600;color:${c.text};">${formatUSD(item.subtotalUSD)}</td>
-      </tr>
-    `).join('');
-
-    // Delivery (solo para mostrar en totales)
-    const deliveryCost = presupuesto.delivery || 0;
-    const subtotalUSD = presupuesto.totalUSD - deliveryCost;
-
-    // Filas de productos Divisa (para presupuestos duales)
-    const divisaRows = isDual ? presupuesto.items.map((item, i) => `
-      <tr style="background:${i % 2 === 0 ? '#fff' : '#fefce8'}">
-        <td style="border-right:1px solid #92400e;padding:6px 10px;color:#713f12;">${item.nombre}</td>
-        <td style="border-right:1px solid #92400e;padding:6px 10px;text-align:center;color:#713f12;">${fmtQty(item.cantidad)}</td>
-        <td style="border-right:1px solid #92400e;padding:6px 10px;text-align:center;color:#713f12;">${item.unidad}</td>
-        <td style="border-right:1px solid #92400e;padding:6px 10px;text-align:right;color:#713f12;">${formatUSD(item.precioUSDDivisa ?? item.precioUSD)}</td>
-        <td style="padding:6px 10px;text-align:right;font-weight:600;color:#713f12;">${formatUSD(item.subtotalUSDDivisa ?? item.subtotalUSD)}</td>
-      </tr>
-    `).join('') : '';
-
-    // Pagina 2 para dual
-    const divisaPageHtml = isDual ? `
-      <div style="page-break-before:always;"></div>
-      <div class="watermark" style="color:rgba(234,179,8,0.06);">PRESUPUESTO</div>
-      ${showPaid ? `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-15deg);border:6px solid #16a34a;border-radius:12px;padding:15px 40px;color:#16a34a;font-size:36px;font-weight:900;text-transform:uppercase;letter-spacing:3px;opacity:0.35;pointer-events:none;z-index:1;">PAGADO</div>` : ''}
-      <div style="display:flex;align-items:center;justify-content:space-between;border:2px solid #92400e;padding:12px 16px;margin-bottom:16px;">
-        <div>
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-            <div style="width:48px;height:48px;border-radius:50%;border:2px solid #fde68a;overflow:hidden;flex-shrink:0;background:white;display:flex;align-items:center;justify-content:center;">
-              <img src="/camaronlogo-sm.webp" alt="RPYM" style="width:140%;height:140%;object-fit:contain;" />
-            </div>
-            <div style="font-size:22px;font-weight:800;color:#713f12;">RPYM</div>
-          </div>
-          <div style="font-size:10px;color:#92400e;">Muelle Pesquero "El Mosquero", Puesto 3 y 4, Maiquetia</div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:16px;font-weight:700;color:#713f12;border-bottom:2px solid #92400e;padding-bottom:4px;margin-bottom:6px;">PRESUPUESTO</div>
-          <div style="background:#fef3c7;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#92400e;margin-bottom:4px;">PRECIOS DIVISA</div>
-          <div style="font-size:10px;color:#92400e;">No: <span style="font-family:monospace;font-weight:600;color:#713f12;">${presupuesto.id}</span></div>
-          <div style="font-size:10px;color:#92400e;margin-top:2px;">Fecha: <span style="font-weight:600;color:#713f12;">${dateStr}</span></div>
-        </div>
-      </div>
-      <div style="border:2px solid #92400e;padding:10px 16px;margin-bottom:16px;">
-        <div style="margin-bottom:6px;"><span style="font-size:10px;font-weight:600;color:#92400e;">Cliente:</span><span style="font-size:12px;color:#713f12;margin-left:8px;">${customerName || '---'}</span></div>
-        <div><span style="font-size:10px;font-weight:600;color:#92400e;">Direccion:</span><span style="font-size:12px;color:#713f12;margin-left:8px;">${customerAddress || '---'}</span></div>
-      </div>
-      <div style="border:2px solid #92400e;margin-bottom:16px;">
-        <table>
-          <thead>
-            <tr style="background:#fef3c7;">
-              <th style="border-bottom:2px solid #92400e;border-right:1px solid #92400e;padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:#713f12;">Producto</th>
-              <th style="border-bottom:2px solid #92400e;border-right:1px solid #92400e;padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:#713f12;width:60px;">Cant</th>
-              <th style="border-bottom:2px solid #92400e;border-right:1px solid #92400e;padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:#713f12;width:60px;">Unidad</th>
-              <th style="border-bottom:2px solid #92400e;border-right:1px solid #92400e;padding:8px 10px;text-align:right;font-size:11px;font-weight:700;color:#713f12;width:80px;">P.Unitario</th>
-              <th style="border-bottom:2px solid #92400e;padding:8px 10px;text-align:right;font-size:11px;font-weight:700;color:#713f12;width:80px;">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>${divisaRows}</tbody>
-        </table>
-      </div>
-      <div style="border:2px solid #92400e;margin-bottom:16px;display:flex;">
-        <div style="flex:1;padding:10px 16px;border-right:2px solid #92400e;">
-          <div style="font-size:10px;font-weight:600;color:#92400e;margin-bottom:4px;">OBSERVACIONES:</div>
-          <div style="font-size:10px;color:#92400e;">Precios en USD efectivo</div>
-        </div>
-        <div style="width:200px;padding:10px 16px;">
-          ${deliveryCost > 0 ? `
-          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;">
-            <span style="color:#92400e;">Subtotal:</span>
-            <span style="font-weight:600;color:#713f12;">${formatUSD(presupuesto.totalUSDDivisa! - deliveryCost)}</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;">
-            <span style="color:#92400e;">Delivery:</span>
-            <span style="font-weight:600;color:#713f12;">${formatUSD(deliveryCost)}</span>
-          </div>
-          ` : ''}
-          <div style="display:flex;justify-content:space-between;font-size:13px;${deliveryCost > 0 ? 'border-top:1px solid #fde68a;padding-top:6px;' : ''}">
-            <span style="color:#92400e;font-weight:600;">Total USD:</span>
-            <span style="font-weight:800;color:#713f12;">${formatUSD(presupuesto.totalUSDDivisa!)}</span>
-          </div>
-        </div>
-      </div>
-      <div style="display:flex;gap:40px;margin-top:40px;">
-        <div style="flex:1;text-align:center;"><div style="border-top:2px solid #92400e;padding-top:6px;margin:0 30px;"><span style="font-size:10px;font-weight:600;color:#92400e;">CONFORME CLIENTE</span></div></div>
-        <div style="flex:1;text-align:center;"><div style="border-top:2px solid #92400e;padding-top:6px;margin:0 30px;"><span style="font-size:10px;font-weight:600;color:#92400e;">ENTREGADO POR</span></div></div>
-      </div>
-      ${showPaid ? '<div style="background:#dcfce7;color:#166534;padding:12px;border-radius:8px;text-align:center;margin-top:16px;font-weight:600;font-size:13px;">Gracias por su compra!</div>' : ''}
-      <div style="margin-top:${showPaid ? '8' : '20'}px;padding:6px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:4px;text-align:center;">
-        <span style="font-size:10px;color:#b45309;font-weight:500;">Este documento no tiene validez fiscal - Solo para referencia</span>
-      </div>
-      <div style="margin-top:12px;padding-top:8px;border-top:1px solid #fde68a;text-align:center;">
-        <span style="font-size:10px;color:#d97706;">www.rpym.net • WhatsApp: +58 414-214-5202</span>
-      </div>
-    ` : '';
-
-    printWindow.document.write(`<!DOCTYPE html>
-<html>
-<head>
-  <title>Presupuesto - ${presupuesto.id}</title>
-  <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: white;
-      color: ${c.text};
-      padding: 12mm 15mm;
-      position: relative;
-    }
-    table { width:100%; border-collapse:collapse; }
-    .close-btn {
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      padding: 8px 16px;
-      background: #dc2626;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      z-index: 9999;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    }
-    .close-btn:hover { background: #b91c1c; }
-    @media print {
-      body { padding: 0; }
-      @page { size: A4; margin: 12mm 15mm; }
-      .no-print { display: none !important; }
-    }
-    .watermark {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%) rotate(-30deg);
-      font-size: 80px;
-      font-weight: 900;
-      color: ${c.watermark};
-      letter-spacing: 12px;
-      pointer-events: none;
-      z-index: 0;
-    }
-  </style>
-</head>
-<body>
-  <button class="close-btn no-print" onclick="window.close()">Cerrar</button>
-  <div class="watermark">PRESUPUESTO</div>
-
-  ${showPaid ? `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-15deg);border:6px solid #16a34a;border-radius:12px;padding:15px 40px;color:#16a34a;font-size:36px;font-weight:900;text-transform:uppercase;letter-spacing:3px;opacity:0.35;pointer-events:none;z-index:1;">PAGADO</div>` : ''}
-
-  <!-- Header -->
-  <div style="display:flex;align-items:center;justify-content:space-between;border:2px solid ${c.border};padding:12px 16px;margin-bottom:16px;">
-    <div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-        <div style="width:48px;height:48px;border-radius:50%;border:2px solid ${c.accent};overflow:hidden;flex-shrink:0;background:white;display:flex;align-items:center;justify-content:center;">
-          <img src="/camaronlogo-sm.webp" alt="RPYM" style="width:140%;height:140%;object-fit:contain;" />
-        </div>
-        <div style="font-size:22px;font-weight:800;color:${c.text};">RPYM</div>
-      </div>
-      <div style="font-size:10px;color:${c.textLight};">Muelle Pesquero "El Mosquero", Puesto 3 y 4, Maiquetia</div>
-    </div>
-    <div style="text-align:right;">
-      <div style="font-size:16px;font-weight:700;color:${c.text};border-bottom:2px solid ${c.border};padding-bottom:4px;margin-bottom:6px;">PRESUPUESTO</div>
-      ${isDivisasOnly ? '<div style="background:#fef3c7;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#92400e;margin-bottom:4px;">PRECIOS DIVISA</div>' : '<div style="background:#e0f2fe;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#075985;margin-bottom:4px;">PRECIOS BCV</div>'}
-      <div style="font-size:10px;color:${c.textLight};">No: <span style="font-family:monospace;font-weight:600;color:${c.text};">${presupuesto.id}</span></div>
-      <div style="font-size:10px;color:${c.textLight};margin-top:2px;">Fecha: <span style="font-weight:600;color:${c.text};">${dateStr}</span></div>
-    </div>
-  </div>
-
-  <!-- Client info -->
-  <div style="border:2px solid ${c.border};padding:10px 16px;margin-bottom:16px;">
-    <div style="margin-bottom:6px;">
-      <span style="font-size:10px;font-weight:600;color:${c.textLight};">Cliente:</span>
-      <span style="font-size:12px;color:${c.text};margin-left:8px;">${customerName || '---'}</span>
-    </div>
-    <div>
-      <span style="font-size:10px;font-weight:600;color:${c.textLight};">Direccion:</span>
-      <span style="font-size:12px;color:${c.text};margin-left:8px;">${customerAddress || '---'}</span>
-    </div>
-  </div>
-
-  <!-- Products table -->
-  <div style="border:2px solid ${c.border};margin-bottom:16px;">
-    <table>
-      <thead>
-        <tr style="background:${c.bgHeader};">
-          <th style="border-bottom:2px solid ${c.border};border-right:1px solid ${c.border};padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:${c.text};">Producto</th>
-          <th style="border-bottom:2px solid ${c.border};border-right:1px solid ${c.border};padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:${c.text};width:60px;">Cant</th>
-          <th style="border-bottom:2px solid ${c.border};border-right:1px solid ${c.border};padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:${c.text};width:60px;">Unidad</th>
-          <th style="border-bottom:2px solid ${c.border};border-right:1px solid ${c.border};padding:8px 10px;text-align:right;font-size:11px;font-weight:700;color:${c.text};width:80px;">P.Unitario</th>
-          <th style="border-bottom:2px solid ${c.border};padding:8px 10px;text-align:right;font-size:11px;font-weight:700;color:${c.text};width:80px;">Subtotal</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rows}
-      </tbody>
-    </table>
-  </div>
-
-  <!-- Totals -->
-  <div style="border:2px solid ${c.border};margin-bottom:16px;display:flex;">
-    <div style="flex:1;padding:10px 16px;border-right:2px solid ${c.border};">
-      <div style="font-size:10px;font-weight:600;color:${c.textLight};margin-bottom:4px;">OBSERVACIONES:</div>
-      <div style="font-size:10px;color:${c.textLight};">${isDivisasOnly ? 'Precios en USD efectivo' : 'Tasa BCV aplicada al momento de pago'}</div>
-    </div>
-    <div style="width:200px;padding:10px 16px;">
-      ${deliveryCost > 0 ? `
-      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;">
-        <span style="color:${c.textLight};">Subtotal:</span>
-        <span style="font-weight:600;color:${c.text};">${formatUSD(subtotalUSD)}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;">
-        <span style="color:${c.textLight};">Delivery:</span>
-        <span style="font-weight:600;color:${c.text};">${formatUSD(deliveryCost)}</span>
-      </div>
-      ` : ''}
-      <div style="display:flex;justify-content:space-between;font-size:13px;${deliveryCost > 0 ? `border-top:1px solid ${c.accent};padding-top:6px;` : ''}">
-        <span style="color:${c.textLight};font-weight:600;">Total USD:</span>
-        <span style="font-weight:800;color:${c.text};">${formatUSD(presupuesto.totalUSD)}</span>
-      </div>
-      ${(!isDivisasOnly && !presupuesto.hideRate && bcvRateValue > 0) ? `<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;border-top:1px solid ${c.accent};padding-top:4px;">
-        <span style="color:${c.textLight};">Total Bs.:</span>
-        <span style="font-weight:700;color:#ea580c;">${formatBs(presupuesto.totalUSD * bcvRateValue)}</span>
-      </div>` : ''}
-    </div>
-  </div>
-
-  <!-- Signatures -->
-  <div style="display:flex;gap:40px;margin-top:40px;">
-    <div style="flex:1;text-align:center;">
-      <div style="border-top:2px solid ${c.border};padding-top:6px;margin:0 30px;">
-        <span style="font-size:10px;font-weight:600;color:${c.textLight};">CONFORME CLIENTE</span>
-      </div>
-    </div>
-    <div style="flex:1;text-align:center;">
-      <div style="border-top:2px solid ${c.border};padding-top:6px;margin:0 30px;">
-        <span style="font-size:10px;font-weight:600;color:${c.textLight};">ENTREGADO POR</span>
-      </div>
-    </div>
-  </div>
-
-  ${showPaid ? '<div style="background:#dcfce7;color:#166534;padding:12px;border-radius:8px;text-align:center;margin-top:16px;font-weight:600;font-size:13px;">Gracias por su compra!</div>' : ''}
-
-  <!-- Non-fiscal notice -->
-  <div style="margin-top:${showPaid ? '8' : '20'}px;padding:6px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:4px;text-align:center;">
-    <span style="font-size:10px;color:#b45309;font-weight:500;">Este documento no tiene validez fiscal - Solo para referencia</span>
-  </div>
-
-  <!-- Footer -->
-  <div style="margin-top:12px;padding-top:8px;border-top:1px solid ${c.accent};text-align:center;">
-    <span style="font-size:10px;color:${c.footer};">www.rpym.net • WhatsApp: +58 414-214-5202</span>
-  </div>
-
-  ${divisaPageHtml}
-</body>
-</html>`);
-
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => printWindow.print(), 250);
   };
 
   // Vista WhatsApp compacta del presupuesto (estilo card limpio)
   const handleWhatsAppView = (presupuesto: Presupuesto) => {
-    const isPaid = presupuesto.estado === 'pagado';
-    // Use modoPrecio if available, otherwise infer from values (legacy support)
-    const modoWA = presupuesto.modoPrecio || (
-      presupuesto.totalUSDDivisa && presupuesto.totalBs && presupuesto.totalBs > 0 && presupuesto.totalUSDDivisa !== presupuesto.totalUSD
-        ? 'dual'
-        : presupuesto.totalBs === 0 && !presupuesto.hideRate
-          ? 'divisa'
-          : 'bcv'
-    );
-    const isDualWA = modoWA === 'dual';
-    const isDivisasOnlyWA = modoWA === 'divisa';
-    const hideRateOnlyWA = presupuesto.hideRate === true && modoWA === 'bcv';
-    const fmtQty = (qty: number): string => {
-      const rounded = Math.round(qty * 1000) / 1000;
-      return rounded.toFixed(3).replace(/\.?0+$/, '');
-    };
-    const fechaStr = new Date(presupuesto.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-    const waWindow = window.open('', '_blank', 'width=380,height=700,scrollbars=yes');
-    if (!waWindow) {
-      alert('No se pudo abrir la ventana. Verifica que no estén bloqueados los popups.');
-      return;
-    }
-
-    const waDeliveryCost = presupuesto.delivery || 0;
-    const waSubtotalUSD = presupuesto.totalUSD - waDeliveryCost;
-
-    // Theme colors based on mode (amber for divisa, blue for BCV/dual first page)
-    const waColors = isDivisasOnlyWA ? {
-      bg: '#fffbeb', border: '#fde68a', borderDark: '#92400e', text: '#713f12', textLight: '#92400e', accent: '#d97706'
-    } : {
-      bg: '#f0f9ff', border: '#e0f2fe', borderDark: '#075985', text: '#0c4a6e', textLight: '#0369a1', accent: '#0ea5e9'
-    };
-
-    const productRows = presupuesto.items.map(item => `
-      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid ${waColors.border};">
-        <div style="flex:1;font-size:13px;color:${waColors.text};">${item.nombre}</div>
-        <div style="font-size:12px;color:${waColors.textLight};margin:0 8px;white-space:nowrap;">${fmtQty(item.cantidad)} ${item.unidad}</div>
-        <div style="font-size:13px;font-weight:600;color:${waColors.text};white-space:nowrap;">${formatUSD(item.subtotalUSD)}</div>
-      </div>
-    `).join('');
-
-    const divisaBubbleHtml = isDualWA ? (() => {
-      const divisaProductRows = presupuesto.items.map(item => `
-        <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid #fefce8;">
-          <div style="flex:1;font-size:13px;color:#713f12;">${item.nombre}</div>
-          <div style="font-size:12px;color:#92400e;margin:0 8px;white-space:nowrap;">${fmtQty(item.cantidad)} ${item.unidad}</div>
-          <div style="font-size:13px;font-weight:600;color:#713f12;white-space:nowrap;">${formatUSD(item.subtotalUSDDivisa ?? item.subtotalUSD)}</div>
-        </div>
-      `).join('');
-      return `
-      <div style="width:320px;background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-top:16px;border:2px solid #fde68a;">
-        <div style="text-align:center;margin-bottom:12px;">
-          <img src="/camaronlogo-sm.webp" alt="RPYM" style="display:block;width:140px;height:auto;object-fit:contain;margin:0 auto;" />
-          <div style="background:#fef3c7;display:inline-block;padding:3px 12px;border-radius:6px;font-size:12px;font-weight:700;color:#92400e;margin-top:4px;">Precios Divisa</div>
-          ${isPaid ? '<div style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:9999px;margin-top:6px;">PAGADO</div>' : ''}
-        </div>
-        ${presupuesto.customerName ? '<div style="font-size:12px;color:#92400e;text-align:center;margin-bottom:10px;">Cliente: <strong style="color:#713f12;">' + presupuesto.customerName + '</strong></div>' : ''}
-        <div style="margin-bottom:12px;">
-          ${divisaProductRows}
-        </div>
-        <div style="border-top:2px solid #92400e;padding-top:10px;margin-bottom:12px;">
-          ${waDeliveryCost > 0 ? `
-          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
-            <span style="font-size:12px;color:#92400e;">Subtotal</span>
-            <span style="font-size:14px;font-weight:600;color:#713f12;">${formatUSD(presupuesto.totalUSDDivisa! - waDeliveryCost)}</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
-            <span style="font-size:12px;color:#92400e;">Delivery</span>
-            <span style="font-size:14px;font-weight:600;color:#713f12;">${formatUSD(waDeliveryCost)}</span>
-          </div>
-          ` : ''}
-          <div style="display:flex;justify-content:space-between;align-items:baseline;${waDeliveryCost > 0 ? 'border-top:1px solid #fde68a;padding-top:6px;' : ''}">
-            <span style="font-size:14px;font-weight:600;color:#92400e;">Total USD (Divisa)</span>
-            <span style="font-size:20px;font-weight:800;color:#713f12;">${formatUSD(presupuesto.totalUSDDivisa!)}</span>
-          </div>
-        </div>
-        <div style="text-align:center;border-top:1px solid #fde68a;padding-top:8px;">
-          <div style="font-size:10px;color:#d97706;">${fechaStr}</div>
-          <div style="font-size:10px;color:#d97706;margin-top:2px;">WhatsApp: +58 414-214-5202</div>
-          <div style="font-size:9px;color:#fde68a;margin-top:4px;">Ref: ${presupuesto.id}</div>
-        </div>
-      </div>`;
-    })() : '';
-
-    waWindow.document.write(`<!DOCTYPE html>
-<html>
-<head>
-  <title>Presupuesto RPYM</title>
-  <meta name="viewport" content="width=320" />
-  <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: ${waColors.bg};
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 16px 0;
-    }
-    .close-btn {
-      margin-bottom: 12px;
-      padding: 8px 20px;
-      background: #dc2626;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    }
-    .close-btn:hover { background: #b91c1c; }
-    @media print { .no-print { display: none !important; } }
-  </style>
-</head>
-<body>
-  <button class="close-btn no-print" onclick="window.close()">Cerrar</button>
-  <div style="width:320px;background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);${isDivisasOnlyWA ? 'border:2px solid #fde68a;' : ''}">
-    <!-- Logo -->
-    <div style="text-align:center;margin-bottom:12px;">
-      <img src="/camaronlogo-sm.webp" alt="RPYM" style="display:block;width:140px;height:auto;object-fit:contain;margin:0 auto;" />
-      <div style="font-size:12px;color:${waColors.textLight};margin-top:4px;">Presupuesto</div>
-      ${isDivisasOnlyWA ? '<div style="background:#fef3c7;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#92400e;margin-top:4px;">Precios Divisa</div>' : (isDualWA ? '<div style="background:#e0f2fe;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#075985;margin-top:4px;">Precios BCV</div>' : '<div style="background:#e0f2fe;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#075985;margin-top:4px;">Precios BCV</div>')}
-      ${isPaid ? '<div style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:9999px;margin-top:6px;">PAGADO</div>' : ''}
-    </div>
-
-    ${presupuesto.customerName ? '<div style="font-size:12px;color:' + waColors.textLight + ';text-align:center;margin-bottom:10px;">Cliente: <strong style="color:' + waColors.text + ';">' + presupuesto.customerName + '</strong></div>' : ''}
-
-    <!-- Products -->
-    <div style="margin-bottom:12px;">
-      ${productRows}
-    </div>
-
-    <!-- Totals -->
-    <div style="border-top:2px solid ${waColors.borderDark};padding-top:10px;margin-bottom:12px;">
-      ${waDeliveryCost > 0 ? `
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
-        <span style="font-size:12px;color:${waColors.textLight};">Subtotal</span>
-        <span style="font-size:14px;font-weight:600;color:${waColors.text};">${formatUSD(waSubtotalUSD)}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
-        <span style="font-size:12px;color:${waColors.textLight};">Delivery</span>
-        <span style="font-size:14px;font-weight:600;color:${waColors.text};">${formatUSD(waDeliveryCost)}</span>
-      </div>
-      ` : ''}
-      <div style="display:flex;justify-content:space-between;align-items:baseline;${waDeliveryCost > 0 ? 'border-top:1px solid ' + waColors.border + ';padding-top:6px;' : ''}">
-        <span style="font-size:14px;font-weight:600;color:${waColors.textLight};">${isDivisasOnlyWA ? 'Total USD (Divisa)' : 'Total USD'}</span>
-        <span style="font-size:20px;font-weight:800;color:${waColors.text};">${formatUSD(presupuesto.totalUSD)}</span>
-      </div>
-      ${(!isDivisasOnlyWA && !presupuesto.hideRate && bcvRateValue > 0) ? `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px;">
-        <span style="font-size:12px;color:${waColors.textLight};">Total Bs.</span>
-        <span style="font-size:15px;font-weight:700;color:#ea580c;">${formatBs(presupuesto.totalUSD * bcvRateValue)}</span>
-      </div>` : ''}
-    </div>
-
-    <!-- Footer -->
-    <div style="text-align:center;border-top:1px solid ${waColors.border};padding-top:8px;">
-      <div style="font-size:10px;color:${waColors.accent};">${fechaStr}</div>
-      <div style="font-size:10px;color:${waColors.accent};margin-top:2px;">WhatsApp: +58 414-214-5202</div>
-      <div style="font-size:9px;color:${waColors.border};margin-top:4px;">Ref: ${presupuesto.id}</div>
-    </div>
-  </div>
-
-  ${divisaBubbleHtml}
-</body>
-</html>`);
-
-    waWindow.document.close();
+    openWhatsAppCardWindow(mapToWhatsAppCard(presupuesto), { bcvRate: bcvRateValue });
   };
 
   // Generar HTML para captura de WhatsApp (para html2canvas)
-  // Estructura idéntica a handleWhatsAppView: burbujas separadas para BCV y Divisa
   const buildWhatsAppHTML = (presupuesto: Presupuesto): string => {
-    const isPaid = presupuesto.estado === 'pagado';
-    // Use modoPrecio if available, otherwise infer from values (legacy support)
-    const modoCapture = presupuesto.modoPrecio || (
-      presupuesto.totalUSDDivisa && presupuesto.totalBs && presupuesto.totalBs > 0 && presupuesto.totalUSDDivisa !== presupuesto.totalUSD
-        ? 'dual'
-        : presupuesto.totalBs === 0 && !presupuesto.hideRate
-          ? 'divisa'
-          : 'bcv'
-    );
-    const isDualCapture = modoCapture === 'dual';
-    const isDivisasOnlyCapture = modoCapture === 'divisa';
-    const fmtQty = (qty: number): string => {
-      const rounded = Math.round(qty * 1000) / 1000;
-      return rounded.toFixed(3).replace(/\.?0+$/, '');
-    };
-    const fechaStr = new Date(presupuesto.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    const deliveryCost = presupuesto.delivery || 0;
-    const subtotalUSD = presupuesto.totalUSD - deliveryCost;
-
-    // Theme colors (amber for divisa, blue for BCV)
-    const mainColors = isDivisasOnlyCapture ? {
-      bg: '#fffbeb', border: '#fde68a', borderDark: '#92400e', text: '#713f12', textLight: '#92400e', accent: '#d97706'
-    } : {
-      bg: '#f0f9ff', border: '#e0f2fe', borderDark: '#075985', text: '#0c4a6e', textLight: '#0369a1', accent: '#0ea5e9'
-    };
-
-    // Main bubble products
-    const productRows = presupuesto.items.map(item => `
-      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid ${mainColors.border};">
-        <div style="flex:1;font-size:13px;color:${mainColors.text};">${item.nombre}</div>
-        <div style="font-size:12px;color:${mainColors.textLight};margin:0 8px;white-space:nowrap;">${fmtQty(item.cantidad)} ${item.unidad}</div>
-        <div style="font-size:13px;font-weight:600;color:${mainColors.text};white-space:nowrap;">${formatUSD(item.subtotalUSD)}</div>
-      </div>
-    `).join('');
-
-    // Divisa bubble (for dual mode)
-    const divisaBubbleHtml = isDualCapture ? (() => {
-      const divisaProductRows = presupuesto.items.map(item => `
-        <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid #fefce8;">
-          <div style="flex:1;font-size:13px;color:#713f12;">${item.nombre}</div>
-          <div style="font-size:12px;color:#92400e;margin:0 8px;white-space:nowrap;">${fmtQty(item.cantidad)} ${item.unidad}</div>
-          <div style="font-size:13px;font-weight:600;color:#713f12;white-space:nowrap;">${formatUSD(item.subtotalUSDDivisa ?? item.subtotalUSD)}</div>
-        </div>
-      `).join('');
-      return `
-      <div style="width:320px;background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-top:16px;border:2px solid #fde68a;">
-        <div style="text-align:center;margin-bottom:12px;">
-          <img src="${window.location.origin}/camaronlogo-sm.webp" alt="RPYM" style="display:block;width:140px;height:auto;object-fit:contain;margin:0 auto;" />
-          <div style="background:#fef3c7;display:inline-block;padding:3px 12px;border-radius:6px;font-size:12px;font-weight:700;color:#92400e;margin-top:4px;">Precios Divisa</div>
-          ${isPaid ? '<div style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:9999px;margin-top:6px;">PAGADO</div>' : ''}
-        </div>
-        ${presupuesto.customerName ? '<div style="font-size:12px;color:#92400e;text-align:center;margin-bottom:10px;">Cliente: <strong style="color:#713f12;">' + presupuesto.customerName + '</strong></div>' : ''}
-        <div style="margin-bottom:12px;">
-          ${divisaProductRows}
-        </div>
-        <div style="border-top:2px solid #92400e;padding-top:10px;margin-bottom:12px;">
-          ${deliveryCost > 0 ? `
-          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
-            <span style="font-size:12px;color:#92400e;">Subtotal</span>
-            <span style="font-size:14px;font-weight:600;color:#713f12;">${formatUSD(presupuesto.totalUSDDivisa! - deliveryCost)}</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
-            <span style="font-size:12px;color:#92400e;">Delivery</span>
-            <span style="font-size:14px;font-weight:600;color:#713f12;">${formatUSD(deliveryCost)}</span>
-          </div>
-          ` : ''}
-          <div style="display:flex;justify-content:space-between;align-items:baseline;${deliveryCost > 0 ? 'border-top:1px solid #fde68a;padding-top:6px;' : ''}">
-            <span style="font-size:14px;font-weight:600;color:#92400e;">Total USD (Divisa)</span>
-            <span style="font-size:20px;font-weight:800;color:#713f12;">${formatUSD(presupuesto.totalUSDDivisa!)}</span>
-          </div>
-        </div>
-        <div style="text-align:center;border-top:1px solid #fde68a;padding-top:8px;">
-          <div style="font-size:10px;color:#d97706;">${fechaStr}</div>
-          <div style="font-size:10px;color:#d97706;margin-top:2px;">WhatsApp: +58 414-214-5202</div>
-          <div style="font-size:9px;color:#fde68a;margin-top:4px;">Ref: ${presupuesto.id}</div>
-        </div>
-      </div>`;
-    })() : '';
-
-    // Main bubble HTML (same structure as handleWhatsAppView)
-    return `
-      <div style="font-family:'Inter',-apple-system,sans-serif;background:#e5e7eb;padding:16px;display:flex;flex-direction:column;align-items:center;">
-        <!-- Main bubble -->
-        <div style="width:320px;background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:2px solid ${mainColors.borderDark};">
-          <div style="text-align:center;margin-bottom:12px;">
-            <img src="${window.location.origin}/camaronlogo-sm.webp" alt="RPYM" style="display:block;width:140px;height:auto;object-fit:contain;margin:0 auto;" />
-            ${isDivisasOnlyCapture ? '<div style="background:#fef3c7;display:inline-block;padding:3px 12px;border-radius:6px;font-size:12px;font-weight:700;color:#92400e;margin-top:4px;">PRECIOS DIVISA</div>' : '<div style="background:#e0f2fe;display:inline-block;padding:3px 12px;border-radius:6px;font-size:12px;font-weight:700;color:#075985;margin-top:4px;">PRECIOS BCV</div>'}
-            ${isPaid ? '<div style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:9999px;margin-top:6px;">PAGADO</div>' : ''}
-          </div>
-          ${presupuesto.customerName ? '<div style="font-size:12px;color:' + mainColors.textLight + ';text-align:center;margin-bottom:10px;">Cliente: <strong style="color:' + mainColors.text + ';">' + presupuesto.customerName + '</strong></div>' : ''}
-          <div style="margin-bottom:12px;">
-            ${productRows}
-          </div>
-          <div style="border-top:2px solid ${mainColors.borderDark};padding-top:10px;margin-bottom:12px;">
-            ${deliveryCost > 0 ? `
-            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
-              <span style="font-size:12px;color:${mainColors.textLight};">Subtotal</span>
-              <span style="font-size:14px;font-weight:600;color:${mainColors.text};">${formatUSD(subtotalUSD)}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
-              <span style="font-size:12px;color:${mainColors.textLight};">Delivery</span>
-              <span style="font-size:14px;font-weight:600;color:${mainColors.text};">${formatUSD(deliveryCost)}</span>
-            </div>
-            ` : ''}
-            <div style="display:flex;justify-content:space-between;align-items:baseline;${deliveryCost > 0 ? 'border-top:1px solid ' + mainColors.border + ';padding-top:6px;' : ''}">
-              <span style="font-size:14px;font-weight:600;color:${mainColors.textLight};">${isDivisasOnlyCapture ? 'Total USD (Divisa)' : 'Total USD'}</span>
-              <span style="font-size:20px;font-weight:800;color:${mainColors.text};">${formatUSD(presupuesto.totalUSD)}</span>
-            </div>
-            ${(!isDivisasOnlyCapture && !presupuesto.hideRate && bcvRateValue > 0) ? `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px;">
-              <span style="font-size:12px;color:${mainColors.textLight};">Total Bs.</span>
-              <span style="font-size:15px;font-weight:700;color:#ea580c;">${formatBs(presupuesto.totalUSD * bcvRateValue)}</span>
-            </div>` : ''}
-          </div>
-          <div style="text-align:center;border-top:1px solid ${mainColors.border};padding-top:8px;">
-            <div style="font-size:10px;color:${mainColors.accent};">${fechaStr}</div>
-            <div style="font-size:10px;color:${mainColors.accent};margin-top:2px;">WhatsApp: +58 414-214-5202</div>
-            <div style="font-size:9px;color:${mainColors.border};margin-top:4px;">Ref: ${presupuesto.id}</div>
-          </div>
-        </div>
-
-        ${divisaBubbleHtml}
-      </div>
-    `;
+    return renderWhatsAppCardHTML(mapToWhatsAppCard(presupuesto), { bcvRate: bcvRateValue, baseUrl: window.location.origin });
   };
 
   // Enviar presupuesto por WhatsApp Cloud API
@@ -1094,12 +528,12 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
 
     // Items
     presupuesto.items.forEach(item => {
-      message += `• ${item.nombre} ${item.cantidad}${item.unidad} - $${item.subtotalUSD.toFixed(2)}\n`;
+      message += `• ${item.nombre} ${item.cantidad}${item.unidad} - ${formatUSD(item.subtotalUSD)}\n`;
     });
 
-    message += `\n*Total USD:* $${presupuesto.totalUSD.toFixed(2)}`;
+    message += `\n*Total USD:* ${formatUSD(presupuesto.totalUSD)}`;
     if (isDual && presupuesto.totalUSDDivisa) {
-      message += ` (BCV) / $${presupuesto.totalUSDDivisa.toFixed(2)} (Divisa)`;
+      message += ` (BCV) / ${formatUSD(presupuesto.totalUSDDivisa)} (Divisa)`;
     }
     if (!isDivisasOnly && !hideRateOnly && bcvRateValue > 0) {
       message += `\n*Total Bs:* Bs. ${(presupuesto.totalUSD * bcvRateValue).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -1419,7 +853,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                       <td className="px-4 py-3 relative">
                         <div className="flex items-center justify-center gap-1">
                           <button
-                            onClick={() => printNote(p, p.estado === 'pagado')}
+                            onClick={() => printNote(p)}
                             className="p-1.5 text-ocean-600 hover:bg-ocean-50 rounded-lg transition-colors"
                             title={p.estado === 'pagado' ? 'Imprimir (con sello pagado)' : 'Imprimir presupuesto'}
                           >
@@ -1659,7 +1093,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                     </button>
                   )}
                   <button
-                    onClick={() => printNote(selectedPresupuesto, selectedPresupuesto.estado === 'pagado')}
+                    onClick={() => printNote(selectedPresupuesto)}
                     className="px-3 py-1.5 bg-ocean-600 text-white rounded-lg text-xs font-medium hover:bg-ocean-500 flex items-center gap-1"
                   >
                     🖨️ Imprimir
@@ -1843,7 +1277,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                 <div className="bg-gray-50 rounded-lg p-3">
                   <p className="text-sm font-medium text-gray-700">Presupuesto #{targetPresupuesto.id}</p>
                   <p className="text-xs text-gray-500">{targetPresupuesto.customerName || 'Cliente'}</p>
-                  <p className="text-lg font-bold text-green-600 mt-1">${targetPresupuesto.totalUSD.toFixed(2)}</p>
+                  <p className="text-lg font-bold text-green-600 mt-1">{formatUSD(targetPresupuesto.totalUSD)}</p>
                 </div>
 
                 {/* Tipo de envío */}

@@ -8,6 +8,7 @@ import { getProducts, getBCVRate } from '../../sheets';
 import { getAdminPresupuestoUrl } from '../../admin-token';
 import { findCustomerByName, findCustomerSuggestions } from '../../repositories/customers';
 import { callGeminiWithRetry } from '../../gemini-client';
+import { formatUSD } from '../../format';
 
 /** Normaliza texto para comparación: minúsculas y sin acentos */
 function normalize(s: string): string {
@@ -101,7 +102,7 @@ async function parseOrderDirect(
   }
 
   const productList = products.map(p =>
-    `- ID: ${p.id} | Nombre: "${p.nombre}" | Precio BCV: $${p.precioUSD.toFixed(2)}/${p.unidad}${p.precioUSDDivisa ? ` | Precio Divisa: $${p.precioUSDDivisa.toFixed(2)}/${p.unidad}` : ''} | Unidad: ${p.unidad}`
+    `- ID: ${p.id} | Nombre: "${p.nombre}" | Precio BCV: ${formatUSD(p.precioUSD)}/${p.unidad}${p.precioUSDDivisa ? ` | Precio Divisa: ${formatUSD(p.precioUSDDivisa)}/${p.unidad}` : ''} | Unidad: ${p.unidad}`
   ).join('\n');
 
   const now = new Date();
@@ -470,9 +471,9 @@ export async function getBudget(db: D1Database | null, budgetId: string, adminSe
     let text = `📋 *Presupuesto #${budget.id}*\n${estado}\n`;
     if (budget.customer_name) text += `👤 ${budget.customer_name}\n`;
     text += `\n`;
-    items.forEach((item: any) => text += `• ${item.nombre} x ${item.cantidad}: $${item.subtotalUSD.toFixed(2)}\n`);
-    text += `\n*Total: $${budget.total_usd.toFixed(2)}*`;
-    if (budget.total_usd_divisa) text += ` / DIV: $${budget.total_usd_divisa.toFixed(2)}`;
+    items.forEach((item: any) => text += `• ${item.nombre} x ${item.cantidad}: ${formatUSD(item.subtotalUSD)}\n`);
+    text += `\n*Total: ${formatUSD(budget.total_usd)}*`;
+    if (budget.total_usd_divisa) text += ` / DIV: ${formatUSD(budget.total_usd_divisa)}`;
     const adminUrl = await getAdminPresupuestoUrl(budget.id, adminSecret, 'https://rpym.net');
     text += `\n🔗 ${adminUrl}`;
     return text;
@@ -505,11 +506,11 @@ export async function searchBudgetsByCustomer(db: D1Database | null, customerNam
       const fecha = b.fecha ? b.fecha.split(' ')[0] : 'Sin fecha';
       const isDual = b.modo_precio === 'dual' && b.total_usd_divisa;
       text += `• #${b.id} - ${fecha}\n`;
-      text += `  💵 $${b.total_usd.toFixed(2)}${isDual ? ` / DIV: $${b.total_usd_divisa.toFixed(2)}` : ''}\n`;
+      text += `  💵 ${formatUSD(b.total_usd)}${isDual ? ` / DIV: ${formatUSD(b.total_usd_divisa)}` : ''}\n`;
       totalDeuda += b.total_usd;
     });
 
-    text += `\n*Total pendiente: $${totalDeuda.toFixed(2)}* (${budgets.results.length} presupuesto${budgets.results.length > 1 ? 's' : ''})`;
+    text += `\n*Total pendiente: ${formatUSD(totalDeuda)}* (${budgets.results.length} presupuesto${budgets.results.length > 1 ? 's' : ''})`;
 
     return text;
   } catch (error) {
@@ -523,7 +524,7 @@ export async function deleteBudget(db: D1Database | null, budgetId: string): Pro
     const budget = await db.prepare(`SELECT id, customer_name, total_usd FROM presupuestos WHERE id = ?`).bind(budgetId).first();
     if (!budget) return `❌ No encontré presupuesto #${budgetId}`;
     await db.prepare(`DELETE FROM presupuestos WHERE id = ?`).bind(budgetId).run();
-    return `🗑️ *Presupuesto #${budgetId} eliminado*\n${budget.customer_name ? `👤 ${budget.customer_name}\n` : ''}💵 $${budget.total_usd.toFixed(2)}`;
+    return `🗑️ *Presupuesto #${budgetId} eliminado*\n${budget.customer_name ? `👤 ${budget.customer_name}\n` : ''}💵 ${formatUSD(budget.total_usd)}`;
   } catch (error) {
     return `❌ Error: ${error}`;
   }
@@ -634,7 +635,7 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
           item.subtotalUSDDivisa = item.precioUSDDivisa * item.cantidad;
         }
 
-        mensaje = `✏️ Precio de *${item.nombre}* cambiado: $${oldPrice.toFixed(2)} → $${edicion.precio!.toFixed(2)}`;
+        mensaje = `✏️ Precio de *${item.nombre}* cambiado: ${formatUSD(oldPrice)} → ${formatUSD(edicion.precio!)}`;
         break;
       }
 
@@ -643,7 +644,7 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
           const item = items[0];
           item.precioUSDDivisa = edicion.precio!;
           item.subtotalUSDDivisa = edicion.precio! * item.cantidad;
-          mensaje = `✏️ Precio divisa de *${item.nombre}* cambiado a $${edicion.precio!.toFixed(2)}`;
+          mensaje = `✏️ Precio divisa de *${item.nombre}* cambiado a ${formatUSD(edicion.precio!)}`;
         } else {
           return `❓ Hay varios productos. Especifica cuál: "el precio del [producto] era $X"`;
         }
@@ -690,11 +691,11 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
           }
 
           if (modoPrecio === 'divisa') {
-            mensaje = `➕ *${item.nombre}*: ${oldQty} + ${cantidadAgregar} = ${item.cantidad}${item.unidad} x $${item.precioUSD.toFixed(2)} (DIV)`;
+            mensaje = `➕ *${item.nombre}*: ${oldQty} + ${cantidadAgregar} = ${item.cantidad}${item.unidad} x ${formatUSD(item.precioUSD)} (DIV)`;
           } else if (modoPrecio === 'dual') {
-            mensaje = `➕ *${item.nombre}*: ${oldQty} + ${cantidadAgregar} = ${item.cantidad}${item.unidad} x $${item.precioUSD.toFixed(2)} / DIV: $${item.precioUSDDivisa.toFixed(2)}`;
+            mensaje = `➕ *${item.nombre}*: ${oldQty} + ${cantidadAgregar} = ${item.cantidad}${item.unidad} x ${formatUSD(item.precioUSD)} / DIV: ${formatUSD(item.precioUSDDivisa)}`;
           } else {
-            mensaje = `➕ *${item.nombre}*: ${oldQty} + ${cantidadAgregar} = ${item.cantidad}${item.unidad} x $${item.precioUSD.toFixed(2)}`;
+            mensaje = `➕ *${item.nombre}*: ${oldQty} + ${cantidadAgregar} = ${item.cantidad}${item.unidad} x ${formatUSD(item.precioUSD)}`;
           }
           break;
         }
@@ -738,11 +739,11 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
         items.push(newItem);
 
         if (modoPrecio === 'divisa') {
-          mensaje = `➕ *${newItem.nombre}* agregado: ${cantidadAgregar}${newItem.unidad} x $${precioDivisa.toFixed(2)} (DIV)`;
+          mensaje = `➕ *${newItem.nombre}* agregado: ${cantidadAgregar}${newItem.unidad} x ${formatUSD(precioDivisa)} (DIV)`;
         } else if (modoPrecio === 'dual') {
-          mensaje = `➕ *${newItem.nombre}* agregado: ${cantidadAgregar}${newItem.unidad} x $${precioBCV.toFixed(2)} / DIV: $${precioDivisa.toFixed(2)}`;
+          mensaje = `➕ *${newItem.nombre}* agregado: ${cantidadAgregar}${newItem.unidad} x ${formatUSD(precioBCV)} / DIV: ${formatUSD(precioDivisa)}`;
         } else {
-          mensaje = `➕ *${newItem.nombre}* agregado: ${cantidadAgregar}${newItem.unidad} x $${precioBCV.toFixed(2)}`;
+          mensaje = `➕ *${newItem.nombre}* agregado: ${cantidadAgregar}${newItem.unidad} x ${formatUSD(precioBCV)}`;
         }
         break;
       }
@@ -829,14 +830,14 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
         `).bind(newTotalUSD, newTotalBs, budget.modo_precio === 'dual' ? newTotalDivisa : null, budgetId).run();
 
         if (nuevoDelivery > 0) {
-          mensaje = `🚗 Delivery actualizado: $${nuevoDelivery.toFixed(2)}`;
+          mensaje = `🚗 Delivery actualizado: ${formatUSD(nuevoDelivery)}`;
         } else {
           mensaje = `🚗 Delivery eliminado`;
         }
         mensaje += `\n\n📋 *Presupuesto #${budgetId}*`;
         if (budget.customer_name) mensaje += `\n👤 ${budget.customer_name}`;
-        mensaje += `\n💵 Total: $${newTotalUSD.toFixed(2)}`;
-        if (budget.modo_precio !== 'bcv') mensaje += ` / DIV: $${newTotalDivisa.toFixed(2)}`;
+        mensaje += `\n💵 Total: ${formatUSD(newTotalUSD)}`;
+        if (budget.modo_precio !== 'bcv') mensaje += ` / DIV: ${formatUSD(newTotalDivisa)}`;
 
         return mensaje;
       }
@@ -885,11 +886,11 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
           item.subtotalUSDDivisa = modoPrecio === 'dual' ? precioDivisa * item.cantidad : precioParaItem * item.cantidad;
 
           if (modoPrecio === 'divisa') {
-            mensaje = `🔄 *${oldName}* → *${newProduct.nombre}*\n💰 Precio: $${precioDivisa.toFixed(2)} (DIV)`;
+            mensaje = `🔄 *${oldName}* → *${newProduct.nombre}*\n💰 Precio: ${formatUSD(precioDivisa)} (DIV)`;
           } else if (modoPrecio === 'dual') {
-            mensaje = `🔄 *${oldName}* → *${newProduct.nombre}*\n💰 Precio: $${precioBCV.toFixed(2)} / DIV: $${precioDivisa.toFixed(2)}`;
+            mensaje = `🔄 *${oldName}* → *${newProduct.nombre}*\n💰 Precio: ${formatUSD(precioBCV)} / DIV: ${formatUSD(precioDivisa)}`;
           } else {
-            mensaje = `🔄 *${oldName}* → *${newProduct.nombre}*\n💰 Precio: $${precioBCV.toFixed(2)}`;
+            mensaje = `🔄 *${oldName}* → *${newProduct.nombre}*\n💰 Precio: ${formatUSD(precioBCV)}`;
           }
         } else {
           item.nombre = productoNuevo;
@@ -922,13 +923,13 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
     if (budget.customer_name) mensaje += `\n👤 ${budget.customer_name}`;
     const modoPrecioFinal = budget.modo_precio === 'divisas' ? 'divisa' : (budget.modo_precio || 'bcv');
     if (modoPrecioFinal === 'divisa') {
-      mensaje += `\n💵 Total: $${totalUSDDivisa.toFixed(2)} (DIV)`;
+      mensaje += `\n💵 Total: ${formatUSD(totalUSDDivisa)} (DIV)`;
     } else if (modoPrecioFinal === 'dual') {
-      mensaje += `\n💵 Total: $${totalUSD.toFixed(2)} / DIV: $${totalUSDDivisa.toFixed(2)}`;
+      mensaje += `\n💵 Total: ${formatUSD(totalUSD)} / DIV: ${formatUSD(totalUSDDivisa)}`;
     } else {
-      mensaje += `\n💵 Total: $${totalUSD.toFixed(2)}`;
+      mensaje += `\n💵 Total: ${formatUSD(totalUSD)}`;
     }
-    if (delivery > 0) mensaje += `\n🚗 (incl. delivery $${delivery.toFixed(2)})`;
+    if (delivery > 0) mensaje += `\n🚗 (incl. delivery ${formatUSD(delivery)})`;
 
     return mensaje;
   } catch (error) {
@@ -1283,11 +1284,11 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
     if (result.date) responseText += `📅 Fecha: ${result.date}\n`;
     responseText += `📊 Modo: ${pricingMode.toUpperCase()}${shouldHideBs ? ' (sin Bs)' : ''}\n`;
     presupuestoItems.forEach(item => {
-      responseText += `• ${item.nombre} x ${item.cantidad}: $${item.subtotalUSD.toFixed(2)}\n`;
+      responseText += `• ${item.nombre} x ${item.cantidad}: ${formatUSD(item.subtotalUSD)}\n`;
     });
-    if (result.delivery > 0) responseText += `• 🚗 Delivery: $${result.delivery.toFixed(2)}\n`;
-    responseText += `\n*Total: $${totalUSD.toFixed(2)}*`;
-    if (pricingMode === 'dual') responseText += ` / DIV: $${totalUSDDivisa.toFixed(2)}`;
+    if (result.delivery > 0) responseText += `• 🚗 Delivery: ${formatUSD(result.delivery)}\n`;
+    responseText += `\n*Total: ${formatUSD(totalUSD)}*`;
+    if (pricingMode === 'dual') responseText += ` / DIV: ${formatUSD(totalUSDDivisa)}`;
 
     console.log('[createBudgetFromText] Getting admin URL...');
     const adminUrl = await getAdminPresupuestoUrl(id, adminSecret, 'https://rpym.net');
@@ -1479,18 +1480,18 @@ export async function createCustomerPurchaseWithProducts(
     responseText += `📋 Presupuesto #${presupuestoId}\n\n`;
 
     presupuestoItems.forEach((item: any) => {
-      responseText += `• ${item.nombre} x ${item.cantidad}: $${item.subtotalUSD.toFixed(2)}`;
+      responseText += `• ${item.nombre} x ${item.cantidad}: ${formatUSD(item.subtotalUSD)}`;
       if (pricingMode === 'dual') {
-        responseText += ` / $${item.subtotalUSDDivisa.toFixed(2)}`;
+        responseText += ` / ${formatUSD(item.subtotalUSDDivisa)}`;
       }
       responseText += '\n';
     });
 
-    responseText += `\n💵 *Total: $${totalUSD.toFixed(2)}* (${curr})`;
+    responseText += `\n💵 *Total: ${formatUSD(totalUSD)}* (${curr})`;
     if (pricingMode === 'dual') {
-      responseText += ` / DIV: $${totalUSDDivisa.toFixed(2)}`;
+      responseText += ` / DIV: ${formatUSD(totalUSDDivisa)}`;
     }
-    responseText += `\n💼 Balance ${curr}: $${newBalance.toFixed(2)}`;
+    responseText += `\n💼 Balance ${curr}: ${formatUSD(newBalance)}`;
     const adminUrl = await getAdminPresupuestoUrl(presupuestoId, adminSecret, 'https://rpym.net');
     responseText += `\n\n🔗 ${adminUrl}`;
 

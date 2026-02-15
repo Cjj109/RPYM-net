@@ -3,6 +3,7 @@
  * Gestión de productos desde D1 database
  */
 import { useState, useEffect, useCallback } from 'react';
+import { formatUSD } from '../lib/format';
 
 interface Product {
   id: number;
@@ -299,7 +300,6 @@ export default function AdminProducts({ onProductsChange }: AdminProductsProps) 
     }
   };
 
-  const formatUSD = (amount: number) => `$${Number(amount).toFixed(2)}`;
 
   return (
     <div className="space-y-6">

@@ -3,6 +3,7 @@
  * Gestión de clientes y libro de cuentas desde D1 database
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { formatUSD, formatBs, formatEUR, formatQuantity, formatDateShort, formatDateDMY } from '../lib/format';
 
 interface Customer {
   id: number;
@@ -200,26 +201,8 @@ export default function AdminCustomers() {
 
   // ─── Helpers ───────────────────────────────────────────────────────
 
-  const formatUSD = (amount: number) => `$${Number(amount).toFixed(2)}`;
-
-  const formatEUR = (amount: number) => `€${Number(amount).toFixed(2)}`;
-
-  const formatBs = (amount: number) => `Bs ${Number(amount).toFixed(2)}`;
-
-  const formatDate = (dateStr: string) => {
-    // Parse date string directly to avoid timezone issues
-    // Input: "2025-01-31" or "2025-01-31T..."
-    const datePart = dateStr.split('T')[0];
-    const [year, month, day] = datePart.split('-');
-    return `${day}/${month}`;
-  };
-
-  const formatDateFull = (dateStr: string) => {
-    // Parse date string directly to avoid timezone issues
-    const datePart = dateStr.split('T')[0];
-    const [year, month, day] = datePart.split('-');
-    return `${day}/${month}/${year}`;
-  };
+  const formatDate = formatDateShort;
+  const formatDateFull = formatDateDMY;
 
   const todayStr = () => {
     const d = new Date();
@@ -1686,7 +1669,7 @@ export default function AdminCustomers() {
                         </div>
                       </td>
                       <td className="px-2 py-1 text-right font-medium text-ocean-800">
-                        ${item.subtotalUSD.toFixed(2)}
+                        {formatUSD(item.subtotalUSD)}
                       </td>
                       {aiProductAction.pricingMode === 'dual' && (
                         <>
@@ -1716,7 +1699,7 @@ export default function AdminCustomers() {
                             </div>
                           </td>
                           <td className="px-2 py-1 text-right font-medium text-amber-700">
-                            ${(item.subtotalUSDDivisa ?? item.subtotalUSD).toFixed(2)}
+                            {formatUSD((item.subtotalUSDDivisa ?? item.subtotalUSD))}
                           </td>
                         </>
                       )}
@@ -1727,11 +1710,11 @@ export default function AdminCustomers() {
                       <td className="px-2 py-1 text-amber-700 italic">Delivery</td>
                       <td className="px-2 py-1 text-center text-amber-600">-</td>
                       <td className="px-2 py-1 text-right text-amber-600">-</td>
-                      <td className="px-2 py-1 text-right font-medium text-amber-700">${aiProductAction.delivery.toFixed(2)}</td>
+                      <td className="px-2 py-1 text-right font-medium text-amber-700">{formatUSD(aiProductAction.delivery)}</td>
                       {aiProductAction.pricingMode === 'dual' && (
                         <>
                           <td className="px-2 py-1 text-right text-amber-600">-</td>
-                          <td className="px-2 py-1 text-right font-medium text-amber-700">${aiProductAction.delivery.toFixed(2)}</td>
+                          <td className="px-2 py-1 text-right font-medium text-amber-700">{formatUSD(aiProductAction.delivery)}</td>
                         </>
                       )}
                     </tr>
@@ -1744,7 +1727,7 @@ export default function AdminCustomers() {
             <div className="flex flex-wrap gap-3 text-sm mb-3">
               <div>
                 <span className="text-ocean-500">Total USD: </span>
-                <span className="font-bold text-ocean-800">${aiProductAction.totalUSD.toFixed(2)}</span>
+                <span className="font-bold text-ocean-800">{formatUSD(aiProductAction.totalUSD)}</span>
               </div>
               {aiProductAction.pricingMode !== 'divisas' && (
                 <div>
@@ -1755,7 +1738,7 @@ export default function AdminCustomers() {
               {aiProductAction.totalUSDDivisa && (
                 <div>
                   <span className="text-amber-500">USD Divisa: </span>
-                  <span className="font-bold text-amber-700">${aiProductAction.totalUSDDivisa.toFixed(2)}</span>
+                  <span className="font-bold text-amber-700">{formatUSD(aiProductAction.totalUSDDivisa)}</span>
                 </div>
               )}
             </div>
@@ -1817,9 +1800,9 @@ export default function AdminCustomers() {
                   {!action.customerId && (
                     <span className="text-xs text-amber-600 bg-amber-50 px-1 rounded">No encontrado</span>
                   )}
-                  <span className="text-ocean-600">${action.amountUsd.toFixed(2)}</span>
+                  <span className="text-ocean-600">{formatUSD(action.amountUsd)}</span>
                   {action.amountUsdDivisa != null && action.amountUsdDivisa > 0 && (
-                    <span className="text-xs text-amber-600">| Div: ${action.amountUsdDivisa.toFixed(2)}</span>
+                    <span className="text-xs text-amber-600">| Div: {formatUSD(action.amountUsdDivisa)}</span>
                   )}
                   <span className="text-ocean-400 text-xs">{action.description}</span>
                   {action.presupuestoId && (
@@ -2749,8 +2732,8 @@ export default function AdminCustomers() {
                       Presupuesto #{fetchedPresupuesto.id} encontrado
                     </p>
                     <p className="text-xs text-green-600 mt-1">
-                      {fetchedPresupuesto.items.length} productos &bull; Total: ${fetchedPresupuesto.totalUSD.toFixed(2)}
-                      {fetchedPresupuesto.isDual && ` | Divisas: $${fetchedPresupuesto.totalUSDDivisa!.toFixed(2)}`}
+                      {fetchedPresupuesto.items.length} productos &bull; Total: {formatUSD(fetchedPresupuesto.totalUSD)}
+                      {fetchedPresupuesto.isDual && ` | Divisas: ${formatUSD(fetchedPresupuesto.totalUSDDivisa!)}`}
                     </p>
                     {fetchedPresupuesto.customerName && (
                       <p className="text-xs text-green-600">Cliente: {fetchedPresupuesto.customerName}</p>
@@ -2768,7 +2751,7 @@ export default function AdminCustomers() {
                       <div className="mt-2 p-2 bg-purple-50 rounded border border-purple-200">
                         <p className="text-xs font-semibold text-purple-700">Presupuesto Dual detectado</p>
                         <p className="text-xs text-purple-600">
-                          BCV: ${fetchedPresupuesto.totalUSD.toFixed(2)} | Divisa: ${fetchedPresupuesto.totalUSDDivisa!.toFixed(2)}
+                          BCV: {formatUSD(fetchedPresupuesto.totalUSD)} | Divisa: {formatUSD(fetchedPresupuesto.totalUSDDivisa!)}
                         </p>
                         <p className="text-xs text-purple-500 mt-1">Se guardaran ambos montos en una transaccion</p>
                       </div>
@@ -2847,7 +2830,7 @@ export default function AdminCustomers() {
                               {newPresupuestoItems.map((item, idx) => (
                                 <div key={idx} className="flex items-center justify-between p-1.5 bg-white rounded border border-amber-100 text-xs">
                                   <span className="text-amber-900">
-                                    {item.nombre} - {item.cantidad}{item.unidad} @ ${item.precioUSD.toFixed(2)} = ${item.subtotalUSD.toFixed(2)}
+                                    {item.nombre} - {item.cantidad}{item.unidad} @ {formatUSD(item.precioUSD)} = {formatUSD(item.subtotalUSD)}
                                   </span>
                                   <button
                                     type="button"
@@ -2861,7 +2844,7 @@ export default function AdminCustomers() {
                             </div>
                             <div className="mt-2 pt-2 border-t border-amber-200 flex justify-between text-sm font-semibold text-amber-800">
                               <span>Total:</span>
-                              <span>${newPresupuestoItems.reduce((sum, i) => sum + i.subtotalUSD, 0).toFixed(2)}</span>
+                              <span>{formatUSD(newPresupuestoItems.reduce((sum, i) => sum + i.subtotalUSD, 0))}</span>
                             </div>
                           </div>
                         )}
@@ -3251,7 +3234,7 @@ export default function AdminCustomers() {
             <div className="bg-ocean-50 rounded-lg p-3">
               <p className="text-xs text-ocean-600">Compra a marcar:</p>
               <p className="text-sm font-medium text-ocean-900">{paidTx.description}</p>
-              <p className="text-sm font-bold text-coral-600">${paidTx.amountUsd.toFixed(2)}</p>
+              <p className="text-sm font-bold text-coral-600">{formatUSD(paidTx.amountUsd)}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-ocean-700 mb-1">Metodo de pago</label>
@@ -3319,11 +3302,6 @@ export default function AdminCustomers() {
     const isDual = p && (p.modoPrecio === 'dual' || (p.modoPrecio !== 'divisa' && p.totalUSDDivisa != null && Number(p.totalUSDDivisa) > 0));
     const isDivisasOnly = p && (p.modoPrecio === 'divisa' || ((Number(p.totalBs) === 0 || p.totalBs == null) && !isDual));
     const fechaStr = p ? new Date(p.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
-
-    const formatQty = (qty: number): string => {
-      const rounded = Math.round(qty * 1000) / 1000;
-      return rounded.toFixed(3).replace(/\.?0+$/, '');
-    };
 
     return (
       <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 overflow-y-auto">
@@ -3400,9 +3378,9 @@ export default function AdminCustomers() {
                       {p.items.map((item: any, i: number) => (
                         <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-ocean-50/30'}>
                           <td className="px-3 py-1.5 text-ocean-800">{item.nombre}</td>
-                          <td className="text-center px-2 py-1.5 text-ocean-600">{formatQty(item.cantidad)} {item.unidad}</td>
-                          <td className="text-right px-3 py-1.5 text-ocean-700">${item.precioUSD.toFixed(2)}</td>
-                          <td className="text-right px-3 py-1.5 font-semibold text-ocean-800">${item.subtotalUSD.toFixed(2)}</td>
+                          <td className="text-center px-2 py-1.5 text-ocean-600">{formatQuantity(item.cantidad)} {item.unidad}</td>
+                          <td className="text-right px-3 py-1.5 text-ocean-700">{formatUSD(item.precioUSD)}</td>
+                          <td className="text-right px-3 py-1.5 font-semibold text-ocean-800">{formatUSD(item.subtotalUSD)}</td>
                         </tr>
                       ))}
                       {/* Delivery row: usar p.delivery o diff si total > items */}
@@ -3418,7 +3396,7 @@ export default function AdminCustomers() {
                               <td className="px-3 py-1.5 text-amber-700 italic">Delivery</td>
                               <td className="text-center px-2 py-1.5 text-amber-600">-</td>
                               <td className="text-right px-3 py-1.5 text-amber-600">-</td>
-                              <td className="text-right px-3 py-1.5 font-semibold text-amber-700">${amount.toFixed(2)}</td>
+                              <td className="text-right px-3 py-1.5 font-semibold text-amber-700">{formatUSD(amount)}</td>
                             </tr>
                           );
                         }
@@ -3429,7 +3407,7 @@ export default function AdminCustomers() {
                 </div>
                 <div className="flex justify-between items-center mt-2 px-1">
                   <span className="text-sm font-semibold text-ocean-700">Total USD</span>
-                  <span className="text-lg font-bold text-ocean-900">${p.totalUSD.toFixed(2)}</span>
+                  <span className="text-lg font-bold text-ocean-900">{formatUSD(p.totalUSD)}</span>
                 </div>
                 {bcvRate > 0 && p.totalBs !== 0 && !isDivisasOnly && (
                   <div className="flex justify-between items-center px-1">
@@ -3460,9 +3438,9 @@ export default function AdminCustomers() {
                         {p.items.map((item: any, i: number) => (
                           <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-amber-50/30'}>
                             <td className="px-3 py-1.5 text-ocean-800">{item.nombre}</td>
-                            <td className="text-center px-2 py-1.5 text-ocean-600">{formatQty(item.cantidad)} {item.unidad}</td>
-                            <td className="text-right px-3 py-1.5 text-ocean-700">${(item.precioUSDDivisa ?? item.precioUSD).toFixed(2)}</td>
-                            <td className="text-right px-3 py-1.5 font-semibold text-ocean-800">${(item.subtotalUSDDivisa ?? item.subtotalUSD).toFixed(2)}</td>
+                            <td className="text-center px-2 py-1.5 text-ocean-600">{formatQuantity(item.cantidad)} {item.unidad}</td>
+                            <td className="text-right px-3 py-1.5 text-ocean-700">{formatUSD((item.precioUSDDivisa ?? item.precioUSD))}</td>
+                            <td className="text-right px-3 py-1.5 font-semibold text-ocean-800">{formatUSD((item.subtotalUSDDivisa ?? item.subtotalUSD))}</td>
                           </tr>
                         ))}
                         {/* Delivery row: usar p.delivery o diff si total > items */}
@@ -3480,7 +3458,7 @@ export default function AdminCustomers() {
                                 <td className="px-3 py-1.5 text-amber-700 italic">Delivery</td>
                                 <td className="text-center px-2 py-1.5 text-amber-600">-</td>
                                 <td className="text-right px-3 py-1.5 text-amber-600">-</td>
-                                <td className="text-right px-3 py-1.5 font-semibold text-amber-700">${amount.toFixed(2)}</td>
+                                <td className="text-right px-3 py-1.5 font-semibold text-amber-700">{formatUSD(amount)}</td>
                               </tr>
                             );
                           }
@@ -3491,7 +3469,7 @@ export default function AdminCustomers() {
                   </div>
                   <div className="flex justify-between items-center mt-2 px-1">
                     <span className="text-sm font-semibold text-amber-700">Total USD (Divisa)</span>
-                    <span className="text-lg font-bold text-amber-900">${p.totalUSDDivisa.toFixed(2)}</span>
+                    <span className="text-lg font-bold text-amber-900">{formatUSD(p.totalUSDDivisa)}</span>
                   </div>
                 </div>
               )}

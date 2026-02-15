@@ -4,6 +4,7 @@
 
 import type { D1Database } from '../../d1-types';
 import { getProducts, getBCVRate } from '../../sheets';
+import { formatUSD } from '../../format';
 
 export async function getProductsList(db: D1Database | null): Promise<string> {
   const bcvRate = await getBCVRate(db);
@@ -19,9 +20,9 @@ export async function getProductsList(db: D1Database | null): Promise<string> {
     prods.forEach(p => {
       const status = p.disponible ? '✅' : '❌';
       if (p.precioUSDDivisa && p.precioUSDDivisa !== p.precioUSD) {
-        text += `${status} ${p.nombre}: $${p.precioUSD.toFixed(2)}/${p.precioUSDDivisa.toFixed(2)}\n`;
+        text += `${status} ${p.nombre}: ${formatUSD(p.precioUSD)}/${p.precioUSDDivisa.toFixed(2)}\n`;
       } else {
-        text += `${status} ${p.nombre}: $${p.precioUSD.toFixed(2)}\n`;
+        text += `${status} ${p.nombre}: ${formatUSD(p.precioUSD)}\n`;
       }
     });
     text += '\n';
@@ -44,7 +45,7 @@ export async function updateProductPrice(
     } else {
       await db.prepare(`UPDATE products SET precio_usd = ? WHERE id = ?`).bind(priceBcv, product.id).run();
     }
-    return `✅ *${product.nombre}* actualizado a $${priceBcv.toFixed(2)}${priceDivisa ? `/$${priceDivisa.toFixed(2)}` : ''}`;
+    return `✅ *${product.nombre}* actualizado a ${formatUSD(priceBcv)}${priceDivisa ? `/${formatUSD(priceDivisa)}` : ''}`;
   } catch (error) {
     return `❌ Error: ${error}`;
   }
