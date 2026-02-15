@@ -704,7 +704,8 @@ export default function AdminCustomers() {
             let effectiveDollarAmount = item.dollarAmount && item.dollarAmount > 0 ? item.dollarAmount : null;
             let effectiveCustomPrice = item.customPrice;
 
-            if ((!item.quantity || item.quantity <= 0) && item.requestedName) {
+            // Detectar patrón "$X de" en requestedName → es dollarAmount
+            if (item.requestedName) {
               const m = item.requestedName.match(dollarDeRegex) || item.requestedName.match(dollarRegex);
               if (m) {
                 effectiveDollarAmount = parseFloat(m[1] || m[2]);
@@ -713,20 +714,17 @@ export default function AdminCustomers() {
             }
 
             const precio = effectiveCustomPrice || product?.precioUSD || 0;
+            // Si hay dollarAmount, SIEMPRE recalcular qty con precio real del catálogo
             let qty = item.quantity;
-            if ((!qty || qty <= 0) && effectiveDollarAmount && effectiveDollarAmount > 0 && precio > 0) {
+            if (effectiveDollarAmount && effectiveDollarAmount > 0 && precio > 0) {
               qty = Math.round((effectiveDollarAmount / precio) * 1000) / 1000;
             }
-            // Si hay dollarAmount, el subtotal es exactamente ese monto
-            const subtotal = effectiveDollarAmount && effectiveDollarAmount > 0
-              ? effectiveDollarAmount
-              : Math.round(precio * qty * 100) / 100;
             items.push({
               nombre: item.productName || item.requestedName,
               cantidad: qty,
               unidad: item.unit || product?.unidad || 'kg',
               precioUSD: precio,
-              subtotalUSD: subtotal,
+              subtotalUSD: Math.round(precio * qty * 100) / 100,
             });
           } else if (!item.matched && item.suggestedName && item.customPrice) {
             // Producto personalizado (no en catálogo pero con nombre y precio)

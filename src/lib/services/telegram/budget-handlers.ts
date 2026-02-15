@@ -437,28 +437,21 @@ INSTRUCCIONES:
       const product = products.find(p => String(p.id) === String(item.productId));
       if (!product || product.precioUSD <= 0) return item;
 
-      // Si quantity ya está bien (> 0), no tocar
-      if (item.quantity && item.quantity > 0) return item;
-
-      // quantity es 0 o vacío — intentar calcular del dollarAmount o requestedName
+      // Determinar dollarAmount: del campo AI, o extraer del requestedName
       let dollarAmount = item.dollarAmount && item.dollarAmount > 0 ? item.dollarAmount : null;
 
-      // Si no hay dollarAmount, intentar extraerlo del requestedName
       if (!dollarAmount && item.requestedName) {
         const m = item.requestedName.match(dollarDeRegex) || item.requestedName.match(dollarAmountRegex);
-        if (m) {
-          dollarAmount = parseFloat(m[1] || m[2] || m[3]);
-        }
+        if (m) dollarAmount = parseFloat(m[1] || m[2] || m[3]);
       }
 
-      // Si no hay dollarAmount, intentar usar customPrice como dollarAmount (confusión de Gemini)
       if (!dollarAmount && item.customPrice && item.customPrice > 0 && item.requestedName) {
         const m = item.requestedName.match(dollarDeRegex) || item.requestedName.match(dollarAmountRegex);
-        if (m) {
-          dollarAmount = parseFloat(m[1] || m[2] || m[3]);
-        }
+        if (m) dollarAmount = parseFloat(m[1] || m[2] || m[3]);
       }
 
+      // Si hay dollarAmount, SIEMPRE recalcular qty con precio real del catálogo
+      // (Gemini puede haber usado un precio incorrecto)
       if (dollarAmount && dollarAmount > 0) {
         const calculatedQty = Math.round((dollarAmount / product.precioUSD) * 1000) / 1000;
         return { ...item, quantity: calculatedQty, dollarAmount, customPrice: null };
@@ -1184,9 +1177,8 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
         const precioMain = pricingMode === 'divisa' ? precioDivisa : precioBCV;
 
         // Si hay dollarAmount, el subtotal ES el dollarAmount (lo que pidió el cliente)
-        const hasDollarAmount = item.dollarAmount && item.dollarAmount > 0;
-        const subtotalMain = hasDollarAmount ? item.dollarAmount : precioMain * item.quantity;
-        const subtotalDivisa = hasDollarAmount ? item.dollarAmount : precioDivisa * item.quantity;
+        const subtotalMain = precioMain * item.quantity;
+        const subtotalDivisa = precioDivisa * item.quantity;
 
         presupuestoItems.push({
           nombre: product.nombre, cantidad: item.quantity, unidad: item.unit || product.unidad,

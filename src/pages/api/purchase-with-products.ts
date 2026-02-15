@@ -258,11 +258,12 @@ Responde SOLO con un JSON valido:
           let effectiveDollarAmount = item.dollarAmount && item.dollarAmount > 0 ? item.dollarAmount : null;
           let effectiveCustomPrice = item.customPrice;
 
-          if ((!item.quantity || item.quantity <= 0) && item.requestedName) {
+          // Detectar patrón "$X de" en requestedName → es dollarAmount
+          if (item.requestedName) {
             const m = item.requestedName.match(dollarDeRegex) || item.requestedName.match(dollarAmountRegex);
             if (m) {
               effectiveDollarAmount = parseFloat(m[1] || m[2] || m[3]);
-              effectiveCustomPrice = null; // No es precio personalizado
+              effectiveCustomPrice = null;
             }
           }
 
@@ -270,26 +271,24 @@ Responde SOLO con un JSON valido:
           const precioDivisa = item.customPriceDivisa || product.precioUSDDivisa || precioBcv;
           const precioMain = pricingMode === 'divisas' ? precioDivisa : precioBcv;
 
-          // Calcular quantity si es 0 y hay dollarAmount
+          // Si hay dollarAmount, SIEMPRE recalcular qty con precio real del catálogo
           let qty = item.quantity;
-          if (effectiveDollarAmount && effectiveDollarAmount > 0 && (!qty || qty <= 0) && precioMain > 0) {
+          if (effectiveDollarAmount && effectiveDollarAmount > 0 && precioMain > 0) {
             qty = Math.round((effectiveDollarAmount / precioMain) * 1000) / 1000;
           }
 
-          // Si hay dollarAmount, el subtotal es exactamente ese monto
-          const hasDollarAmount = effectiveDollarAmount && effectiveDollarAmount > 0;
           const itemData: any = {
             nombre: item.productName || product.nombre,
             cantidad: qty,
             unidad: item.unit || product.unidad,
             precioUSD: precioMain,
-            subtotalUSD: hasDollarAmount ? effectiveDollarAmount : Math.round(precioMain * qty * 100) / 100,
+            subtotalUSD: Math.round(precioMain * qty * 100) / 100,
           };
 
           // Only add divisa prices for dual mode
           if (pricingMode === 'dual') {
             itemData.precioUSDDivisa = precioDivisa;
-            itemData.subtotalUSDDivisa = hasDollarAmount ? effectiveDollarAmount : Math.round(precioDivisa * qty * 100) / 100;
+            itemData.subtotalUSDDivisa = Math.round(precioDivisa * qty * 100) / 100;
           }
 
           presupuestoItems.push(itemData);

@@ -434,17 +434,12 @@ INSTRUCCIONES:
       const product = products.find((p: any) => String(p.id) === String(item.productId));
       if (!product || product.precioUSD <= 0) return item;
 
-      // Si quantity ya está bien (> 0), no tocar
-      if (item.quantity && item.quantity > 0) return item;
-
-      // quantity es 0 o vacío — intentar calcular del dollarAmount o requestedName
+      // Determinar dollarAmount: del campo AI, o extraer del requestedName
       let dollarAmount = item.dollarAmount && item.dollarAmount > 0 ? item.dollarAmount : null;
 
       if (!dollarAmount && item.requestedName) {
         const m = item.requestedName.match(dollarDeRegex) || item.requestedName.match(dollarAmountRegex);
-        if (m) {
-          dollarAmount = parseFloat(m[1] || m[2] || m[3]);
-        }
+        if (m) dollarAmount = parseFloat(m[1] || m[2] || m[3]);
       }
 
       if (!dollarAmount && item.customPrice && item.customPrice > 0 && item.requestedName) {
