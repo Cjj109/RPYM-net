@@ -104,6 +104,8 @@ export default function AdminCustomers() {
     unidad: string;
     precioUSD: number;
     subtotalUSD: number;
+    precioUSDDivisa?: number;
+    subtotalUSDDivisa?: number;
   }>>([]);
   const [presupuestoTextInput, setPresupuestoTextInput] = useState('');
   const [isParsingNewPresupuesto, setIsParsingNewPresupuesto] = useState(false);
@@ -729,9 +731,17 @@ export default function AdminCustomers() {
             }
 
             const precio = effectiveCustomPrice || product?.precioUSD || 0;
+            const precioDivisa = item.customPriceDivisa || product?.precioUSDDivisa || precio;
             let qty = item.quantity;
             if (effectiveDollarAmount && effectiveDollarAmount > 0 && precio > 0) {
               qty = Math.round((effectiveDollarAmount / precio) * 1000) / 1000;
+            }
+            // Divisa subtotal: si hay dollarAmount, ambos lados = dollarAmount
+            let subtotalDivisa: number;
+            if (effectiveDollarAmount && effectiveDollarAmount > 0) {
+              subtotalDivisa = effectiveDollarAmount;
+            } else {
+              subtotalDivisa = Math.round(precioDivisa * qty * 100) / 100;
             }
             items.push({
               nombre: item.productName || item.requestedName,
@@ -739,15 +749,20 @@ export default function AdminCustomers() {
               unidad: item.unit || product?.unidad || 'kg',
               precioUSD: precio,
               subtotalUSD: Math.round(precio * qty * 100) / 100,
+              precioUSDDivisa: precioDivisa,
+              subtotalUSDDivisa: subtotalDivisa,
             });
           } else if (!item.matched && item.suggestedName && item.customPrice) {
             // Producto personalizado (no en catálogo pero con nombre y precio)
+            const cpDiv = item.customPriceDivisa || item.customPrice;
             items.push({
               nombre: item.suggestedName,
               cantidad: item.quantity,
               unidad: item.unit || 'kg',
               precioUSD: item.customPrice,
               subtotalUSD: Math.round(item.customPrice * item.quantity * 100) / 100,
+              precioUSDDivisa: cpDiv,
+              subtotalUSDDivisa: Math.round(cpDiv * item.quantity * 100) / 100,
             });
           }
         });

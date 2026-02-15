@@ -95,7 +95,8 @@ async function parseOrderDirect(
   text: string,
   products: ProductInfo[],
   customers: { id: number; name: string }[],
-  apiKey: string
+  apiKey: string,
+  externalMode?: string
 ): Promise<ParseOrderResult> {
   if (!text || !products || products.length === 0) {
     return { success: false, items: [], unmatched: [], error: 'Texto o productos no proporcionados' };
@@ -467,7 +468,7 @@ INSTRUCCIONES:
 
       // Si hay dollarAmount, SIEMPRE recalcular qty con precio según modo
       if (dollarAmount && dollarAmount > 0) {
-        const rawMode = parsedResult.pricingMode || 'bcv';
+        const rawMode = parsedResult.pricingMode || externalMode || 'bcv';
         const effectiveMode = rawMode === 'divisas' ? 'divisa' : rawMode;
         const priceForCalc = effectiveMode === 'divisa'
           ? (product.precioUSDDivisa || product.precioUSD)
@@ -1158,7 +1159,7 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
 
     // Llamada directa a Gemini (evita subrequest HTTP que falla en CF Workers)
     console.log('[createBudgetFromText] Calling parseOrderDirect...');
-    const result = await parseOrderDirect(text, productList, customers?.results || [], apiKey);
+    const result = await parseOrderDirect(text, productList, customers?.results || [], apiKey, mode);
     console.log('[createBudgetFromText] parseOrderDirect done, success:', result.success, 'customerName:', result.customerName);
 
     if (!result.success || !result.items?.length) {
@@ -1423,7 +1424,7 @@ export async function createCustomerPurchaseWithProducts(
       precioUSD: p.precioUSD,
       precioUSDDivisa: p.precioUSDDivisa
     }));
-    const result = await parseOrderDirect(text, productList, [], apiKey);
+    const result = await parseOrderDirect(text, productList, [], apiKey, mode);
     console.log('[Telegram] parse-order result:', JSON.stringify(result).substring(0, 500));
 
     if (!result.success || !result.items?.length) {
