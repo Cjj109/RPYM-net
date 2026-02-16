@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import type { Product, Category, BCVRate } from '../lib/sheets';
 import ChefJose from './ChefJose';
-import { formatUSD, formatBs, formatQuantity, getCurrentDateDisplay } from '../lib/format';
+import { formatUSD, formatBs, formatQuantity } from '../lib/format';
 
 interface Props {
   categories: Category[];
@@ -53,11 +53,6 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
   const [parseResult, setParseResult] = useState<ParseResponse | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [corrections, setCorrections] = useState(''); // Para aclaraciones del usuario
-
-  // Estado para la nota de entrega
-  const [showDeliveryNote, setShowDeliveryNote] = useState(false);
-  const [customerName, setCustomerName] = useState('');
-  const [customerAddress, setCustomerAddress] = useState('');
 
   // Calcular totales
   const totals = useMemo(() => {
@@ -346,132 +341,6 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
     }
   };
 
-  // Imprimir nota de entrega en ventana nueva
-  const printDeliveryNote = () => {
-    const content = document.getElementById('delivery-note-content');
-    if (!content) return;
-
-    const printWindow = window.open('', '_blank', 'width=800,height=600');
-    if (!printWindow) return;
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Presupuesto RPYM</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            padding: 0.5cm;
-            background: white;
-            color: #0c4a6e;
-            font-size: 11px;
-          }
-          .border-2 { border: 1.5px solid #075985; }
-          .border { border: 1px solid #7dd3fc; }
-          .border-r { border-right: 1px solid #7dd3fc; }
-          .border-r-2 { border-right: 1.5px solid #075985; }
-          .border-b { border-bottom: 1px solid #7dd3fc; }
-          .border-b-2 { border-bottom: 1.5px solid #075985; }
-          .border-t-2 { border-top: 1.5px solid #075985; }
-          .bg-ocean-100 { background: #e0f2fe; }
-          .bg-ocean-50 { background: #f0f9ff; }
-          .text-ocean-900 { color: #0c4a6e; }
-          .text-ocean-700 { color: #0369a1; }
-          .text-ocean-600 { color: #0284c7; }
-          .text-ocean-500 { color: #0ea5e9; }
-          .text-coral-600 { color: #ea580c; }
-          .flex { display: flex; }
-          .flex-1 { flex: 1; }
-          .items-center { align-items: center; }
-          .justify-between { justify-content: space-between; }
-          .gap-3 { gap: 0.5rem; }
-          .gap-4 { gap: 0.5rem; }
-          .p-3 { padding: 0.4rem; }
-          .p-4 { padding: 0.5rem; }
-          .mb-2 { margin-bottom: 0.3rem; }
-          .mb-4 { margin-bottom: 0.5rem; }
-          .mt-6 { margin-top: 0.8rem; }
-          .mt-8 { margin-top: 1rem; }
-          .pt-2 { padding-top: 0.3rem; }
-          .pt-4 { padding-top: 0.5rem; }
-          .pb-1 { padding-bottom: 0.15rem; }
-          .px-3 { padding-left: 0.4rem; padding-right: 0.4rem; }
-          .py-1 { padding-top: 0.15rem; padding-bottom: 0.15rem; }
-          .py-2 { padding-top: 0.3rem; padding-bottom: 0.3rem; }
-          .mx-8 { margin-left: 1rem; margin-right: 1rem; }
-          .w-12 { width: 2.5rem; }
-          .h-12 { height: 2.5rem; }
-          .w-48 { width: 9rem; }
-          .w-20 { width: 4rem; }
-          .w-24 { width: 5rem; }
-          .rounded-full { border-radius: 9999px; }
-          .text-center { text-align: center; }
-          .text-right { text-align: right; }
-          .text-left { text-align: left; }
-          .text-xl { font-size: 1rem; }
-          .text-lg { font-size: 0.9rem; }
-          .text-sm { font-size: 0.75rem; }
-          .text-xs { font-size: 0.65rem; }
-          .text-2xl { font-size: 1.1rem; }
-          .font-bold { font-weight: 700; }
-          .font-semibold { font-weight: 600; }
-          .font-medium { font-weight: 500; }
-          .font-mono { font-family: monospace; }
-          .space-y-0\\.5 > * + * { margin-top: 0.1rem; }
-          .space-y-2 > * + * { margin-top: 0.3rem; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { padding: 0.25rem 0.4rem; font-size: 0.7rem; }
-          .grid { display: grid; }
-          .grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
-          .col-span-2 { grid-column: span 2; }
-          input { border: none; background: transparent; width: 100%; padding: 0.15rem 0; font-size: 0.75rem; }
-          /* Estilos para aviso no fiscal */
-          .bg-amber-50 { background: #fffbeb; }
-          .border-amber-200 { border-color: #fde68a; }
-          .text-amber-700 { color: #b45309; }
-          .rounded { border-radius: 0.25rem; }
-          .p-2 { padding: 0.3rem; }
-          .mt-4 { margin-top: 0.5rem; }
-          .mt-3 { margin-top: 0.4rem; }
-          .pt-3 { padding-top: 0.4rem; }
-          /* Ocultar filas vacías en impresión para ahorrar espacio */
-          tr:has(td:first-child:empty) { display: none; }
-          @media print {
-            body { padding: 0; }
-            @page { size: A4; margin: 0.5cm; }
-          }
-        </style>
-      </head>
-      <body>
-        ${content.innerHTML}
-      </body>
-      </html>
-    `);
-
-    printWindow.document.close();
-    printWindow.focus();
-
-    // Esperar a que cargue y luego imprimir
-    setTimeout(() => {
-      printWindow.print();
-    }, 250);
-  };
-
-  // Mostrar presupuesto y guardarlo automáticamente
-  const handleShowDeliveryNote = () => {
-    // Mostrar el presupuesto inmediatamente (ya no guardamos en BD - es solo para referencia del cliente)
-    setShowDeliveryNote(true);
-  };
-
-  // Generar número de nota (formato timestamp - no se guarda en BD)
-  const getDeliveryNoteNumber = () => {
-    const now = new Date();
-    return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
-  };
-
-  const getCurrentDate = getCurrentDateDisplay;
 
   return (
     <div className="space-y-4">
@@ -1076,17 +945,6 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                   </button>
 
                   <button
-                    onClick={handleShowDeliveryNote}
-                    className="w-full mt-2 py-2.5 border border-ocean-200 text-ocean-700 hover:bg-ocean-50
-                      rounded-xl transition-colors flex items-center justify-center gap-2 text-sm font-medium"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Ver Presupuesto
-                  </button>
-
-                  <button
                     onClick={clearSelection}
                     className="w-full mt-2 py-2 text-ocean-600 hover:text-ocean-800 text-sm transition-colors"
                   >
@@ -1241,229 +1099,11 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                   Enviar Pedido por WhatsApp
                 </button>
 
-                <button
-                  onClick={handleShowDeliveryNote}
-                  className="w-full mt-2 py-3 border border-ocean-200 text-ocean-700 hover:bg-ocean-50
-                    rounded-xl transition-colors flex items-center justify-center gap-2 text-sm font-medium"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Ver Presupuesto
-                </button>
-
                 <p className="text-xs text-ocean-600 mt-3 text-center">
                   Tasa BCV: Bs. {bcvRate.rate.toFixed(2)} / USD
                 </p>
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Presupuesto */}
-      {showDeliveryNote && (
-        <div className="fixed inset-0 z-[100] overflow-auto print-container">
-          {/* Overlay - se oculta al imprimir */}
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm no-print"
-            onClick={() => setShowDeliveryNote(false)}
-          />
-
-          {/* Contenedor del modal */}
-          <div className="min-h-screen flex items-center justify-center p-4 no-print-wrapper">
-            <div className="relative bg-white w-full max-w-2xl rounded-lg shadow-2xl">
-              {/* Botones de control - se ocultan al imprimir */}
-              <div className="flex items-center justify-between p-4 border-b border-ocean-200 no-print">
-                <h3 className="text-lg font-semibold text-ocean-900">Vista previa de Presupuesto</h3>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={printDeliveryNote}
-                    className="px-4 py-2 bg-ocean-600 hover:bg-ocean-700 text-white rounded-lg font-medium
-                      flex items-center gap-2 transition-colors"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                    </svg>
-                    Imprimir
-                  </button>
-                  <button
-                    onClick={() => setShowDeliveryNote(false)}
-                    className="p-2 text-ocean-600 hover:text-ocean-800 hover:bg-ocean-50 rounded-lg transition-colors"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              {/* Contenido de la nota de entrega */}
-              <div className="p-6 print:p-8" id="delivery-note-content">
-                {/* Header de la nota */}
-                <div className="border-2 border-ocean-800 mb-4">
-                  <div className="flex">
-                    {/* Logo y nombre del negocio */}
-                    <div className="flex-1 p-4 border-r-2 border-ocean-800">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="flex-shrink-0 bg-white" style={{width:'48px',height:'48px',borderRadius:'50%',border:'2px solid #7dd3fc',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                          <img src="/camaronlogo-sm.webp" alt="RPYM" style={{width:'67px',height:'67px',objectFit:'contain'}} />
-                        </div>
-                        <h1 className="text-xl font-bold text-ocean-900">RPYM</h1>
-                      </div>
-                      <div className="text-xs text-ocean-700 space-y-0.5">
-                        <p><a href="https://www.google.com/maps/search/?api=1&query=Mercado+El+Mosquero%2C+Maiquet%C3%ADa" target="_blank" rel="noopener noreferrer" className="underline hover:text-ocean-900">Muelle Pesquero "El Mosquero"</a></p>
-                        <p>Puesto 3 y 4, Maiquetía</p>
-                        <p>WhatsApp: +58 414-214-5202</p>
-                      </div>
-                    </div>
-                    {/* Nota de Entrega número y fecha */}
-                    <div className="w-48 p-4 flex flex-col justify-between">
-                      <div>
-                        <h2 className="text-center font-bold text-ocean-900 text-lg border-b border-ocean-300 pb-1 mb-2">
-                          PRESUPUESTO
-                        </h2>
-                        <p className="text-xs text-ocean-600">
-                          Nº: <span className="font-mono font-medium text-ocean-900">{getDeliveryNoteNumber()}</span>
-                        </p>
-                      </div>
-                      <p className="text-xs text-ocean-600">
-                        Fecha: <span className="font-medium text-ocean-900">{getCurrentDate()}</span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Datos del cliente - Campos editables solo en pantalla */}
-                <div className="border-2 border-ocean-800 mb-4 p-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="col-span-2">
-                      <label className="text-xs font-medium text-ocean-600">Cliente:</label>
-                      <input
-                        type="text"
-                        value={customerName}
-                        onChange={(e) => setCustomerName(e.target.value)}
-                        placeholder="Nombre del cliente"
-                        className="w-full border-b border-ocean-300 py-1 text-sm text-ocean-900
-                          focus:outline-none focus:border-ocean-600 bg-transparent print:border-none"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="text-xs font-medium text-ocean-600">Dirección:</label>
-                      <input
-                        type="text"
-                        value={customerAddress}
-                        onChange={(e) => setCustomerAddress(e.target.value)}
-                        placeholder="Dirección de entrega"
-                        className="w-full border-b border-ocean-300 py-1 text-sm text-ocean-900
-                          focus:outline-none focus:border-ocean-600 bg-transparent print:border-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Tabla de productos */}
-                <div className="border-2 border-ocean-800 mb-4">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-ocean-100">
-                        <th className="border-b-2 border-r border-ocean-800 px-3 py-2 text-left font-semibold text-ocean-900 w-20">
-                          CANT.
-                        </th>
-                        <th className="border-b-2 border-r border-ocean-800 px-3 py-2 text-left font-semibold text-ocean-900">
-                          CONCEPTO / REFERENCIA
-                        </th>
-                        <th className="border-b-2 border-r border-ocean-800 px-3 py-2 text-right font-semibold text-ocean-900 w-24">
-                          PRECIO
-                        </th>
-                        <th className="border-b-2 border-ocean-800 px-3 py-2 text-right font-semibold text-ocean-900 w-24">
-                          TOTAL
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Array.from(selectedItems.values()).map(({ product, quantity }, index) => (
-                        <tr key={product.id} className={index % 2 === 0 ? 'bg-white' : 'bg-ocean-50/50'}>
-                          <td className="border-r border-ocean-300 px-3 py-2 text-ocean-900">
-                            {formatQuantity(quantity)} {product.unidad}
-                          </td>
-                          <td className="border-r border-ocean-300 px-3 py-2 text-ocean-900">
-                            {product.nombre}
-                          </td>
-                          <td className="border-r border-ocean-300 px-3 py-2 text-right text-ocean-900">
-                            {formatUSD(product.precioUSD)}
-                          </td>
-                          <td className="px-3 py-2 text-right font-medium text-ocean-900">
-                            {formatUSD(product.precioUSD * quantity)}
-                          </td>
-                        </tr>
-                      ))}
-                      {/* Filas vacías para completar la nota */}
-                      {Array.from({ length: Math.max(0, 8 - selectedItems.size) }).map((_, i) => (
-                        <tr key={`empty-${i}`} className={((selectedItems.size + i) % 2 === 0) ? 'bg-white' : 'bg-ocean-50/50'}>
-                          <td className="border-r border-ocean-300 px-3 py-2">&nbsp;</td>
-                          <td className="border-r border-ocean-300 px-3 py-2"></td>
-                          <td className="border-r border-ocean-300 px-3 py-2"></td>
-                          <td className="px-3 py-2"></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Totales */}
-                <div className="border-2 border-ocean-800 mb-4">
-                  <div className="flex">
-                    <div className="flex-1 p-3 border-r-2 border-ocean-800">
-                      <p className="text-xs font-medium text-ocean-600 mb-1">OBSERVACIONES:</p>
-                      <p className="text-xs text-ocean-700">
-                        Tasa BCV del día: Bs. {bcvRate.rate.toFixed(2)} por USD
-                      </p>
-                    </div>
-                    <div className="w-48 p-3">
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-ocean-600">Total USD:</span>
-                          <span className="font-bold text-ocean-900">{formatUSD(totals.usd)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm border-t border-ocean-300 pt-2">
-                          <span className="text-ocean-600">Total Bs.:</span>
-                          <span className="font-bold text-coral-600">{formatBs(totals.bs)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Firmas */}
-                <div className="grid grid-cols-2 gap-4 mt-8">
-                  <div className="text-center">
-                    <div className="border-t-2 border-ocean-800 pt-2 mx-8">
-                      <p className="text-xs font-medium text-ocean-700">CONFORME CLIENTE</p>
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="border-t-2 border-ocean-800 pt-2 mx-8">
-                      <p className="text-xs font-medium text-ocean-700">ENTREGADO POR</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Aviso no fiscal */}
-                <div className="mt-4 p-2 bg-amber-50 border border-amber-200 rounded text-center">
-                  <p className="text-xs text-amber-700 font-medium">
-                    Este documento no tiene validez fiscal - Solo para referencia
-                  </p>
-                </div>
-
-                {/* Footer */}
-                <div className="mt-3 pt-3 border-t border-ocean-200 text-center">
-                  <p className="text-xs text-ocean-500">
-                    www.rpym.net • WhatsApp: +58 414-214-5202
-                  </p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       )}
