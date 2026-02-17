@@ -37,6 +37,7 @@ interface CustomerTransaction {
   exchangeRate: number | null;
   notes: string | null;
   isPaid: boolean;
+  isCrossed: boolean;
   paidMethod: string | null;
   paidDate: string | null;
   createdAt: string;
@@ -1038,6 +1039,25 @@ export default function AdminCustomers() {
         const custData = await custRes.json();
         if (custData.success) setSelectedCustomer(custData.customer);
         loadCustomers(searchTerm || undefined);
+      }
+    } catch {
+      alert('Error de conexion');
+    }
+  };
+
+  const handleToggleCrossed = async (tx: CustomerTransaction) => {
+    if (!selectedCustomer) return;
+    try {
+      const response = await fetch(`/api/customers/${selectedCustomer.id}/transactions/${tx.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toggleCrossed: true }),
+        credentials: 'include'
+      });
+      const data = await response.json();
+      if (data.success) {
+        loadTransactions(selectedCustomer.id);
+        setShowTxDetailModal(false);
       }
     } catch {
       alert('Error de conexion');
@@ -2243,6 +2263,9 @@ export default function AdminCustomers() {
                               }
                             </span>
                           )}
+                          {tx.type === 'purchase' && tx.isCrossed && !tx.isPaid && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-ocean-100 text-ocean-600">Rayado</span>
+                          )}
                           {tx.invoiceImageUrl && (
                             <svg className="w-3.5 h-3.5 text-ocean-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -2250,7 +2273,7 @@ export default function AdminCustomers() {
                             </svg>
                           )}
                         </div>
-                        <p className="text-sm text-ocean-800 truncate">{tx.description}</p>
+                        <p className={`text-sm truncate ${(tx.isPaid || tx.isCrossed) ? 'text-ocean-400 line-through' : 'text-ocean-800'}`}>{tx.description}</p>
                         {tx.presupuestoId && (
                           <div className="flex items-center gap-1 mt-0.5">
                             <button
@@ -2286,11 +2309,11 @@ export default function AdminCustomers() {
                           return (
                             <>
                               {showAmt > 0 && (
-                                <p className={`text-sm font-semibold ${tx.type === 'purchase' ? (tx.isPaid ? 'text-ocean-400 line-through' : 'text-red-600') : 'text-green-600'}`}>
+                                <p className={`text-sm font-semibold ${tx.type === 'purchase' ? ((tx.isPaid || tx.isCrossed) ? 'text-ocean-400 line-through' : 'text-red-600') : 'text-green-600'}`}>
                                   {tx.type === 'purchase' ? '+' : '-'}{formatUSD(showAmt)}
                                 </p>
                               )}
-                              {isDualTx && !tx.isPaid && (
+                              {isDualTx && !tx.isPaid && !tx.isCrossed && (
                                 <p className="text-[10px] text-ocean-400 mt-0.5">
                                   {dualView === 'divisas' ? 'Precio divisa' : 'Precio BCV'}
                                 </p>
@@ -2299,7 +2322,7 @@ export default function AdminCustomers() {
                           );
                         })()}
                         {bcvRate > 0 && tx.currencyType !== 'divisas' && !(dualView === 'divisas' && tx.amountUsdDivisa != null && tx.amountUsdDivisa > 0) && (
-                          <p className={`text-xs ${tx.type === 'purchase' ? (tx.isPaid ? 'text-ocean-400 line-through' : 'text-red-500') : 'text-green-500'}`}>
+                          <p className={`text-xs ${tx.type === 'purchase' ? ((tx.isPaid || tx.isCrossed) ? 'text-ocean-400 line-through' : 'text-red-500') : 'text-green-500'}`}>
                             {tx.type === 'purchase' ? '+' : '-'}{formatBs(tx.amountUsd * bcvRate)}
                             <span className="text-ocean-400 ml-1">@{bcvRate.toFixed(2)}</span>
                           </p>
@@ -3128,6 +3151,21 @@ export default function AdminCustomers() {
               Eliminar
             </button>
             <div className="flex items-center gap-2">
+              {detailTx.type === 'purchase' && !detailTx.isPaid && (
+                <button
+                  onClick={() => handleToggleCrossed(detailTx)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 ${
+                    detailTx.isCrossed
+                      ? 'bg-ocean-100 text-ocean-700 hover:bg-ocean-200'
+                      : 'bg-ocean-50 text-ocean-600 hover:bg-ocean-100'
+                  }`}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  {detailTx.isCrossed ? 'Desrayar' : 'Rayar'}
+                </button>
+              )}
               {detailTx.type === 'purchase' && !detailTx.isPaid && (
                 <button
                   onClick={() => {

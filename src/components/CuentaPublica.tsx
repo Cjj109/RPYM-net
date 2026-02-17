@@ -19,6 +19,7 @@ interface PublicTransaction {
   exchangeRate: number | null;
   amountUsdDivisa: number | null;
   isPaid: boolean;
+  isCrossed: boolean;
   paidMethod: string | null;
   paidDate: string | null;
   notes: string | null;
@@ -604,18 +605,18 @@ export default function CuentaPublica() {
                       const showingDivisa = dualView === 'divisas' && isDual;
 
                       return (
-                        <div key={tx.id} className={`px-4 py-3 flex items-start gap-3 ${tx.isPaid ? 'opacity-50' : ''}`}>
+                        <div key={tx.id} className={`px-4 py-3 flex items-start gap-3 ${(tx.isPaid || tx.isCrossed) ? 'opacity-50' : ''}`}>
                           {/* Icon */}
                           <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                            tx.isPaid ? 'bg-ocean-50' :
+                            (tx.isPaid || tx.isCrossed) ? 'bg-ocean-50' :
                             tx.type === 'purchase' ? 'bg-red-50' : 'bg-green-50'
                           }`}>
                             {tx.type === 'purchase' ? (
-                              <svg className={`w-4 h-4 ${tx.isPaid ? 'text-ocean-300' : 'text-red-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className={`w-4 h-4 ${(tx.isPaid || tx.isCrossed) ? 'text-ocean-300' : 'text-red-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                               </svg>
                             ) : (
-                              <svg className={`w-4 h-4 ${tx.isPaid ? 'text-ocean-300' : 'text-green-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className={`w-4 h-4 ${(tx.isPaid || tx.isCrossed) ? 'text-ocean-300' : 'text-green-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                             )}
@@ -623,7 +624,7 @@ export default function CuentaPublica() {
 
                           {/* Content */}
                           <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-medium truncate ${tx.isPaid ? 'text-ocean-400 line-through' : 'text-ocean-900'}`}>
+                            <p className={`text-sm font-medium truncate ${(tx.isPaid || tx.isCrossed) ? 'text-ocean-400 line-through' : 'text-ocean-900'}`}>
                               {tx.description}
                             </p>
                             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
@@ -688,7 +689,7 @@ export default function CuentaPublica() {
                           {/* Amount */}
                           <div className="text-right flex-shrink-0">
                             <p className={`text-sm font-bold ${
-                              tx.isPaid ? 'text-ocean-300 line-through' :
+                              (tx.isPaid || tx.isCrossed) ? 'text-ocean-300 line-through' :
                               tx.type === 'purchase' ? 'text-red-600' : 'text-green-600'
                             }`}>
                               {tx.type === 'purchase' ? '+' : '-'}{formatUSD(displayAmt)}

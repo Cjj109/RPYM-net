@@ -135,6 +135,14 @@ PRODUCTOS:
 - Hacer match con el catalogo usando nombres parciales
 - "calamar" sin especificar → preferir "Calamar Nacional"
 - "camaron" → buscar por talla si se menciona (41/50, 61/70, etc.)
+
+CAMARONES - REGLA CRITICA DE DISAMBIGUATION:
+- "camaron jumbo", "jumbo", "camarones jumbo" = SIEMPRE Camarón Jumbo (en concha) - ES EL PRODUCTO JUMBO POR DEFECTO
+- "camaron pelado" = Camarón Pelado (sin concha)
+- "camaron desvenado", "pelado y desvenado", "P&D" = Camarón Desvenado (NORMAL, talla 41/50)
+- "camaron desvenado jumbo", "desvenado jumbo", "jumbo desvenado" = Camarón Desvenado Jumbo (talla 31/35-36/40)
+- ⚠️ REGLA MAS IMPORTANTE: "jumbo" SOLO o "camaron jumbo" SIN la palabra "desvenado" = Camarón Jumbo (en concha). NUNCA lo interpretes como Camarón Desvenado Jumbo a menos que EXPLICITAMENTE digan "desvenado"
+- "camaron vivito", "vivitos" = Camarón Vivito
 - PRECIOS PERSONALIZADOS (CRITICO - LEE CON CUIDADO):
   * Si el usuario escribe "a $X" o "a X" DESPUES de un producto, ese producto tiene customPrice: X
   * El modificador de precio aplica al producto INMEDIATAMENTE ANTERIOR
@@ -147,12 +155,15 @@ PRODUCTOS:
   * El precio del catalogo se IGNORA cuando hay precio personalizado
 
 - PRECIOS DUALES (DOS PRECIOS - BCV Y DIVISA):
+  * customPrice = precio BCV (bolivares), customPriceDivisa = precio Divisa (dolar efectivo)
   * Si el usuario menciona DOS precios para un producto, son precios duales
-  * Patrones: "a $X/$Y", "a $X y $Y", "$X bcv $Y divisa", "$X bcv / $Y paralelo"
-  * El PRIMER precio es BCV (customPrice), el SEGUNDO es divisa (customPriceDivisa)
-  * EJEMPLOS:
-    - "langosta a $42/$30" → customPrice: 42, customPriceDivisa: 30
+  * ⚠️ REGLA CRITICA: Si el usuario ETIQUETA los precios ("en divisas", "a BCV", "bcv", "divisa", "en bs"), SIEMPRE respetar las etiquetas SIN IMPORTAR el orden. NO uses la posicion para decidir cual es cual.
+  * Ejemplos CON etiquetas (respetar lo que dice el usuario):
+    - "a $8.75 en divisas y $11 a BCV" → customPrice: 11 (BCV), customPriceDivisa: 8.75 (divisa) — divisa vino primero pero se respeta la etiqueta
+    - "a $9 en divisas y $13 a BCV" → customPrice: 13 (BCV), customPriceDivisa: 9 (divisa)
     - "calamar $15 bcv $12 divisa" → customPrice: 15, customPriceDivisa: 12
+  * Ejemplos SIN etiquetas (usar formato posicional):
+    - "langosta a $42/$30" → customPrice: 42 (BCV), customPriceDivisa: 30 (divisa) — formato X/Y = BCV/divisa
     - "producto a $20 y $18" → customPrice: 20, customPriceDivisa: 18
   * Si solo hay un precio, customPriceDivisa = null
 

@@ -67,7 +67,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
     // Get transactions
     const transactions = await db.prepare(`
-      SELECT id, type, date, description, amount_usd, amount_bs, amount_usd_divisa, presupuesto_id, invoice_image_key, currency_type, payment_method, exchange_rate, is_paid, paid_method, paid_date, notes, created_at
+      SELECT id, type, date, description, amount_usd, amount_bs, amount_usd_divisa, presupuesto_id, invoice_image_key, currency_type, payment_method, exchange_rate, is_paid, is_crossed, paid_method, paid_date, notes, created_at
       FROM customer_transactions
       WHERE customer_id = ?
       ORDER BY date DESC, created_at DESC, id DESC
@@ -85,6 +85,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
       payment_method: string | null;
       exchange_rate: number | null;
       is_paid: number;
+      is_crossed: number;
       paid_method: string | null;
       paid_date: string | null;
       notes: string | null;
@@ -115,6 +116,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
         paymentMethod: t.payment_method,
         exchangeRate: t.exchange_rate,
         isPaid: t.is_paid === 1,
+        isCrossed: t.is_crossed === 1,
         paidMethod: t.paid_method,
         paidDate: t.paid_date,
         notes: t.notes,

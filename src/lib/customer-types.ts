@@ -38,6 +38,7 @@ export interface D1CustomerTransaction {
   exchange_rate: number | null;
   notes: string | null;
   is_paid: number;
+  is_crossed: number;
   paid_method: string | null;
   paid_date: string | null;
   created_at: string;
@@ -77,6 +78,7 @@ export interface CustomerTransaction {
   exchangeRate: number | null;
   notes: string | null;
   isPaid: boolean;
+  isCrossed: boolean;
   paidMethod: string | null;
   paidDate: string | null;
   createdAt: string;
@@ -119,6 +121,7 @@ export function transformTransaction(row: D1CustomerTransaction): CustomerTransa
     exchangeRate: row.exchange_rate,
     notes: row.notes,
     isPaid: row.is_paid === 1,
+    isCrossed: row.is_crossed === 1,
     paidMethod: row.paid_method,
     paidDate: row.paid_date,
     createdAt: row.created_at,

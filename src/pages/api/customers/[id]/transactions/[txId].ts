@@ -66,6 +66,20 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
       });
     }
 
+    // Handle toggleCrossed (visual strike-through, no balance impact)
+    if (body.toggleCrossed) {
+      const tx = await db.prepare(
+        'SELECT is_crossed FROM customer_transactions WHERE id = ? AND customer_id = ?'
+      ).bind(txId, customerId).first<{ is_crossed: number }>();
+      const newVal = (tx?.is_crossed === 1) ? 0 : 1;
+      await db.prepare(
+        "UPDATE customer_transactions SET is_crossed = ?, updated_at = datetime('now') WHERE id = ? AND customer_id = ?"
+      ).bind(newVal, txId, customerId).run();
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200, headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     const { type, date, description, amountUsd, amountBs, amountUsdDivisa, presupuestoId, notes, removeImage, currencyType, paymentMethod, exchangeRate } = body;
 
     // Handle image removal

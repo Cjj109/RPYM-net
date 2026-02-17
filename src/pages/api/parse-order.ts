@@ -173,11 +173,18 @@ PATRONES A DETECTAR para precio personalizado:
 ¡¡¡NUNCA IGNORES EL PRECIO PERSONALIZADO!!! Si detectas "a [número]", SIEMPRE establece customPrice
 
 PRECIOS PERSONALIZADOS DUALES:
-- "tentaculo a 13 en bs y 10 en divisas" → customPrice: 13 (BCV), customPriceDivisa: 10 (divisa)
-- "pulpo a 20 bcv 18 divisa" → customPrice: 20, customPriceDivisa: 18
-- "calamar a 15/12" → customPrice: 15 (BCV), customPriceDivisa: 12 (divisa) cuando hay formato X/Y
+- customPrice = precio BCV (bolívares), customPriceDivisa = precio Divisa (dólar efectivo)
+- ⚠️ REGLA CRITICA: Si el usuario ETIQUETA los precios ("en divisas", "a BCV", "bcv", "divisa", "en bs"), SIEMPRE respetar las etiquetas SIN IMPORTAR el orden. NO uses la posición para decidir cuál es cuál.
+- Ejemplos con etiquetas (RESPETAR lo que dice el usuario):
+  * "a $8.75 en divisas y $11 a BCV" → customPrice: 11 (BCV), customPriceDivisa: 8.75 (divisa) — divisa vino primero pero se respeta la etiqueta
+  * "a $11 bcv y $8.75 divisa" → customPrice: 11 (BCV), customPriceDivisa: 8.75 (divisa)
+  * "tentaculo a 13 en bs y 10 en divisas" → customPrice: 13 (BCV), customPriceDivisa: 10 (divisa)
+  * "a $9 en divisas y $13 a BCV" → customPrice: 13 (BCV), customPriceDivisa: 9 (divisa)
+- Ejemplos SIN etiquetas (usar formato posicional):
+  * "pulpo a 20/18" → customPrice: 20 (BCV), customPriceDivisa: 18 (divisa) — formato X/Y = BCV/divisa
+  * "calamar a 15/12" → customPrice: 15 (BCV), customPriceDivisa: 12 (divisa)
 - Si solo se especifica un precio, customPriceDivisa será null
-- Si se especifican dos precios, el mayor suele ser el BCV y el menor el divisa
+- SOLO como último recurso si no hay etiquetas ni formato X/Y: el mayor suele ser BCV y el menor divisa
 
 CONOCIMIENTO DE PRODUCTOS (TU EXPERIENCIA EN RPYM):
 
@@ -187,10 +194,12 @@ CAMARONES (producto estrella):
 - "camaron pelado" = camarón pelado (sin concha, puede ser desvenado o no)
 - "camaron desvenado", "pelado y desvenado", "P&D" = Camarón Desvenado (NORMAL, talla 41/50, $17/kg)
 - "camaron desvenado jumbo", "desvenado jumbo", "jumbo desvenado" = Camarón Desvenado Jumbo (talla 31/35-36/40, $22/kg)
-- IMPORTANTE "jumbo" vs "desvenado jumbo":
-  * "jumbo" o "camaron jumbo" SIN "desvenado" → SIEMPRE Camarón Jumbo (en concha)
-  * "desvenado jumbo" o "jumbo desvenado" → Camarón Desvenado Jumbo
+- ⚠️⚠️⚠️ REGLA CRITICA "jumbo" vs "desvenado jumbo" - LEE CON CUIDADO:
+  * "jumbo" o "camaron jumbo" SIN la palabra "desvenado" → SIEMPRE es Camarón Jumbo (en concha). NUNCA lo interpretes como Desvenado Jumbo
+  * SOLO si dicen EXPLICITAMENTE "desvenado jumbo" o "jumbo desvenado" → Camarón Desvenado Jumbo
   * Si dicen solo "desvenado" SIN "jumbo" → SIEMPRE Camarón Desvenado (normal)
+  * Ejemplo: "2kg jumbo" = Camarón Jumbo (en concha), NO Camarón Desvenado Jumbo
+  * Ejemplo: "2kg desvenado jumbo" = Camarón Desvenado Jumbo
 - "camaron con concha", "camarones conchas", "concha" = Camarón en Concha
 - "camaron vivito", "vivitos", "camarones vivos" = Camarón Vivito (fresco, vivo)
 - Si dicen "#16" o "# 16" después del camarón, es el PRECIO personalizado $16/kg
