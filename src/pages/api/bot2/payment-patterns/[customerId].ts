@@ -30,7 +30,7 @@ export const GET: APIRoute = async ({ request, params, locals }) => {
       });
     }
 
-    // Transacciones con calculo de dias hasta pago
+    // Transacciones con calculo de dias hasta pago (excluye cruzadas)
     const transactions = await db.prepare(`
       SELECT
         id,
@@ -44,14 +44,16 @@ export const GET: APIRoute = async ({ request, params, locals }) => {
         payment_method,
         is_paid,
         paid_date,
+        paid_method,
         presupuesto_id,
+        is_crossed,
         created_at,
         CASE WHEN paid_date IS NOT NULL AND type = 'purchase'
           THEN CAST(julianday(paid_date) - julianday(date) AS INTEGER)
           ELSE NULL
         END AS days_to_pay
       FROM customer_transactions
-      WHERE customer_id = ?
+      WHERE customer_id = ? AND is_crossed = 0
       ORDER BY date DESC
       LIMIT 100
     `).bind(customerId).all();

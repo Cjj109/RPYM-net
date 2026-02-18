@@ -26,17 +26,27 @@ export const GET: APIRoute = async ({ request, locals }) => {
         p.delivery,
         p.source,
         p.created_at,
+        p.items,
         CAST(julianday('now') - julianday(p.created_at) AS INTEGER) AS days_old,
-        ct.customer_id IS NOT NULL AS is_linked
+        MAX(ct.customer_id) IS NOT NULL AS is_linked,
+        MAX(ct.customer_id) AS linked_customer_id
       FROM presupuestos p
       LEFT JOIN customer_transactions ct ON ct.presupuesto_id = p.id
       WHERE p.estado = 'pendiente'
         AND julianday('now') - julianday(p.created_at) > ?
+      GROUP BY p.id
       ORDER BY p.created_at ASC
       LIMIT ?
     `).bind(minDays, limit).all();
 
-    const presupuestos = results.results as any[];
+    // Parsear items JSON para facilitar análisis
+    const presupuestos = (results.results as any[]).map(p => ({
+      ...p,
+      items: (() => {
+        try { return JSON.parse(p.items); }
+        catch { return p.items; }
+      })()
+    }));
     const totalOverdueUSD = presupuestos.reduce((sum: number, p: any) => sum + (p.total_usd || 0), 0);
 
     return new Response(JSON.stringify({
