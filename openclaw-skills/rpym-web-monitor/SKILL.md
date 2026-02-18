@@ -1,3 +1,9 @@
+---
+name: rpym-web-monitor
+description: Monitorea rpym.net — verificar disponibilidad, precios y tasa BCV
+metadata: {"openclaw": {"emoji": "🌐"}}
+---
+
 # rpym-web-monitor
 
 ## Description

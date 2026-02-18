@@ -1,3 +1,9 @@
+---
+name: rpym-budgets
+description: Gestiona presupuestos de RPYM — buscar, crear, editar y marcar como pagados
+metadata: {"openclaw": {"requires": {"env": ["RPYM_API_KEY"]}, "primaryEnv": "RPYM_API_KEY", "emoji": "📋"}}
+---
+
 # rpym-budgets
 
 ## Description

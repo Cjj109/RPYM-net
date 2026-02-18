@@ -1,3 +1,9 @@
+---
+name: rpym-analytics
+description: Analisis inteligente del negocio RPYM — reportes, morosos, alertas y recomendaciones
+metadata: {"openclaw": {"requires": {"env": ["RPYM_API_KEY"]}, "primaryEnv": "RPYM_API_KEY", "emoji": "📊"}}
+---
+
 # rpym-analytics
 
 ## Description

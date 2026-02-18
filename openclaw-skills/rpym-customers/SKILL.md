@@ -1,3 +1,9 @@
+---
+name: rpym-customers
+description: Gestiona clientes de RPYM — buscar, ver balances, crear y actualizar clientes
+metadata: {"openclaw": {"requires": {"env": ["RPYM_API_KEY"]}, "primaryEnv": "RPYM_API_KEY", "emoji": "👥"}}
+---
+
 # rpym-customers
 
 ## Description

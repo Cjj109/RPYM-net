@@ -1,3 +1,9 @@
+---
+name: rpym-payments
+description: Gestiona pagos y transacciones de RPYM — registrar pagos, marcar pagado, analizar patrones
+metadata: {"openclaw": {"requires": {"env": ["RPYM_API_KEY"]}, "primaryEnv": "RPYM_API_KEY", "emoji": "💰"}}
+---
+
 # rpym-payments
 
 ## Description

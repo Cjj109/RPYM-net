@@ -1,3 +1,9 @@
+---
+name: rpym-products
+description: Catalogo de productos RPYM — ver precios, disponibilidad y crear productos
+metadata: {"openclaw": {"requires": {"env": ["RPYM_API_KEY"]}, "primaryEnv": "RPYM_API_KEY", "emoji": "🐟"}}
+---
+
 # rpym-products
 
 ## Description
