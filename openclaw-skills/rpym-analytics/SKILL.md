@@ -137,7 +137,7 @@ Para gestionar presupuestos viejos pendientes:
    - **Alto riesgo** (>30 dias, montos altos): Necesitan accion inmediata
    - **Riesgo medio** (15-30 dias): Recordatorio al cliente
    - **Riesgo bajo** (<15 dias): Monitorear
-3. Si un presupuesto vencido NO esta vinculado a cliente (`is_linked: false`):
+3. Si un presupuesto vencido NO esta vinculado a cliente (`is_linked: 0`):
    - Sugerir contactar al cliente para confirmar si quieren el pedido
    - O sugerir eliminarlo si ya no aplica
 

@@ -12,13 +12,21 @@ https://rpym.net
 - Debe mostrar: logo, productos destacados, precios, boton de WhatsApp
 - Verificar que los precios coinciden con los de la API
 
-### Pagina de Productos / Calculadora
+### Pagina de Presupuestos (Calculadora)
 ```
-https://rpym.net/presupuesto/calculadora
+https://rpym.net/presupuesto
 ```
 - Calculadora publica donde los clientes crean presupuestos
 - Debe mostrar todos los productos disponibles con precios
 - Verificar que la tasa BCV se muestra correctamente
+
+### Lista de Precios
+```
+https://rpym.net/lista
+```
+- Lista de precios publica con busqueda interactiva
+- Muestra todos los productos disponibles agrupados por categoria
+- Los precios se actualizan en tiempo real con la tasa BCV
 
 ### API Health
 ```

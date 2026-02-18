@@ -48,6 +48,7 @@ GET /api/presupuestos/{id}
 ```
 - NO requiere auth
 - Respuesta: `{ success: true, presupuesto: {...} }`
+- NOTA: La respuesta usa `presupuesto` (singular), no `presupuestos`. Los campos son los mismos que arriba EXCEPTO `isLinked` que NO esta presente en este endpoint.
 
 ### 3. Busqueda avanzada (Bot 2 Analytics)
 ```
@@ -62,6 +63,10 @@ GET /api/bot2/presupuestos/search?customer={nombre}&status={estado}&from={fecha}
   - `limit`: Maximo resultados, default 50
 - Respuesta: `{ success: true, count: N, filters: {...}, presupuestos: [...] }`
 - Los `items` ya vienen parseados como array de objetos
+- ATENCION: Este endpoint devuelve campos en **snake_case** (a diferencia de `/api/presupuestos`):
+  - `customer_name` (no `customerName`), `total_usd`, `total_bs`, `total_usd_divisa`
+  - `modo_precio`, `fecha_pago`, `created_at`
+  - Los campos coinciden con los del endpoint overdue (ver abajo)
 
 ### 4. Presupuestos pendientes vencidos (Bot 2 Analytics)
 ```

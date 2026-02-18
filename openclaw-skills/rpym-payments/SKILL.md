@@ -37,7 +37,7 @@ GET /api/customers/{customerId}/transactions
   - `presupuestoId` (string|null): ID del presupuesto vinculado
   - `notes` (string|null): Notas adicionales
   - `exchangeRate` (number|null): Tasa de cambio usada
-  - `invoiceImageKey` (string|null): Clave de imagen de factura en R2
+  - `invoiceImageUrl` (string|null): URL de imagen de factura (ej: "/api/customers/invoice/{key}")
   - `createdAt`, `updatedAt` (string): Timestamps
 - Transacciones vienen ordenadas por fecha DESC
 
@@ -144,7 +144,9 @@ GET /api/bot2/payment-patterns/{customerId}
       "id": 15,
       "name": "Delcy Rodriguez",
       "phone": "+58 414 ...",
-      "rate_type": "dolar_bcv"
+      "notes": "Cliente frecuente",
+      "rate_type": "dolar_bcv",
+      "created_at": "2025-06-15T..."
     },
     "stats": {
       "totalPurchases": 25,
@@ -163,6 +165,12 @@ GET /api/bot2/payment-patterns/{customerId}
 - `avgDaysBetweenPurchases`: Promedio de dias entre compras (null si < 2 compras)
 - Las transacciones cruzadas (`is_crossed = 1`) son EXCLUIDAS del analisis
 - Transacciones vienen ordenadas por fecha DESC, maximo 100
+- ATENCION: Las transacciones en este endpoint usan **snake_case** (diferente a `/api/customers/{id}/transactions` que usa camelCase):
+  - `amount_usd`, `amount_bs`, `amount_usd_divisa` (no `amountUsd`)
+  - `currency_type`, `payment_method` (no `currencyType`)
+  - `is_paid` (entero 0/1, no boolean), `paid_date`, `paid_method`
+  - `presupuesto_id`, `is_crossed`, `created_at`
+  - `days_to_pay` (campo calculado: dias entre fecha y fecha de pago)
 
 ## Reglas de Negocio
 

@@ -27,6 +27,7 @@ GET /api/customers?search={nombre}
   - `notes` (string|null): Notas
   - `rateType` (string): Tipo de tasa — `"dolar_bcv"`, `"divisas"`, `"euro_bcv"`, o `"manual"`
   - `customRate` (number|null): Tasa personalizada (solo si rateType es "manual")
+  - `shareToken` (string|null): Token para compartir cuenta publica del cliente
   - `isActive` (boolean): Si el cliente esta activo
   - `balanceDivisas` (number): Balance en USD divisas (positivo = debe)
   - `balanceBcv` (number): Balance en USD dolar BCV (positivo = debe)
@@ -87,15 +88,37 @@ DELETE /api/customers/{id}
 ```
 GET /api/bot2/customers/summary?search={nombre}
 ```
-- Endpoint optimizado para analisis. Devuelve TODOS los clientes con:
-  - Balances por tipo de moneda (divisas, BCV, euro)
-  - `total_purchases`: Cantidad total de compras
-  - `last_purchase_date`: Fecha de ultima compra
-  - `last_payment_date`: Fecha de ultimo pago
-- Respuesta incluye:
-  - `totalCustomers` (number): Total de clientes activos
-  - `customersWithDebt` (number): Clientes que deben algo (balance > $0.01)
-  - `customers` (array): Lista completa
+- Endpoint optimizado para analisis. Devuelve TODOS los clientes activos.
+- ATENCION: Este endpoint devuelve campos en **snake_case** (diferente a `/api/customers` que usa camelCase).
+- Respuesta:
+  ```json
+  {
+    "success": true,
+    "totalCustomers": 25,
+    "customersWithDebt": 8,
+    "customers": [
+      {
+        "id": 15,
+        "name": "Delcy Rodriguez",
+        "phone": "+58 414 ...",
+        "notes": "Cliente frecuente",
+        "rate_type": "dolar_bcv",
+        "custom_rate": null,
+        "is_active": 1,
+        "created_at": "2025-06-15T...",
+        "balance_divisas": 150.50,
+        "balance_bcv": 200.00,
+        "balance_euro": 0,
+        "total_purchases": 25,
+        "last_purchase_date": "2026-02-10",
+        "last_payment_date": "2026-02-15"
+      }
+    ]
+  }
+  ```
+- `totalCustomers`: Total de clientes activos
+- `customersWithDebt`: Clientes que deben algo (balance > $0.01 en cualquier moneda)
+- Campos del cliente son snake_case: `rate_type` (no `rateType`), `is_active` (entero 0/1, no boolean), etc.
 
 ## Reglas de Negocio
 
