@@ -36,11 +36,15 @@ export const GET: APIRoute = async ({ request, locals }) => {
       LIMIT ?
     `).bind(minDays, limit).all();
 
+    const presupuestos = results.results as any[];
+    const totalOverdueUSD = presupuestos.reduce((sum: number, p: any) => sum + (p.total_usd || 0), 0);
+
     return new Response(JSON.stringify({
       success: true,
-      count: results.results.length,
+      count: presupuestos.length,
+      totalOverdueUSD: Math.round(totalOverdueUSD * 100) / 100,
       minDays,
-      presupuestos: results.results
+      presupuestos
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }

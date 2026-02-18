@@ -1,6 +1,9 @@
 /**
  * RPYM - Require auth middleware helper
  * Centraliza la verificación de sesión para endpoints protegidos
+ * Soporta autenticación via:
+ *   1. Session cookie (admin panel, navegador)
+ *   2. Bearer token BOT2_API_KEY (OpenClaw / Bot 2)
  */
 
 import type { D1Database } from './d1-types';
@@ -18,8 +21,17 @@ export interface RequireAuthOptions {
   role?: 'admin' | 'viewer' | 'any';
 }
 
+/** Usuario virtual para Bot 2 (cuando autentica via API key) */
+const BOT2_USER: AdminUser = {
+  id: 0,
+  username: 'bot2',
+  displayName: 'Bot 2 (OpenClaw)',
+  role: 'admin',
+};
+
 /**
  * Verifica autenticación y devuelve db + user, o una Response 401/500 si falla.
+ * Acepta session cookie O Bearer token (BOT2_API_KEY).
  * Uso: const auth = await requireAuth(request, locals); if (auth instanceof Response) return auth;
  */
 export async function requireAuth(
@@ -32,6 +44,17 @@ export async function requireAuth(
     return jsonResponse({ success: false, error: 'Database no disponible' }, 500);
   }
 
+  // Intento 1: Bearer token (Bot 2 / OpenClaw)
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    const runtime = (locals as any).runtime;
+    const expectedKey = runtime?.env?.BOT2_API_KEY;
+    if (expectedKey && authHeader.slice(7) === expectedKey) {
+      return { db, user: BOT2_USER };
+    }
+  }
+
+  // Intento 2: Session cookie (admin panel)
   const sessionId = getSessionFromCookie(request.headers.get('Cookie'));
   if (!sessionId) {
     return jsonResponse({ success: false, error: 'No autenticado' }, 401);

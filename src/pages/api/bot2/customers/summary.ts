@@ -43,9 +43,17 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
     const results = await stmt.all();
 
+    // Calcular resumen general
+    const customers = results.results as any[];
+    const withDebt = customers.filter(c =>
+      (c.balance_divisas > 0.01) || (c.balance_bcv > 0.01) || (c.balance_euro > 0.01)
+    );
+
     return new Response(JSON.stringify({
       success: true,
-      customers: results.results
+      totalCustomers: customers.length,
+      customersWithDebt: withDebt.length,
+      customers
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }

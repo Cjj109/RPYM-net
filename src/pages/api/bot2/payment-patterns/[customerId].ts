@@ -61,6 +61,9 @@ export const GET: APIRoute = async ({ request, params, locals }) => {
     const payments = transactions.results.filter((t: any) => t.type === 'payment');
     const paidPurchases = purchases.filter((t: any) => t.days_to_pay !== null);
 
+    const unpaidPurchases = purchases.filter((t: any) => t.is_paid === 0 || t.is_paid === null);
+    const totalUnpaidUSD = unpaidPurchases.reduce((sum: number, t: any) => sum + (t.amount_usd || 0), 0);
+
     const avgDaysToPay = paidPurchases.length > 0
       ? Math.round(paidPurchases.reduce((sum: number, t: any) => sum + t.days_to_pay, 0) / paidPurchases.length)
       : null;
@@ -82,6 +85,8 @@ export const GET: APIRoute = async ({ request, params, locals }) => {
       stats: {
         totalPurchases: purchases.length,
         totalPayments: payments.length,
+        unpaidPurchases: unpaidPurchases.length,
+        totalUnpaidUSD: Math.round(totalUnpaidUSD * 100) / 100,
         avgDaysToPay,
         avgDaysBetweenPurchases,
         lastPurchaseDate: purchases[0]?.date || null,
