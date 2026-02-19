@@ -290,46 +290,29 @@ GET /api/presupuestos/stats
 ```
 POST /api/presupuestos
 Content-Type: application/json
-
-{
-  "items": [
-    {
-      "nombre": "Camaron Jumbo",
-      "cantidad": 2,
-      "unidad": "kg",
-      "precioUSD": 15.00,
-      "precioUSDDivisa": 14.00,
-      "totalUSD": 30.00,
-      "totalBs": 1800.00,
-      "totalUSDDivisa": 28.00
-    }
-  ],
-  "totalUSD": 30.00,
-  "totalBs": 1800.00,
-  "totalUSDDivisa": 28.00,
-  "modoPrecio": "bcv",
-  "delivery": 0,
-  "hideRate": false,
-  "customerName": "Nombre del Cliente",
-  "customerAddress": "Direccion de entrega",
-  "source": "telegram",
-  "status": "pendiente",
-  "customDate": "2026-02-15"
-}
 ```
-- NO requiere auth (pero usara el source "telegram" para indicar origen)
+- NO requiere auth
 - `items` (REQUERIDO): Array de objetos con los productos
-- `totalUSD` (REQUERIDO): Total en USD (number)
-- `totalBs` (REQUERIDO): Total en Bs (number)
+- `totalUSD` (REQUERIDO): Total en USD — DEBE ser number, NO string
+- `totalBs` (REQUERIDO): Total en Bs — DEBE ser number, NO string (usar 0 si modoPrecio es "divisa")
 - `totalUSDDivisa` (opcional): Total en USD divisa
 - `modoPrecio` (opcional): `"bcv"`, `"divisa"`, o `"dual"`, default `"bcv"`
-- `delivery` (opcional): Costo delivery en USD, default 0
 - `customerName` (opcional): Nombre del cliente
 - `source` (opcional): Usar `"telegram"` cuando se crea desde Bot 2
-- `customDate` (opcional): Fecha YYYY-MM-DD si es fecha pasada
 - Respuesta: `{ success: true, id: "45123" }`
-- IMPORTANTE: Para calcular totalBs, necesitas la tasa BCV. Usa `GET /api/config/bcv-rate` primero.
 - IMPORTANTE: Siempre confirma con el usuario antes de crear un presupuesto
+
+#### Ejemplo curl: Presupuesto en modo DIVISA
+```bash
+curl -s -X POST -H "Content-Type: application/json" -d '{"items":[{"nombre":"Mejillon Pelado","cantidad":0.5,"unidad":"kg","precioUSD":9.00,"subtotalUSD":4.50,"subtotalBs":0,"precioUSDDivisa":9.00,"subtotalUSDDivisa":4.50}],"totalUSD":4.50,"totalBs":0,"totalUSDDivisa":4.50,"modoPrecio":"divisa","source":"telegram","customerName":"Delcy"}' https://rpym.net/api/presupuestos
+```
+
+#### Ejemplo curl: Presupuesto en modo BCV
+```bash
+curl -s -X POST -H "Content-Type: application/json" -d '{"items":[{"nombre":"Camaron Jumbo","cantidad":2,"unidad":"kg","precioUSD":12.00,"subtotalUSD":24.00,"subtotalBs":9570.00}],"totalUSD":24.00,"totalBs":9570.00,"modoPrecio":"bcv","source":"telegram","customerName":"Juan"}' https://rpym.net/api/presupuestos
+```
+
+CRITICO: En el JSON de curl, los valores totalUSD y totalBs DEBEN ser numeros (4.50) NO strings ("4.50"). Si se envian como strings, la API responde "Totales invalidos".
 
 ### 7. Actualizar estado de un presupuesto
 ```
