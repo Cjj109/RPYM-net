@@ -136,8 +136,16 @@ Cada item: `{ nombre, cantidad, unidad, precioUSD, subtotalUSD, subtotalBs }`. A
 ## Tasa BCV — `GET /api/config/bcv-rate` (sin auth)
 Respuesta: `{ rate, manual, source }`. Calcular Bs: totalUSD * rate.
 
+## ERRORES COMUNES — NO COMETER
+
+1. **NO usar "dual" a menos que el usuario lo pida explicitamente.** El modo por defecto es "bcv". Solo usar "dual" si el usuario dice "dual" o "ambos precios". Solo usar "divisa" si dice "divisa", "zelle", o "efectivo dolares".
+2. **Para ocultar Bs: usar `hideRate: true`, NO poner totalBs en 0.** El campo `hideRate` es un booleano que se envia en el POST o PUT. La web calcula Bs automaticamente con la tasa BCV — poner totalBs=0 NO oculta nada, solo muestra "$0 Bs". El campo correcto es `"hideRate": true`.
+3. **Para linkear a un cliente: hacer PUT separado con `{ "customerName": "Nombre exacto" }`.** NO existe campo `customer_id` en presupuestos. Despues de crear el presupuesto, hacer `PUT /api/presupuestos/{id}` con body `{ "customerName": "Delcy" }`. Esto vincula automaticamente y crea la transaccion de compra en la cuenta del cliente.
+4. **La API SI permite editar presupuestos.** `PUT /api/presupuestos/{id}` funciona perfectamente para edicion parcial. NUNCA digas que "la API no soporta edicion" — eso es falso.
+5. **totalBs se calcula: totalUSD * tasa BCV.** Siempre calcular totalBs correctamente (no inventar, no poner 0 a menos que modoPrecio sea "divisa").
+
 ## Flujo de creacion
-1. Preguntar productos y cantidades → 2. GET /api/products (precios) → 3. GET /api/config/bcv-rate → 4. Calcular totales → 5. Confirmar con usuario → 6. POST /api/presupuestos → 7. GET admin-url y enviar link.
+1. Preguntar productos y cantidades → 2. GET /api/products (precios) → 3. GET /api/config/bcv-rate → 4. Calcular totales → 5. Confirmar con usuario → 6. POST /api/presupuestos → 7. PUT con customerName para linkear (si hay cliente) → 8. GET admin-url y enviar link.
 SKILLEOF
 INSTALLED=$((INSTALLED + 1))
 echo "      rpym-budgets instalado."
