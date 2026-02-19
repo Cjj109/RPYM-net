@@ -108,9 +108,15 @@ Pendientes con mas de N dias. Respuesta: `{ count, totalOverdueUSD, presupuestos
 Respuesta: `{ totalHoy, vendidoHoyUSD, vendidoHoyBs, pendientes, totalGeneral }`.
 
 ### Crear — `POST /api/presupuestos` (sin auth, Content-Type: application/json)
-Campos: `items` (REQUERIDO array), `totalUSD` (REQUERIDO number), `totalBs` (REQUERIDO number, usar 0 si divisa), `totalUSDDivisa`, `modoPrecio` (default "bcv"), `hideRate` (true=ocultar Bs), `delivery`, `customerName`, `customerAddress`, `source` (usar "telegram").
+Campos: `items` (REQUERIDO array), `totalUSD` (REQUERIDO number), `totalBs` (REQUERIDO number, usar 0 si divisa), `totalUSDDivisa`, `modoPrecio` (default "bcv"), `hideRate` (true=ocultar Bs), `delivery`, `customerName` (si se incluye y coincide con un cliente existente, se linkea automaticamente), `customerAddress`, `source` (usar "telegram").
 CRITICO: totalUSD y totalBs DEBEN ser numbers (4.50), NO strings ("4.50").
-Respuesta: `{ success, id }`. **Siempre confirma con el usuario antes de crear.**
+Respuesta: `{ success, id, linked, linkedCustomerId }`. **Siempre confirma con el usuario antes de crear.**
+
+Ejemplo completo — presupuesto BCV, linkeado a Delcy, Bs ocultos:
+```bash
+curl -s -X POST -H "Content-Type: application/json" -d '{"items":[{"nombre":"Pepitona","cantidad":1,"unidad":"kg","precioUSD":4.50,"subtotalUSD":4.50,"subtotalBs":1794.38}],"totalUSD":4.50,"totalBs":1794.38,"modoPrecio":"bcv","hideRate":true,"customerName":"Delcy","source":"telegram"}' https://rpym.net/api/presupuestos
+```
+Respuesta: `{"success":true,"id":"81559","linked":true,"linkedCustomerId":1}`
 
 ### Admin URL — `GET /api/bot2/presupuestos/admin-url/{id}` (sin auth)
 Respuesta: `{ success, id, adminUrl }`. **SIEMPRE obtener y enviar la adminUrl despues de crear un presupuesto.**
