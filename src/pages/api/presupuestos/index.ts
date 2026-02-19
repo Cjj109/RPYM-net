@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getD1, type D1Presupuesto } from '../../../lib/d1-types';
+import { linkBudgetToCustomer } from '../../../lib/services/telegram/budget-handlers';
 
 export const prerender = false;
 
@@ -170,9 +171,27 @@ export const POST: APIRoute = async ({ request, locals }) => {
       source || 'cliente'
     ).run();
 
+    // Auto-link to customer if customerName matches an existing customer
+    let linked = false;
+    let linkedCustomerId: number | undefined;
+    if (customerName) {
+      try {
+        const linkResult = await linkBudgetToCustomer(db, id, customerName);
+        if (linkResult.success) {
+          linked = true;
+          linkedCustomerId = linkResult.customerId;
+        }
+      } catch (e) {
+        // Linking failed silently — presupuesto still created
+        console.error('Auto-link failed:', e);
+      }
+    }
+
     return new Response(JSON.stringify({
       success: true,
-      id
+      id,
+      linked,
+      linkedCustomerId
     }), {
       headers: { 'Content-Type': 'application/json' }
     });
