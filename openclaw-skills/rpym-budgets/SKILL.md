@@ -146,7 +146,19 @@ curl -s -X POST -H "Content-Type: application/json" -d '{"items":[{"nombre":"Cam
 
 CRITICO: En el JSON de curl, los valores totalUSD y totalBs DEBEN ser numeros (4.50) NO strings ("4.50"). Si se envian como strings, la API responde "Totales invalidos".
 
-### 7. Actualizar estado de un presupuesto
+### 7. Obtener URL admin de un presupuesto
+```
+GET /api/bot2/presupuestos/admin-url/{id}
+```
+- Requiere auth (Bearer token)
+- Respuesta: `{ success: true, id: "38719", adminUrl: "https://rpym.net/presupuesto/admin?id=38719&token=abc123..." }`
+- IMPORTANTE: Despues de crear un presupuesto, SIEMPRE llama este endpoint y envia la adminUrl al usuario
+- Ejemplo curl:
+```bash
+curl -s -H "Authorization: Bearer $RPYM_API_KEY" https://rpym.net/api/bot2/presupuestos/admin-url/38719
+```
+
+### 8. Actualizar estado de un presupuesto (no requiere auth)
 ```
 PUT /api/presupuestos/{id}
 Content-Type: application/json
@@ -157,7 +169,7 @@ Content-Type: application/json
 - Solo `"pendiente"` o `"pagado"` son validos
 - Al marcar como pagado, se guarda `fechaPago` automaticamente
 
-### 8. Asignar presupuesto a un cliente
+### 9. Asignar presupuesto a un cliente
 ```
 PUT /api/presupuestos/{id}
 Content-Type: application/json
@@ -168,7 +180,7 @@ Content-Type: application/json
 - El nombre debe coincidir con un cliente existente
 - IMPORTANTE: Confirma con el usuario antes de vincular
 
-### 9. Eliminar un presupuesto
+### 10. Eliminar un presupuesto
 ```
 DELETE /api/presupuestos/{id}
 ```
