@@ -51,7 +51,7 @@ export function printDeliveryNote(presupuesto: PrintPresupuesto, bcvRate?: numbe
   // isDivisasOnly = modo divisas puro (mostrar SOLO página divisa, no BCV)
   const isDivisasOnly = ['divisa', 'divisas'].includes(modoPrecio);
   // hideRateOnly = modo BCV pero ocultando la tasa (totalBs existe pero tasa oculta)
-  const hideRateOnly = presupuesto.hideRate === true && presupuesto.totalBs > 0;
+  const hideRateOnly = presupuesto.hideRate === true;
   // showBcvPage = mostrar la primera página BCV (NO mostrar si es divisas puro)
   const showBcvPage = !isDivisasOnly;
   // showDivisaPage = mostrar página divisa (para dual o divisas)

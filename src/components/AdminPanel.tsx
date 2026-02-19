@@ -521,7 +521,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     // Build message with presupuesto details
     const isDual = presupuesto.modoPrecio === 'dual' || (presupuesto.modoPrecio !== 'divisa' && presupuesto.totalUSDDivisa != null && Number(presupuesto.totalUSDDivisa) > 0);
     const isDivisasOnly = presupuesto.modoPrecio === 'divisa' || (presupuesto.totalBs === 0 && !presupuesto.hideRate && !isDual);
-    const hideRateOnly = presupuesto.hideRate === true && presupuesto.totalBs > 0;
+    const hideRateOnly = presupuesto.hideRate === true;
     let message = `*Presupuesto RPYM #${presupuesto.id}*\n`;
     if (presupuesto.customerName) message += `Cliente: ${presupuesto.customerName}\n`;
     message += `\n`;
