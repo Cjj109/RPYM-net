@@ -343,12 +343,12 @@ CRITICO: En el JSON de curl, los valores totalUSD y totalBs DEBEN ser numeros (4
 ```
 GET /api/bot2/presupuestos/admin-url/{id}
 ```
-- Requiere auth (Bearer token)
+- NO requiere auth
 - Respuesta: `{ success: true, id: "38719", adminUrl: "https://rpym.net/presupuesto/admin?id=38719&token=abc123..." }`
 - IMPORTANTE: Despues de crear un presupuesto, SIEMPRE llama este endpoint y envia la adminUrl al usuario
 - Ejemplo curl:
 ```bash
-curl -s -H "Authorization: Bearer $RPYM_API_KEY" https://rpym.net/api/bot2/presupuestos/admin-url/38719
+curl -s https://rpym.net/api/bot2/presupuestos/admin-url/38719
 ```
 
 ### 8. Editar un presupuesto completo (no requiere auth)
