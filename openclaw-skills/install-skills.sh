@@ -351,35 +351,41 @@ GET /api/bot2/presupuestos/admin-url/{id}
 curl -s https://rpym.net/api/bot2/presupuestos/admin-url/38719
 ```
 
-### 8. Editar un presupuesto completo (no requiere auth)
+### 8. Editar un presupuesto (no requiere auth)
 ```
 PUT /api/presupuestos/{id}
 Content-Type: application/json
-
-{
-  "items": [...],
-  "totalUSD": 24.00,
-  "totalBs": 0,
-  "totalUSDDivisa": 24.00,
-  "modoPrecio": "divisa",
-  "hideRate": true,
-  "delivery": 0,
-  "customerName": "Delcy",
-  "customerAddress": "Calle 1",
-  "fecha": "2026-02-18"
-}
 ```
 - NO requiere auth
-- Envia TODOS los campos del presupuesto (items, totales, etc.)
-- `hideRate: true` oculta el monto en Bs del presupuesto
-- `fecha` (opcional): Cambiar la fecha (formato YYYY-MM-DD)
+- Soporta actualizacion PARCIAL: solo envia los campos que quieres cambiar. Los demas se mantienen como estan.
+- Campos editables:
+  - `items` (array): Lista de productos (si no se envia, se mantienen los actuales)
+  - `totalUSD` (number): Total USD
+  - `totalBs` (number): Total Bs
+  - `totalUSDDivisa` (number): Total USD divisa
+  - `hideRate` (boolean): `true` para OCULTAR el monto en Bs del presupuesto
+  - `delivery` (number): Costo delivery USD
+  - `modoPrecio` (string): `"bcv"`, `"divisa"`, o `"dual"`
+  - `customerName` (string): Nombre del cliente
+  - `customerAddress` (string): Direccion
+  - `fecha` (string): Fecha YYYY-MM-DD
 - Si el presupuesto esta vinculado a un cliente, tambien actualiza la transaccion asociada
 - IMPORTANTE: Siempre confirma con el usuario antes de editar
-- NOTA: Si solo quieres cambiar el estado o asignar cliente, usa los endpoints simplificados abajo (9 y 10)
+- NOTA: Para cambiar SOLO el estado, usa el endpoint 9. Para asignar SOLO el cliente, usa el endpoint 10.
 
-#### Ejemplo curl: Editar presupuesto existente
+#### Ejemplo curl: Ocultar bolivares de un presupuesto
 ```bash
-curl -s -X PUT -H "Content-Type: application/json" -d '{"items":[{"nombre":"Mejillon Pelado","cantidad":0.5,"unidad":"kg","precioUSD":9.00,"subtotalUSD":4.50,"subtotalBs":0,"precioUSDDivisa":9.00,"subtotalUSDDivisa":4.50}],"totalUSD":4.50,"totalBs":0,"totalUSDDivisa":4.50,"modoPrecio":"divisa","hideRate":true,"source":"telegram","customerName":"Delcy"}' https://rpym.net/api/presupuestos/95917
+curl -s -X PUT -H "Content-Type: application/json" -d '{"hideRate":true}' https://rpym.net/api/presupuestos/42181
+```
+
+#### Ejemplo curl: Cambiar modo de precio
+```bash
+curl -s -X PUT -H "Content-Type: application/json" -d '{"modoPrecio":"divisa","hideRate":true}' https://rpym.net/api/presupuestos/42181
+```
+
+#### Ejemplo curl: Editar presupuesto completo
+```bash
+curl -s -X PUT -H "Content-Type: application/json" -d '{"items":[{"nombre":"Mejillon Pelado","cantidad":0.5,"unidad":"kg","precioUSD":9.00,"subtotalUSD":4.50,"subtotalBs":0,"precioUSDDivisa":9.00,"subtotalUSDDivisa":4.50}],"totalUSD":4.50,"totalBs":0,"totalUSDDivisa":4.50,"modoPrecio":"divisa","hideRate":true,"customerName":"Delcy"}' https://rpym.net/api/presupuestos/95917
 ```
 
 ### 9. Actualizar estado de un presupuesto (no requiere auth)

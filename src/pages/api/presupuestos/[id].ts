@@ -157,10 +157,27 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
         `).bind(null, id).run();
       }
     } else {
-      // Full update (items, totals, customer info)
-      const { items, totalUSD, totalBs, totalUSDDivisa, hideRate, delivery, modoPrecio, customerName, customerAddress, fecha } = body;
+      // Full or partial update — merge with existing values
+      const existing = await db.prepare('SELECT * FROM presupuestos WHERE id = ?').bind(id).first<D1Presupuesto>();
+      if (!existing) {
+        return new Response(JSON.stringify({ success: false, error: 'Presupuesto no encontrado' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
 
-      // Build update query - include fecha if provided
+      // Merge: use provided values or fall back to existing
+      const items = body.items ?? JSON.parse(existing.items);
+      const totalUSD = body.totalUSD ?? existing.total_usd;
+      const totalBs = body.totalBs ?? existing.total_bs;
+      const totalUSDDivisa = body.totalUSDDivisa !== undefined ? body.totalUSDDivisa : existing.total_usd_divisa;
+      const hideRate = body.hideRate !== undefined ? body.hideRate : (existing.hide_rate === 1);
+      const delivery = body.delivery !== undefined ? body.delivery : (existing.delivery || 0);
+      const modoPrecio = body.modoPrecio ?? existing.modo_precio ?? 'bcv';
+      const customerName = body.customerName !== undefined ? body.customerName : existing.customer_name;
+      const customerAddress = body.customerAddress !== undefined ? body.customerAddress : existing.customer_address;
+      const fecha = body.fecha;
+
       // Normalize date to noon UTC to avoid timezone issues (YYYY-MM-DD → YYYY-MM-DDT12:00:00.000Z)
       const fechaNormalized = fecha && fecha.length === 10 ? `${fecha}T12:00:00.000Z` : fecha;
       if (fechaNormalized) {
@@ -216,7 +233,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
 
       // If customerName is set, ensure budget is linked to the correct customer
       // (handles relinking if customer changed)
-      if (customerName) {
+      if (body.customerName) {
         await linkBudgetToCustomer(db, id, customerName);
       }
     }
