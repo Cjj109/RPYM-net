@@ -18,6 +18,17 @@ Todas las peticiones requieren:
 Authorization: Bearer {{RPYM_API_KEY}}
 ```
 
+## CRITICO: Sintaxis curl para Authorization
+Cuando ejecutes curl con el header de autorizacion, SIEMPRE usa comillas DOBLES para que la variable se expanda:
+```bash
+# CORRECTO (comillas dobles - la variable se expande):
+curl -s -H "Authorization: Bearer $RPYM_API_KEY" https://rpym.net/api/customers/1/transactions
+
+# INCORRECTO (comillas simples - envia literal "$RPYM_API_KEY"):
+curl -s -H 'Authorization: Bearer $RPYM_API_KEY' https://rpym.net/api/customers/1/transactions
+```
+Si recibes error "API key invalida", verifica que estas usando comillas DOBLES en el header.
+
 ## Endpoints Disponibles
 
 ### 1. Ver transacciones de un cliente

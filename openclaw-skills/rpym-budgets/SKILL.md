@@ -19,6 +19,17 @@ Authorization: Bearer {{RPYM_API_KEY}}
 ```
 Nota: Algunos endpoints de presupuestos NO requieren auth (GET /api/presupuestos, GET /api/presupuestos/:id, POST /api/presupuestos).
 
+## CRITICO: Sintaxis curl para Authorization
+Cuando ejecutes curl con el header de autorizacion, SIEMPRE usa comillas DOBLES para que la variable se expanda:
+```bash
+# CORRECTO (comillas dobles - la variable se expande):
+curl -s -H "Authorization: Bearer $RPYM_API_KEY" https://rpym.net/api/bot2/...
+
+# INCORRECTO (comillas simples - envia literal "$RPYM_API_KEY"):
+curl -s -H 'Authorization: Bearer $RPYM_API_KEY' https://rpym.net/api/bot2/...
+```
+Si recibes error "API key invalida", verifica que estas usando comillas DOBLES en el header.
+
 ## Endpoints Disponibles
 
 ### 1. Listar presupuestos
@@ -129,7 +140,10 @@ Content-Type: application/json
 - `totalBs` (REQUERIDO): Total en Bs — DEBE ser number, NO string (usar 0 si modoPrecio es "divisa")
 - `totalUSDDivisa` (opcional): Total en USD divisa
 - `modoPrecio` (opcional): `"bcv"`, `"divisa"`, o `"dual"`, default `"bcv"`
+- `hideRate` (opcional): `true` para OCULTAR el monto en Bs en el presupuesto. Usar cuando el cliente paga en divisas y no necesita ver Bs.
+- `delivery` (opcional): Costo de delivery en USD (default 0)
 - `customerName` (opcional): Nombre del cliente
+- `customerAddress` (opcional): Direccion de entrega del cliente
 - `source` (opcional): Usar `"telegram"` cuando se crea desde Bot 2
 - Respuesta: `{ success: true, id: "45123" }`
 - IMPORTANTE: Siempre confirma con el usuario antes de crear un presupuesto
@@ -158,7 +172,38 @@ GET /api/bot2/presupuestos/admin-url/{id}
 curl -s -H "Authorization: Bearer $RPYM_API_KEY" https://rpym.net/api/bot2/presupuestos/admin-url/38719
 ```
 
-### 8. Actualizar estado de un presupuesto (no requiere auth)
+### 8. Editar un presupuesto completo (no requiere auth)
+```
+PUT /api/presupuestos/{id}
+Content-Type: application/json
+
+{
+  "items": [...],
+  "totalUSD": 24.00,
+  "totalBs": 0,
+  "totalUSDDivisa": 24.00,
+  "modoPrecio": "divisa",
+  "hideRate": true,
+  "delivery": 0,
+  "customerName": "Delcy",
+  "customerAddress": "Calle 1",
+  "fecha": "2026-02-18"
+}
+```
+- NO requiere auth
+- Envia TODOS los campos del presupuesto (items, totales, etc.)
+- `hideRate: true` oculta el monto en Bs del presupuesto
+- `fecha` (opcional): Cambiar la fecha (formato YYYY-MM-DD)
+- Si el presupuesto esta vinculado a un cliente, tambien actualiza la transaccion asociada
+- IMPORTANTE: Siempre confirma con el usuario antes de editar
+- NOTA: Si solo quieres cambiar el estado o asignar cliente, usa los endpoints simplificados abajo (9 y 10)
+
+#### Ejemplo curl: Editar presupuesto existente
+```bash
+curl -s -X PUT -H "Content-Type: application/json" -d '{"items":[{"nombre":"Mejillon Pelado","cantidad":0.5,"unidad":"kg","precioUSD":9.00,"subtotalUSD":4.50,"subtotalBs":0,"precioUSDDivisa":9.00,"subtotalUSDDivisa":4.50}],"totalUSD":4.50,"totalBs":0,"totalUSDDivisa":4.50,"modoPrecio":"divisa","hideRate":true,"source":"telegram","customerName":"Delcy"}' https://rpym.net/api/presupuestos/95917
+```
+
+### 9. Actualizar estado de un presupuesto (no requiere auth)
 ```
 PUT /api/presupuestos/{id}
 Content-Type: application/json
@@ -168,8 +213,9 @@ Content-Type: application/json
 - NO requiere auth
 - Solo `"pendiente"` o `"pagado"` son validos
 - Al marcar como pagado, se guarda `fechaPago` automaticamente
+- NOTA: Enviar SOLO `{ "status": "..." }` sin otros campos
 
-### 9. Asignar presupuesto a un cliente
+### 10. Asignar presupuesto a un cliente
 ```
 PUT /api/presupuestos/{id}
 Content-Type: application/json
@@ -178,9 +224,10 @@ Content-Type: application/json
 ```
 - Automaticamente vincula el presupuesto a la cuenta del cliente (crea transaccion de compra)
 - El nombre debe coincidir con un cliente existente
+- NOTA: Enviar SOLO `{ "customerName": "..." }` sin otros campos
 - IMPORTANTE: Confirma con el usuario antes de vincular
 
-### 10. Eliminar un presupuesto
+### 11. Eliminar un presupuesto
 ```
 DELETE /api/presupuestos/{id}
 ```
