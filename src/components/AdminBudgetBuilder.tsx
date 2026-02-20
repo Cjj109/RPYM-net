@@ -953,7 +953,9 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
           onSaveComplete?.(result.id);
 
           // If assigned to a customer, create a transaction in their ledger
-          if (assignToCustomer) {
+          // Skip if auto-link already created it (POST /api/presupuestos auto-links by customerName)
+          const alreadyLinked = result.linked && result.linkedCustomerId === assignToCustomer;
+          if (assignToCustomer && !alreadyLinked) {
             const txDate = useCustomDate ? customPresupuestoDate : getLocalDateStr();
             try {
               await fetch(`/api/customers/${assignToCustomer}/transactions`, {

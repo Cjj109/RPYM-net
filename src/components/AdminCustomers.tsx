@@ -1348,37 +1348,40 @@ export default function AdminCustomers() {
         const presupuestoId = presData.id;
 
         // 2. Create transaction linked to presupuesto
-        const txPayload: any = {
-          type: 'purchase',
-          date: txDate,
-          description: `Presupuesto ${presupuestoId}`,
-          amountUsd: action.totalUSD,
-          amountBs: action.totalBs,
-          presupuestoId: presupuestoId,
-          notes: '',
-          currencyType: action.pricingMode === 'divisas' ? 'divisas' : 'dolar_bcv',
-          paymentMethod: '',
-          exchangeRate: bcvRate || ''
-        };
+        // Skip if auto-link already created it (POST /api/presupuestos auto-links by customerName)
+        const alreadyLinked = presData.linked && presData.linkedCustomerId === customerId;
+        if (!alreadyLinked) {
+          const txPayload: any = {
+            type: 'purchase',
+            date: txDate,
+            description: `Presupuesto ${presupuestoId}`,
+            amountUsd: action.totalUSD,
+            amountBs: action.totalBs,
+            presupuestoId: presupuestoId,
+            notes: '',
+            currencyType: action.pricingMode === 'divisas' ? 'divisas' : 'dolar_bcv',
+            paymentMethod: '',
+            exchangeRate: bcvRate || ''
+          };
 
-        // Add dual amount if applicable
-        if (action.pricingMode === 'dual' && action.totalUSDDivisa) {
-          txPayload.amountUsdDivisa = action.totalUSDDivisa;
+          // Add dual amount if applicable
+          if (action.pricingMode === 'dual' && action.totalUSDDivisa) {
+            txPayload.amountUsdDivisa = action.totalUSDDivisa;
+          }
+
+          const txRes = await fetch(`/api/customers/${customerId}/transactions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(txPayload),
+            credentials: 'include'
+          });
+
+          const txData = await txRes.json();
+          if (!txData.success) {
+            throw new Error(txData.error || 'Error al crear transaccion');
+          }
         }
-
-        const txRes = await fetch(`/api/customers/${customerId}/transactions`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(txPayload),
-          credentials: 'include'
-        });
-
-        const txData = await txRes.json();
-        if (txData.success) {
-          successCount++;
-        } else {
-          throw new Error(txData.error || 'Error al crear transaccion');
-        }
+        successCount++;
       } catch (err) {
         console.error('Error creating purchase with products:', err);
         failCount++;

@@ -73,7 +73,7 @@ export interface PresupuestoStats {
  * Guarda un presupuesto en D1
  * Esta función es silenciosa - no muestra errores al usuario
  */
-export async function savePresupuesto(data: SavePresupuestoData): Promise<{ success: boolean; id?: string }> {
+export async function savePresupuesto(data: SavePresupuestoData): Promise<{ success: boolean; id?: string; linked?: boolean; linkedCustomerId?: number }> {
   try {
     // Obtener IP del cliente (aproximada)
     let clientIP = '';
@@ -110,7 +110,9 @@ export async function savePresupuesto(data: SavePresupuestoData): Promise<{ succ
     const result = await response.json();
     return {
       success: result.success || false,
-      id: result.id
+      id: result.id,
+      linked: result.linked || false,
+      linkedCustomerId: result.linkedCustomerId
     };
   } catch (error) {
     // Silencioso - no bloquear la experiencia del usuario
