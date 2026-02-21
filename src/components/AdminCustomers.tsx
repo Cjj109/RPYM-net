@@ -831,7 +831,8 @@ export default function AdminCustomers() {
             items: newPresupuestoItems,
             totalUSD: Math.round(presTotal * 100) / 100,
             totalBs: Math.round(presTotalBs * 100) / 100,
-            customerName: selectedCustomer.name,
+            // No pasar customerName aquí para evitar auto-link duplicado
+            // El vínculo se crea via la transacción manual abajo
             status: 'pagado', // Ya está pagado si es una compra pasada
             source: 'admin',
             customDate: presupuestoDate || txForm.date, // Fecha personalizada
@@ -900,10 +901,9 @@ export default function AdminCustomers() {
         txId = data.id;
       }
 
-      // Actualizar customer_name del presupuesto si se asignó uno existente
+      // Actualizar customer_name del presupuesto (existente o recién creado sin customerName)
       const usedPresupuestoId = createdPresupuestoId || txForm.presupuestoId.trim();
-      if (usedPresupuestoId && !createdPresupuestoId && selectedCustomer) {
-        // Solo si usamos un presupuesto existente (no uno recién creado)
+      if (usedPresupuestoId && selectedCustomer) {
         try {
           await fetch(`/api/presupuestos/${usedPresupuestoId}`, {
             method: 'PUT',
