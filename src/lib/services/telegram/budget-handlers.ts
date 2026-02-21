@@ -138,6 +138,7 @@ REGLAS DE INTERPRETACIÓN:
 - "2 cajas", "2cj" = 2 (unidad: caja)
 - Los números antes del producto indican cantidad (si no hay símbolo $)
 - Si no se especifica unidad, asumir "kg" para productos por peso
+- ⚠️ UNIDAD EXPLÍCITA: Si el usuario escribe "1kg", "2kg", etc., usar SIEMPRE "kg" aunque el catálogo diga "caja" u otra unidad
 - Para camarones, las tallas como "41/50", "61/70" son importantes para el match
 - Redondear cantidades calculadas a 3 decimales
 
@@ -449,7 +450,9 @@ INSTRUCCIONES:
       let dm;
       while ((dm = textDollarRegex.exec(scanText)) !== null) {
         const amount = parseFloat(dm[1]);
-        const fragment = normalize(dm[2].trim());
+        // Cortar el fragmento en "y" para evitar que "$X de prodA y prodB" asigne el monto a prodB
+        const rawFragment = dm[2].trim().split(/\s+y\s+/i)[0].trim();
+        const fragment = normalize(rawFragment);
         // Evitar duplicados
         if (!dollarFromText.some(d => d.amount === amount && d.fragment === fragment)) {
           dollarFromText.push({ amount, fragment });

@@ -132,9 +132,15 @@ PRODUCTOS:
 - Identificar cada producto mencionado con su cantidad
 - Formatos de cantidad: "2kg", "1 kilo", "500g" (= 0.5kg), "medio kilo" (= 0.5kg), "1/2", "2 1/2" (= 2.5)
 - Si no hay unidad, asumir "kg" para productos por peso
+- ⚠️ UNIDAD EXPLÍCITA: Si el usuario dice "1kg", "2kg", etc., usar SIEMPRE "kg" aunque el catálogo diga "caja" u otra unidad
 - Hacer match con el catalogo usando nombres parciales
 - "calamar" sin especificar → preferir "Calamar Nacional"
 - "camaron" → buscar por talla si se menciona (41/50, 61/70, etc.)
+
+MOLUSCOS (unidad crítica):
+- "pepitona", "pepitonas" = Pepitona. Si el usuario dice "1kg pepitona" → unit: "kg". Solo "caja" si dice explícitamente "caja de pepitona" o "X cajas"
+- "mejillon", "mejillones" = Mejillón
+- "almeja", "almejas" = Almeja
 
 CAMARONES - REGLA CRITICA DE DISAMBIGUATION:
 - "camaron jumbo", "jumbo", "camarones jumbo" = SIEMPRE Camarón Jumbo (en concha) - ES EL PRODUCTO JUMBO POR DEFECTO
