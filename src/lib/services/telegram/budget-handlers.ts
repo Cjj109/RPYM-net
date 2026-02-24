@@ -463,6 +463,30 @@ INSTRUCCIONES:
     const dollarAmountRegex = /^\$\s*(\d+(?:\.\d+)?)|^(\d+(?:\.\d+)?)\s*\$|^(\d+(?:\.\d+)?)\s*(?:dolares?|dollars?|usd)\s/i;
     const dollarDeRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|d\s)/i;
 
+    // Detectar unidad explícita del usuario (ej: "1kg pepitona" → "kg")
+    const explicitUnitRegex = /\d+(?:\.\d+)?\s*(kg|kilo|kilos)\b/i;
+    const halfKgRegex = /(?:medio|1\/2)\s*(?:kg|kilo)?\b/i;
+    function detectExplicitUnit(item: any, userText: string): string | null {
+      if (item.requestedName) {
+        if (explicitUnitRegex.test(item.requestedName) || halfKgRegex.test(item.requestedName)) {
+          return 'kg';
+        }
+      }
+      if (userText) {
+        const prodName = item.productName || item.requestedName || '';
+        const normalizedProd = normalize(prodName);
+        const normalizedText = normalize(userText);
+        const words = normalizedProd.split(/\s+/).filter((w: string) => w.length > 3);
+        for (const word of words) {
+          const pattern = new RegExp(`\\d+(?:\\.\\d+)?\\s*(?:kg|kilo|kilos)\\s+[^,]*?${word}`, 'i');
+          if (pattern.test(normalizedText)) return 'kg';
+          const patternHalf = new RegExp(`(?:medio|1\\/2)\\s*(?:kg|kilo)?\\s+[^,]*?${word}`, 'i');
+          if (patternHalf.test(normalizedText)) return 'kg';
+        }
+      }
+      return null;
+    }
+
     const items = (parsedResult.items || []).map((item: any) => {
       if (!item.matched || !item.productId) return item;
       const product = products.find(p => String(p.id) === String(item.productId));
@@ -1238,7 +1262,7 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
         }
 
         presupuestoItems.push({
-          nombre: product.nombre, cantidad: qty, unidad: item.unit || product.unidad,
+          nombre: product.nombre, cantidad: qty, unidad: detectExplicitUnit(item, originalText || text) || item.unit || product.unidad,
           precioUSD: precioMain, precioBs: precioMain * bcvRate.rate,
           subtotalUSD: subtotalMain, subtotalBs: subtotalMain * bcvRate.rate,
           precioUSDDivisa: pricingMode === 'dual' ? precioDivisa : precioMain,
@@ -1292,7 +1316,7 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
           const subtotalDivisa = precioDivisa * item.quantity;
 
           presupuestoItems.push({
-            nombre: product.nombre, cantidad: item.quantity, unidad: item.unit || product.unidad,
+            nombre: product.nombre, cantidad: item.quantity, unidad: detectExplicitUnit(item, originalText || text) || item.unit || product.unidad,
             precioUSD: precioMain, precioBs: precioMain * bcvRate.rate,
             subtotalUSD: subtotalMain, subtotalBs: subtotalMain * bcvRate.rate,
             precioUSDDivisa: pricingMode === 'dual' ? precioDivisa : precioMain,
@@ -1489,7 +1513,7 @@ export async function createCustomerPurchaseWithProducts(
         presupuestoItems.push({
           nombre: product.nombre,
           cantidad: item.quantity,
-          unidad: item.unit || product.unidad,
+          unidad: detectExplicitUnit(item, originalText || text) || item.unit || product.unidad,
           precioUSD: precioMain,
           precioBs: precioMain * bcvRate.rate,
           subtotalUSD: subtotalMain,

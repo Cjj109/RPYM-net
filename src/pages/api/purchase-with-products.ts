@@ -219,7 +219,8 @@ Responde SOLO con un JSON valido:
       "unit": "kg" | "caja" | "paquete",
       "matched": true/false,
       "customPrice": numero o null,
-      "customPriceDivisa": numero o null
+      "customPriceDivisa": numero o null,
+      "dollarAmount": numero o null (monto total en $ que el cliente quiere gastar)
     }
   ],
   "date": "YYYY-MM-DD" o null,
@@ -269,11 +270,44 @@ Responde SOLO con un JSON valido:
     const dollarFromText: { amount: number; fragment: string }[] = [];
     let dm2;
     while ((dm2 = textDollarRegex2.exec(text)) !== null) {
-      dollarFromText.push({ amount: parseFloat(dm2[1]), fragment: normalize(dm2[2].trim()) });
+      // Cortar el fragmento en "y" para evitar que "$X de prodA y prodB" asigne el monto a prodB
+      const rawFragment = dm2[2].trim().split(/\s+y\s+/i)[0].trim();
+      const fragment = normalize(rawFragment);
+      if (!dollarFromText.some(d => d.amount === parseFloat(dm2![1]) && d.fragment === fragment)) {
+        dollarFromText.push({ amount: parseFloat(dm2[1]), fragment });
+      }
     }
 
     const dollarAmountRegex = /^\$\s*(\d+(?:\.\d+)?)|^(\d+(?:\.\d+)?)\s*\$|^(\d+(?:\.\d+)?)\s*(?:dolares?|dollars?|usd)\s/i;
     const dollarDeRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|d\s)/i;
+
+    // Detectar unidad explícita del usuario (ej: "1kg pepitona" → "kg")
+    // Si el usuario escribe "kg" explícitamente, NO usar la unidad del catálogo (podría ser "caja")
+    const explicitUnitRegex = /\d+(?:\.\d+)?\s*(kg|kilo|kilos)\b/i;
+    const halfKgRegex = /(?:medio|1\/2)\s*(?:kg|kilo)?\b/i;
+    function detectExplicitUnit(item: any, userText: string): string | null {
+      // Revisar en requestedName
+      if (item.requestedName) {
+        if (explicitUnitRegex.test(item.requestedName) || halfKgRegex.test(item.requestedName)) {
+          return 'kg';
+        }
+      }
+      // Revisar en el texto original buscando el nombre del producto cerca de "kg"
+      if (userText) {
+        const prodName = item.productName || item.requestedName || '';
+        const normalizedProd = normalize(prodName);
+        const normalizedText = normalize(userText);
+        // Buscar patrón: "Xkg productoNombre" o "X kg productoNombre"
+        const words = normalizedProd.split(/\s+/).filter((w: string) => w.length > 3);
+        for (const word of words) {
+          const pattern = new RegExp(`\\d+(?:\\.\\d+)?\\s*(?:kg|kilo|kilos)\\s+[^,]*?${word}`, 'i');
+          if (pattern.test(normalizedText)) return 'kg';
+          const patternHalf = new RegExp(`(?:medio|1\\/2)\\s*(?:kg|kilo)?\\s+[^,]*?${word}`, 'i');
+          if (patternHalf.test(normalizedText)) return 'kg';
+        }
+      }
+      return null;
+    }
 
     for (const item of parsed.items || []) {
       if (item.matched && item.productId) {
@@ -317,7 +351,7 @@ Responde SOLO con un JSON valido:
           const itemData: any = {
             nombre: item.productName || product.nombre,
             cantidad: qty,
-            unidad: item.unit || product.unidad,
+            unidad: detectExplicitUnit(item, text) || item.unit || product.unidad,
             precioUSD: precioMain,
             subtotalUSD: Math.round(precioMain * qty * 100) / 100,
           };

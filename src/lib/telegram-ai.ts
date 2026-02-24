@@ -97,7 +97,13 @@ INTENCIONES POSIBLES:
    CLAVE: Usa esta cuando hay un monto en dólares explícito ($50, $100, etc.) o cuando preguntan por un cliente específico
 
 2. customer_purchase_products - Anotaciones CON PRODUCTOS (cantidades de productos)
-   EJEMPLOS SIMPLES:
+   ⚠️ IMPORTANTE: NO necesita keyword "anota" o "registra". Si el mensaje tiene un NOMBRE seguido de CANTIDADES de productos (Xkg, X cajas, 1/2, medio, etc.), es SIEMPRE customer_purchase_products.
+   EJEMPLOS SIN KEYWORD (solo nombre + productos):
+   - "guarete 1/2kg camaron con concha" → params: {rawText: "guarete 1/2kg camaron con concha", modo: "bcv"}
+   - "delcy 2kg jumbo y 1kg calamar" → params: {rawText: "delcy 2kg jumbo y 1kg calamar", modo: "bcv"}
+   - "maria 3kg langostino" → params: {rawText: "maria 3kg langostino", modo: "bcv"}
+   - "jose 1/2kg pepitona y 2kg camaron" → params: {rawText: "jose 1/2kg pepitona y 2kg camaron", modo: "bcv"}
+   EJEMPLOS CON KEYWORD:
    - "anota a delcy 2kg jumbo" → params: {rawText: "delcy 2kg jumbo", modo: "bcv"}
    - "anota a maria 1kg pota en divisas" → params: {rawText: "maria 1kg pota", modo: "divisa"}
    - "registra a jose 3kg camaron dual" → params: {rawText: "jose 3kg camaron", modo: "dual"}
@@ -145,7 +151,7 @@ INTENCIONES POSIBLES:
    - "anota a maria $5 de jaiba en divisas" → params: {rawText: "maria $5 de jaiba", modo: "divisa"}
    IMPORTANTE: SIEMPRE preservar "$X de" en rawText. NUNCA eliminar el monto.
 
-   CLAVE: Usa esta cuando hay CANTIDADES de productos (kg, unidades, etc.) O MONTOS EN $ de productos
+   CLAVE: Usa esta cuando hay CANTIDADES de productos (kg, unidades, etc.) O MONTOS EN $ de productos. NO necesita "anota" ni "presupuesto" — si hay un nombre + cantidades de productos, SIEMPRE es customer_purchase_products.
 
 3. budget_create - Crear presupuesto (puede incluir nombre de cliente)
    ¡¡¡PRIORIDAD MÁXIMA!!! Si el mensaje empieza con "crea presupuesto", "presupuesto a X de", "presupuesto de" + lista de productos → SIEMPRE budget_create.
