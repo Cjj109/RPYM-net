@@ -87,6 +87,30 @@ interface ParseOrderResult {
   error?: string;
 }
 
+// Detectar unidad explícita del usuario (ej: "1kg pepitona" → "kg")
+const explicitUnitRegex = /\d+(?:\.\d+)?\s*(kg|kilo|kilos)\b/i;
+const halfKgRegex = /(?:medio|1\/2)\s*(?:kg|kilo)?\b/i;
+function detectExplicitUnit(item: any, userText: string): string | null {
+  if (item.requestedName) {
+    if (explicitUnitRegex.test(item.requestedName) || halfKgRegex.test(item.requestedName)) {
+      return 'kg';
+    }
+  }
+  if (userText) {
+    const prodName = item.productName || item.requestedName || '';
+    const normalizedProd = normalize(prodName);
+    const normalizedText = normalize(userText);
+    const words = normalizedProd.split(/\s+/).filter((w: string) => w.length > 3);
+    for (const word of words) {
+      const pattern = new RegExp(`\\d+(?:\\.\\d+)?\\s*(?:kg|kilo|kilos)\\s+[^,]*?${word}`, 'i');
+      if (pattern.test(normalizedText)) return 'kg';
+      const patternHalf = new RegExp(`(?:medio|1\\/2)\\s*(?:kg|kilo)?\\s+[^,]*?${word}`, 'i');
+      if (patternHalf.test(normalizedText)) return 'kg';
+    }
+  }
+  return null;
+}
+
 /**
  * Parsea un pedido directamente con Gemini (sin subrequest HTTP)
  * Evita problemas de timeout en Cloudflare Workers
@@ -462,30 +486,6 @@ INSTRUCCIONES:
 
     const dollarAmountRegex = /^\$\s*(\d+(?:\.\d+)?)|^(\d+(?:\.\d+)?)\s*\$|^(\d+(?:\.\d+)?)\s*(?:dolares?|dollars?|usd)\s/i;
     const dollarDeRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|d\s)/i;
-
-    // Detectar unidad explícita del usuario (ej: "1kg pepitona" → "kg")
-    const explicitUnitRegex = /\d+(?:\.\d+)?\s*(kg|kilo|kilos)\b/i;
-    const halfKgRegex = /(?:medio|1\/2)\s*(?:kg|kilo)?\b/i;
-    function detectExplicitUnit(item: any, userText: string): string | null {
-      if (item.requestedName) {
-        if (explicitUnitRegex.test(item.requestedName) || halfKgRegex.test(item.requestedName)) {
-          return 'kg';
-        }
-      }
-      if (userText) {
-        const prodName = item.productName || item.requestedName || '';
-        const normalizedProd = normalize(prodName);
-        const normalizedText = normalize(userText);
-        const words = normalizedProd.split(/\s+/).filter((w: string) => w.length > 3);
-        for (const word of words) {
-          const pattern = new RegExp(`\\d+(?:\\.\\d+)?\\s*(?:kg|kilo|kilos)\\s+[^,]*?${word}`, 'i');
-          if (pattern.test(normalizedText)) return 'kg';
-          const patternHalf = new RegExp(`(?:medio|1\\/2)\\s*(?:kg|kilo)?\\s+[^,]*?${word}`, 'i');
-          if (patternHalf.test(normalizedText)) return 'kg';
-        }
-      }
-      return null;
-    }
 
     const items = (parsedResult.items || []).map((item: any) => {
       if (!item.matched || !item.productId) return item;
