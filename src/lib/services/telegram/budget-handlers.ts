@@ -427,6 +427,12 @@ INSTRUCCIONES:
 4. SIEMPRE extrae customerName si mencionan "a X", "para X", "creale a X"
 5. Si el texto dice "márcalo pagado" o "marca como pagado" → isPaid: true
 6. ¡¡¡CRÍTICO!!! Si un producto dice "a $X" o "a X", DEBES establecer customPrice con ese valor X
+
+⚠️ RECORDATORIO FINAL DE DISAMBIGUATION (MUY IMPORTANTE):
+- "pepitona" o "pepitonas" SIN "caja" → Pepitona por kg. SOLO si dice "caja" → la caja
+- "jumbo" o "camaron jumbo" SIN "desvenado" → Camarón Jumbo (en concha). NUNCA Desvenado Jumbo
+- "desvenado" SIN "jumbo" → Camarón Desvenado (normal). NUNCA Desvenado Jumbo
+- Si el usuario escribe "Xkg producto", la unidad DEBE ser "kg" sin importar la unidad del catálogo
    - Ejemplo: "2kg Pepitona a $2.5" → customPrice: 2.5
    - Ejemplo: "5kg langostino a $12" → customPrice: 12
    - Ejemplo: "2kg calamar nacional grande a $10" → customPrice: 10
@@ -487,7 +493,60 @@ INSTRUCCIONES:
     const dollarAmountRegex = /^\$\s*(\d+(?:\.\d+)?)|^(\d+(?:\.\d+)?)\s*\$|^(\d+(?:\.\d+)?)\s*(?:dolares?|dollars?|usd)\s/i;
     const dollarDeRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|d\s)/i;
 
-    const items = (parsedResult.items || []).map((item: any) => {
+    // Post-procesamiento: corregir matches ambiguos de Gemini
+    const correctedItems = (parsedResult.items || []).map((item: any) => {
+      if (!item.matched || !item.productId) return item;
+      const matchedProduct = products.find(p => String(p.id) === String(item.productId));
+      if (!matchedProduct) return item;
+
+      const reqName = normalize(item.requestedName || '');
+      const origText = normalize(originalText || text);
+
+      // Corrección: "pepitona" sin "caja" → preferir la versión por kg, no la caja
+      if (matchedProduct.unidad === 'caja' && /pepiton/i.test(matchedProduct.nombre)) {
+        if (!/(caja|cj)\b/i.test(reqName) && !/(caja|cj)\b/i.test(origText)) {
+          const kgVersion = products.find(p =>
+            /pepiton/i.test(p.nombre) && p.unidad === 'kg' && String(p.id) !== String(item.productId)
+          );
+          if (kgVersion) {
+            console.log(`[PostProcess] Pepitona caja → kg: ${matchedProduct.nombre} → ${kgVersion.nombre}`);
+            return { ...item, productId: String(kgVersion.id), productName: kgVersion.nombre };
+          }
+        }
+      }
+
+      // Corrección: "jumbo" sin "desvenado" → Camarón Jumbo (en concha), NO Desvenado Jumbo
+      if (/desvenado.*jumbo|jumbo.*desvenado/i.test(matchedProduct.nombre)) {
+        const userSaidDesvenado = /desvenad/i.test(reqName) || /desvenad/i.test(origText);
+        if (!userSaidDesvenado) {
+          const jumboEnConcha = products.find(p =>
+            /jumbo/i.test(p.nombre) && !/desvenad/i.test(p.nombre) && /concha|camaron\s+jumbo/i.test(normalize(p.nombre))
+          );
+          if (jumboEnConcha) {
+            console.log(`[PostProcess] Desvenado Jumbo → Jumbo en concha: ${matchedProduct.nombre} → ${jumboEnConcha.nombre}`);
+            return { ...item, productId: String(jumboEnConcha.id), productName: jumboEnConcha.nombre };
+          }
+        }
+      }
+
+      // Corrección: "desvenado" sin "jumbo" → Camarón Desvenado normal, NO Desvenado Jumbo
+      if (/desvenado.*jumbo|jumbo.*desvenado/i.test(matchedProduct.nombre)) {
+        const userSaidJumbo = /jumbo/i.test(reqName) || /jumbo/i.test(origText);
+        if (!userSaidJumbo) {
+          const desvenadoNormal = products.find(p =>
+            /desvenad/i.test(p.nombre) && !/jumbo/i.test(p.nombre)
+          );
+          if (desvenadoNormal) {
+            console.log(`[PostProcess] Desvenado Jumbo → Desvenado normal: ${matchedProduct.nombre} → ${desvenadoNormal.nombre}`);
+            return { ...item, productId: String(desvenadoNormal.id), productName: desvenadoNormal.nombre };
+          }
+        }
+      }
+
+      return item;
+    });
+
+    const items = correctedItems.map((item: any) => {
       if (!item.matched || !item.productId) return item;
       const product = products.find(p => String(p.id) === String(item.productId));
       if (!product || product.precioUSD <= 0) return item;
