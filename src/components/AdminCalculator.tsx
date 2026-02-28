@@ -59,6 +59,9 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   });
   const [editingName, setEditingName] = useState<number | null>(null);
   const [editNameValue, setEditNameValue] = useState('');
+  const [editingEntry, setEditingEntry] = useState<number | null>(null);
+  const [editEntryValue, setEditEntryValue] = useState('');
+  const editEntryRef = useRef<HTMLInputElement>(null);
   const [activeClient, setActiveClient] = useState(() => {
     try {
       const saved = localStorage.getItem('rpym_calc_active_client');
@@ -134,10 +137,18 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     }
   }, [activeClient]);
 
-  // Focalizar input de edición de nombre cuando se activa
+  // Focalizar inputs de edición cuando se activan
+  useEffect(() => {
+    if (editingEntry !== null) {
+      requestAnimationFrame(() => {
+        editEntryRef.current?.focus();
+        editEntryRef.current?.select();
+      });
+    }
+  }, [editingEntry]);
+
   useEffect(() => {
     if (editingName !== null) {
-      // Pequeño delay para que el DOM renderice el input primero
       requestAnimationFrame(() => {
         editNameRef.current?.focus();
         editNameRef.current?.select();
@@ -182,6 +193,19 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
       const result = new Function(`return (${tokens.join('')})`)();
       return typeof result === 'number' && isFinite(result) ? result : 0;
     } catch { return 0; }
+  };
+
+  const updateEntryAmount = (id: number, newUSD: number) => {
+    if (newUSD <= 0 || !activeRate) return;
+    setEntries(prev => prev.map(e => e.id === id ? { ...e, amountUSD: newUSD, amountBs: newUSD * activeRate } : e));
+  };
+
+  // Helper: calcular totales de un cliente
+  const getClientTotals = (clientIdx: number) => {
+    const ce = clientEntries[clientIdx] || [];
+    const usd = ce.reduce((sum, e) => sum + (e.isNegative ? -e.amountUSD : e.amountUSD), 0);
+    const bs = ce.reduce((sum, e) => sum + (e.isNegative ? -e.amountBs : e.amountBs), 0);
+    return { usd, bs };
   };
 
   const hasExpression = /[+\-*/]/.test(inputAmount.replace(/^-/, ''));
@@ -448,12 +472,21 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
           </div>
         )}
 
-        {/* Descripción + agregar */}
-        <div className="mt-3 flex gap-2">
+        {/* Agregar + nota colapsable */}
+        <div className="mt-3 flex items-center gap-2">
+          <button
+            onClick={() => noteRef.current?.focus()}
+            className={`p-2 rounded-lg transition-colors ${description ? 'bg-ocean-100 text-ocean-700' : 'bg-ocean-50 text-ocean-300 hover:text-ocean-500'}`}
+            title="Agregar nota"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+            </svg>
+          </button>
           <input
             ref={noteRef}
             type="text"
-            placeholder="Nota (opcional)"
+            placeholder="nota..."
             value={description}
             onChange={e => setDescription(e.target.value)}
             onKeyDown={e => {
@@ -464,7 +497,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                 handleKeyDown(e);
               }
             }}
-            className="flex-1 px-3 py-2 border border-ocean-200 rounded-lg text-sm text-ocean-600 focus:ring-2 focus:ring-ocean-500 focus:border-transparent"
+            className="flex-1 px-2 py-1.5 text-xs text-ocean-400 border-0 bg-transparent focus:ring-0 focus:text-ocean-600 placeholder:text-ocean-200"
           />
           <button
             onClick={addEntry}
@@ -482,6 +515,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
         <div className="flex border-b border-ocean-100">
           {clientNames.map((name, i) => {
             const count = (clientEntries[i] || []).length;
+            const totals = getClientTotals(i);
             return (
               <div key={i} className={`flex-1 relative ${
                 activeClient === i ? 'bg-white' : 'bg-ocean-50/50'
@@ -495,20 +529,23 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                       setActiveClient(i);
                     }
                   }}
-                  className={`w-full py-2.5 text-xs font-medium transition-colors truncate px-1 ${
+                  className={`w-full py-2 text-xs font-medium transition-colors truncate px-1 ${
                     activeClient === i
                       ? 'text-ocean-700'
                       : 'text-ocean-400 hover:text-ocean-600'
                   }`}
                   title={activeClient === i ? 'Click para renombrar' : ''}
                 >
-                  {name}
+                  <div className="truncate">{name}</div>
                   {count > 0 && (
-                    <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${
-                      activeClient === i ? 'bg-ocean-600 text-white' : 'bg-ocean-200 text-ocean-600'
-                    }`}>
-                      {count}
-                    </span>
+                    <div className="mt-0.5 space-y-0">
+                      <div className={`text-[10px] font-mono ${activeClient === i ? 'text-ocean-500' : 'text-ocean-300'}`}>
+                        {formatUSD(Math.abs(totals.usd))}
+                      </div>
+                      <div className={`text-[10px] font-mono font-bold ${activeClient === i ? 'text-green-600' : 'text-green-400'}`}>
+                        {formatBs(Math.abs(totals.bs))}
+                      </div>
+                    </div>
                   )}
                 </button>
                 {activeClient === i && (
@@ -593,9 +630,35 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                     {entry.description && (
                       <p className="text-xs text-ocean-500 truncate mb-0.5">{entry.description}</p>
                     )}
-                    <p className={`text-sm font-mono ${entry.isNegative ? 'text-red-400' : 'text-ocean-400'}`}>
-                      {entry.isNegative ? '-' : ''}{formatUSD(entry.amountUSD)}
-                    </p>
+                    {editingEntry === entry.id ? (
+                      <div className="flex items-center gap-1">
+                        <span className={`text-sm font-mono ${entry.isNegative ? 'text-red-400' : 'text-ocean-400'}`}>$</span>
+                        <input
+                          ref={editEntryRef}
+                          type="text"
+                          inputMode="decimal"
+                          value={editEntryValue}
+                          onChange={e => setEditEntryValue(e.target.value)}
+                          onBlur={() => {
+                            const val = parseFloat(editEntryValue.replace(/,/g, '.'));
+                            if (val > 0) updateEntryAmount(entry.id, val);
+                            setEditingEntry(null);
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                            if (e.key === 'Escape') setEditingEntry(null);
+                          }}
+                          className="w-20 text-sm font-mono bg-transparent border-b-2 border-ocean-500 outline-none py-0"
+                        />
+                      </div>
+                    ) : (
+                      <p
+                        onClick={() => { setEditingEntry(entry.id); setEditEntryValue(entry.amountUSD.toFixed(2)); }}
+                        className={`text-sm font-mono cursor-pointer hover:underline ${entry.isNegative ? 'text-red-400' : 'text-ocean-400'}`}
+                      >
+                        {entry.isNegative ? '-' : ''}{formatUSD(entry.amountUSD)}
+                      </p>
+                    )}
                     <p className={`text-xl font-bold font-mono ${entry.isNegative ? 'text-red-600' : 'text-green-700'}`}>
                       {entry.isNegative ? '-' : ''}{formatBs(entry.amountBs)}
                     </p>
