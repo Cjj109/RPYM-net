@@ -20,7 +20,12 @@ interface SavedSession {
   timestamp: number;
 }
 
-const DISPATCHERS = ['Carlos', 'Pa', 'Luis', 'Pedro'] as const;
+const DISPATCHERS = [
+  { name: 'Carlos', bg: 'bg-blue-100', text: 'text-blue-700', ring: 'ring-blue-300', badge: 'bg-blue-50 text-blue-600' },
+  { name: 'Pa', bg: 'bg-emerald-100', text: 'text-emerald-700', ring: 'ring-emerald-300', badge: 'bg-emerald-50 text-emerald-600' },
+  { name: 'Luis', bg: 'bg-amber-100', text: 'text-amber-700', ring: 'ring-amber-300', badge: 'bg-amber-50 text-amber-600' },
+  { name: 'Pedro', bg: 'bg-rose-100', text: 'text-rose-700', ring: 'ring-rose-300', badge: 'bg-rose-50 text-rose-600' },
+] as const;
 
 interface AdminCalculatorProps {
   bcvRate?: { rate: number; date: string; source: string };
@@ -160,11 +165,14 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         amountRef.current?.focus();
+      } else if (e.key === '\\') {
+        e.preventDefault();
+        clearAll();
       }
     };
     document.addEventListener('keydown', handleGlobalKeyDown);
     return () => document.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [editingName, editingEntry, editingTotal, clientNames.length]);
+  }, [editingName, editingEntry, editingTotal, clientNames.length, clearAll]);
 
   // Focalizar inputs de edición cuando se activan
   useEffect(() => {
@@ -334,7 +342,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     }
   };
 
-  const clearAll = () => {
+  const clearAll = useCallback(() => {
     // Guardar sesión en historial si tiene entries
     if (entries.length > 0) {
       const session: SavedSession = {
@@ -364,7 +372,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
       next[activeClient] = defaultName(activeClient);
       return next;
     });
-  };
+  }, [entries, clientNames, activeClient, clientDispatcher, totalUSD, totalBs, activeRate]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -478,9 +486,12 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                   >
                     <div className="min-w-0">
                       <span className="text-sm font-medium text-ocean-700">{session.clientName}</span>
-                      {session.dispatcher && (
-                        <span className="text-[9px] font-medium text-purple-600 bg-purple-50 rounded-full px-1.5 py-0.5 ml-1.5">{session.dispatcher}</span>
-                      )}
+                      {session.dispatcher && (() => {
+                        const disp = DISPATCHERS.find(d => d.name === session.dispatcher);
+                        return (
+                          <span className={`text-[9px] font-semibold rounded-full px-1.5 py-0.5 ml-1.5 ${disp ? disp.badge : 'bg-gray-50 text-gray-500'}`}>{session.dispatcher}</span>
+                        );
+                      })()}
                       <span className="text-xs text-ocean-400 ml-2">({session.entries.length} items)</span>
                       <div className="text-xs text-ocean-400">
                         {formatHistoryDate(session.timestamp)} {formatTime(session.timestamp)}
@@ -542,9 +553,6 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                 if (e.key === ' ') {
                   e.preventDefault();
                   setInputAmount(prev => prev + '+');
-                } else if (e.key === '\\') {
-                  e.preventDefault();
-                  clearAll();
                 } else if (e.key === 'Escape') {
                   setInputAmount('');
                 } else if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp') {
@@ -642,11 +650,14 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                     title={activeClient === i ? 'Click para renombrar' : ''}
                   >
                     <div className="truncate">{name}</div>
-                    {clientDispatcher[i] && (
-                      <div className="text-[8px] font-medium text-purple-600 bg-purple-50 rounded-full px-1.5 mx-auto mt-0.5 truncate max-w-full">
-                        {clientDispatcher[i]}
-                      </div>
-                    )}
+                    {clientDispatcher[i] && (() => {
+                      const disp = DISPATCHERS.find(d => d.name === clientDispatcher[i]);
+                      return (
+                        <div className={`text-[8px] font-semibold rounded-full px-1.5 mx-auto mt-0.5 truncate max-w-full ${disp ? disp.badge : 'bg-gray-50 text-gray-500'}`}>
+                          {clientDispatcher[i]}
+                        </div>
+                      );
+                    })()}
                     {count > 0 ? (
                       <div className="mt-1">
                         <div className={`text-[11px] font-mono font-bold leading-tight ${activeClient === i ? 'text-green-700' : 'text-green-500'}`}>
@@ -716,24 +727,27 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
               )}
               {/* Selector de despachador */}
               <div className="flex items-center gap-1">
-                {DISPATCHERS.map(d => (
-                  <button
-                    key={d}
-                    onClick={() => setClientDispatcher(prev => {
-                      const next = { ...prev };
-                      if (next[activeClient] === d) { delete next[activeClient]; }
-                      else { next[activeClient] = d; }
-                      return next;
-                    })}
-                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
-                      clientDispatcher[activeClient] === d
-                        ? 'bg-purple-100 text-purple-700 ring-1 ring-purple-300'
-                        : 'bg-ocean-50 text-ocean-400 hover:bg-ocean-100 hover:text-ocean-600'
-                    }`}
-                  >
-                    {d}
-                  </button>
-                ))}
+                {DISPATCHERS.map(d => {
+                  const isActive = clientDispatcher[activeClient] === d.name;
+                  return (
+                    <button
+                      key={d.name}
+                      onClick={() => setClientDispatcher(prev => {
+                        const next = { ...prev };
+                        if (next[activeClient] === d.name) { delete next[activeClient]; }
+                        else { next[activeClient] = d.name; }
+                        return next;
+                      })}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold transition-all ${
+                        isActive
+                          ? `${d.bg} ${d.text} ring-1 ${d.ring} scale-105`
+                          : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'
+                      }`}
+                    >
+                      {d.name}
+                    </button>
+                  );
+                })}
               </div>
             </div>
             <div className="flex items-center gap-3">
