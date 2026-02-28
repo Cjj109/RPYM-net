@@ -11,7 +11,7 @@ import { EntryList } from './calculator/EntryList';
 import { HistoryPanel } from './calculator/HistoryPanel';
 import { RateSettings } from './calculator/RateSettings';
 import { ClientHeader } from './calculator/ClientHeader';
-import { GeneralTotal } from './calculator/GeneralTotal';
+
 import { KeyboardHelp } from './calculator/KeyboardHelp';
 import { UndoToast } from './calculator/UndoToast';
 
@@ -70,16 +70,6 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     }
     return totals;
   }, [clients]);
-
-  const generalTotal = useMemo(() => {
-    let usd = 0, bs = 0, count = 0;
-    for (const [, t] of allClientTotals) {
-      usd += t.usd;
-      bs += t.bs;
-      if (t.usd !== 0 || t.bs !== 0) count++;
-    }
-    return { usd, bs, activeClientCount: count };
-  }, [allClientTotals]);
 
   const currentTotals = allClientTotals.get(activeClient?.id ?? '') ?? { usd: 0, bs: 0 };
 
@@ -399,12 +389,6 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
           onSelectClient={setActiveClientId}
           onStartRenaming={handleStartRenaming}
           onAddClient={addClient}
-        />
-
-        <GeneralTotal
-          totalUSD={generalTotal.usd}
-          totalBs={generalTotal.bs}
-          activeClientCount={generalTotal.activeClientCount}
         />
 
         {activeClient && (
