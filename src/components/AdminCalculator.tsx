@@ -43,6 +43,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   // Calculadora
   const amountRef = useRef<HTMLInputElement>(null);
   const noteRef = useRef<HTMLInputElement>(null);
+  const totalRef = useRef<HTMLDivElement>(null);
   const [inputAmount, setInputAmount] = useState('');
   const [inputCurrency, setInputCurrency] = useState<'USD' | 'Bs'>('USD');
   const [description, setDescription] = useState('');
@@ -126,6 +127,8 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
 
   useEffect(() => {
     localStorage.setItem('rpym_calc_active_client', String(activeClient));
+    // Devolver foco al input de monto al cambiar de cliente
+    amountRef.current?.focus();
   }, [activeClient]);
 
   useEffect(() => {
@@ -394,7 +397,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                 setActiveClient(prev => (prev + 1) % 5);
               } else if (e.key === 'ArrowDown') {
                 e.preventDefault();
-                noteRef.current?.focus();
+                totalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
               } else if (e.key === 'Escape') {
                 setInputAmount('');
               } else {
@@ -491,14 +494,21 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                   />
                 ) : (
                   <button
-                    onClick={() => setActiveClient(i)}
-                    onDoubleClick={() => { setEditingName(i); setEditNameValue(name); }}
+                    onClick={() => {
+                      if (activeClient === i) {
+                        // Si ya es el tab activo, editar nombre
+                        setEditingName(i);
+                        setEditNameValue(name);
+                      } else {
+                        setActiveClient(i);
+                      }
+                    }}
                     className={`w-full py-2.5 text-xs font-medium transition-colors truncate px-1 ${
                       activeClient === i
                         ? 'text-ocean-700'
                         : 'text-ocean-400 hover:text-ocean-600'
                     }`}
-                    title={`Doble click para renombrar`}
+                    title={activeClient === i ? 'Click para renombrar' : ''}
                   >
                     {name}
                     {count > 0 && (
@@ -570,7 +580,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
           ) : (
             <>
             {/* Total arriba */}
-            <div className={`p-4 rounded-lg mb-4 ${totalUSD < 0 ? 'bg-red-50 border border-red-200' : 'bg-ocean-600'}`}>
+            <div ref={totalRef} className={`p-4 rounded-lg mb-4 ${totalUSD < 0 ? 'bg-red-50 border border-red-200' : 'bg-ocean-600'}`}>
               <div className="flex items-center justify-between">
                 <span className={`text-sm font-medium ${totalUSD < 0 ? 'text-red-700' : 'text-ocean-100'}`}>Total</span>
                 <div className="text-right">
