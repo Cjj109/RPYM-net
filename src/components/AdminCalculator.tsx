@@ -518,11 +518,11 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                     {entry.description && (
                       <p className="text-xs text-ocean-500 truncate mb-0.5">{entry.description}</p>
                     )}
-                    <div className="flex items-baseline gap-3">
+                    <div className="flex items-baseline justify-between gap-2">
                       <span className={`text-lg font-bold font-mono ${entry.isNegative ? 'text-red-600' : 'text-ocean-900'}`}>
                         {entry.isNegative ? '-' : ''}{formatUSD(entry.amountUSD)}
                       </span>
-                      <span className={`text-sm font-mono ${entry.isNegative ? 'text-red-400' : 'text-ocean-500'}`}>
+                      <span className={`text-lg font-bold font-mono ${entry.isNegative ? 'text-red-600' : 'text-green-700'}`}>
                         {entry.isNegative ? '-' : ''}{formatBs(entry.amountBs)}
                       </span>
                     </div>
@@ -553,13 +553,13 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
 
             {/* Total */}
             <div className={`p-4 rounded-lg ${totalUSD < 0 ? 'bg-red-50 border border-red-200' : 'bg-ocean-600'}`}>
-              <div className="flex items-baseline justify-between">
+              <div className="flex items-center justify-between">
                 <span className={`text-sm font-medium ${totalUSD < 0 ? 'text-red-700' : 'text-ocean-100'}`}>Total</span>
-                <div className="text-right">
-                  <span className={`text-2xl font-bold font-mono ${totalUSD < 0 ? 'text-red-700' : 'text-white'}`}>
+                <div className="flex items-baseline gap-4">
+                  <span className={`text-xl font-bold font-mono ${totalUSD < 0 ? 'text-red-700' : 'text-white'}`}>
                     {totalUSD < 0 ? '-' : ''}{formatUSD(Math.abs(totalUSD))}
                   </span>
-                  <span className={`text-sm font-mono ml-3 ${totalUSD < 0 ? 'text-red-500' : 'text-ocean-200'}`}>
+                  <span className={`text-xl font-bold font-mono ${totalBs < 0 ? 'text-red-500' : 'text-green-300'}`}>
                     {totalBs < 0 ? '-' : ''}{formatBs(Math.abs(totalBs))}
                   </span>
                 </div>
