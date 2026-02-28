@@ -362,6 +362,17 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
               if (e.key === ' ') {
                 e.preventDefault();
                 setInputAmount(prev => prev + '+');
+              } else if (e.key === 'ArrowLeft' && e.altKey) {
+                e.preventDefault();
+                setActiveClient(prev => (prev - 1 + 5) % 5);
+              } else if (e.key === 'ArrowRight' && e.altKey) {
+                e.preventDefault();
+                setActiveClient(prev => (prev + 1) % 5);
+              } else if (e.key === 'Escape') {
+                setInputAmount('');
+              } else if (/^[1-5]$/.test(e.key) && e.altKey) {
+                e.preventDefault();
+                setActiveClient(parseInt(e.key) - 1);
               } else {
                 handleKeyDown(e);
               }
