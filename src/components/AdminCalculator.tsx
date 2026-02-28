@@ -9,12 +9,12 @@ interface CalcEntry {
   isNegative: boolean;
 }
 
-interface HistoryItem {
+interface SavedSession {
   id: number;
-  expression: string;
-  currency: 'USD' | 'Bs';
-  resultUSD: number;
-  resultBs: number;
+  clientName: string;
+  entries: CalcEntry[];
+  totalUSD: number;
+  totalBs: number;
   rate: number;
   timestamp: number;
 }
@@ -98,35 +98,22 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     } catch { return 1; }
   });
 
-  // Historial de cálculos por cliente
-  const [clientHistory, setClientHistory] = useState<Record<number, HistoryItem[]>>(() => {
+  // Historial de sesiones (recibos guardados al limpiar)
+  const [savedSessions, setSavedSessions] = useState<SavedSession[]>(() => {
     try {
-      const saved = localStorage.getItem('rpym_calc_history');
-      if (!saved) return {};
-      const parsed = JSON.parse(saved);
-      // Migrar formato viejo (array) a nuevo (por cliente)
-      if (Array.isArray(parsed)) return { 0: parsed };
-      return parsed;
-    } catch { return {}; }
+      const saved = localStorage.getItem('rpym_calc_sessions');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
   });
   const [showHistory, setShowHistory] = useState(false);
-
-  // History del cliente activo
-  const history = clientHistory[activeClient] || [];
-  const setHistory = (updater: HistoryItem[] | ((prev: HistoryItem[]) => HistoryItem[])) => {
-    setClientHistory(prev => {
-      const current = prev[activeClient] || [];
-      const next = typeof updater === 'function' ? updater(current) : updater;
-      return { ...prev, [activeClient]: next };
-    });
-  };
+  const [expandedSession, setExpandedSession] = useState<number | null>(null);
 
   const activeRate = useManualRate && manualRate ? parseFloat(manualRate) : autoRate;
 
-  // Persistir historial
+  // Persistir sesiones
   useEffect(() => {
-    localStorage.setItem('rpym_calc_history', JSON.stringify(clientHistory));
-  }, [clientHistory]);
+    localStorage.setItem('rpym_calc_sessions', JSON.stringify(savedSessions));
+  }, [savedSessions]);
 
   // Persistir entries y tab activo
   useEffect(() => {
@@ -295,6 +282,10 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     setEntries(prev => prev.map(e => e.id === id ? { ...e, isNegative: !e.isNegative } : e));
   };
 
+  // Totales
+  const totalUSD = entries.reduce((sum, e) => sum + (e.isNegative ? -e.amountUSD : e.amountUSD), 0);
+  const totalBs = entries.reduce((sum, e) => sum + (e.isNegative ? -e.amountBs : e.amountBs), 0);
+
   const addClient = () => {
     const newName = defaultName(clientNames.length);
     setClientNames(prev => [...prev, newName]);
@@ -313,23 +304,26 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
       });
       return next;
     });
-    setClientHistory(prev => {
-      const next: Record<number, HistoryItem[]> = {};
-      Object.keys(prev).forEach(k => {
-        const ki = parseInt(k);
-        if (ki < idx) next[ki] = prev[ki];
-        else if (ki > idx) next[ki - 1] = prev[ki];
-      });
-      return next;
-    });
     if (activeClient >= idx && activeClient > 0) {
       setActiveClient(prev => prev - 1);
     }
   };
 
   const clearAll = () => {
+    // Guardar sesión en historial si tiene entries
+    if (entries.length > 0) {
+      const session: SavedSession = {
+        id: Date.now(),
+        clientName: clientNames[activeClient],
+        entries: [...entries],
+        totalUSD,
+        totalBs,
+        rate: activeRate,
+        timestamp: Date.now(),
+      };
+      setSavedSessions(prev => [session, ...prev].slice(0, 100));
+    }
     setEntries([]);
-    setHistory([]);
     setInputAmount('');
     setDescription('');
     // Resetear nombre al default
@@ -340,40 +334,14 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     });
   };
 
-  // Totales
-  const totalUSD = entries.reduce((sum, e) => sum + (e.isNegative ? -e.amountUSD : e.amountUSD), 0);
-  const totalBs = entries.reduce((sum, e) => sum + (e.isNegative ? -e.amountBs : e.amountBs), 0);
-
-  // Guardar en historial
-  const addToHistory = useCallback(() => {
-    if (parsedAmount === 0 || !activeRate) return;
-    const item: HistoryItem = {
-      id: Date.now(),
-      expression: inputAmount,
-      currency: inputCurrency,
-      resultUSD: convertedUSD,
-      resultBs: convertedBs,
-      rate: activeRate,
-      timestamp: Date.now(),
-    };
-    setHistory(prev => [item, ...prev].slice(0, 50)); // máximo 50
-  }, [parsedAmount, activeRate, inputAmount, inputCurrency, convertedUSD, convertedBs]);
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      addToHistory();
       addEntry();
     }
   };
 
-  const useFromHistory = (item: HistoryItem) => {
-    setInputAmount(item.expression);
-    setInputCurrency(item.currency);
-    setShowHistory(false);
-  };
-
-  const clearHistory = () => setHistory([]);
+  const clearHistory = () => setSavedSessions([]);
 
   const formatTime = (ts: number) => {
     const d = new Date(ts);
@@ -406,10 +374,10 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
             {useManualRate && <span className="text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full">Manual</span>}
           </div>
           <div className="flex items-center gap-2">
-            {history.length > 0 && (
+            {savedSessions.length > 0 && (
               <button
-                onClick={() => setShowHistory(prev => !prev)}
-                className="p-1.5 text-ocean-400 hover:text-ocean-600 hover:bg-ocean-50 rounded-lg transition-colors"
+                onClick={() => { setShowHistory(prev => !prev); setExpandedSession(null); }}
+                className={`p-1.5 rounded-lg transition-colors ${showHistory ? 'bg-ocean-100 text-ocean-700' : 'text-ocean-400 hover:text-ocean-600 hover:bg-ocean-50'}`}
                 title="Historial"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -464,29 +432,47 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
           </div>
         )}
 
-        {/* Historial drawer (colapsable) */}
-        {showHistory && history.length > 0 && (
+        {/* Historial de sesiones (colapsable) */}
+        {showHistory && savedSessions.length > 0 && (
           <div className="mb-3 bg-white rounded-lg border border-ocean-100 overflow-hidden">
-            <div className="max-h-48 overflow-y-auto divide-y divide-ocean-50">
-              {history.map(item => (
-                <button
-                  key={item.id}
-                  onClick={() => useFromHistory(item)}
-                  className="w-full px-4 py-2 flex items-center justify-between hover:bg-ocean-50 transition-colors text-left"
-                >
-                  <div className="min-w-0">
-                    <span className="text-sm font-mono text-ocean-600">{item.expression}</span>
-                    <span className="text-xs text-ocean-400 ml-2">{item.currency === 'USD' ? '$' : 'Bs'}</span>
-                  </div>
-                  <div className="text-right shrink-0 ml-3">
-                    <div className="text-sm font-semibold text-ocean-800">
-                      {item.currency === 'USD' ? formatBs(item.resultBs) : formatUSD(item.resultUSD)}
+            <div className="max-h-64 overflow-y-auto divide-y divide-ocean-50">
+              {savedSessions.map(session => (
+                <div key={session.id}>
+                  <button
+                    onClick={() => setExpandedSession(prev => prev === session.id ? null : session.id)}
+                    className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-ocean-50 transition-colors text-left"
+                  >
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium text-ocean-700">{session.clientName}</span>
+                      <span className="text-xs text-ocean-400 ml-2">({session.entries.length} items)</span>
+                      <div className="text-xs text-ocean-400">
+                        {formatHistoryDate(session.timestamp)} {formatTime(session.timestamp)}
+                      </div>
                     </div>
-                    <div className="text-xs text-ocean-400">
-                      {formatHistoryDate(item.timestamp)} {formatTime(item.timestamp)}
+                    <div className="text-right shrink-0 ml-3">
+                      <div className="text-sm font-mono text-ocean-500">{formatUSD(Math.abs(session.totalUSD))}</div>
+                      <div className="text-base font-bold font-mono text-green-700">{formatBs(Math.abs(session.totalBs))}</div>
                     </div>
-                  </div>
-                </button>
+                  </button>
+                  {expandedSession === session.id && (
+                    <div className="px-4 pb-3 space-y-1 bg-ocean-50/50">
+                      {session.entries.map(entry => (
+                        <div key={entry.id} className="flex items-center justify-between text-xs py-1">
+                          <span className="text-ocean-500 truncate mr-2">{entry.description || '—'}</span>
+                          <div className="text-right shrink-0">
+                            <span className={`font-mono ${entry.isNegative ? 'text-red-400' : 'text-ocean-400'}`}>
+                              {entry.isNegative ? '-' : ''}{formatUSD(entry.amountUSD)}
+                            </span>
+                            <span className={`font-mono ml-2 font-medium ${entry.isNegative ? 'text-red-600' : 'text-green-700'}`}>
+                              {entry.isNegative ? '-' : ''}{formatBs(entry.amountBs)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="text-[10px] text-ocean-300 pt-1">Tasa: Bs. {session.rate.toFixed(2)}</div>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
             <div className="px-4 py-1.5 border-t border-ocean-100 bg-ocean-50/50">
