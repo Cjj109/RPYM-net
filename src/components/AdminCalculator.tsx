@@ -49,13 +49,14 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   const [inputCurrency, setInputCurrency] = useState<'USD' | 'Bs'>('USD');
   const [description, setDescription] = useState('');
 
-  // Tabs de clientes (5 slots)
-  const DEFAULT_NAMES = ['Cliente 1', 'Cliente 2', 'Cliente 3', 'Cliente 4', 'Cliente 5'];
+  // Tabs de clientes (dinámico)
+  const defaultName = (i: number) => `Cliente ${i + 1}`;
   const [clientNames, setClientNames] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('rpym_calc_client_names');
-      return saved ? JSON.parse(saved) : [...DEFAULT_NAMES];
-    } catch { return [...DEFAULT_NAMES]; }
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return Array.from({ length: 5 }, (_, i) => defaultName(i));
   });
   const [editingName, setEditingName] = useState<number | null>(null);
   const [editNameValue, setEditNameValue] = useState('');
@@ -146,12 +147,13 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
       // No interceptar si se está editando nombre, entry o total
       if (editingName !== null || editingEntry !== null || editingTotal) return;
 
+      const len = clientNames.length;
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        setActiveClient(prev => (prev - 1 + 5) % 5);
+        setActiveClient(prev => (prev - 1 + len) % len);
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        setActiveClient(prev => (prev + 1) % 5);
+        setActiveClient(prev => (prev + 1) % len);
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         amountRef.current?.focus();
@@ -159,7 +161,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     };
     document.addEventListener('keydown', handleGlobalKeyDown);
     return () => document.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [editingName, editingEntry, editingTotal]);
+  }, [editingName, editingEntry, editingTotal, clientNames.length]);
 
   // Focalizar inputs de edición cuando se activan
   useEffect(() => {
@@ -293,6 +295,38 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     setEntries(prev => prev.map(e => e.id === id ? { ...e, isNegative: !e.isNegative } : e));
   };
 
+  const addClient = () => {
+    const newName = defaultName(clientNames.length);
+    setClientNames(prev => [...prev, newName]);
+    setActiveClient(clientNames.length);
+  };
+
+  const removeClient = (idx: number) => {
+    if (clientNames.length <= 1) return;
+    setClientNames(prev => prev.filter((_, i) => i !== idx));
+    setClientEntries(prev => {
+      const next: Record<number, CalcEntry[]> = {};
+      Object.keys(prev).forEach(k => {
+        const ki = parseInt(k);
+        if (ki < idx) next[ki] = prev[ki];
+        else if (ki > idx) next[ki - 1] = prev[ki];
+      });
+      return next;
+    });
+    setClientHistory(prev => {
+      const next: Record<number, HistoryItem[]> = {};
+      Object.keys(prev).forEach(k => {
+        const ki = parseInt(k);
+        if (ki < idx) next[ki] = prev[ki];
+        else if (ki > idx) next[ki - 1] = prev[ki];
+      });
+      return next;
+    });
+    if (activeClient >= idx && activeClient > 0) {
+      setActiveClient(prev => prev - 1);
+    }
+  };
+
   const clearAll = () => {
     setEntries([]);
     setHistory([]);
@@ -301,7 +335,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     // Resetear nombre al default
     setClientNames(prev => {
       const next = [...prev];
-      next[activeClient] = DEFAULT_NAMES[activeClient];
+      next[activeClient] = defaultName(activeClient);
       return next;
     });
   };
@@ -552,12 +586,12 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
 
         {/* Tabs de clientes */}
         <div className="mt-3 bg-white rounded-t-xl shadow-sm border border-ocean-100 border-b-0">
-          <div className="flex">
+          <div className="flex overflow-x-auto">
             {clientNames.map((name, i) => {
               const count = (clientEntries[i] || []).length;
               const totals = getClientTotals(i);
               return (
-                <div key={i} className={`flex-1 relative ${
+                <div key={i} className={`flex-1 min-w-[70px] relative ${
                   activeClient === i ? 'bg-white' : 'bg-ocean-50/50'
                 }`}>
                   <button
@@ -596,6 +630,15 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                 </div>
               );
             })}
+            <button
+              onClick={addClient}
+              className="px-3 py-2 text-ocean-300 hover:text-ocean-600 hover:bg-ocean-50 transition-colors shrink-0 border-l border-ocean-100"
+              title="Agregar cliente"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v12m6-6H6" />
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -636,14 +679,27 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                 </h2>
               )}
             </div>
-            {entries.length > 0 && (
-              <button
-                onClick={clearAll}
-                className="text-xs text-red-500 hover:text-red-700 transition-colors"
-              >
-                Limpiar
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {entries.length > 0 && (
+                <button
+                  onClick={clearAll}
+                  className="text-xs text-red-500 hover:text-red-700 transition-colors"
+                >
+                  Limpiar
+                </button>
+              )}
+              {clientNames.length > 1 && (
+                <button
+                  onClick={() => removeClient(activeClient)}
+                  className="text-xs text-ocean-300 hover:text-red-500 transition-colors"
+                  title="Eliminar cliente"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
 
           {entries.length > 0 && (
