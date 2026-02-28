@@ -49,6 +49,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   const [rateLoading, setRateLoading] = useState(!initialBcv);
 
   // Calculadora
+  const clearAllRef = useRef<() => void>(() => {});
   const amountRef = useRef<HTMLInputElement>(null);
   const noteRef = useRef<HTMLInputElement>(null);
   const totalRef = useRef<HTMLDivElement>(null);
@@ -167,12 +168,12 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
         amountRef.current?.focus();
       } else if (e.key === '\\') {
         e.preventDefault();
-        clearAll();
+        clearAllRef.current();
       }
     };
     document.addEventListener('keydown', handleGlobalKeyDown);
     return () => document.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [editingName, editingEntry, editingTotal, clientNames.length, clearAll]);
+  }, [editingName, editingEntry, editingTotal, clientNames.length]);
 
   // Focalizar inputs de edición cuando se activan
   useEffect(() => {
@@ -373,6 +374,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
       return next;
     });
   }, [entries, clientNames, activeClient, clientDispatcher, totalUSD, totalBs, activeRate]);
+  clearAllRef.current = clearAll;
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
