@@ -510,67 +510,62 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
             <p className="text-sm text-ocean-400 text-center py-4">Sin operaciones</p>
           ) : (
             <>
+            {/* Entradas */}
+            <div className="space-y-2 mb-4">
+              {entries.map(entry => (
+                <div key={entry.id} className={`flex items-center gap-3 p-3 rounded-lg border ${entry.isNegative ? 'border-red-100 bg-red-50/50' : 'border-ocean-100 bg-ocean-50/30'}`}>
+                  <div className="flex-1 min-w-0">
+                    {entry.description && (
+                      <p className="text-xs text-ocean-500 truncate mb-0.5">{entry.description}</p>
+                    )}
+                    <div className="flex items-baseline gap-3">
+                      <span className={`text-lg font-bold font-mono ${entry.isNegative ? 'text-red-600' : 'text-ocean-900'}`}>
+                        {entry.isNegative ? '-' : ''}{formatUSD(entry.amountUSD)}
+                      </span>
+                      <span className={`text-sm font-mono ${entry.isNegative ? 'text-red-400' : 'text-ocean-500'}`}>
+                        {entry.isNegative ? '-' : ''}{formatBs(entry.amountBs)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <button
+                      onClick={() => toggleSign(entry.id)}
+                      className="p-1.5 text-ocean-400 hover:text-ocean-600 hover:bg-ocean-100 rounded transition-colors"
+                      title={entry.isNegative ? 'Cambiar a positivo' : 'Cambiar a negativo'}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => removeEntry(entry.id)}
+                      className="p-1.5 text-red-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                      title="Eliminar"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-ocean-100">
-                  <th className="text-left py-2 px-2 text-ocean-500 font-medium">Desc.</th>
-                  <th className="text-right py-2 px-2 text-ocean-500 font-medium">USD</th>
-                  <th className="text-right py-2 px-2 text-ocean-500 font-medium">Bs</th>
-                  <th className="w-20"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map(entry => (
-                  <tr key={entry.id} className="border-b border-ocean-50 hover:bg-ocean-25">
-                    <td className="py-2 px-2 text-ocean-700">
-                      {entry.description || '-'}
-                    </td>
-                    <td className={`py-2 px-2 text-right font-mono ${entry.isNegative ? 'text-red-600' : 'text-ocean-800'}`}>
-                      {entry.isNegative ? '-' : ''}{formatUSD(entry.amountUSD)}
-                    </td>
-                    <td className={`py-2 px-2 text-right font-mono ${entry.isNegative ? 'text-red-600' : 'text-ocean-800'}`}>
-                      {entry.isNegative ? '-' : ''}{formatBs(entry.amountBs)}
-                    </td>
-                    <td className="py-2 px-2 text-right">
-                      <button
-                        onClick={() => toggleSign(entry.id)}
-                        className="p-1 text-ocean-400 hover:text-ocean-600 transition-colors"
-                        title={entry.isNegative ? 'Cambiar a positivo' : 'Cambiar a negativo'}
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => removeEntry(entry.id)}
-                        className="p-1 text-red-300 hover:text-red-500 transition-colors"
-                        title="Eliminar"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="border-t-2 border-ocean-200">
-                  <td className="py-3 px-2 font-semibold text-ocean-900">Total</td>
-                  <td className={`py-3 px-2 text-right font-mono font-bold ${totalUSD < 0 ? 'text-red-600' : 'text-ocean-900'}`}>
+            {/* Total */}
+            <div className={`p-4 rounded-lg ${totalUSD < 0 ? 'bg-red-50 border border-red-200' : 'bg-ocean-600'}`}>
+              <div className="flex items-baseline justify-between">
+                <span className={`text-sm font-medium ${totalUSD < 0 ? 'text-red-700' : 'text-ocean-100'}`}>Total</span>
+                <div className="text-right">
+                  <span className={`text-2xl font-bold font-mono ${totalUSD < 0 ? 'text-red-700' : 'text-white'}`}>
                     {totalUSD < 0 ? '-' : ''}{formatUSD(Math.abs(totalUSD))}
-                  </td>
-                  <td className={`py-3 px-2 text-right font-mono font-bold ${totalBs < 0 ? 'text-red-600' : 'text-ocean-900'}`}>
+                  </span>
+                  <span className={`text-sm font-mono ml-3 ${totalUSD < 0 ? 'text-red-500' : 'text-ocean-200'}`}>
                     {totalBs < 0 ? '-' : ''}{formatBs(Math.abs(totalBs))}
-                  </td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-          </>
+                  </span>
+                </div>
+              </div>
+            </div>
+            </>
           )}
         </div>
       </div>
