@@ -412,6 +412,9 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
               } else if (e.key === 'ArrowDown') {
                 e.preventDefault();
                 totalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              } else if (e.key === 'Backspace' && !inputAmount) {
+                e.preventDefault();
+                clearAll();
               } else if (e.key === 'Escape') {
                 setInputAmount('');
               } else {
