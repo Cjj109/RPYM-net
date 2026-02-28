@@ -181,62 +181,56 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
 
       {/* Convertidor */}
       <div className="bg-white rounded-xl p-5 shadow-sm border border-ocean-100">
-        <h2 className="text-lg font-semibold text-ocean-900 mb-4">Convertir</h2>
+        {/* Monto principal grande */}
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            step="0.01"
+            placeholder="0.00"
+            value={inputAmount}
+            onChange={e => setInputAmount(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="flex-1 px-4 py-3 text-2xl font-semibold border border-ocean-200 rounded-lg focus:ring-2 focus:ring-ocean-500 focus:border-transparent text-ocean-900"
+            autoFocus
+          />
+          <button
+            onClick={() => setInputCurrency(prev => prev === 'USD' ? 'Bs' : 'USD')}
+            className="px-4 py-3 bg-ocean-100 text-ocean-700 font-bold text-lg rounded-lg hover:bg-ocean-200 transition-colors min-w-[56px]"
+          >
+            {inputCurrency === 'USD' ? '$' : 'Bs'}
+          </button>
+        </div>
 
-        <div className="flex flex-col sm:flex-row gap-3">
-          {/* Descripción opcional */}
+        {/* Resultado de conversión */}
+        {activeRate > 0 && (
+          <div className="mt-3 p-4 bg-ocean-50 rounded-lg text-center">
+            <span className="text-sm text-ocean-500">
+              {inputCurrency === 'USD' ? 'Bolivares' : 'Dolares'}
+            </span>
+            <p className="text-3xl font-bold text-ocean-800 mt-1">
+              {inputCurrency === 'USD' ? formatBs(convertedBs) : formatUSD(convertedUSD)}
+            </p>
+          </div>
+        )}
+
+        {/* Descripción + agregar */}
+        <div className="mt-3 flex gap-2">
           <input
             type="text"
-            placeholder="Descripcion (opcional)"
+            placeholder="Nota (opcional)"
             value={description}
             onChange={e => setDescription(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="flex-1 px-3 py-2.5 border border-ocean-200 rounded-lg text-sm focus:ring-2 focus:ring-ocean-500 focus:border-transparent"
+            className="flex-1 px-3 py-2 border border-ocean-200 rounded-lg text-sm text-ocean-600 focus:ring-2 focus:ring-ocean-500 focus:border-transparent"
           />
-
-          {/* Monto + moneda */}
-          <div className="flex gap-1">
-            <input
-              type="number"
-              step="0.01"
-              placeholder="Monto"
-              value={inputAmount}
-              onChange={e => setInputAmount(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="w-32 px-3 py-2.5 border border-ocean-200 rounded-l-lg text-sm focus:ring-2 focus:ring-ocean-500 focus:border-transparent"
-              autoFocus
-            />
-            <button
-              onClick={() => setInputCurrency(prev => prev === 'USD' ? 'Bs' : 'USD')}
-              className="px-3 py-2.5 bg-ocean-100 text-ocean-700 font-medium text-sm rounded-r-lg hover:bg-ocean-200 transition-colors min-w-[48px]"
-            >
-              {inputCurrency}
-            </button>
-          </div>
-
           <button
             onClick={addEntry}
             disabled={parsedAmount === 0 || !activeRate}
-            className="px-5 py-2.5 bg-ocean-600 text-white rounded-lg text-sm font-medium hover:bg-ocean-500 disabled:bg-ocean-300 transition-colors"
+            className="px-5 py-2 bg-ocean-600 text-white rounded-lg text-sm font-medium hover:bg-ocean-500 disabled:bg-ocean-300 transition-colors"
           >
             Agregar
           </button>
         </div>
-
-        {/* Preview de conversión */}
-        {parsedAmount > 0 && activeRate > 0 && (
-          <div className="mt-3 p-3 bg-ocean-50 rounded-lg flex items-center justify-between text-sm">
-            <span className="text-ocean-600">
-              {inputCurrency === 'USD' ? formatUSD(parsedAmount) : formatBs(parsedAmount)}
-            </span>
-            <svg className="w-4 h-4 text-ocean-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-            </svg>
-            <span className="font-semibold text-ocean-800">
-              {inputCurrency === 'USD' ? formatBs(convertedBs) : formatUSD(convertedUSD)}
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Lista de operaciones */}
