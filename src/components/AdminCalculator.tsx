@@ -132,10 +132,34 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   useEffect(() => {
     localStorage.setItem('rpym_calc_active_client', String(activeClient));
     // Devolver foco al input de monto al cambiar de cliente (solo si no se está editando nombre)
-    if (editingName === null) {
+    if (editingName === null && editingEntry === null) {
       amountRef.current?.focus();
     }
   }, [activeClient]);
+
+  // Navegación global con flechas (funciona sin importar dónde esté el foco)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // No interceptar si se está editando nombre o entry
+      if (editingName !== null || editingEntry !== null) return;
+      // No interceptar si el foco está en un input que no es el amount
+      const active = document.activeElement as HTMLElement;
+      if (active && active.tagName === 'INPUT' && active !== amountRef.current) return;
+
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setActiveClient(prev => (prev - 1 + 5) % 5);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setActiveClient(prev => (prev + 1) % 5);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        amountRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', handleGlobalKeyDown);
+    return () => document.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [editingName, editingEntry]);
 
   // Focalizar inputs de edición cuando se activan
   useEffect(() => {
@@ -427,18 +451,12 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
               if (e.key === ' ') {
                 e.preventDefault();
                 setInputAmount(prev => prev + '+');
-              } else if (e.key === 'ArrowLeft') {
-                e.preventDefault();
-                setActiveClient(prev => (prev - 1 + 5) % 5);
-              } else if (e.key === 'ArrowRight') {
-                e.preventDefault();
-                setActiveClient(prev => (prev + 1) % 5);
               } else if (e.key === 'Backspace' && !inputAmount) {
                 e.preventDefault();
                 clearAll();
               } else if (e.key === 'Escape') {
                 setInputAmount('');
-              } else {
+              } else if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp') {
                 handleKeyDown(e);
               }
             }}
