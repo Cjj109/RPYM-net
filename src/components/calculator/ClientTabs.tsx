@@ -22,23 +22,23 @@ export function ClientTabs({
         {clients.map(client => {
           const isActive = client.id === activeClientId;
           const totals = allClientTotals.get(client.id) || { usd: 0, bs: 0 };
-          const count = client.entries.length;
+          const hasEntries = client.entries.length > 0;
 
           return (
-            <div key={client.id} className={`flex-1 min-w-[60px] sm:min-w-[70px] relative ${
-              isActive ? 'bg-white' : 'bg-ocean-50/50'
-            }`}>
+            <div key={client.id} className={`relative transition-all duration-200 ${
+              hasEntries ? 'flex-[2] min-w-[90px] sm:min-w-[110px]' : 'flex-[0.6] min-w-[40px] sm:min-w-[50px]'
+            } ${isActive ? 'bg-white' : 'bg-ocean-50/50'}`}>
               <button
                 onClick={() => {
                   if (isActive) onStartRenaming(client.id);
                   else onSelectClient(client.id);
                 }}
-                className={`w-full py-2 text-xs font-medium transition-colors truncate px-1 ${
-                  isActive ? 'text-ocean-700' : 'text-ocean-400 hover:text-ocean-600'
-                }`}
+                className={`w-full py-2 font-medium transition-colors truncate px-1.5 ${
+                  hasEntries ? 'text-xs' : 'text-[10px]'
+                } ${isActive ? 'text-ocean-700' : 'text-ocean-400 hover:text-ocean-600'}`}
                 title={isActive ? 'Click para renombrar' : ''}
               >
-                <div className="truncate">{client.name}</div>
+                <div className="truncate">{hasEntries ? client.name : client.name.replace('Cliente ', 'C')}</div>
                 {client.dispatcher && (() => {
                   const disp = DISPATCHERS.find(d => d.name === client.dispatcher);
                   return (
@@ -47,17 +47,17 @@ export function ClientTabs({
                     </div>
                   );
                 })()}
-                {count > 0 ? (
+                {hasEntries ? (
                   <div className="mt-1">
-                    <div className={`text-[11px] font-mono font-bold leading-tight ${isActive ? 'text-green-700' : 'text-green-500'}`}>
+                    <div className={`text-sm sm:text-base font-mono font-bold leading-tight ${isActive ? 'text-green-700' : 'text-green-600'}`}>
                       {formatBs(Math.abs(totals.bs))}
                     </div>
-                    <div className={`text-[9px] font-mono leading-tight ${isActive ? 'text-ocean-400' : 'text-ocean-300'}`}>
+                    <div className={`text-[10px] font-mono leading-tight ${isActive ? 'text-ocean-400' : 'text-ocean-300'}`}>
                       {formatUSD(Math.abs(totals.usd))}
                     </div>
                   </div>
                 ) : (
-                  <div className="mt-1 text-[9px] text-ocean-200">--</div>
+                  <div className="mt-0.5 text-[9px] text-ocean-200">--</div>
                 )}
               </button>
               {isActive && (
