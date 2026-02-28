@@ -78,8 +78,24 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
       .finally(() => setRateLoading(false));
   }, [initialBcv]);
 
+  // Evaluar expresión matemática (soporta +, -, *, /)
+  const evalExpr = (expr: string): number => {
+    const sanitized = expr.replace(/[^0-9+\-*/.() ]/g, '').trim();
+    if (!sanitized) return 0;
+    try {
+      // Tokenizar y calcular de forma segura
+      const tokens = sanitized.match(/(\d+\.?\d*|[+\-*/()])/g);
+      if (!tokens) return 0;
+      // Usar Function en vez de eval para aislamiento
+      const result = new Function(`return (${tokens.join('')})`)();
+      return typeof result === 'number' && isFinite(result) ? result : 0;
+    } catch { return 0; }
+  };
+
+  const hasExpression = /[+\-*/]/.test(inputAmount.replace(/^-/, ''));
+
   // Conversión en vivo
-  const parsedAmount = parseFloat(inputAmount) || 0;
+  const parsedAmount = evalExpr(inputAmount);
   let convertedUSD: number;
   let convertedBs: number;
   if (inputCurrency === 'USD') {
@@ -184,13 +200,13 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
         {/* Monto principal grande */}
         <div className="flex items-center gap-2">
           <input
-            type="number"
-            step="0.01"
+            type="text"
+            inputMode="decimal"
             placeholder="0.00"
             value={inputAmount}
             onChange={e => setInputAmount(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="flex-1 px-4 py-3 text-2xl font-semibold border border-ocean-200 rounded-lg focus:ring-2 focus:ring-ocean-500 focus:border-transparent text-ocean-900"
+            className="flex-1 px-4 py-3 text-2xl font-semibold border border-ocean-200 rounded-lg focus:ring-2 focus:ring-ocean-500 focus:border-transparent text-ocean-900 font-mono"
             autoFocus
           />
           <button
@@ -200,6 +216,13 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
             {inputCurrency === 'USD' ? '$' : 'Bs'}
           </button>
         </div>
+
+        {/* Resultado de expresión cuando hay operadores */}
+        {hasExpression && parsedAmount !== 0 && (
+          <div className="mt-2 px-1 text-sm text-ocean-500">
+            = {inputCurrency === 'USD' ? formatUSD(parsedAmount) : formatBs(parsedAmount)}
+          </div>
+        )}
 
         {/* Resultado de conversión */}
         {activeRate > 0 && (
