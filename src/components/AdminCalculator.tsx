@@ -111,11 +111,6 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
           setSessions(prev => prev.filter(s => s.id !== undoAction.sessionId));
         }
         break;
-      case 'toggle_sign':
-        updateClientEntries(undoAction.clientId, entries =>
-          entries.map(e => e.id === undoAction.entryId ? { ...e, isNegative: !e.isNegative } : e)
-        );
-        break;
     }
     setUndoAction(null);
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
@@ -160,14 +155,12 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     updateClientEntries(activeClient.id, prev => prev.filter(e => e.id !== entryId));
   }, [activeClient, updateClientEntries, scheduleUndoDismiss]);
 
-  const toggleSign = useCallback((entryId: string) => {
+  const updateEntryDescription = useCallback((entryId: string, description: string) => {
     if (!activeClient) return;
-    setUndoAction({ type: 'toggle_sign', clientId: activeClient.id, entryId });
-    scheduleUndoDismiss();
     updateClientEntries(activeClient.id, prev =>
-      prev.map(e => e.id === entryId ? { ...e, isNegative: !e.isNegative } : e)
+      prev.map(e => e.id === entryId ? { ...e, description } : e)
     );
-  }, [activeClient, updateClientEntries, scheduleUndoDismiss]);
+  }, [activeClient, updateClientEntries]);
 
   const updateEntryAmount = useCallback((entryId: string, newUSD: number) => {
     if (newUSD <= 0 || !activeRate || !activeClient) return;
@@ -411,8 +404,8 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
       <EntryList
         entries={entries}
         onRemoveEntry={removeEntry}
-        onToggleSign={toggleSign}
         onUpdateAmount={updateEntryAmount}
+        onUpdateDescription={updateEntryDescription}
       />
 
       {undoAction && (

@@ -26,8 +26,7 @@ export interface SavedSession {
 
 export type UndoAction =
   | { type: 'delete_entry'; clientId: string; entry: CalcEntry; index: number }
-  | { type: 'clear_all'; clientId: string; entries: CalcEntry[]; clientName: string; dispatcher?: string; sessionId?: string }
-  | { type: 'toggle_sign'; clientId: string; entryId: string };
+  | { type: 'clear_all'; clientId: string; entries: CalcEntry[]; clientName: string; dispatcher?: string; sessionId?: string };
 
 export interface RateConfig {
   useManualRate: boolean;
