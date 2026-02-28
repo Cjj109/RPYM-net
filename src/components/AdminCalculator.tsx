@@ -78,9 +78,9 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
       .finally(() => setRateLoading(false));
   }, [initialBcv]);
 
-  // Evaluar expresión matemática (soporta +, -, *, /)
+  // Evaluar expresión matemática (soporta +, -, *, /, comas como decimales)
   const evalExpr = (expr: string): number => {
-    const sanitized = expr.replace(/[^0-9+\-*/.() ]/g, '').trim();
+    const sanitized = expr.replace(/,/g, '.').replace(/[^0-9+\-*/.() ]/g, '').trim();
     if (!sanitized) return 0;
     try {
       // Tokenizar y calcular de forma segura
