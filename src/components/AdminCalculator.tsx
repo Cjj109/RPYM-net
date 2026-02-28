@@ -12,12 +12,15 @@ interface CalcEntry {
 interface SavedSession {
   id: number;
   clientName: string;
+  dispatcher?: string;
   entries: CalcEntry[];
   totalUSD: number;
   totalBs: number;
   rate: number;
   timestamp: number;
 }
+
+const DISPATCHERS = ['Carlos', 'Pa', 'Luis', 'Pedro'] as const;
 
 interface AdminCalculatorProps {
   bcvRate?: { rate: number; date: string; source: string };
@@ -79,6 +82,14 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     } catch { return {}; }
   });
 
+  // Despachador por cliente
+  const [clientDispatcher, setClientDispatcher] = useState<Record<number, string>>(() => {
+    try {
+      const saved = localStorage.getItem('rpym_calc_client_dispatcher');
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
+
   // Entries del cliente activo
   const entries = clientEntries[activeClient] || [];
   const setEntries = (updater: CalcEntry[] | ((prev: CalcEntry[]) => CalcEntry[])) => {
@@ -115,10 +126,14 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     localStorage.setItem('rpym_calc_sessions', JSON.stringify(savedSessions));
   }, [savedSessions]);
 
-  // Persistir entries y tab activo
+  // Persistir entries, tab activo y despachador
   useEffect(() => {
     localStorage.setItem('rpym_calc_client_entries', JSON.stringify(clientEntries));
   }, [clientEntries]);
+
+  useEffect(() => {
+    localStorage.setItem('rpym_calc_client_dispatcher', JSON.stringify(clientDispatcher));
+  }, [clientDispatcher]);
 
   useEffect(() => {
     localStorage.setItem('rpym_calc_active_client', String(activeClient));
@@ -305,6 +320,15 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
       });
       return next;
     });
+    setClientDispatcher(prev => {
+      const next: Record<number, string> = {};
+      Object.keys(prev).forEach(k => {
+        const ki = parseInt(k);
+        if (ki < idx) next[ki] = prev[ki];
+        else if (ki > idx) next[ki - 1] = prev[ki];
+      });
+      return next;
+    });
     if (activeClient >= idx && activeClient > 0) {
       setActiveClient(prev => prev - 1);
     }
@@ -316,6 +340,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
       const session: SavedSession = {
         id: Date.now(),
         clientName: clientNames[activeClient],
+        dispatcher: clientDispatcher[activeClient],
         entries: [...entries],
         totalUSD,
         totalBs,
@@ -327,6 +352,12 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     setEntries([]);
     setInputAmount('');
     setDescription('');
+    // Resetear despachador
+    setClientDispatcher(prev => {
+      const next = { ...prev };
+      delete next[activeClient];
+      return next;
+    });
     // Resetear nombre al default
     setClientNames(prev => {
       const next = [...prev];
@@ -447,6 +478,9 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                   >
                     <div className="min-w-0">
                       <span className="text-sm font-medium text-ocean-700">{session.clientName}</span>
+                      {session.dispatcher && (
+                        <span className="text-[9px] font-medium text-purple-600 bg-purple-50 rounded-full px-1.5 py-0.5 ml-1.5">{session.dispatcher}</span>
+                      )}
                       <span className="text-xs text-ocean-400 ml-2">({session.entries.length} items)</span>
                       <div className="text-xs text-ocean-400">
                         {formatHistoryDate(session.timestamp)} {formatTime(session.timestamp)}
@@ -608,6 +642,11 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                     title={activeClient === i ? 'Click para renombrar' : ''}
                   >
                     <div className="truncate">{name}</div>
+                    {clientDispatcher[i] && (
+                      <div className="text-[8px] font-medium text-purple-600 bg-purple-50 rounded-full px-1.5 mx-auto mt-0.5 truncate max-w-full">
+                        {clientDispatcher[i]}
+                      </div>
+                    )}
                     {count > 0 ? (
                       <div className="mt-1">
                         <div className={`text-[11px] font-mono font-bold leading-tight ${activeClient === i ? 'text-green-700' : 'text-green-500'}`}>
@@ -675,6 +714,27 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                   </svg>
                 </h2>
               )}
+              {/* Selector de despachador */}
+              <div className="flex items-center gap-1">
+                {DISPATCHERS.map(d => (
+                  <button
+                    key={d}
+                    onClick={() => setClientDispatcher(prev => {
+                      const next = { ...prev };
+                      if (next[activeClient] === d) { delete next[activeClient]; }
+                      else { next[activeClient] = d; }
+                      return next;
+                    })}
+                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
+                      clientDispatcher[activeClient] === d
+                        ? 'bg-purple-100 text-purple-700 ring-1 ring-purple-300'
+                        : 'bg-ocean-50 text-ocean-400 hover:bg-ocean-100 hover:text-ocean-600'
+                    }`}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="flex items-center gap-3">
               {entries.length > 0 && (
