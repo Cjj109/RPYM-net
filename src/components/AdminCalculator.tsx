@@ -122,6 +122,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
 
   useEffect(() => {
     localStorage.setItem('rpym_calc_active_client', String(activeClient));
+    setConfirmingDeleteClient(false);
     // Devolver foco al input de monto al cambiar de cliente (solo si no se está editando nombre)
     if (editingName === null && editingEntry === null) {
       amountRef.current?.focus();
@@ -342,6 +343,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   };
 
   const clearHistory = () => setSavedSessions([]);
+  const removeSession = (id: number) => setSavedSessions(prev => prev.filter(s => s.id !== id));
 
   const formatTime = (ts: number) => {
     const d = new Date(ts);
@@ -359,6 +361,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   };
 
   const [showSettings, setShowSettings] = useState(false);
+  const [confirmingDeleteClient, setConfirmingDeleteClient] = useState(false);
 
   return (
     <div className="flex flex-col h-full p-4 gap-3">
@@ -469,7 +472,15 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                           </div>
                         </div>
                       ))}
-                      <div className="text-[10px] text-ocean-300 pt-1">Tasa: Bs. {session.rate.toFixed(2)}</div>
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[10px] text-ocean-300">Tasa: Bs. {session.rate.toFixed(2)}</span>
+                        <button
+                          onClick={() => removeSession(session.id)}
+                          className="text-[10px] text-red-400 hover:text-red-600 transition-colors"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -675,15 +686,33 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                 </button>
               )}
               {clientNames.length > 1 && (
-                <button
-                  onClick={() => removeClient(activeClient)}
-                  className="text-xs text-ocean-300 hover:text-red-500 transition-colors"
-                  title="Eliminar cliente"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
+                confirmingDeleteClient ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-red-500">Eliminar?</span>
+                    <button
+                      onClick={() => { removeClient(activeClient); setConfirmingDeleteClient(false); }}
+                      className="text-[10px] font-medium text-red-600 hover:text-red-800 transition-colors"
+                    >
+                      Si
+                    </button>
+                    <button
+                      onClick={() => setConfirmingDeleteClient(false)}
+                      className="text-[10px] font-medium text-ocean-400 hover:text-ocean-600 transition-colors"
+                    >
+                      No
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirmingDeleteClient(true)}
+                    className="text-xs text-ocean-300 hover:text-red-500 transition-colors"
+                    title="Eliminar cliente"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                )
               )}
             </div>
           </div>
