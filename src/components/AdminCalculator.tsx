@@ -42,6 +42,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
 
   // Calculadora
   const amountRef = useRef<HTMLInputElement>(null);
+  const noteRef = useRef<HTMLInputElement>(null);
   const [inputAmount, setInputAmount] = useState('');
   const [inputCurrency, setInputCurrency] = useState<'USD' | 'Bs'>('USD');
   const [description, setDescription] = useState('');
@@ -391,6 +392,9 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
               } else if (e.key === 'ArrowRight' && !inputAmount) {
                 e.preventDefault();
                 setActiveClient(prev => (prev + 1) % 5);
+              } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                noteRef.current?.focus();
               } else if (e.key === 'Escape') {
                 setInputAmount('');
               } else {
@@ -430,6 +434,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
         {/* Descripción + agregar */}
         <div className="mt-3 flex gap-2">
           <input
+            ref={noteRef}
             type="text"
             placeholder="Nota (opcional)"
             value={description}
@@ -564,8 +569,23 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
             <p className="text-sm text-ocean-400 text-center py-4">Sin operaciones</p>
           ) : (
             <>
+            {/* Total arriba */}
+            <div className={`p-4 rounded-lg mb-4 ${totalUSD < 0 ? 'bg-red-50 border border-red-200' : 'bg-ocean-600'}`}>
+              <div className="flex items-center justify-between">
+                <span className={`text-sm font-medium ${totalUSD < 0 ? 'text-red-700' : 'text-ocean-100'}`}>Total</span>
+                <div className="text-right">
+                  <p className={`text-sm font-mono ${totalUSD < 0 ? 'text-red-500' : 'text-ocean-200'}`}>
+                    {totalUSD < 0 ? '-' : ''}{formatUSD(Math.abs(totalUSD))}
+                  </p>
+                  <p className={`text-2xl font-bold font-mono ${totalBs < 0 ? 'text-red-500' : 'text-white'}`}>
+                    {totalBs < 0 ? '-' : ''}{formatBs(Math.abs(totalBs))}
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Entradas */}
-            <div className="space-y-2 mb-4">
+            <div className="space-y-2">
               {entries.map(entry => (
                 <div key={entry.id} className={`flex items-center gap-3 p-3 rounded-lg border ${entry.isNegative ? 'border-red-100 bg-red-50/50' : 'border-ocean-100 bg-ocean-50/30'}`}>
                   <div className="flex-1 min-w-0">
@@ -601,21 +621,6 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                   </div>
                 </div>
               ))}
-            </div>
-
-            {/* Total */}
-            <div className={`p-4 rounded-lg ${totalUSD < 0 ? 'bg-red-50 border border-red-200' : 'bg-ocean-600'}`}>
-              <div className="flex items-center justify-between">
-                <span className={`text-sm font-medium ${totalUSD < 0 ? 'text-red-700' : 'text-ocean-100'}`}>Total</span>
-                <div className="text-right">
-                  <p className={`text-sm font-mono ${totalUSD < 0 ? 'text-red-500' : 'text-ocean-200'}`}>
-                    {totalUSD < 0 ? '-' : ''}{formatUSD(Math.abs(totalUSD))}
-                  </p>
-                  <p className={`text-2xl font-bold font-mono ${totalBs < 0 ? 'text-red-500' : 'text-white'}`}>
-                    {totalBs < 0 ? '-' : ''}{formatBs(Math.abs(totalBs))}
-                  </p>
-                </div>
-              </div>
             </div>
             </>
           )}
