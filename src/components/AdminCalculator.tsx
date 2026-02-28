@@ -45,18 +45,37 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   const [inputCurrency, setInputCurrency] = useState<'USD' | 'Bs'>('USD');
   const [description, setDescription] = useState('');
 
-  // Lista de operaciones
-  const [entries, setEntries] = useState<CalcEntry[]>(() => {
+  // Tabs de clientes (5 slots)
+  const CLIENT_TABS = ['Cliente 1', 'Cliente 2', 'Cliente 3', 'Cliente 4', 'Cliente 5'];
+  const [activeClient, setActiveClient] = useState(() => {
     try {
-      const saved = localStorage.getItem('rpym_calc_entries');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
+      const saved = localStorage.getItem('rpym_calc_active_client');
+      return saved ? parseInt(saved) : 0;
+    } catch { return 0; }
   });
+  const [clientEntries, setClientEntries] = useState<Record<number, CalcEntry[]>>(() => {
+    try {
+      const saved = localStorage.getItem('rpym_calc_client_entries');
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
+
+  // Entries del cliente activo
+  const entries = clientEntries[activeClient] || [];
+  const setEntries = (updater: CalcEntry[] | ((prev: CalcEntry[]) => CalcEntry[])) => {
+    setClientEntries(prev => {
+      const current = prev[activeClient] || [];
+      const next = typeof updater === 'function' ? updater(current) : updater;
+      return { ...prev, [activeClient]: next };
+    });
+  };
+
   const [nextId, setNextId] = useState(() => {
     try {
-      const saved = localStorage.getItem('rpym_calc_entries');
-      const parsed: CalcEntry[] = saved ? JSON.parse(saved) : [];
-      return parsed.length > 0 ? Math.max(...parsed.map(e => e.id)) + 1 : 1;
+      const saved = localStorage.getItem('rpym_calc_client_entries');
+      const all: Record<number, CalcEntry[]> = saved ? JSON.parse(saved) : {};
+      const allEntries = Object.values(all).flat();
+      return allEntries.length > 0 ? Math.max(...allEntries.map(e => e.id)) + 1 : 1;
     } catch { return 1; }
   });
 
@@ -76,10 +95,14 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     localStorage.setItem('rpym_calc_history', JSON.stringify(history));
   }, [history]);
 
-  // Persistir entries en localStorage
+  // Persistir entries y tab activo
   useEffect(() => {
-    localStorage.setItem('rpym_calc_entries', JSON.stringify(entries));
-  }, [entries]);
+    localStorage.setItem('rpym_calc_client_entries', JSON.stringify(clientEntries));
+  }, [clientEntries]);
+
+  useEffect(() => {
+    localStorage.setItem('rpym_calc_active_client', String(activeClient));
+  }, [activeClient]);
 
   // Persistir config de tasa manual
   useEffect(() => {
@@ -381,18 +404,56 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
         </div>
       </div>
 
-      {/* Lista de operaciones */}
-      {entries.length > 0 && (
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-ocean-100">
+      {/* Tabs de clientes + operaciones */}
+      <div className="bg-white rounded-xl shadow-sm border border-ocean-100 overflow-hidden">
+        {/* Tabs */}
+        <div className="flex border-b border-ocean-100">
+          {CLIENT_TABS.map((name, i) => {
+            const count = (clientEntries[i] || []).length;
+            return (
+              <button
+                key={i}
+                onClick={() => setActiveClient(i)}
+                className={`flex-1 py-2.5 text-xs font-medium transition-colors relative ${
+                  activeClient === i
+                    ? 'text-ocean-700 bg-white'
+                    : 'text-ocean-400 hover:text-ocean-600 bg-ocean-50/50'
+                }`}
+              >
+                {name}
+                {count > 0 && (
+                  <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${
+                    activeClient === i ? 'bg-ocean-600 text-white' : 'bg-ocean-200 text-ocean-600'
+                  }`}>
+                    {count}
+                  </span>
+                )}
+                {activeClient === i && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-ocean-600" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Contenido del tab */}
+        <div className="p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-ocean-900">Operaciones</h2>
-            <button
-              onClick={clearAll}
-              className="text-sm text-red-500 hover:text-red-700 transition-colors"
-            >
-              Limpiar todo
-            </button>
+            <h2 className="text-lg font-semibold text-ocean-900">{CLIENT_TABS[activeClient]}</h2>
+            {entries.length > 0 && (
+              <button
+                onClick={clearAll}
+                className="text-sm text-red-500 hover:text-red-700 transition-colors"
+              >
+                Limpiar
+              </button>
+            )}
           </div>
+
+          {entries.length === 0 ? (
+            <p className="text-sm text-ocean-400 text-center py-4">Sin operaciones</p>
+          ) : (
+            <>
 
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -453,8 +514,10 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
               </tfoot>
             </table>
           </div>
+          </>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
