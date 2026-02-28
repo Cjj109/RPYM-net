@@ -477,7 +477,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                 if (e.key === ' ') {
                   e.preventDefault();
                   setInputAmount(prev => prev + '+');
-                } else if (e.key === 'Backspace' && !inputAmount) {
+                } else if (e.key === '\\') {
                   e.preventDefault();
                   clearAll();
                 } else if (e.key === 'Escape') {
