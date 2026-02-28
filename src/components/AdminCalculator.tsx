@@ -46,7 +46,15 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   const [description, setDescription] = useState('');
 
   // Tabs de clientes (5 slots)
-  const CLIENT_TABS = ['Cliente 1', 'Cliente 2', 'Cliente 3', 'Cliente 4', 'Cliente 5'];
+  const DEFAULT_NAMES = ['Cliente 1', 'Cliente 2', 'Cliente 3', 'Cliente 4', 'Cliente 5'];
+  const [clientNames, setClientNames] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('rpym_calc_client_names');
+      return saved ? JSON.parse(saved) : [...DEFAULT_NAMES];
+    } catch { return [...DEFAULT_NAMES]; }
+  });
+  const [editingName, setEditingName] = useState<number | null>(null);
+  const [editNameValue, setEditNameValue] = useState('');
   const [activeClient, setActiveClient] = useState(() => {
     try {
       const saved = localStorage.getItem('rpym_calc_active_client');
@@ -103,6 +111,10 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   useEffect(() => {
     localStorage.setItem('rpym_calc_active_client', String(activeClient));
   }, [activeClient]);
+
+  useEffect(() => {
+    localStorage.setItem('rpym_calc_client_names', JSON.stringify(clientNames));
+  }, [clientNames]);
 
   // Persistir config de tasa manual
   useEffect(() => {
@@ -408,30 +420,57 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
       <div className="bg-white rounded-xl shadow-sm border border-ocean-100 overflow-hidden">
         {/* Tabs */}
         <div className="flex border-b border-ocean-100">
-          {CLIENT_TABS.map((name, i) => {
+          {clientNames.map((name, i) => {
             const count = (clientEntries[i] || []).length;
             return (
-              <button
-                key={i}
-                onClick={() => setActiveClient(i)}
-                className={`flex-1 py-2.5 text-xs font-medium transition-colors relative ${
-                  activeClient === i
-                    ? 'text-ocean-700 bg-white'
-                    : 'text-ocean-400 hover:text-ocean-600 bg-ocean-50/50'
-                }`}
-              >
-                {name}
-                {count > 0 && (
-                  <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${
-                    activeClient === i ? 'bg-ocean-600 text-white' : 'bg-ocean-200 text-ocean-600'
-                  }`}>
-                    {count}
-                  </span>
+              <div key={i} className={`flex-1 relative ${
+                activeClient === i ? 'bg-white' : 'bg-ocean-50/50'
+              }`}>
+                {editingName === i ? (
+                  <input
+                    type="text"
+                    value={editNameValue}
+                    onChange={e => setEditNameValue(e.target.value)}
+                    onBlur={() => {
+                      setClientNames(prev => {
+                        const next = [...prev];
+                        next[i] = editNameValue.trim() || DEFAULT_NAMES[i];
+                        return next;
+                      });
+                      setEditingName(null);
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                      if (e.key === 'Escape') { setEditingName(null); }
+                    }}
+                    className="w-full py-2 px-1 text-xs font-medium text-center bg-transparent border-b-2 border-ocean-500 outline-none"
+                    autoFocus
+                  />
+                ) : (
+                  <button
+                    onClick={() => setActiveClient(i)}
+                    onDoubleClick={() => { setEditingName(i); setEditNameValue(name); }}
+                    className={`w-full py-2.5 text-xs font-medium transition-colors truncate px-1 ${
+                      activeClient === i
+                        ? 'text-ocean-700'
+                        : 'text-ocean-400 hover:text-ocean-600'
+                    }`}
+                    title={`Doble click para renombrar`}
+                  >
+                    {name}
+                    {count > 0 && (
+                      <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${
+                        activeClient === i ? 'bg-ocean-600 text-white' : 'bg-ocean-200 text-ocean-600'
+                      }`}>
+                        {count}
+                      </span>
+                    )}
+                  </button>
                 )}
-                {activeClient === i && (
+                {activeClient === i && editingName !== i && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-ocean-600" />
                 )}
-              </button>
+              </div>
             );
           })}
         </div>
@@ -439,7 +478,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
         {/* Contenido del tab */}
         <div className="p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-ocean-900">{CLIENT_TABS[activeClient]}</h2>
+            <h2 className="text-lg font-semibold text-ocean-900">{clientNames[activeClient]}</h2>
             {entries.length > 0 && (
               <button
                 onClick={clearAll}
