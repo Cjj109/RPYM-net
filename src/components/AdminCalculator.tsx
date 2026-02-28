@@ -356,253 +356,252 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     return d.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit' });
   };
 
+  const [showSettings, setShowSettings] = useState(false);
+
   return (
-    <div className="space-y-6">
-      {/* Tasa BCV */}
-      <div className="bg-white rounded-xl p-5 shadow-sm border border-ocean-100">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-ocean-900">Tasa BCV</h2>
-          {rateLoading ? (
-            <span className="text-sm text-ocean-400 animate-pulse">Cargando...</span>
-          ) : (
-            <span className="text-2xl font-bold text-ocean-700">
-              Bs. {activeRate.toFixed(2)}
+    <div className="flex flex-col h-full p-4 gap-3">
+      {/* ZONA FIJA: Input + Conversión + Tabs + Total */}
+      <div className="shrink-0">
+        {/* Tasa actual + settings toggle */}
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-ocean-400">Tasa:</span>
+            <span className="text-sm font-bold text-ocean-700 font-mono">
+              {rateLoading ? '...' : `Bs. ${activeRate.toFixed(2)}`}
             </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setUseManualRate(false)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              !useManualRate
-                ? 'bg-ocean-600 text-white'
-                : 'bg-ocean-50 text-ocean-600 hover:bg-ocean-100'
-            }`}
-          >
-            Automatica ({autoRate.toFixed(2)})
-          </button>
-          <button
-            onClick={() => setUseManualRate(true)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              useManualRate
-                ? 'bg-ocean-600 text-white'
-                : 'bg-ocean-50 text-ocean-600 hover:bg-ocean-100'
-            }`}
-          >
-            Manual
-          </button>
-          {useManualRate && (
-            <input
-              type="number"
-              step="0.01"
-              placeholder="Ej: 419.98"
-              value={manualRate}
-              onChange={e => setManualRate(e.target.value)}
-              className="w-32 px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-2 focus:ring-ocean-500 focus:border-transparent"
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Historial */}
-      {history.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-ocean-100 overflow-hidden">
-          <button
-            onClick={() => setShowHistory(prev => !prev)}
-            className="w-full px-5 py-3 flex items-center justify-between hover:bg-ocean-50 transition-colors"
-          >
-            <span className="text-sm font-medium text-ocean-700 flex items-center gap-2">
+            {useManualRate && <span className="text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full">Manual</span>}
+          </div>
+          <div className="flex items-center gap-2">
+            {history.length > 0 && (
+              <button
+                onClick={() => setShowHistory(prev => !prev)}
+                className="p-1.5 text-ocean-400 hover:text-ocean-600 hover:bg-ocean-50 rounded-lg transition-colors"
+                title="Historial"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+            )}
+            <button
+              onClick={() => setShowSettings(prev => !prev)}
+              className={`p-1.5 rounded-lg transition-colors ${showSettings ? 'bg-ocean-100 text-ocean-700' : 'text-ocean-400 hover:text-ocean-600 hover:bg-ocean-50'}`}
+              title="Configurar tasa"
+            >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              Historial ({history.length})
-            </span>
-            <svg className={`w-4 h-4 text-ocean-400 transition-transform ${showHistory ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
+            </button>
+          </div>
+        </div>
 
-          {showHistory && (
-            <div className="border-t border-ocean-100">
-              <div className="max-h-64 overflow-y-auto divide-y divide-ocean-50">
-                {history.map(item => (
-                  <button
-                    key={item.id}
-                    onClick={() => useFromHistory(item)}
-                    className="w-full px-5 py-2.5 flex items-center justify-between hover:bg-ocean-50 transition-colors text-left"
-                  >
-                    <div className="min-w-0">
-                      <span className="text-sm font-mono text-ocean-600">{item.expression}</span>
-                      <span className="text-xs text-ocean-400 ml-2">{item.currency === 'USD' ? '$' : 'Bs'}</span>
-                    </div>
-                    <div className="text-right shrink-0 ml-3">
-                      <div className="text-sm font-semibold text-ocean-800">
-                        {item.currency === 'USD' ? formatBs(item.resultBs) : formatUSD(item.resultUSD)}
-                      </div>
-                      <div className="text-xs text-ocean-400">
-                        {formatHistoryDate(item.timestamp)} {formatTime(item.timestamp)}
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-              <div className="px-5 py-2 border-t border-ocean-100 bg-ocean-50/50">
+        {/* Settings drawer (colapsable) */}
+        {showSettings && (
+          <div className="mb-3 p-3 bg-ocean-50 rounded-lg border border-ocean-100">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setUseManualRate(false)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  !useManualRate ? 'bg-ocean-600 text-white' : 'bg-white text-ocean-600 hover:bg-ocean-100'
+                }`}
+              >
+                Auto ({autoRate.toFixed(2)})
+              </button>
+              <button
+                onClick={() => setUseManualRate(true)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  useManualRate ? 'bg-ocean-600 text-white' : 'bg-white text-ocean-600 hover:bg-ocean-100'
+                }`}
+              >
+                Manual
+              </button>
+              {useManualRate && (
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Ej: 419.98"
+                  value={manualRate}
+                  onChange={e => setManualRate(e.target.value)}
+                  className="w-28 px-2 py-1.5 border border-ocean-200 rounded-lg text-xs focus:ring-2 focus:ring-ocean-500 focus:border-transparent"
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Historial drawer (colapsable) */}
+        {showHistory && history.length > 0 && (
+          <div className="mb-3 bg-white rounded-lg border border-ocean-100 overflow-hidden">
+            <div className="max-h-48 overflow-y-auto divide-y divide-ocean-50">
+              {history.map(item => (
                 <button
-                  onClick={clearHistory}
-                  className="text-xs text-red-400 hover:text-red-600 transition-colors"
+                  key={item.id}
+                  onClick={() => useFromHistory(item)}
+                  className="w-full px-4 py-2 flex items-center justify-between hover:bg-ocean-50 transition-colors text-left"
                 >
-                  Borrar historial
+                  <div className="min-w-0">
+                    <span className="text-sm font-mono text-ocean-600">{item.expression}</span>
+                    <span className="text-xs text-ocean-400 ml-2">{item.currency === 'USD' ? '$' : 'Bs'}</span>
+                  </div>
+                  <div className="text-right shrink-0 ml-3">
+                    <div className="text-sm font-semibold text-ocean-800">
+                      {item.currency === 'USD' ? formatBs(item.resultBs) : formatUSD(item.resultUSD)}
+                    </div>
+                    <div className="text-xs text-ocean-400">
+                      {formatHistoryDate(item.timestamp)} {formatTime(item.timestamp)}
+                    </div>
+                  </div>
                 </button>
-              </div>
+              ))}
+            </div>
+            <div className="px-4 py-1.5 border-t border-ocean-100 bg-ocean-50/50">
+              <button onClick={clearHistory} className="text-xs text-red-400 hover:text-red-600 transition-colors">
+                Borrar historial
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Input de monto + conversión */}
+        <div className="bg-white rounded-xl p-4 shadow-sm border border-ocean-100">
+          <div className="flex items-center gap-2">
+            <input
+              ref={amountRef}
+              type="text"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={inputAmount}
+              onChange={e => setInputAmount(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === ' ') {
+                  e.preventDefault();
+                  setInputAmount(prev => prev + '+');
+                } else if (e.key === 'Backspace' && !inputAmount) {
+                  e.preventDefault();
+                  clearAll();
+                } else if (e.key === 'Escape') {
+                  setInputAmount('');
+                } else if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp') {
+                  handleKeyDown(e);
+                }
+              }}
+              className="flex-1 px-4 py-3 text-2xl font-semibold border border-ocean-200 rounded-lg focus:ring-2 focus:ring-ocean-500 focus:border-transparent text-ocean-900 font-mono"
+              autoFocus
+            />
+            <button
+              onClick={() => setInputCurrency(prev => prev === 'USD' ? 'Bs' : 'USD')}
+              className="px-4 py-3 bg-ocean-100 text-ocean-700 font-bold text-lg rounded-lg hover:bg-ocean-200 transition-colors min-w-[56px]"
+            >
+              {inputCurrency === 'USD' ? '$' : 'Bs'}
+            </button>
+          </div>
+
+          {hasExpression && parsedAmount !== 0 && (
+            <div className="mt-1 px-1 text-sm text-ocean-500">
+              = {inputCurrency === 'USD' ? formatUSD(parsedAmount) : formatBs(parsedAmount)}
             </div>
           )}
-        </div>
-      )}
 
-      {/* Convertidor */}
-      <div className="bg-white rounded-xl p-5 shadow-sm border border-ocean-100">
-        {/* Monto principal grande */}
-        <div className="flex items-center gap-2">
-          <input
-            ref={amountRef}
-            type="text"
-            inputMode="decimal"
-            placeholder="0.00"
-            value={inputAmount}
-            onChange={e => setInputAmount(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === ' ') {
-                e.preventDefault();
-                setInputAmount(prev => prev + '+');
-              } else if (e.key === 'Backspace' && !inputAmount) {
-                e.preventDefault();
-                clearAll();
-              } else if (e.key === 'Escape') {
-                setInputAmount('');
-              } else if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp') {
-                handleKeyDown(e);
-              }
-            }}
-            className="flex-1 px-4 py-3 text-2xl font-semibold border border-ocean-200 rounded-lg focus:ring-2 focus:ring-ocean-500 focus:border-transparent text-ocean-900 font-mono"
-            autoFocus
-          />
-          <button
-            onClick={() => setInputCurrency(prev => prev === 'USD' ? 'Bs' : 'USD')}
-            className="px-4 py-3 bg-ocean-100 text-ocean-700 font-bold text-lg rounded-lg hover:bg-ocean-200 transition-colors min-w-[56px]"
-          >
-            {inputCurrency === 'USD' ? '$' : 'Bs'}
-          </button>
-        </div>
+          {activeRate > 0 && (
+            <div className="mt-2 p-3 bg-ocean-50 rounded-lg text-center">
+              <span className="text-xs text-ocean-500">
+                {inputCurrency === 'USD' ? 'Bolivares' : 'Dolares'}
+              </span>
+              <p className="text-2xl font-bold text-ocean-800">
+                {inputCurrency === 'USD' ? formatBs(convertedBs) : formatUSD(convertedUSD)}
+              </p>
+            </div>
+          )}
 
-        {/* Resultado de expresión cuando hay operadores */}
-        {hasExpression && parsedAmount !== 0 && (
-          <div className="mt-2 px-1 text-sm text-ocean-500">
-            = {inputCurrency === 'USD' ? formatUSD(parsedAmount) : formatBs(parsedAmount)}
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              onClick={() => noteRef.current?.focus()}
+              className={`p-1.5 rounded-lg transition-colors ${description ? 'bg-ocean-100 text-ocean-700' : 'bg-ocean-50 text-ocean-300 hover:text-ocean-500'}`}
+              title="Agregar nota"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+              </svg>
+            </button>
+            <input
+              ref={noteRef}
+              type="text"
+              placeholder="nota..."
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  amountRef.current?.focus();
+                } else {
+                  handleKeyDown(e);
+                }
+              }}
+              className="flex-1 px-2 py-1 text-xs text-ocean-400 border-0 bg-transparent focus:ring-0 focus:text-ocean-600 placeholder:text-ocean-200"
+            />
+            <button
+              onClick={addEntry}
+              disabled={parsedAmount === 0 || !activeRate}
+              className="px-4 py-1.5 bg-ocean-600 text-white rounded-lg text-sm font-medium hover:bg-ocean-500 disabled:bg-ocean-300 transition-colors"
+            >
+              Agregar
+            </button>
           </div>
-        )}
-
-        {/* Resultado de conversión */}
-        {activeRate > 0 && (
-          <div className="mt-3 p-4 bg-ocean-50 rounded-lg text-center">
-            <span className="text-sm text-ocean-500">
-              {inputCurrency === 'USD' ? 'Bolivares' : 'Dolares'}
-            </span>
-            <p className="text-3xl font-bold text-ocean-800 mt-1">
-              {inputCurrency === 'USD' ? formatBs(convertedBs) : formatUSD(convertedUSD)}
-            </p>
-          </div>
-        )}
-
-        {/* Agregar + nota colapsable */}
-        <div className="mt-3 flex items-center gap-2">
-          <button
-            onClick={() => noteRef.current?.focus()}
-            className={`p-2 rounded-lg transition-colors ${description ? 'bg-ocean-100 text-ocean-700' : 'bg-ocean-50 text-ocean-300 hover:text-ocean-500'}`}
-            title="Agregar nota"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-            </svg>
-          </button>
-          <input
-            ref={noteRef}
-            type="text"
-            placeholder="nota..."
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                amountRef.current?.focus();
-              } else {
-                handleKeyDown(e);
-              }
-            }}
-            className="flex-1 px-2 py-1.5 text-xs text-ocean-400 border-0 bg-transparent focus:ring-0 focus:text-ocean-600 placeholder:text-ocean-200"
-          />
-          <button
-            onClick={addEntry}
-            disabled={parsedAmount === 0 || !activeRate}
-            className="px-5 py-2 bg-ocean-600 text-white rounded-lg text-sm font-medium hover:bg-ocean-500 disabled:bg-ocean-300 transition-colors"
-          >
-            Agregar
-          </button>
         </div>
-      </div>
 
-      {/* Tabs de clientes + operaciones */}
-      <div className="bg-white rounded-xl shadow-sm border border-ocean-100 overflow-hidden">
-        {/* Tabs */}
-        <div className="flex border-b border-ocean-100">
-          {clientNames.map((name, i) => {
-            const count = (clientEntries[i] || []).length;
-            const totals = getClientTotals(i);
-            return (
-              <div key={i} className={`flex-1 relative ${
-                activeClient === i ? 'bg-white' : 'bg-ocean-50/50'
-              }`}>
-                <button
-                  onClick={() => {
-                    if (activeClient === i) {
-                      setEditingName(i);
-                      setEditNameValue(name);
-                    } else {
-                      setActiveClient(i);
-                    }
-                  }}
-                  className={`w-full py-2 text-xs font-medium transition-colors truncate px-1 ${
-                    activeClient === i
-                      ? 'text-ocean-700'
-                      : 'text-ocean-400 hover:text-ocean-600'
-                  }`}
-                  title={activeClient === i ? 'Click para renombrar' : ''}
-                >
-                  <div className="truncate">{name}</div>
-                  {count > 0 ? (
-                    <div className="mt-1">
-                      <div className={`text-[11px] font-mono font-bold leading-tight ${activeClient === i ? 'text-green-700' : 'text-green-500'}`}>
-                        {formatBs(Math.abs(totals.bs))}
+        {/* Tabs de clientes */}
+        <div className="mt-3 bg-white rounded-t-xl shadow-sm border border-ocean-100 border-b-0">
+          <div className="flex">
+            {clientNames.map((name, i) => {
+              const count = (clientEntries[i] || []).length;
+              const totals = getClientTotals(i);
+              return (
+                <div key={i} className={`flex-1 relative ${
+                  activeClient === i ? 'bg-white' : 'bg-ocean-50/50'
+                }`}>
+                  <button
+                    onClick={() => {
+                      if (activeClient === i) {
+                        setEditingName(i);
+                        setEditNameValue(name);
+                      } else {
+                        setActiveClient(i);
+                      }
+                    }}
+                    className={`w-full py-2 text-xs font-medium transition-colors truncate px-1 ${
+                      activeClient === i
+                        ? 'text-ocean-700'
+                        : 'text-ocean-400 hover:text-ocean-600'
+                    }`}
+                    title={activeClient === i ? 'Click para renombrar' : ''}
+                  >
+                    <div className="truncate">{name}</div>
+                    {count > 0 ? (
+                      <div className="mt-1">
+                        <div className={`text-[11px] font-mono font-bold leading-tight ${activeClient === i ? 'text-green-700' : 'text-green-500'}`}>
+                          {formatBs(Math.abs(totals.bs))}
+                        </div>
+                        <div className={`text-[9px] font-mono leading-tight ${activeClient === i ? 'text-ocean-400' : 'text-ocean-300'}`}>
+                          {formatUSD(Math.abs(totals.usd))}
+                        </div>
                       </div>
-                      <div className={`text-[9px] font-mono leading-tight ${activeClient === i ? 'text-ocean-400' : 'text-ocean-300'}`}>
-                        {formatUSD(Math.abs(totals.usd))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="mt-1 text-[9px] text-ocean-200">--</div>
+                    ) : (
+                      <div className="mt-1 text-[9px] text-ocean-200">--</div>
+                    )}
+                  </button>
+                  {activeClient === i && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-ocean-600" />
                   )}
-                </button>
-                {activeClient === i && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-ocean-600" />
-                )}
-              </div>
-            );
-          })}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Contenido del tab */}
-        <div className="p-5">
-          <div className="flex items-center justify-between mb-4">
+        {/* Nombre del cliente + Total */}
+        <div className="bg-white border-x border-ocean-100 px-4 pt-3">
+          <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               {editingName === activeClient ? (
                 <input
@@ -622,16 +621,16 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                     if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                     if (e.key === 'Escape') setEditingName(null);
                   }}
-                  className="text-lg font-semibold text-ocean-900 bg-transparent border-b-2 border-ocean-500 outline-none py-0 px-0"
+                  className="text-sm font-semibold text-ocean-900 bg-transparent border-b-2 border-ocean-500 outline-none py-0 px-0"
                 />
               ) : (
                 <h2
                   onClick={() => { setEditingName(activeClient); setEditNameValue(clientNames[activeClient]); }}
-                  className="text-lg font-semibold text-ocean-900 cursor-pointer hover:text-ocean-600 transition-colors"
+                  className="text-sm font-semibold text-ocean-900 cursor-pointer hover:text-ocean-600 transition-colors"
                   title="Click para renombrar"
                 >
                   {clientNames[activeClient]}
-                  <svg className="w-3.5 h-3.5 inline-block ml-1.5 text-ocean-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3 h-3 inline-block ml-1 text-ocean-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                   </svg>
                 </h2>
@@ -640,21 +639,17 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
             {entries.length > 0 && (
               <button
                 onClick={clearAll}
-                className="text-sm text-red-500 hover:text-red-700 transition-colors"
+                className="text-xs text-red-500 hover:text-red-700 transition-colors"
               >
                 Limpiar
               </button>
             )}
           </div>
 
-          {entries.length === 0 ? (
-            <p className="text-sm text-ocean-400 text-center py-4">Sin operaciones</p>
-          ) : (
-            <>
-            {/* Total arriba */}
-            <div ref={totalRef} className={`p-4 rounded-lg mb-4 ${totalUSD < 0 ? 'bg-red-50 border border-red-200' : 'bg-ocean-600'}`}>
+          {entries.length > 0 && (
+            <div ref={totalRef} className={`p-3 rounded-lg ${totalUSD < 0 ? 'bg-red-50 border border-red-200' : 'bg-ocean-600'}`}>
               <div className="flex items-center justify-between">
-                <span className={`text-sm font-medium ${totalUSD < 0 ? 'text-red-700' : 'text-ocean-100'}`}>Total</span>
+                <span className={`text-xs font-medium ${totalUSD < 0 ? 'text-red-700' : 'text-ocean-100'}`}>Total</span>
                 <div className="text-right">
                   {editingTotal ? (
                     <div className="flex items-center gap-1 justify-end">
@@ -686,14 +681,22 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                       {totalUSD < 0 ? '-' : ''}{formatUSD(Math.abs(totalUSD))}
                     </p>
                   )}
-                  <p className={`text-2xl font-bold font-mono ${totalBs < 0 ? 'text-red-500' : 'text-white'}`}>
+                  <p className={`text-xl font-bold font-mono ${totalBs < 0 ? 'text-red-500' : 'text-white'}`}>
                     {totalBs < 0 ? '-' : ''}{formatBs(Math.abs(totalBs))}
                   </p>
                 </div>
               </div>
             </div>
+          )}
+        </div>
+      </div>
 
-            {/* Entradas */}
+      {/* ZONA SCROLL: Operaciones */}
+      <div className="flex-1 min-h-0 bg-white rounded-b-xl border-x border-b border-ocean-100 overflow-y-auto">
+        <div className="p-4">
+          {entries.length === 0 ? (
+            <p className="text-sm text-ocean-400 text-center py-4">Sin operaciones</p>
+          ) : (
             <div className="space-y-2">
               {entries.map(entry => (
                 <div key={entry.id} className={`flex items-center gap-3 p-3 rounded-lg border ${entry.isNegative ? 'border-red-100 bg-red-50/50' : 'border-ocean-100 bg-ocean-50/30'}`}>
@@ -758,7 +761,6 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                 </div>
               ))}
             </div>
-            </>
           )}
         </div>
       </div>
