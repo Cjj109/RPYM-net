@@ -62,6 +62,9 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   const [editingEntry, setEditingEntry] = useState<number | null>(null);
   const [editEntryValue, setEditEntryValue] = useState('');
   const editEntryRef = useRef<HTMLInputElement>(null);
+  const [editingTotal, setEditingTotal] = useState(false);
+  const [editTotalValue, setEditTotalValue] = useState('');
+  const editTotalRef = useRef<HTMLInputElement>(null);
   const [activeClient, setActiveClient] = useState(() => {
     try {
       const saved = localStorage.getItem('rpym_calc_active_client');
@@ -140,8 +143,8 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   // Navegación global con flechas (funciona sin importar dónde esté el foco)
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // No interceptar si se está editando nombre o entry
-      if (editingName !== null || editingEntry !== null) return;
+      // No interceptar si se está editando nombre, entry o total
+      if (editingName !== null || editingEntry !== null || editingTotal) return;
       // No interceptar si el foco está en un input que no es el amount
       const active = document.activeElement as HTMLElement;
       if (active && active.tagName === 'INPUT' && active !== amountRef.current) return;
@@ -159,9 +162,18 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     };
     document.addEventListener('keydown', handleGlobalKeyDown);
     return () => document.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [editingName, editingEntry]);
+  }, [editingName, editingEntry, editingTotal]);
 
   // Focalizar inputs de edición cuando se activan
+  useEffect(() => {
+    if (editingTotal) {
+      requestAnimationFrame(() => {
+        editTotalRef.current?.focus();
+        editTotalRef.current?.select();
+      });
+    }
+  }, [editingTotal]);
+
   useEffect(() => {
     if (editingEntry !== null) {
       requestAnimationFrame(() => {
@@ -217,6 +229,21 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
       const result = new Function(`return (${tokens.join('')})`)();
       return typeof result === 'number' && isFinite(result) ? result : 0;
     } catch { return 0; }
+  };
+
+  const applyTotalAdjust = (newTotalUSD: number) => {
+    if (!activeRate) return;
+    const diff = newTotalUSD - totalUSD;
+    if (Math.abs(diff) < 0.001) return; // sin cambio
+    const entry: CalcEntry = {
+      id: nextId,
+      description: 'Ajuste',
+      amountUSD: Math.abs(diff),
+      amountBs: Math.abs(diff) * activeRate,
+      isNegative: diff < 0,
+    };
+    setEntries(prev => [...prev, entry]);
+    setNextId(prev => prev + 1);
   };
 
   const updateEntryAmount = (id: number, newUSD: number) => {
@@ -555,15 +582,17 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                   title={activeClient === i ? 'Click para renombrar' : ''}
                 >
                   <div className="truncate">{name}</div>
-                  {count > 0 && (
-                    <div className="mt-0.5 space-y-0">
-                      <div className={`text-[10px] font-mono ${activeClient === i ? 'text-ocean-500' : 'text-ocean-300'}`}>
-                        {formatUSD(Math.abs(totals.usd))}
-                      </div>
-                      <div className={`text-[10px] font-mono font-bold ${activeClient === i ? 'text-green-600' : 'text-green-400'}`}>
+                  {count > 0 ? (
+                    <div className="mt-1">
+                      <div className={`text-[11px] font-mono font-bold leading-tight ${activeClient === i ? 'text-green-700' : 'text-green-500'}`}>
                         {formatBs(Math.abs(totals.bs))}
                       </div>
+                      <div className={`text-[9px] font-mono leading-tight ${activeClient === i ? 'text-ocean-400' : 'text-ocean-300'}`}>
+                        {formatUSD(Math.abs(totals.usd))}
+                      </div>
                     </div>
+                  ) : (
+                    <div className="mt-1 text-[9px] text-ocean-200">--</div>
                   )}
                 </button>
                 {activeClient === i && (
@@ -630,9 +659,36 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
               <div className="flex items-center justify-between">
                 <span className={`text-sm font-medium ${totalUSD < 0 ? 'text-red-700' : 'text-ocean-100'}`}>Total</span>
                 <div className="text-right">
-                  <p className={`text-sm font-mono ${totalUSD < 0 ? 'text-red-500' : 'text-ocean-200'}`}>
-                    {totalUSD < 0 ? '-' : ''}{formatUSD(Math.abs(totalUSD))}
-                  </p>
+                  {editingTotal ? (
+                    <div className="flex items-center gap-1 justify-end">
+                      <span className="text-sm font-mono text-ocean-200">$</span>
+                      <input
+                        ref={editTotalRef}
+                        type="text"
+                        inputMode="decimal"
+                        value={editTotalValue}
+                        onChange={e => setEditTotalValue(e.target.value)}
+                        onBlur={() => {
+                          const val = parseFloat(editTotalValue.replace(/,/g, '.'));
+                          if (!isNaN(val) && val >= 0) applyTotalAdjust(val);
+                          setEditingTotal(false);
+                        }}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                          if (e.key === 'Escape') setEditingTotal(false);
+                        }}
+                        className="w-24 text-sm font-mono bg-white/20 text-white border-b-2 border-white/50 outline-none py-0 text-right"
+                      />
+                    </div>
+                  ) : (
+                    <p
+                      onClick={() => { setEditingTotal(true); setEditTotalValue(Math.abs(totalUSD).toFixed(2)); }}
+                      className={`text-sm font-mono cursor-pointer hover:underline ${totalUSD < 0 ? 'text-red-500' : 'text-ocean-200'}`}
+                      title="Click para ajustar total"
+                    >
+                      {totalUSD < 0 ? '-' : ''}{formatUSD(Math.abs(totalUSD))}
+                    </p>
+                  )}
                   <p className={`text-2xl font-bold font-mono ${totalBs < 0 ? 'text-red-500' : 'text-white'}`}>
                     {totalBs < 0 ? '-' : ''}{formatBs(Math.abs(totalBs))}
                   </p>
@@ -672,7 +728,8 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                     ) : (
                       <p
                         onClick={() => { setEditingEntry(entry.id); setEditEntryValue(entry.amountUSD.toFixed(2)); }}
-                        className={`text-sm font-mono cursor-pointer hover:underline ${entry.isNegative ? 'text-red-400' : 'text-ocean-400'}`}
+                        className={`text-sm font-mono ${entry.isNegative ? 'text-red-400' : 'text-ocean-400'} cursor-pointer hover:underline`}
+                        title="Click para editar"
                       >
                         {entry.isNegative ? '-' : ''}{formatUSD(entry.amountUSD)}
                       </p>
