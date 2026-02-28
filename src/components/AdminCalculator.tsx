@@ -88,21 +88,35 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     } catch { return 1; }
   });
 
-  // Historial de cálculos
-  const [history, setHistory] = useState<HistoryItem[]>(() => {
+  // Historial de cálculos por cliente
+  const [clientHistory, setClientHistory] = useState<Record<number, HistoryItem[]>>(() => {
     try {
       const saved = localStorage.getItem('rpym_calc_history');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
+      if (!saved) return {};
+      const parsed = JSON.parse(saved);
+      // Migrar formato viejo (array) a nuevo (por cliente)
+      if (Array.isArray(parsed)) return { 0: parsed };
+      return parsed;
+    } catch { return {}; }
   });
   const [showHistory, setShowHistory] = useState(false);
+
+  // History del cliente activo
+  const history = clientHistory[activeClient] || [];
+  const setHistory = (updater: HistoryItem[] | ((prev: HistoryItem[]) => HistoryItem[])) => {
+    setClientHistory(prev => {
+      const current = prev[activeClient] || [];
+      const next = typeof updater === 'function' ? updater(current) : updater;
+      return { ...prev, [activeClient]: next };
+    });
+  };
 
   const activeRate = useManualRate && manualRate ? parseFloat(manualRate) : autoRate;
 
   // Persistir historial
   useEffect(() => {
-    localStorage.setItem('rpym_calc_history', JSON.stringify(history));
-  }, [history]);
+    localStorage.setItem('rpym_calc_history', JSON.stringify(clientHistory));
+  }, [clientHistory]);
 
   // Persistir entries y tab activo
   useEffect(() => {
@@ -191,8 +205,15 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
 
   const clearAll = () => {
     setEntries([]);
+    setHistory([]);
     setInputAmount('');
     setDescription('');
+    // Resetear nombre al default
+    setClientNames(prev => {
+      const next = [...prev];
+      next[activeClient] = DEFAULT_NAMES[activeClient];
+      return next;
+    });
   };
 
   // Totales
@@ -495,7 +516,40 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
         {/* Contenido del tab */}
         <div className="p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-ocean-900">{clientNames[activeClient]}</h2>
+            <div className="flex items-center gap-2">
+              {editingName === activeClient ? (
+                <input
+                  type="text"
+                  value={editNameValue}
+                  onChange={e => setEditNameValue(e.target.value)}
+                  onBlur={() => {
+                    setClientNames(prev => {
+                      const next = [...prev];
+                      next[activeClient] = editNameValue.trim() || DEFAULT_NAMES[activeClient];
+                      return next;
+                    });
+                    setEditingName(null);
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                    if (e.key === 'Escape') setEditingName(null);
+                  }}
+                  className="text-lg font-semibold text-ocean-900 bg-transparent border-b-2 border-ocean-500 outline-none py-0 px-0"
+                  autoFocus
+                />
+              ) : (
+                <h2
+                  onClick={() => { setEditingName(activeClient); setEditNameValue(clientNames[activeClient]); }}
+                  className="text-lg font-semibold text-ocean-900 cursor-pointer hover:text-ocean-600 transition-colors"
+                  title="Click para renombrar"
+                >
+                  {clientNames[activeClient]}
+                  <svg className="w-3.5 h-3.5 inline-block ml-1.5 text-ocean-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </h2>
+              )}
+            </div>
             {entries.length > 0 && (
               <button
                 onClick={clearAll}
@@ -518,14 +572,12 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                     {entry.description && (
                       <p className="text-xs text-ocean-500 truncate mb-0.5">{entry.description}</p>
                     )}
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className={`text-lg font-bold font-mono ${entry.isNegative ? 'text-red-600' : 'text-ocean-900'}`}>
-                        {entry.isNegative ? '-' : ''}{formatUSD(entry.amountUSD)}
-                      </span>
-                      <span className={`text-lg font-bold font-mono ${entry.isNegative ? 'text-red-600' : 'text-green-700'}`}>
-                        {entry.isNegative ? '-' : ''}{formatBs(entry.amountBs)}
-                      </span>
-                    </div>
+                    <p className={`text-sm font-mono ${entry.isNegative ? 'text-red-400' : 'text-ocean-400'}`}>
+                      {entry.isNegative ? '-' : ''}{formatUSD(entry.amountUSD)}
+                    </p>
+                    <p className={`text-xl font-bold font-mono ${entry.isNegative ? 'text-red-600' : 'text-green-700'}`}>
+                      {entry.isNegative ? '-' : ''}{formatBs(entry.amountBs)}
+                    </p>
                   </div>
                   <div className="flex gap-1 shrink-0">
                     <button
@@ -555,13 +607,13 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
             <div className={`p-4 rounded-lg ${totalUSD < 0 ? 'bg-red-50 border border-red-200' : 'bg-ocean-600'}`}>
               <div className="flex items-center justify-between">
                 <span className={`text-sm font-medium ${totalUSD < 0 ? 'text-red-700' : 'text-ocean-100'}`}>Total</span>
-                <div className="flex items-baseline gap-4">
-                  <span className={`text-xl font-bold font-mono ${totalUSD < 0 ? 'text-red-700' : 'text-white'}`}>
+                <div className="text-right">
+                  <p className={`text-sm font-mono ${totalUSD < 0 ? 'text-red-500' : 'text-ocean-200'}`}>
                     {totalUSD < 0 ? '-' : ''}{formatUSD(Math.abs(totalUSD))}
-                  </span>
-                  <span className={`text-xl font-bold font-mono ${totalBs < 0 ? 'text-red-500' : 'text-green-300'}`}>
+                  </p>
+                  <p className={`text-2xl font-bold font-mono ${totalBs < 0 ? 'text-red-500' : 'text-white'}`}>
                     {totalBs < 0 ? '-' : ''}{formatBs(Math.abs(totalBs))}
-                  </span>
+                  </p>
                 </div>
               </div>
             </div>
