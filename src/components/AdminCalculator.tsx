@@ -409,9 +409,6 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
               } else if (e.key === 'ArrowRight' && !inputAmount) {
                 e.preventDefault();
                 setActiveClient(prev => (prev + 1) % 5);
-              } else if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                totalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
               } else if (e.key === 'Backspace' && !inputAmount) {
                 e.preventDefault();
                 clearAll();
