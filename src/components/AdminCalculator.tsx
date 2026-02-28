@@ -145,9 +145,6 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       // No interceptar si se está editando nombre, entry o total
       if (editingName !== null || editingEntry !== null || editingTotal) return;
-      // No interceptar si el foco está en un input que no es el amount
-      const active = document.activeElement as HTMLElement;
-      if (active && active.tagName === 'INPUT' && active !== amountRef.current) return;
 
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
