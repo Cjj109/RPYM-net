@@ -689,45 +689,41 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
           </div>
 
           {entries.length > 0 && (
-            <div ref={totalRef} className={`p-3 rounded-lg ${totalUSD < 0 ? 'bg-red-50 border border-red-200' : 'bg-ocean-600'}`}>
-              <div className="flex items-center justify-between">
-                <span className={`text-xs font-medium ${totalUSD < 0 ? 'text-red-700' : 'text-ocean-100'}`}>Total</span>
-                <div className="text-right">
-                  {editingTotal ? (
-                    <div className="flex items-center gap-1 justify-end">
-                      <span className="text-sm font-mono text-ocean-200">$</span>
-                      <input
-                        ref={editTotalRef}
-                        type="text"
-                        inputMode="decimal"
-                        value={editTotalValue}
-                        onChange={e => setEditTotalValue(e.target.value)}
-                        onBlur={() => {
-                          const val = parseFloat(editTotalValue.replace(/,/g, '.'));
-                          if (!isNaN(val) && val >= 0) applyTotalAdjust(val);
-                          setEditingTotal(false);
-                        }}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                          if (e.key === 'Escape') setEditingTotal(false);
-                        }}
-                        className="w-24 text-sm font-mono bg-white/20 text-white border-b-2 border-white/50 outline-none py-0 text-right"
-                      />
-                    </div>
-                  ) : (
-                    <p
-                      onClick={() => { setEditingTotal(true); setEditTotalValue(Math.abs(totalUSD).toFixed(2)); }}
-                      className={`text-sm font-mono cursor-pointer hover:underline ${totalUSD < 0 ? 'text-red-500' : 'text-ocean-200'}`}
-                      title="Click para ajustar total"
-                    >
-                      {totalUSD < 0 ? '-' : ''}{formatUSD(Math.abs(totalUSD))}
-                    </p>
-                  )}
-                  <p className={`text-xl font-bold font-mono ${totalBs < 0 ? 'text-red-500' : 'text-white'}`}>
-                    {totalBs < 0 ? '-' : ''}{formatBs(Math.abs(totalBs))}
-                  </p>
+            <div ref={totalRef} className={`p-3 rounded-lg text-center ${totalUSD < 0 ? 'bg-red-50 border border-red-200' : 'bg-ocean-50'}`}>
+              <span className={`text-xs ${totalUSD < 0 ? 'text-red-500' : 'text-ocean-500'}`}>Total</span>
+              <p className={`text-2xl font-bold text-ocean-800 mt-0.5 ${totalBs < 0 ? 'text-red-600' : ''}`}>
+                {totalBs < 0 ? '-' : ''}{formatBs(Math.abs(totalBs))}
+              </p>
+              {editingTotal ? (
+                <div className="flex items-center gap-1 justify-center mt-1">
+                  <span className="text-xs font-mono text-ocean-400">$</span>
+                  <input
+                    ref={editTotalRef}
+                    type="text"
+                    inputMode="decimal"
+                    value={editTotalValue}
+                    onChange={e => setEditTotalValue(e.target.value)}
+                    onBlur={() => {
+                      const val = parseFloat(editTotalValue.replace(/,/g, '.'));
+                      if (!isNaN(val) && val >= 0) applyTotalAdjust(val);
+                      setEditingTotal(false);
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                      if (e.key === 'Escape') setEditingTotal(false);
+                    }}
+                    className="w-20 text-xs font-mono bg-transparent border-b-2 border-ocean-400 outline-none py-0 text-center"
+                  />
                 </div>
-              </div>
+              ) : (
+                <p
+                  onClick={() => { setEditingTotal(true); setEditTotalValue(Math.abs(totalUSD).toFixed(2)); }}
+                  className={`text-xs font-mono cursor-pointer hover:underline mt-0.5 ${totalUSD < 0 ? 'text-red-400' : 'text-ocean-400'}`}
+                  title="Click para ajustar total"
+                >
+                  {totalUSD < 0 ? '-' : ''}{formatUSD(Math.abs(totalUSD))}
+                </p>
+              )}
             </div>
           )}
         </div>
