@@ -205,7 +205,14 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
             placeholder="0.00"
             value={inputAmount}
             onChange={e => setInputAmount(e.target.value)}
-            onKeyDown={handleKeyDown}
+            onKeyDown={e => {
+              if (e.key === ' ') {
+                e.preventDefault();
+                setInputAmount(prev => prev + '+');
+              } else {
+                handleKeyDown(e);
+              }
+            }}
             className="flex-1 px-4 py-3 text-2xl font-semibold border border-ocean-200 rounded-lg focus:ring-2 focus:ring-ocean-500 focus:border-transparent text-ocean-900 font-mono"
             autoFocus
           />
