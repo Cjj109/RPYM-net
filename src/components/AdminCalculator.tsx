@@ -734,12 +734,15 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                   return (
                     <button
                       key={d.name}
-                      onClick={() => setClientDispatcher(prev => {
-                        const next = { ...prev };
-                        if (next[activeClient] === d.name) { delete next[activeClient]; }
-                        else { next[activeClient] = d.name; }
-                        return next;
-                      })}
+                      onClick={() => {
+                        setClientDispatcher(prev => {
+                          const next = { ...prev };
+                          if (next[activeClient] === d.name) { delete next[activeClient]; }
+                          else { next[activeClient] = d.name; }
+                          return next;
+                        });
+                        requestAnimationFrame(() => amountRef.current?.focus());
+                      }}
                       className={`px-2 py-0.5 rounded-full text-[10px] font-semibold transition-all ${
                         isActive
                           ? `${d.bg} ${d.text} ring-1 ${d.ring} scale-105`
