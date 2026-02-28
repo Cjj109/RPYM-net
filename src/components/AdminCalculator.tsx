@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { formatUSD, formatBs } from '../lib/format';
 
 interface CalcEntry {
@@ -41,6 +41,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   const [rateLoading, setRateLoading] = useState(!initialBcv);
 
   // Calculadora
+  const amountRef = useRef<HTMLInputElement>(null);
   const [inputAmount, setInputAmount] = useState('');
   const [inputCurrency, setInputCurrency] = useState<'USD' | 'Bs'>('USD');
   const [description, setDescription] = useState('');
@@ -353,6 +354,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
         {/* Monto principal grande */}
         <div className="flex items-center gap-2">
           <input
+            ref={amountRef}
             type="text"
             inputMode="decimal"
             placeholder="0.00"
@@ -362,17 +364,14 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
               if (e.key === ' ') {
                 e.preventDefault();
                 setInputAmount(prev => prev + '+');
-              } else if (e.key === 'ArrowLeft' && e.altKey) {
+              } else if (e.key === 'ArrowLeft' && !inputAmount) {
                 e.preventDefault();
                 setActiveClient(prev => (prev - 1 + 5) % 5);
-              } else if (e.key === 'ArrowRight' && e.altKey) {
+              } else if (e.key === 'ArrowRight' && !inputAmount) {
                 e.preventDefault();
                 setActiveClient(prev => (prev + 1) % 5);
               } else if (e.key === 'Escape') {
                 setInputAmount('');
-              } else if (/^[1-5]$/.test(e.key) && e.altKey) {
-                e.preventDefault();
-                setActiveClient(parseInt(e.key) - 1);
               } else {
                 handleKeyDown(e);
               }
@@ -414,7 +413,14 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
             placeholder="Nota (opcional)"
             value={description}
             onChange={e => setDescription(e.target.value)}
-            onKeyDown={handleKeyDown}
+            onKeyDown={e => {
+              if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                amountRef.current?.focus();
+              } else {
+                handleKeyDown(e);
+              }
+            }}
             className="flex-1 px-3 py-2 border border-ocean-200 rounded-lg text-sm text-ocean-600 focus:ring-2 focus:ring-ocean-500 focus:border-transparent"
           />
           <button
