@@ -9,6 +9,16 @@ interface CalcEntry {
   isNegative: boolean;
 }
 
+interface HistoryItem {
+  id: number;
+  expression: string;
+  currency: 'USD' | 'Bs';
+  resultUSD: number;
+  resultBs: number;
+  rate: number;
+  timestamp: number;
+}
+
 interface AdminCalculatorProps {
   bcvRate?: { rate: number; date: string; source: string };
 }
@@ -50,7 +60,21 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     } catch { return 1; }
   });
 
+  // Historial de cálculos
+  const [history, setHistory] = useState<HistoryItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('rpym_calc_history');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [showHistory, setShowHistory] = useState(false);
+
   const activeRate = useManualRate && manualRate ? parseFloat(manualRate) : autoRate;
+
+  // Persistir historial
+  useEffect(() => {
+    localStorage.setItem('rpym_calc_history', JSON.stringify(history));
+  }, [history]);
 
   // Persistir entries en localStorage
   useEffect(() => {
@@ -139,11 +163,50 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   const totalUSD = entries.reduce((sum, e) => sum + (e.isNegative ? -e.amountUSD : e.amountUSD), 0);
   const totalBs = entries.reduce((sum, e) => sum + (e.isNegative ? -e.amountBs : e.amountBs), 0);
 
+  // Guardar en historial
+  const addToHistory = useCallback(() => {
+    if (parsedAmount === 0 || !activeRate) return;
+    const item: HistoryItem = {
+      id: Date.now(),
+      expression: inputAmount,
+      currency: inputCurrency,
+      resultUSD: convertedUSD,
+      resultBs: convertedBs,
+      rate: activeRate,
+      timestamp: Date.now(),
+    };
+    setHistory(prev => [item, ...prev].slice(0, 50)); // máximo 50
+  }, [parsedAmount, activeRate, inputAmount, inputCurrency, convertedUSD, convertedBs]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      addToHistory();
       addEntry();
     }
+  };
+
+  const useFromHistory = (item: HistoryItem) => {
+    setInputAmount(item.expression);
+    setInputCurrency(item.currency);
+    setShowHistory(false);
+  };
+
+  const clearHistory = () => setHistory([]);
+
+  const formatTime = (ts: number) => {
+    const d = new Date(ts);
+    return d.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatHistoryDate = (ts: number) => {
+    const d = new Date(ts);
+    const today = new Date();
+    if (d.toDateString() === today.toDateString()) return 'Hoy';
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) return 'Ayer';
+    return d.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit' });
   };
 
   return (
@@ -194,6 +257,61 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
           )}
         </div>
       </div>
+
+      {/* Historial */}
+      {history.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-ocean-100 overflow-hidden">
+          <button
+            onClick={() => setShowHistory(prev => !prev)}
+            className="w-full px-5 py-3 flex items-center justify-between hover:bg-ocean-50 transition-colors"
+          >
+            <span className="text-sm font-medium text-ocean-700 flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Historial ({history.length})
+            </span>
+            <svg className={`w-4 h-4 text-ocean-400 transition-transform ${showHistory ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {showHistory && (
+            <div className="border-t border-ocean-100">
+              <div className="max-h-64 overflow-y-auto divide-y divide-ocean-50">
+                {history.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => useFromHistory(item)}
+                    className="w-full px-5 py-2.5 flex items-center justify-between hover:bg-ocean-50 transition-colors text-left"
+                  >
+                    <div className="min-w-0">
+                      <span className="text-sm font-mono text-ocean-600">{item.expression}</span>
+                      <span className="text-xs text-ocean-400 ml-2">{item.currency === 'USD' ? '$' : 'Bs'}</span>
+                    </div>
+                    <div className="text-right shrink-0 ml-3">
+                      <div className="text-sm font-semibold text-ocean-800">
+                        {item.currency === 'USD' ? formatBs(item.resultBs) : formatUSD(item.resultUSD)}
+                      </div>
+                      <div className="text-xs text-ocean-400">
+                        {formatHistoryDate(item.timestamp)} {formatTime(item.timestamp)}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <div className="px-5 py-2 border-t border-ocean-100 bg-ocean-50/50">
+                <button
+                  onClick={clearHistory}
+                  className="text-xs text-red-400 hover:text-red-600 transition-colors"
+                >
+                  Borrar historial
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Convertidor */}
       <div className="bg-white rounded-xl p-5 shadow-sm border border-ocean-100">
