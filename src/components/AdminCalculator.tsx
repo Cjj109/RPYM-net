@@ -364,7 +364,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   const [confirmingDeleteClient, setConfirmingDeleteClient] = useState(false);
 
   return (
-    <div className="flex flex-col h-full p-4 gap-3">
+    <div className="flex flex-col h-full p-2 sm:p-4 gap-2 sm:gap-3">
       {/* ZONA FIJA: Input + Conversión + Tabs + Total */}
       <div className="shrink-0">
         {/* Tasa actual + settings toggle */}
@@ -438,7 +438,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
         {/* Historial de sesiones (colapsable) */}
         {showHistory && savedSessions.length > 0 && (
           <div className="mb-3 bg-white rounded-lg border border-ocean-100 overflow-hidden">
-            <div className="max-h-64 overflow-y-auto divide-y divide-ocean-50">
+            <div className="max-h-48 sm:max-h-64 overflow-y-auto divide-y divide-ocean-50">
               {savedSessions.map(session => (
                 <div key={session.id}>
                   <button
@@ -495,7 +495,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
         )}
 
         {/* Input de monto + conversión */}
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-ocean-100">
+        <div className="bg-white rounded-xl p-2.5 sm:p-4 shadow-sm border border-ocean-100">
           <div className="flex items-center gap-2">
             <input
               ref={amountRef}
@@ -517,12 +517,12 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                   handleKeyDown(e);
                 }
               }}
-              className="flex-1 px-4 py-3 text-2xl font-semibold border border-ocean-200 rounded-lg focus:ring-2 focus:ring-ocean-500 focus:border-transparent text-ocean-900 font-mono"
+              className="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 text-xl sm:text-2xl font-semibold border border-ocean-200 rounded-lg focus:ring-2 focus:ring-ocean-500 focus:border-transparent text-ocean-900 font-mono"
               autoFocus
             />
             <button
               onClick={() => setInputCurrency(prev => prev === 'USD' ? 'Bs' : 'USD')}
-              className="px-4 py-3 bg-ocean-100 text-ocean-700 font-bold text-lg rounded-lg hover:bg-ocean-200 transition-colors min-w-[56px]"
+              className="px-3 sm:px-4 py-2.5 sm:py-3 bg-ocean-100 text-ocean-700 font-bold text-base sm:text-lg rounded-lg hover:bg-ocean-200 transition-colors min-w-[48px] sm:min-w-[56px]"
             >
               {inputCurrency === 'USD' ? '$' : 'Bs'}
             </button>
@@ -535,17 +535,17 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
           )}
 
           {activeRate > 0 && (
-            <div className="mt-2 p-3 bg-ocean-50 rounded-lg text-center">
+            <div className="mt-1.5 sm:mt-2 p-2 sm:p-3 bg-ocean-50 rounded-lg text-center">
               <span className="text-xs text-ocean-500">
                 {inputCurrency === 'USD' ? 'Bolivares' : 'Dolares'}
               </span>
-              <p className="text-2xl font-bold text-ocean-800">
+              <p className="text-xl sm:text-2xl font-bold text-ocean-800">
                 {inputCurrency === 'USD' ? formatBs(convertedBs) : formatUSD(convertedUSD)}
               </p>
             </div>
           )}
 
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-1.5 sm:mt-2 flex items-center gap-2">
             <button
               onClick={() => noteRef.current?.focus()}
               className={`p-1.5 rounded-lg transition-colors ${description ? 'bg-ocean-100 text-ocean-700' : 'bg-ocean-50 text-ocean-300 hover:text-ocean-500'}`}
@@ -582,13 +582,13 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
         </div>
 
         {/* Tabs de clientes */}
-        <div className="mt-3 bg-white rounded-t-xl shadow-sm border border-ocean-100 border-b-0">
+        <div className="mt-2 sm:mt-3 bg-white rounded-t-xl shadow-sm border border-ocean-100 border-b-0">
           <div className="flex overflow-x-auto">
             {clientNames.map((name, i) => {
               const count = (clientEntries[i] || []).length;
               const totals = getClientTotals(i);
               return (
-                <div key={i} className={`flex-1 min-w-[70px] relative ${
+                <div key={i} className={`flex-1 min-w-[60px] sm:min-w-[70px] relative ${
                   activeClient === i ? 'bg-white' : 'bg-ocean-50/50'
                 }`}>
                   <button
@@ -640,7 +640,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
         </div>
 
         {/* Nombre del cliente + Total */}
-        <div className="bg-white border-x border-ocean-100 px-4 pt-3">
+        <div className="bg-white border-x border-ocean-100 px-2.5 sm:px-4 pt-2 sm:pt-3">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               {editingName === activeClient ? (
@@ -652,7 +652,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                   onBlur={() => {
                     setClientNames(prev => {
                       const next = [...prev];
-                      next[activeClient] = editNameValue.trim() || DEFAULT_NAMES[activeClient];
+                      next[activeClient] = editNameValue.trim() || defaultName(activeClient);
                       return next;
                     });
                     setEditingName(null);
@@ -718,9 +718,9 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
           </div>
 
           {entries.length > 0 && (
-            <div ref={totalRef} className={`p-3 rounded-lg text-center ${totalUSD < 0 ? 'bg-red-50 border border-red-200' : 'bg-ocean-50'}`}>
+            <div ref={totalRef} className={`p-2 sm:p-3 rounded-lg text-center ${totalUSD < 0 ? 'bg-red-50 border border-red-200' : 'bg-ocean-50'}`}>
               <span className={`text-xs ${totalUSD < 0 ? 'text-red-500' : 'text-ocean-500'}`}>Total</span>
-              <p className={`text-2xl font-bold text-ocean-800 mt-0.5 ${totalBs < 0 ? 'text-red-600' : ''}`}>
+              <p className={`text-xl sm:text-2xl font-bold text-ocean-800 mt-0.5 ${totalBs < 0 ? 'text-red-600' : ''}`}>
                 {totalBs < 0 ? '-' : ''}{formatBs(Math.abs(totalBs))}
               </p>
               {editingTotal ? (
@@ -760,13 +760,13 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
 
       {/* ZONA SCROLL: Operaciones */}
       <div className="flex-1 min-h-0 bg-white rounded-b-xl border-x border-b border-ocean-100 overflow-y-auto">
-        <div className="p-4">
+        <div className="p-2.5 sm:p-4">
           {entries.length === 0 ? (
             <p className="text-sm text-ocean-400 text-center py-4">Sin operaciones</p>
           ) : (
             <div className="space-y-2">
               {entries.map(entry => (
-                <div key={entry.id} className={`flex items-center gap-3 p-3 rounded-lg border ${entry.isNegative ? 'border-red-100 bg-red-50/50' : 'border-ocean-100 bg-ocean-50/30'}`}>
+                <div key={entry.id} className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border ${entry.isNegative ? 'border-red-100 bg-red-50/50' : 'border-ocean-100 bg-ocean-50/30'}`}>
                   <div className="flex-1 min-w-0">
                     {entry.description && (
                       <p className="text-xs text-ocean-500 truncate mb-0.5">{entry.description}</p>
@@ -801,7 +801,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                         {entry.isNegative ? '-' : ''}{formatUSD(entry.amountUSD)}
                       </p>
                     )}
-                    <p className={`text-xl font-bold font-mono ${entry.isNegative ? 'text-red-600' : 'text-green-700'}`}>
+                    <p className={`text-base sm:text-xl font-bold font-mono ${entry.isNegative ? 'text-red-600' : 'text-green-700'}`}>
                       {entry.isNegative ? '-' : ''}{formatBs(entry.amountBs)}
                     </p>
                   </div>
