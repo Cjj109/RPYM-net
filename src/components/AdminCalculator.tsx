@@ -44,6 +44,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   const amountRef = useRef<HTMLInputElement>(null);
   const noteRef = useRef<HTMLInputElement>(null);
   const totalRef = useRef<HTMLDivElement>(null);
+  const editNameRef = useRef<HTMLInputElement>(null);
   const [inputAmount, setInputAmount] = useState('');
   const [inputCurrency, setInputCurrency] = useState<'USD' | 'Bs'>('USD');
   const [description, setDescription] = useState('');
@@ -127,9 +128,22 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
 
   useEffect(() => {
     localStorage.setItem('rpym_calc_active_client', String(activeClient));
-    // Devolver foco al input de monto al cambiar de cliente
-    amountRef.current?.focus();
+    // Devolver foco al input de monto al cambiar de cliente (solo si no se está editando nombre)
+    if (editingName === null) {
+      amountRef.current?.focus();
+    }
   }, [activeClient]);
+
+  // Focalizar input de edición de nombre cuando se activa
+  useEffect(() => {
+    if (editingName !== null) {
+      // Pequeño delay para que el DOM renderice el input primero
+      requestAnimationFrame(() => {
+        editNameRef.current?.focus();
+        editNameRef.current?.select();
+      });
+    }
+  }, [editingName]);
 
   useEffect(() => {
     localStorage.setItem('rpym_calc_client_names', JSON.stringify(clientNames));
@@ -472,55 +486,32 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
               <div key={i} className={`flex-1 relative ${
                 activeClient === i ? 'bg-white' : 'bg-ocean-50/50'
               }`}>
-                {editingName === i ? (
-                  <input
-                    type="text"
-                    value={editNameValue}
-                    onChange={e => setEditNameValue(e.target.value)}
-                    onBlur={() => {
-                      setClientNames(prev => {
-                        const next = [...prev];
-                        next[i] = editNameValue.trim() || DEFAULT_NAMES[i];
-                        return next;
-                      });
-                      setEditingName(null);
-                    }}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                      if (e.key === 'Escape') { setEditingName(null); }
-                    }}
-                    className="w-full py-2 px-1 text-xs font-medium text-center bg-transparent border-b-2 border-ocean-500 outline-none"
-                    autoFocus
-                  />
-                ) : (
-                  <button
-                    onClick={() => {
-                      if (activeClient === i) {
-                        // Si ya es el tab activo, editar nombre
-                        setEditingName(i);
-                        setEditNameValue(name);
-                      } else {
-                        setActiveClient(i);
-                      }
-                    }}
-                    className={`w-full py-2.5 text-xs font-medium transition-colors truncate px-1 ${
-                      activeClient === i
-                        ? 'text-ocean-700'
-                        : 'text-ocean-400 hover:text-ocean-600'
-                    }`}
-                    title={activeClient === i ? 'Click para renombrar' : ''}
-                  >
-                    {name}
-                    {count > 0 && (
-                      <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${
-                        activeClient === i ? 'bg-ocean-600 text-white' : 'bg-ocean-200 text-ocean-600'
-                      }`}>
-                        {count}
-                      </span>
-                    )}
-                  </button>
-                )}
-                {activeClient === i && editingName !== i && (
+                <button
+                  onClick={() => {
+                    if (activeClient === i) {
+                      setEditingName(i);
+                      setEditNameValue(name);
+                    } else {
+                      setActiveClient(i);
+                    }
+                  }}
+                  className={`w-full py-2.5 text-xs font-medium transition-colors truncate px-1 ${
+                    activeClient === i
+                      ? 'text-ocean-700'
+                      : 'text-ocean-400 hover:text-ocean-600'
+                  }`}
+                  title={activeClient === i ? 'Click para renombrar' : ''}
+                >
+                  {name}
+                  {count > 0 && (
+                    <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${
+                      activeClient === i ? 'bg-ocean-600 text-white' : 'bg-ocean-200 text-ocean-600'
+                    }`}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+                {activeClient === i && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-ocean-600" />
                 )}
               </div>
@@ -534,6 +525,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
             <div className="flex items-center gap-2">
               {editingName === activeClient ? (
                 <input
+                  ref={editNameRef}
                   type="text"
                   value={editNameValue}
                   onChange={e => setEditNameValue(e.target.value)}
@@ -550,7 +542,6 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                     if (e.key === 'Escape') setEditingName(null);
                   }}
                   className="text-lg font-semibold text-ocean-900 bg-transparent border-b-2 border-ocean-500 outline-none py-0 px-0"
-                  autoFocus
                 />
               ) : (
                 <h2
