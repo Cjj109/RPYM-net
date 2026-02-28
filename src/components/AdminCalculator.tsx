@@ -403,10 +403,10 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
               if (e.key === ' ') {
                 e.preventDefault();
                 setInputAmount(prev => prev + '+');
-              } else if (e.key === 'ArrowLeft' && !inputAmount) {
+              } else if (e.key === 'ArrowLeft') {
                 e.preventDefault();
                 setActiveClient(prev => (prev - 1 + 5) % 5);
-              } else if (e.key === 'ArrowRight' && !inputAmount) {
+              } else if (e.key === 'ArrowRight') {
                 e.preventDefault();
                 setActiveClient(prev => (prev + 1) % 5);
               } else if (e.key === 'Backspace' && !inputAmount) {
