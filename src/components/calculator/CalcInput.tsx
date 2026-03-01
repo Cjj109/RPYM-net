@@ -1,7 +1,14 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { formatUSD, formatBs } from '../../lib/format';
 import { evalMathExpr } from '../../lib/safe-math';
 import { ChatBubbleIcon } from './icons';
+
+const QUICK_PRODUCTS = [
+  'Camarón Jumbo', 'Camarón Vivito', 'Camarón Desvenado',
+  'Calamar Nacional', 'Calamar Limpio', 'Pulpo', 'Salmón',
+  'Pepitona', 'Guacuco', 'Mejillones Conchas', 'Mejillones Pelados',
+  'Vieiras', 'Almejas', 'Tentáculo', 'Vaquita', 'Kigua', 'Pulpa de Cangrejo',
+];
 
 interface CalcInputProps {
   inputAmount: string;
@@ -20,6 +27,7 @@ export function CalcInput({
   onInputAmountChange, onCurrencyToggle, onDescriptionChange, onAddEntry, amountRef,
 }: CalcInputProps) {
   const noteRef = useRef<HTMLInputElement>(null);
+  const [showProducts, setShowProducts] = useState(false);
   const parsedAmount = evalMathExpr(inputAmount);
   const hasExpression = /[+\-*/]/.test(inputAmount.replace(/^-/, ''));
 
@@ -93,9 +101,9 @@ export function CalcInput({
 
       <div className="mt-1.5 sm:mt-2 flex items-center gap-2">
         <button
-          onClick={() => noteRef.current?.focus()}
-          className={`p-1.5 rounded-lg transition-colors ${description ? 'bg-ocean-100 text-ocean-700' : 'bg-ocean-50 text-ocean-300 hover:text-ocean-500'}`}
-          title="Agregar nota"
+          onClick={() => setShowProducts(prev => !prev)}
+          className={`p-1.5 rounded-lg transition-colors ${showProducts || description ? 'bg-ocean-100 text-ocean-700' : 'bg-ocean-50 text-ocean-300 hover:text-ocean-500'}`}
+          title="Productos / nota"
         >
           <ChatBubbleIcon />
         </button>
@@ -123,6 +131,34 @@ export function CalcInput({
           Agregar
         </button>
       </div>
+
+      {showProducts && (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {QUICK_PRODUCTS.map(product => {
+            const isSelected = description.split(', ').filter(Boolean).includes(product);
+            return (
+              <button
+                key={product}
+                onClick={() => {
+                  const current = description.split(', ').filter(Boolean);
+                  if (isSelected) {
+                    onDescriptionChange(current.filter(p => p !== product).join(', '));
+                  } else {
+                    onDescriptionChange([...current, product].join(', '));
+                  }
+                }}
+                className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
+                  isSelected
+                    ? 'bg-ocean-600 text-white'
+                    : 'bg-ocean-50 text-ocean-500 hover:bg-ocean-100'
+                }`}
+              >
+                {product}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
