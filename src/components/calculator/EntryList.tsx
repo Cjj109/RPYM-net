@@ -45,7 +45,7 @@ export function EntryList({ entries, onRemoveEntry, onUpdateAmount, onUpdateDesc
       <div className="p-2.5 sm:p-4">
         <div className="flex gap-2 flex-nowrap">
           {entries.map(entry => (
-            <div key={entry.id} className={`flex flex-col gap-1 p-2 sm:p-3 rounded-lg border shrink-0 min-w-[120px] max-w-[160px] ${entry.isNegative ? 'border-red-100 bg-red-50/50' : 'border-ocean-100 bg-ocean-50/30'}`}>
+            <div key={entry.id} className={`flex flex-col gap-1 p-2 sm:p-3 rounded-lg border shrink-0 w-[180px] ${entry.isNegative ? 'border-red-100 bg-red-50/50' : 'border-ocean-100 bg-ocean-50/30'}`}>
               <div className="flex-1 min-w-0">
                 {editingNote === entry.id ? (
                   <input
