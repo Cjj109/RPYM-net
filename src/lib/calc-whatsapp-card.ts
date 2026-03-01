@@ -58,7 +58,7 @@ function generateBubble(data: CalcCardData, baseUrl: string): string {
 /** HTML completo para captura con html2canvas */
 export function renderCalcCardHTML(data: CalcCardData, baseUrl: string = ''): string {
   return `
-    <div style="font-family:'Inter',-apple-system,sans-serif;background:#e5e7eb;padding:16px;display:flex;flex-direction:column;align-items:center;">
+    <div style="font-family:'Inter',-apple-system,sans-serif;background:white;display:inline-block;">
       ${generateBubble(data, baseUrl)}
     </div>
   `;

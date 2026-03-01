@@ -22,7 +22,7 @@ export function WhatsAppModal({ entries, clientName, totalUSD, totalBs, activeRa
   const [sending, setSending] = useState(false);
   const captureRef = useRef<HTMLDivElement>(null);
 
-  const refId = `CALC-${Date.now().toString(36).toUpperCase()}`;
+  const [refId] = useState(() => String(Math.floor(100000 + Math.random() * 900000)));
 
   const cardData = { entries, clientName, totalUSD, totalBs, activeRate, refId };
 
@@ -54,8 +54,8 @@ export function WhatsAppModal({ entries, clientName, totalUSD, totalBs, activeRa
         scale: 2,
         useCORS: true,
         backgroundColor: '#ffffff',
-        width: 380,
-        windowWidth: 380,
+        width: 352,
+        windowWidth: 352,
       });
 
       captureDiv.style.display = 'none';
