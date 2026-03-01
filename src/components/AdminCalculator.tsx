@@ -132,12 +132,14 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
       bs = parsed; usd = parsed / activeRate;
     }
 
+    const hasExpression = /[+\-*/]/.test(inputAmount.replace(/^-/, ''));
     const entry: CalcEntry = {
       id: crypto.randomUUID(),
       description: description.trim(),
       amountUSD: usd,
       amountBs: bs,
       isNegative: false,
+      expression: hasExpression ? inputAmount.trim() : undefined,
     };
     updateClientEntries(activeClient.id, prev => [...prev, entry]);
     setInputAmount('');

@@ -4,6 +4,7 @@ export interface CalcEntry {
   amountUSD: number;
   amountBs: number;
   isNegative: boolean;
+  expression?: string;
 }
 
 export interface ClientData {

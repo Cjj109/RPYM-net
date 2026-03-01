@@ -103,6 +103,11 @@ export function EntryList({ entries, onRemoveEntry, onUpdateAmount, onUpdateDesc
                     {entry.isNegative ? '-' : ''}{formatUSD(entry.amountUSD)}
                   </p>
                 )}
+                {entry.expression && (
+                  <p className="text-[10px] font-mono text-ocean-400 truncate" title={entry.expression}>
+                    {entry.expression}
+                  </p>
+                )}
                 <p className={`text-base sm:text-xl font-bold font-mono ${entry.isNegative ? 'text-red-600' : 'text-green-700'}`}>
                   {entry.isNegative ? '-' : ''}{formatBs(entry.amountBs)}
                 </p>
