@@ -571,31 +571,33 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   return (
     <div className="min-h-screen bg-ocean-50">
       {/* Header */}
-      <header className="bg-ocean-800 text-white py-4 px-4 sticky top-0 z-50">
+      <header className={`bg-ocean-800 text-white px-4 sticky top-0 z-50 ${activeTab === 'calc' ? 'py-1.5' : 'py-4'}`}>
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img src="/camaronlogo-sm.webp" alt="RPYM" className="w-8 h-8 object-contain" />
-              <div>
-                <h1 className="text-lg font-bold">RPYM Admin</h1>
-                <p className="text-xs text-ocean-300">
-                  {currentUser ? `Hola, ${currentUser.displayName}` : 'Gestion de Presupuestos'}
-                </p>
+          {activeTab !== 'calc' && (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <img src="/camaronlogo-sm.webp" alt="RPYM" className="w-8 h-8 object-contain" />
+                <div>
+                  <h1 className="text-lg font-bold">RPYM Admin</h1>
+                  <p className="text-xs text-ocean-300">
+                    {currentUser ? `Hola, ${currentUser.displayName}` : 'Gestion de Presupuestos'}
+                  </p>
+                </div>
               </div>
+              <button
+                onClick={handleLogout}
+                className="text-sm text-ocean-300 hover:text-white flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Cerrar sesion
+              </button>
             </div>
-            <button
-              onClick={handleLogout}
-              className="text-sm text-ocean-300 hover:text-white flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              Cerrar sesion
-            </button>
-          </div>
+          )}
 
           {/* Tabs - grid 2x2 on mobile, flex row on desktop */}
-          <div className="grid grid-cols-4 sm:flex gap-1 mt-3 bg-ocean-900/50 rounded-lg p-1">
+          <div className={`grid grid-cols-4 sm:flex gap-1 bg-ocean-900/50 rounded-lg p-1 ${activeTab === 'calc' ? '' : 'mt-3'}`}>
             <button
               onClick={() => setActiveTab('ver')}
               className={`py-2 px-3 sm:flex-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
@@ -671,7 +673,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
       </header>
 
       {activeTab === 'calc' ? (
-        <main className="max-w-7xl mx-auto flex flex-col" style={{ height: 'calc(100dvh - 120px)' }}>
+        <main className="max-w-7xl mx-auto flex flex-col" style={{ height: 'calc(100dvh - 52px)' }}>
           <Suspense fallback={<div className="text-center py-12 text-ocean-700">Cargando...</div>}>
             <AdminCalculator bcvRate={bcvRate} />
           </Suspense>
