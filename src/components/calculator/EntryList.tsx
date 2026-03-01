@@ -98,14 +98,10 @@ export function EntryList({ entries, onRemoveEntry, onUpdateAmount, onUpdateDesc
                   <p
                     onClick={() => { setEditingEntry(entry.id); setEditEntryValue(entry.amountUSD.toFixed(2)); }}
                     className={`text-sm font-mono ${entry.isNegative ? 'text-red-400' : 'text-ocean-400'} cursor-pointer hover:underline`}
-                    title="Click para editar monto"
+                    title={entry.expression ? `${entry.expression} = ${entry.amountUSD.toFixed(2)}` : 'Click para editar monto'}
                   >
                     {entry.isNegative ? '-' : ''}{formatUSD(entry.amountUSD)}
-                  </p>
-                )}
-                {entry.expression && (
-                  <p className="text-[10px] font-mono text-ocean-400 truncate" title={entry.expression}>
-                    {entry.expression}
+                    {entry.expression && <span className="text-[9px] text-ocean-300 ml-1">({entry.expression})</span>}
                   </p>
                 )}
                 <p className={`text-base sm:text-xl font-bold font-mono ${entry.isNegative ? 'text-red-600' : 'text-green-700'}`}>
