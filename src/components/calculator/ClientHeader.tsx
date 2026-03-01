@@ -3,6 +3,7 @@ import { formatUSD, formatBs } from '../../lib/format';
 import type { ClientData, CalcEntry } from './types';
 import { DISPATCHERS } from './constants';
 import { PencilIcon, TrashIcon, CopyIcon, WhatsAppIcon } from './icons';
+import { WhatsAppModal } from './WhatsAppModal';
 
 interface ClientHeaderProps {
   client: ClientData;
@@ -47,6 +48,7 @@ export function ClientHeader({
   const [editTotalValue, setEditTotalValue] = useState('');
   const editTotalRef = useRef<HTMLInputElement>(null);
   const [copied, setCopied] = useState(false);
+  const [showWhatsApp, setShowWhatsApp] = useState(false);
 
   useEffect(() => {
     if (editingName) {
@@ -87,8 +89,7 @@ export function ClientHeader({
   };
 
   const handleWhatsApp = () => {
-    const summary = buildClientSummary(client, totalUSD, totalBs, activeRate);
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(summary)}`, '_blank');
+    setShowWhatsApp(true);
   };
 
   const entries = client.entries;
@@ -234,6 +235,17 @@ export function ClientHeader({
             </p>
           )}
         </div>
+      )}
+
+      {showWhatsApp && (
+        <WhatsAppModal
+          entries={entries}
+          clientName={client.name}
+          totalUSD={totalUSD}
+          totalBs={totalBs}
+          activeRate={activeRate}
+          onClose={() => setShowWhatsApp(false)}
+        />
       )}
     </div>
   );
