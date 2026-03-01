@@ -54,8 +54,8 @@ export function WhatsAppModal({ entries, clientName, totalUSD, totalBs, activeRa
         scale: 2,
         useCORS: true,
         backgroundColor: '#ffffff',
-        width: 352,
-        windowWidth: 352,
+        width: 320,
+        windowWidth: 320,
       });
 
       captureDiv.style.display = 'none';
