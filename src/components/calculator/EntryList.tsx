@@ -101,7 +101,7 @@ export function EntryList({ entries, onRemoveEntry, onUpdateAmount, onUpdateDesc
                     title={entry.expression ? `${entry.expression} = ${entry.amountUSD.toFixed(2)}` : 'Click para editar monto'}
                   >
                     {entry.isNegative ? '-' : ''}{formatUSD(entry.amountUSD)}
-                    {entry.expression && <span className="text-[9px] text-ocean-300 ml-1">({entry.expression})</span>}
+                    {entry.expression && <span className="text-xs text-ocean-600 ml-1">({entry.expression})</span>}
                   </p>
                 )}
                 <p className={`text-base sm:text-xl font-bold font-mono ${entry.isNegative ? 'text-red-600' : 'text-green-700'}`}>

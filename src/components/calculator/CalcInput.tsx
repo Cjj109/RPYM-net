@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState } from 'react';
 import { formatUSD, formatBs } from '../../lib/format';
 import { evalMathExpr } from '../../lib/safe-math';
 import { ChatBubbleIcon } from './icons';
@@ -27,17 +27,7 @@ export function CalcInput({
   onInputAmountChange, onCurrencyToggle, onDescriptionChange, onAddEntry, amountRef,
 }: CalcInputProps) {
   const noteRef = useRef<HTMLInputElement>(null);
-  const productSearchRef = useRef<HTMLInputElement>(null);
   const [showProducts, setShowProducts] = useState(false);
-  const [productFilter, setProductFilter] = useState('');
-
-  useEffect(() => {
-    if (showProducts) {
-      requestAnimationFrame(() => productSearchRef.current?.focus());
-    } else {
-      setProductFilter('');
-    }
-  }, [showProducts]);
   const parsedAmount = evalMathExpr(inputAmount);
   const hasExpression = /[+\-*/]/.test(inputAmount.replace(/^-/, ''));
 
@@ -109,98 +99,99 @@ export function CalcInput({
         </div>
       )}
 
-      <div className="mt-1.5 sm:mt-2 flex items-center gap-2">
-        <button
-          onClick={() => setShowProducts(prev => !prev)}
-          className={`p-1.5 rounded-lg transition-colors ${showProducts || description ? 'bg-ocean-100 text-ocean-700' : 'bg-ocean-50 text-ocean-300 hover:text-ocean-500'}`}
-          title="Productos / nota"
-        >
-          <ChatBubbleIcon />
-        </button>
-        <input
-          ref={noteRef}
-          type="text"
-          placeholder="nota..."
-          value={description}
-          onChange={e => onDescriptionChange(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'ArrowUp') {
-              e.preventDefault();
-              amountRef.current?.focus();
-            } else {
-              handleKeyDown(e);
-            }
-          }}
-          className="flex-1 px-2 py-1 text-xs text-ocean-400 border-0 bg-transparent focus:ring-0 focus:text-ocean-600 placeholder:text-ocean-200"
-        />
-        <button
-          onClick={onAddEntry}
-          disabled={parsedAmount === 0 || !activeRate}
-          className="px-4 py-1.5 bg-ocean-600 text-white rounded-lg text-sm font-medium hover:bg-ocean-500 disabled:bg-ocean-300 transition-colors"
-        >
-          Agregar
-        </button>
-      </div>
-
-      {showProducts && (() => {
+      {(() => {
         const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-        const filtered = productFilter
-          ? QUICK_PRODUCTS.filter(p => normalize(p).includes(normalize(productFilter)))
+        const segments = description.split(', ').filter(Boolean);
+        const selectedProducts = segments.filter(s => QUICK_PRODUCTS.includes(s));
+        const lastSeg = segments[segments.length - 1] ?? '';
+        const isSearching = showProducts && lastSeg && !QUICK_PRODUCTS.includes(lastSeg);
+        const searchTerm = isSearching ? lastSeg : '';
+        const filtered = searchTerm
+          ? QUICK_PRODUCTS.filter(p => normalize(p).includes(normalize(searchTerm)))
           : QUICK_PRODUCTS;
+
         const toggleProduct = (product: string) => {
-          const current = description.split(', ').filter(Boolean);
-          if (current.includes(product)) {
-            onDescriptionChange(current.filter(p => p !== product).join(', '));
+          if (selectedProducts.includes(product)) {
+            const remaining = segments.filter(s => s !== product);
+            onDescriptionChange(remaining.join(', '));
           } else {
-            onDescriptionChange([...current, product].join(', '));
+            const withoutSearch = isSearching ? segments.slice(0, -1) : segments;
+            onDescriptionChange([...withoutSearch, product].join(', '));
           }
         };
+
         return (
-          <div className="mt-1.5">
-            <input
-              ref={productSearchRef}
-              type="text"
-              placeholder="Buscar producto..."
-              value={productFilter}
-              onChange={e => setProductFilter(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && filtered.length > 0) {
-                  e.preventDefault();
-                  toggleProduct(filtered[0]);
-                  setProductFilter('');
-                } else if (e.key === 'Escape') {
-                  setProductFilter('');
-                  productSearchRef.current?.blur();
-                }
-              }}
-              className="w-full px-2 py-1 mb-1.5 text-xs border border-ocean-200 rounded-lg focus:ring-1 focus:ring-ocean-500 focus:border-transparent text-ocean-600 placeholder:text-ocean-300"
-            />
-            <div className="flex flex-wrap gap-1">
-              {filtered.map(product => {
-                const isSelected = description.split(', ').filter(Boolean).includes(product);
-                return (
-                  <button
-                    key={product}
-                    onClick={() => {
-                      toggleProduct(product);
-                      setProductFilter('');
-                      productSearchRef.current?.focus();
-                    }}
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
-                      isSelected
-                        ? 'bg-ocean-600 text-white'
-                        : 'bg-ocean-50 text-ocean-500 hover:bg-ocean-100'
-                    }`}
-                  >
-                    {product}
-                  </button>
-                );
-              })}
-              {productFilter && filtered.length === 0 && (
-                <p className="text-[10px] text-ocean-400 py-0.5">Sin coincidencias</p>
-              )}
+          <>
+            <div className="mt-1.5 sm:mt-2 flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setShowProducts(prev => !prev);
+                  requestAnimationFrame(() => noteRef.current?.focus());
+                }}
+                className={`p-1.5 rounded-lg transition-colors ${showProducts || description ? 'bg-ocean-100 text-ocean-700' : 'bg-ocean-50 text-ocean-300 hover:text-ocean-500'}`}
+                title="Productos / nota"
+              >
+                <ChatBubbleIcon />
+              </button>
+              <input
+                ref={noteRef}
+                type="text"
+                placeholder={showProducts ? 'Buscar producto o escribir nota...' : 'nota...'}
+                value={description}
+                onChange={e => onDescriptionChange(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    amountRef.current?.focus();
+                  } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (showProducts && searchTerm && filtered.length > 0) {
+                      toggleProduct(filtered[0]);
+                    } else {
+                      onAddEntry();
+                    }
+                  } else if (e.key === 'Escape' && showProducts) {
+                    setShowProducts(false);
+                  }
+                }}
+                className="flex-1 px-2 py-1 text-xs text-ocean-400 border-0 bg-transparent focus:ring-0 focus:text-ocean-600 placeholder:text-ocean-200"
+              />
+              <button
+                onClick={onAddEntry}
+                disabled={parsedAmount === 0 || !activeRate}
+                className="px-4 py-1.5 bg-ocean-600 text-white rounded-lg text-sm font-medium hover:bg-ocean-500 disabled:bg-ocean-300 transition-colors"
+              >
+                Agregar
+              </button>
             </div>
-          </div>
+
+            {showProducts && (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {filtered.map(product => {
+                  const isSelected = selectedProducts.includes(product);
+                  return (
+                    <button
+                      key={product}
+                      onClick={() => {
+                        toggleProduct(product);
+                        noteRef.current?.focus();
+                      }}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
+                        isSelected
+                          ? 'bg-ocean-600 text-white'
+                          : 'bg-ocean-50 text-ocean-500 hover:bg-ocean-100'
+                      }`}
+                    >
+                      {product}
+                    </button>
+                  );
+                })}
+                {searchTerm && filtered.length === 0 && (
+                  <p className="text-[10px] text-ocean-400 py-0.5">Sin coincidencias</p>
+                )}
+              </div>
+            )}
+          </>
         );
       })()}
     </div>
