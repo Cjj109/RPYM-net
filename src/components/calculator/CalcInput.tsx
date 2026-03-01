@@ -54,6 +54,9 @@ export function CalcInput({
             if (e.key === ' ') {
               e.preventDefault();
               onInputAmountChange(inputAmount + '+');
+            } else if (e.key === '[') {
+              e.preventDefault();
+              onInputAmountChange(inputAmount + '*');
             } else if (e.key === 'Escape') {
               onInputAmountChange('');
             } else if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp') {

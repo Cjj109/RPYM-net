@@ -5,6 +5,7 @@ const SHORTCUTS = [
   { keys: '← →', desc: 'Cambiar cliente' },
   { keys: '↑', desc: 'Enfocar monto' },
   { keys: 'Espacio', desc: 'Insertar +' },
+  { keys: '[', desc: 'Insertar ×' },
   { keys: 'Esc', desc: 'Limpiar monto' },
   { keys: 'Enter', desc: 'Agregar entrada' },
   { keys: '\\', desc: 'Limpiar todo' },

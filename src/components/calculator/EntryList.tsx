@@ -41,11 +41,11 @@ export function EntryList({ entries, onRemoveEntry, onUpdateAmount, onUpdateDesc
   }
 
   return (
-    <div className="flex-1 min-h-0 bg-white rounded-b-xl border-x border-b border-ocean-100 overflow-y-auto">
+    <div className="flex-1 min-h-0 bg-white rounded-b-xl border-x border-b border-ocean-100 overflow-x-auto">
       <div className="p-2.5 sm:p-4">
-        <div className="space-y-2">
+        <div className="flex gap-2 flex-nowrap">
           {entries.map(entry => (
-            <div key={entry.id} className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border ${entry.isNegative ? 'border-red-100 bg-red-50/50' : 'border-ocean-100 bg-ocean-50/30'}`}>
+            <div key={entry.id} className={`flex flex-col gap-1 p-2 sm:p-3 rounded-lg border shrink-0 min-w-[120px] max-w-[160px] ${entry.isNegative ? 'border-red-100 bg-red-50/50' : 'border-ocean-100 bg-ocean-50/30'}`}>
               <div className="flex-1 min-w-0">
                 {editingNote === entry.id ? (
                   <input
@@ -107,17 +107,17 @@ export function EntryList({ entries, onRemoveEntry, onUpdateAmount, onUpdateDesc
                   {entry.isNegative ? '-' : ''}{formatBs(entry.amountBs)}
                 </p>
               </div>
-              <div className="flex gap-1 shrink-0">
+              <div className="flex gap-1 justify-end mt-auto pt-1">
                 <button
                   onClick={() => { setEditingNote(entry.id); setEditNoteValue(entry.description); }}
-                  className={`p-1.5 rounded transition-colors ${entry.description ? 'text-ocean-500 hover:text-ocean-700 hover:bg-ocean-100' : 'text-ocean-300 hover:text-ocean-500 hover:bg-ocean-100'}`}
+                  className={`p-1 rounded transition-colors ${entry.description ? 'text-ocean-500 hover:text-ocean-700 hover:bg-ocean-100' : 'text-ocean-300 hover:text-ocean-500 hover:bg-ocean-100'}`}
                   title={entry.description ? 'Editar nota' : 'Agregar nota'}
                 >
-                  <ChatBubbleIcon className="w-4 h-4" />
+                  <ChatBubbleIcon className="w-3.5 h-3.5" />
                 </button>
                 <button
                   onClick={() => onRemoveEntry(entry.id)}
-                  className="p-1.5 text-red-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                  className="p-1 text-red-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
                   title="Eliminar"
                 >
                   <CloseIcon />
