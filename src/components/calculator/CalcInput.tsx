@@ -7,7 +7,7 @@ const QUICK_PRODUCTS = [
   'Camarón Jumbo', 'Camarón Vivito', 'Camarón Desvenado', 'Camarón Precocido',
   'Calamar Nacional', 'Calamar Limpio', 'Pulpo', 'Salmón',
   'Pepitona', 'Guacuco', 'Mejillones Conchas', 'Mejillones Pelados',
-  'Vieiras', 'Almejas', 'Tentáculo', 'Vaquita', 'Kigua', 'Pulpa de Cangrejo',
+  'Vieiras', 'Almejas', 'Tentáculo', 'Vaquita', 'Kigua', 'Pulpa de Cangrejo', 'Jaiba',
 ];
 
 interface CalcInputProps {
