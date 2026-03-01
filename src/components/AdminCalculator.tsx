@@ -315,8 +315,8 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
 
   // === Render ===
   return (
-    <div className="flex flex-col h-full p-2 sm:p-4 gap-2 sm:gap-3">
-      <div className="shrink-0">
+    <div className="p-2 sm:p-4 space-y-2 sm:space-y-3">
+      <div>
         {/* Tasa actual + toggles */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">

@@ -32,7 +32,7 @@ export function EntryList({ entries, onRemoveEntry, onUpdateAmount, onUpdateDesc
 
   if (entries.length === 0) {
     return (
-      <div className="flex-1 min-h-0 bg-white rounded-b-xl border-x border-b border-ocean-100 overflow-y-auto">
+      <div className="bg-white rounded-b-xl border-x border-b border-ocean-100">
         <div className="p-2.5 sm:p-4">
           <p className="text-sm text-ocean-400 text-center py-4">Sin operaciones</p>
         </div>
@@ -41,7 +41,7 @@ export function EntryList({ entries, onRemoveEntry, onUpdateAmount, onUpdateDesc
   }
 
   return (
-    <div className="flex-1 min-h-0 bg-white rounded-b-xl border-x border-b border-ocean-100 overflow-x-auto">
+    <div className="bg-white rounded-b-xl border-x border-b border-ocean-100 overflow-x-auto">
       <div className="p-2.5 sm:p-4">
         <div className="flex gap-2 flex-nowrap">
           {entries.map(entry => (
