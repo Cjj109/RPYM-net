@@ -99,7 +99,7 @@ export default function AdminSupplierPayments() {
     try {
       const res = await fetch('/api/config/bcv-rate');
       const data = await res.json();
-      if (data.success) setTasaBcv(data.rate);
+      if (data.rate) setTasaBcv(data.rate);
     } catch {
       console.error('Error loading BCV rate');
     }
