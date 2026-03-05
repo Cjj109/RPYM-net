@@ -125,7 +125,7 @@ REGLAS DE INTERPRETACION:
 
 CLIENTE:
 - Buscar el nombre del cliente en la lista de clientes registrados
-- Match fuzzy (ej: "delcy" = "Delcy", "jose" = "Jose Garcia")
+- Match fuzzy e IGNORAR ACENTOS/TILDES (ej: "delcy" = "Delcy", "jose" = "Jose Garcia", "policia" = "Policía", "garcia" = "García", "angel" = "Ángel")
 - Si no se encuentra, devolver customerId: null pero el nombre tal como se escribio
 
 PRODUCTOS:
@@ -425,9 +425,21 @@ Responde SOLO con un JSON valido:
       `${i.nombre} ${i.cantidad}${i.unidad}`
     ).join(', ');
 
+    // Fallback: si Gemini no encontró el cliente, buscar sin acentos
+    let resolvedCustomerId = parsed.customerId || null;
+    let resolvedCustomerName = parsed.customerName || 'Cliente';
+    if (!resolvedCustomerId && parsed.customerName) {
+      const normalizedInput = normalize(parsed.customerName);
+      const match = customers.find(c => normalize(c.name).includes(normalizedInput) || normalizedInput.includes(normalize(c.name)));
+      if (match) {
+        resolvedCustomerId = match.id;
+        resolvedCustomerName = match.name;
+      }
+    }
+
     const action: ParsedAction = {
-      customerName: parsed.customerName || 'Cliente',
-      customerId: parsed.customerId || null,
+      customerName: resolvedCustomerName,
+      customerId: resolvedCustomerId,
       items: presupuestoItems,
       totalUSD,
       totalBs: Math.round(totalBs * 100) / 100,

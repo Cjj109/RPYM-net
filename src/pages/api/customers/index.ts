@@ -19,7 +19,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
     // - balance_divisas: pure divisas transactions only (frontend handles dual view toggle)
     // - balance_bcv: includes all dolar_bcv transactions (dual and non-dual)
     // - balance_euro: euro transactions
-    let query = `
+    const query = `
       SELECT c.*,
         COALESCE(SUM(CASE WHEN t.type='purchase' AND t.currency_type='divisas' AND COALESCE(t.is_paid,0)=0 THEN t.amount_usd ELSE 0 END), 0)
         - COALESCE(SUM(CASE WHEN t.type='payment' AND t.currency_type='divisas' THEN t.amount_usd ELSE 0 END), 0) AS balance_divisas,
@@ -30,25 +30,24 @@ export const GET: APIRoute = async ({ request, locals }) => {
       FROM customers c
       LEFT JOIN customer_transactions t ON t.customer_id = c.id
       WHERE c.is_active = 1
+      GROUP BY c.id ORDER BY c.name ASC
     `;
 
-    const params: unknown[] = [];
+    const results = await db.prepare(query).all<D1CustomerWithBalance>();
+
+    let filtered = results.results;
     if (search) {
-      query += ` AND c.name LIKE ?`;
-      params.push(`%${search}%`);
+      // Normalizar acentos para búsqueda insensible a tildes
+      const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const normalizedSearch = normalize(search);
+      filtered = filtered.filter(c =>
+        normalize((c as any).name || '').includes(normalizedSearch)
+      );
     }
-
-    query += ` GROUP BY c.id ORDER BY c.name ASC`;
-
-    const stmt = params.length > 0
-      ? db.prepare(query).bind(...params)
-      : db.prepare(query);
-
-    const results = await stmt.all<D1CustomerWithBalance>();
 
     return new Response(JSON.stringify({
       success: true,
-      customers: results.results.map(transformCustomer)
+      customers: filtered.map(transformCustomer)
     }), {
       status: 200, headers: { 'Content-Type': 'application/json' }
     });

@@ -317,6 +317,7 @@ NOMBRE DEL CLIENTE (MUY IMPORTANTE - extrae SIEMPRE que se mencione):
 - "para Delcy", "presupuesto para Maria", "de Delcy" = el presupuesto es DE ese cliente
 - Si hay un nombre propio después de "a", "para", "de", "cliente" → customerName con ese nombre
 - Si recibes lista CLIENTES REGISTRADOS: usa el nombre EXACTO de esa lista (ej: si dicen "Delcy" y en la lista está "Delcy Rodriguez", usa "Delcy Rodriguez")
+- ⚠️ IGNORAR ACENTOS/TILDES al buscar: "policia" = "Policía", "garcia" = "García", "angel" = "Ángel", "jose" = "José"
 - Si no hay lista de clientes: devuelve el nombre tal como lo escribió el usuario
 - Si no se detecta nombre, customerName será null
 
