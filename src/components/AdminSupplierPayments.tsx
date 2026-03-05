@@ -3,7 +3,7 @@
  * Pagos móviles, transferencias y efectivo con comprobante
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { formatUSD, formatDateShort, formatDateDMY } from '../lib/format';
+import { formatUSD, formatBs, formatDateShort, formatDateDMY } from '../lib/format';
 import type { ProveedorInformal, PagoProveedor, ResumenMensual, MetodoPago, CuentaPago } from '../lib/pagos-proveedores-types';
 import { METODO_PAGO_LABELS, METODO_PAGO_SHORT, CUENTA_LABELS, CUENTA_SHORT } from '../lib/pagos-proveedores-types';
 
@@ -57,6 +57,12 @@ export default function AdminSupplierPayments() {
   const [imagenPreview, setImagenPreview] = useState<string | null>(null);
   const [isSavingPago, setIsSavingPago] = useState(false);
 
+  // Bs conversion mode
+  const [montoMode, setMontoMode] = useState<'usd' | 'bs'>('usd');
+  const [montoBsInput, setMontoBsInput] = useState('');
+  const [tasaBcv, setTasaBcv] = useState<number | null>(null);
+  const [tasaParalela, setTasaParalela] = useState('');
+
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
 
   // Supplier search within payment modal
@@ -89,6 +95,16 @@ export default function AdminSupplierPayments() {
     }
   }, []);
 
+  const loadBcvRate = useCallback(async () => {
+    try {
+      const res = await fetch('/api/config/bcv-rate');
+      const data = await res.json();
+      if (data.success) setTasaBcv(data.rate);
+    } catch {
+      console.error('Error loading BCV rate');
+    }
+  }, []);
+
   const loadPagos = useCallback(async () => {
     try {
       const params = new URLSearchParams({ mes: mesSeleccionado });
@@ -118,13 +134,13 @@ export default function AdminSupplierPayments() {
     setIsLoading(true);
     setError(null);
     try {
-      await Promise.all([loadProveedores(), loadPagos(), loadResumen()]);
+      await Promise.all([loadProveedores(), loadPagos(), loadResumen(), loadBcvRate()]);
     } catch {
       setError('Error al cargar datos');
     } finally {
       setIsLoading(false);
     }
-  }, [loadProveedores, loadPagos, loadResumen]);
+  }, [loadProveedores, loadPagos, loadResumen, loadBcvRate]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -162,6 +178,16 @@ export default function AdminSupplierPayments() {
       });
       setProveedorSearchTerm(pago.proveedorNombre);
       setImagenPreview(pago.imagenUrl);
+      // Restore Bs mode if pago had montoBs
+      if (pago.montoBs) {
+        setMontoMode('bs');
+        setMontoBsInput(String(pago.montoBs));
+        setTasaParalela(pago.tasaCambio ? String(pago.tasaCambio) : '');
+      } else {
+        setMontoMode('usd');
+        setMontoBsInput('');
+        setTasaParalela('');
+      }
     } else {
       setEditingPago(null);
       setPagoForm({
@@ -178,6 +204,11 @@ export default function AdminSupplierPayments() {
     }
     setImagenFile(null);
     setRemoveExistingImage(false);
+    if (!pago) {
+      setMontoMode('usd');
+      setMontoBsInput('');
+      setTasaParalela('');
+    }
     setShowPagoModal(true);
   };
 
@@ -194,10 +225,17 @@ export default function AdminSupplierPayments() {
         ? `/api/pagos-proveedores/${editingPago.id}`
         : '/api/pagos-proveedores';
 
+      const payload = {
+        ...pagoForm,
+        removeImage: removeExistingImage,
+        montoBs: montoMode === 'bs' ? Number(montoBsInput) || null : null,
+        tasaCambio: montoMode === 'bs' && tasaParalela ? Number(tasaParalela) : null,
+      };
+
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...pagoForm, removeImage: removeExistingImage }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
 
@@ -473,7 +511,12 @@ export default function AdminSupplierPayments() {
                     <td className="px-4 py-3 text-ocean-600">{formatDateShort(pago.fecha)}</td>
                     <td className="px-4 py-3 font-medium text-ocean-900">{pago.proveedorNombre}</td>
                     <td className="px-4 py-3 text-ocean-700">{pago.producto}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-ocean-900">{formatUSD(pago.montoUsd)}</td>
+                    <td className="px-4 py-3 text-right">
+                      <span className="font-semibold text-ocean-900">{formatUSD(pago.montoUsd)}</span>
+                      {pago.montoBs && (
+                        <span className="block text-xs text-ocean-400">{formatBs(pago.montoBs)}</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-center">
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-ocean-50 text-ocean-600">
                         {METODO_PAGO_SHORT[pago.metodoPago]}-{CUENTA_SHORT[pago.cuenta]}
@@ -548,7 +591,12 @@ export default function AdminSupplierPayments() {
                     <span className="font-semibold text-ocean-900">{pago.proveedorNombre}</span>
                     <span className="text-ocean-500 text-xs ml-2">{formatDateShort(pago.fecha)}</span>
                   </div>
-                  <span className="font-bold text-ocean-900">{formatUSD(pago.montoUsd)}</span>
+                  <div className="text-right">
+                    <span className="font-bold text-ocean-900">{formatUSD(pago.montoUsd)}</span>
+                    {pago.montoBs && (
+                      <span className="block text-xs text-ocean-400">{formatBs(pago.montoBs)}</span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-ocean-600">{pago.producto}</span>
@@ -654,17 +702,111 @@ export default function AdminSupplierPayments() {
                 )}
               </div>
 
-              {/* Monto */}
+              {/* Monto — toggle USD / Bs */}
               <div>
-                <label className="block text-sm font-medium text-ocean-700 mb-1">Monto (USD)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={pagoForm.montoUsd}
-                  onChange={e => setPagoForm(prev => ({ ...prev, montoUsd: e.target.value }))}
-                  placeholder="0.00"
-                  className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
-                />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-sm font-medium text-ocean-700">Monto</label>
+                  <div className="flex bg-ocean-100 rounded-lg p-0.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMontoMode('usd');
+                        setMontoBsInput('');
+                        setTasaParalela('');
+                      }}
+                      className={`px-3 py-1 rounded-md transition-colors ${montoMode === 'usd' ? 'bg-white text-ocean-900 shadow-sm font-medium' : 'text-ocean-600'}`}
+                    >
+                      USD
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMontoMode('bs')}
+                      className={`px-3 py-1 rounded-md transition-colors ${montoMode === 'bs' ? 'bg-white text-ocean-900 shadow-sm font-medium' : 'text-ocean-600'}`}
+                    >
+                      Bs
+                    </button>
+                  </div>
+                </div>
+
+                {montoMode === 'usd' ? (
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={pagoForm.montoUsd}
+                    onChange={e => setPagoForm(prev => ({ ...prev, montoUsd: e.target.value }))}
+                    placeholder="0.00"
+                    className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={montoBsInput}
+                      onChange={e => {
+                        const bs = e.target.value;
+                        setMontoBsInput(bs);
+                        // Auto-calculate USD from Bs
+                        const rate = tasaParalela ? Number(tasaParalela) : tasaBcv;
+                        if (rate && Number(bs)) {
+                          setPagoForm(prev => ({ ...prev, montoUsd: (Number(bs) / rate).toFixed(2) }));
+                        } else {
+                          setPagoForm(prev => ({ ...prev, montoUsd: '' }));
+                        }
+                      }}
+                      placeholder="Monto en Bs"
+                      className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
+                    />
+
+                    <div>
+                      <label className="block text-xs text-ocean-500 mb-1">
+                        Tasa (opcional — deja vacio para usar BCV {tasaBcv ? `${tasaBcv.toFixed(2)}` : ''})
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={tasaParalela}
+                        onChange={e => {
+                          const rate = e.target.value;
+                          setTasaParalela(rate);
+                          // Recalculate USD
+                          const effectiveRate = Number(rate) || tasaBcv;
+                          if (effectiveRate && Number(montoBsInput)) {
+                            setPagoForm(prev => ({ ...prev, montoUsd: (Number(montoBsInput) / effectiveRate).toFixed(2) }));
+                          }
+                        }}
+                        placeholder={tasaBcv ? `BCV: ${tasaBcv.toFixed(2)}` : 'Tasa de cambio'}
+                        className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
+                      />
+                    </div>
+
+                    {/* Conversion preview */}
+                    {montoBsInput && Number(montoBsInput) > 0 && (
+                      <div className="bg-ocean-50 rounded-lg p-3 text-sm space-y-1">
+                        {tasaBcv && (
+                          <div className="flex justify-between text-ocean-600">
+                            <span>BCV ({tasaBcv.toFixed(2)})</span>
+                            <span className={!tasaParalela ? 'font-semibold text-ocean-900' : ''}>
+                              {formatUSD(Number(montoBsInput) / tasaBcv)}
+                            </span>
+                          </div>
+                        )}
+                        {tasaParalela && Number(tasaParalela) > 0 && (
+                          <div className="flex justify-between text-ocean-600">
+                            <span>Paralelo ({Number(tasaParalela).toFixed(2)})</span>
+                            <span className="font-semibold text-ocean-900">
+                              {formatUSD(Number(montoBsInput) / Number(tasaParalela))}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-ocean-500 text-xs pt-1 border-t border-ocean-200">
+                          <span>Se guardara como</span>
+                          <span className="font-medium">{formatUSD(Number(pagoForm.montoUsd) || 0)}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Producto */}

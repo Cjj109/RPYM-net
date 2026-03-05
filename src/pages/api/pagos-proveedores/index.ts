@@ -76,7 +76,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   try {
     const body = await request.json();
-    const { proveedorId, montoUsd, producto, fecha, metodoPago, cuenta, notas } = body;
+    const { proveedorId, montoUsd, producto, fecha, metodoPago, cuenta, notas, montoBs, tasaCambio } = body;
 
     if (!proveedorId || !montoUsd || !producto?.trim() || !fecha) {
       return new Response(JSON.stringify({ success: false, error: 'Proveedor, monto, producto y fecha son requeridos' }), {
@@ -86,11 +86,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const result = await db.prepare(`
-      INSERT INTO pagos_proveedores (proveedor_id, monto_usd, producto, fecha, metodo_pago, cuenta, notas)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO pagos_proveedores (proveedor_id, monto_usd, monto_bs, tasa_cambio, producto, fecha, metodo_pago, cuenta, notas)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       Number(proveedorId),
       Number(montoUsd),
+      montoBs ? Number(montoBs) : null,
+      tasaCambio ? Number(tasaCambio) : null,
       producto.trim(),
       fecha,
       metodoPago || 'pago_movil',

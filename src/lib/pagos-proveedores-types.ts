@@ -24,6 +24,8 @@ export interface D1PagoProveedor {
   fecha: string;
   metodo_pago: string;
   cuenta: string;
+  monto_bs: number | null;
+  tasa_cambio: number | null;
   imagen_key: string | null;
   notas: string | null;
   is_active: number;
@@ -56,6 +58,8 @@ export interface PagoProveedor {
   proveedorId: number;
   proveedorNombre: string;
   montoUsd: number;
+  montoBs: number | null;
+  tasaCambio: number | null;
   producto: string;
   fecha: string;
   metodoPago: MetodoPago;
@@ -125,6 +129,8 @@ export function transformPagoProveedor(row: D1PagoProveedorWithNombre): PagoProv
     proveedorId: row.proveedor_id,
     proveedorNombre: row.proveedor_nombre,
     montoUsd: row.monto_usd,
+    montoBs: row.monto_bs,
+    tasaCambio: row.tasa_cambio,
     producto: row.producto,
     fecha: row.fecha,
     metodoPago: row.metodo_pago as MetodoPago,
