@@ -57,6 +57,8 @@ export default function AdminSupplierPayments() {
   const [imagenPreview, setImagenPreview] = useState<string | null>(null);
   const [isSavingPago, setIsSavingPago] = useState(false);
 
+  const [removeExistingImage, setRemoveExistingImage] = useState(false);
+
   // Supplier search within payment modal
   const [proveedorSearchTerm, setProveedorSearchTerm] = useState('');
   const [showProveedorDropdown, setShowProveedorDropdown] = useState(false);
@@ -175,6 +177,7 @@ export default function AdminSupplierPayments() {
       setImagenPreview(null);
     }
     setImagenFile(null);
+    setRemoveExistingImage(false);
     setShowPagoModal(true);
   };
 
@@ -194,7 +197,7 @@ export default function AdminSupplierPayments() {
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(pagoForm),
+        body: JSON.stringify({ ...pagoForm, removeImage: removeExistingImage }),
       });
       const data = await res.json();
 
@@ -736,15 +739,46 @@ export default function AdminSupplierPayments() {
                   onChange={handleImageSelect}
                   className="w-full text-sm text-ocean-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-ocean-50 file:text-ocean-700 hover:file:bg-ocean-100"
                 />
-                {imagenPreview && (
-                  <div className="mt-2">
+                {imagenPreview && !removeExistingImage && (
+                  <div className="mt-2 relative inline-block">
                     <img
                       src={imagenPreview}
                       alt="Preview"
                       className="max-h-40 rounded-lg border border-ocean-200 cursor-pointer"
                       onClick={() => setImagenAmpliada(imagenPreview)}
                     />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (imagenFile) {
+                          setImagenFile(null);
+                          setImagenPreview(editingPago?.imagenUrl || null);
+                        } else {
+                          setRemoveExistingImage(true);
+                          setImagenPreview(null);
+                        }
+                      }}
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow text-xs hover:bg-red-600"
+                      title="Quitar imagen"
+                    >
+                      &times;
+                    </button>
                   </div>
+                )}
+                {removeExistingImage && (
+                  <p className="mt-2 text-sm text-orange-600">
+                    La imagen sera eliminada al guardar.{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRemoveExistingImage(false);
+                        setImagenPreview(editingPago?.imagenUrl || null);
+                      }}
+                      className="underline hover:text-orange-800"
+                    >
+                      Deshacer
+                    </button>
+                  </p>
                 )}
               </div>
             </div>

@@ -13,13 +13,31 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
   try {
     const id = params.id;
     const body = await request.json();
-    const { proveedorId, montoUsd, producto, fecha, metodoPago, cuenta, notas } = body;
+    const { proveedorId, montoUsd, producto, fecha, metodoPago, cuenta, notas, removeImage } = body;
 
     if (!proveedorId || !montoUsd || !producto?.trim() || !fecha) {
       return new Response(JSON.stringify({ success: false, error: 'Proveedor, monto, producto y fecha son requeridos' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
+    }
+
+    // Remove image from R2 if requested
+    if (removeImage) {
+      const pago = await db.prepare(
+        'SELECT imagen_key FROM pagos_proveedores WHERE id = ?'
+      ).bind(id).first<{ imagen_key: string | null }>();
+
+      if (pago?.imagen_key) {
+        const r2 = getR2(locals);
+        if (r2) {
+          try { await r2.delete(pago.imagen_key); } catch (e) { console.error('Error deleting R2 image:', e); }
+        }
+      }
+
+      await db.prepare(
+        "UPDATE pagos_proveedores SET imagen_key = NULL, updated_at = datetime('now') WHERE id = ?"
+      ).bind(id).run();
     }
 
     await db.prepare(`
