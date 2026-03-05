@@ -668,8 +668,11 @@ export default function AdminSupplierPayments() {
                   type="text"
                   value={proveedorSearchTerm}
                   onChange={e => {
-                    setProveedorSearchTerm(e.target.value);
-                    setPagoForm(prev => ({ ...prev, proveedorId: '' }));
+                    const value = e.target.value;
+                    setProveedorSearchTerm(value);
+                    // Auto-seleccionar si hay match exacto
+                    const match = proveedores.find(p => p.nombre.toLowerCase() === value.trim().toLowerCase());
+                    setPagoForm(prev => ({ ...prev, proveedorId: match ? String(match.id) : '' }));
                     setShowProveedorDropdown(true);
                   }}
                   onFocus={() => setShowProveedorDropdown(true)}
