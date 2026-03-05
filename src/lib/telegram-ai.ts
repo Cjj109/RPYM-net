@@ -98,11 +98,14 @@ INTENCIONES POSIBLES:
 
 2. customer_purchase_products - Anotaciones CON PRODUCTOS (cantidades de productos)
    ⚠️ IMPORTANTE: NO necesita keyword "anota" o "registra". Si el mensaje tiene un NOMBRE seguido de CANTIDADES de productos (Xkg, X cajas, 1/2, medio, etc.), es SIEMPRE customer_purchase_products.
+   Formatos válidos: "nombre productos", "nombre: productos", "nombre - productos", "nombre, productos"
    EJEMPLOS SIN KEYWORD (solo nombre + productos):
    - "guarete 1/2kg camaron con concha" → params: {rawText: "guarete 1/2kg camaron con concha", modo: "bcv"}
-   - "delcy 2kg jumbo y 1kg calamar" → params: {rawText: "delcy 2kg jumbo y 1kg calamar", modo: "bcv"}
+   - "guarete: 2kg camaron desvenado" → params: {rawText: "guarete 2kg camaron desvenado", modo: "bcv"}
+   - "delcy: 2kg jumbo y 1kg calamar" → params: {rawText: "delcy 2kg jumbo y 1kg calamar", modo: "bcv"}
    - "maria 3kg langostino" → params: {rawText: "maria 3kg langostino", modo: "bcv"}
    - "jose 1/2kg pepitona y 2kg camaron" → params: {rawText: "jose 1/2kg pepitona y 2kg camaron", modo: "bcv"}
+   - "policia rodriguez: 1kg pulpo, 2kg calamar" → params: {rawText: "policia rodriguez 1kg pulpo, 2kg calamar", modo: "bcv"}
    EJEMPLOS CON KEYWORD:
    - "anota a delcy 2kg jumbo" → params: {rawText: "delcy 2kg jumbo", modo: "bcv"}
    - "anota a maria 1kg pota en divisas" → params: {rawText: "maria 1kg pota", modo: "divisa"}
@@ -344,6 +347,10 @@ INTENCIONES POSIBLES:
    - Si el usuario responde "1", "2", "3", etc. y parece responder a una pregunta anterior
    - Si responde con palabras que claramente eligen una opción previamente ofrecida
    → params: {option: número de opción elegida (1, 2, 3...)}
+
+REGLA DE ORO — DETECCIÓN DE PEDIDOS SIN KEYWORD:
+Si el mensaje tiene la estructura "[nombre]: [productos con cantidades]" o "[nombre] [productos con cantidades]", SIEMPRE es customer_purchase_products con confidence >= 0.85. NO lo clasifiques como chat.
+Ejemplos: "guarete: 2kg desvenado", "delcy 1kg jumbo", "maria: 3kg calamar y 1kg pulpo", "jose - 2kg langostino"
 
 NIVEL DE CONFIANZA (MUY IMPORTANTE):
 Debes evaluar qué tan seguro estás de tu interpretación:
