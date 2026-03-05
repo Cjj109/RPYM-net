@@ -599,86 +599,28 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
 
           {/* Tabs - grid 2x2 on mobile, flex row on desktop */}
           <div className={`grid grid-cols-4 sm:flex gap-1 bg-ocean-900/50 rounded-lg p-1 ${activeTab === 'calc' ? '' : 'mt-3'}`}>
-            <button
-              onClick={() => setActiveTab('ver')}
-              className={`py-2 px-3 sm:flex-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
-                activeTab === 'ver'
-                  ? 'bg-white text-ocean-900'
-                  : 'text-ocean-200 hover:text-white'
-              }`}
-            >
-              Ver
-            </button>
-            <button
-              onClick={() => setActiveTab('crear')}
-              className={`py-2 px-3 sm:flex-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
-                activeTab === 'crear'
-                  ? 'bg-white text-ocean-900'
-                  : 'text-ocean-200 hover:text-white'
-              }`}
-            >
-              Crear
-            </button>
-            <button
-              onClick={() => setActiveTab('productos')}
-              className={`py-2 px-3 sm:flex-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
-                activeTab === 'productos'
-                  ? 'bg-white text-ocean-900'
-                  : 'text-ocean-200 hover:text-white'
-              }`}
-            >
-              Productos
-            </button>
-            <button
-              onClick={() => setActiveTab('clientes')}
-              className={`py-2 px-3 sm:flex-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
-                activeTab === 'clientes'
-                  ? 'bg-white text-ocean-900'
-                  : 'text-ocean-200 hover:text-white'
-              }`}
-            >
-              Clientes
-            </button>
-            <button
-              onClick={() => setActiveTab('config')}
-              className={`py-2 px-3 sm:flex-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
-                activeTab === 'config'
-                  ? 'bg-white text-ocean-900'
-                  : 'text-ocean-200 hover:text-white'
-              }`}
-            >
-              Config
-            </button>
-            <button
-              onClick={() => setActiveTab('fiscal')}
-              className={`py-2 px-3 sm:flex-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
-                activeTab === 'fiscal'
-                  ? 'bg-white text-ocean-900'
-                  : 'text-ocean-200 hover:text-white'
-              }`}
-            >
-              Fiscal
-            </button>
-            <button
-              onClick={() => setActiveTab('gastos')}
-              className={`py-2 px-3 sm:flex-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
-                activeTab === 'gastos'
-                  ? 'bg-white text-ocean-900'
-                  : 'text-ocean-200 hover:text-white'
-              }`}
-            >
-              Gastos
-            </button>
-            <button
-              onClick={() => setActiveTab('calc')}
-              className={`py-2 px-3 sm:flex-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
-                activeTab === 'calc'
-                  ? 'bg-white text-ocean-900'
-                  : 'text-ocean-200 hover:text-white'
-              }`}
-            >
-              Calc
-            </button>
+            {([
+              ['ver', 'Ver'],
+              ['clientes', 'Clientes'],
+              ['calc', 'Calc'],
+              ['crear', 'Crear'],
+              ['gastos', 'Gastos'],
+              ['fiscal', 'Fiscal'],
+              ['productos', 'Productos'],
+              ['config', 'Config'],
+            ] as const).map(([tab, label]) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`py-2 px-3 sm:flex-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                  activeTab === tab
+                    ? 'bg-white text-ocean-900'
+                    : 'text-ocean-200 hover:text-white'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </div>
       </header>
