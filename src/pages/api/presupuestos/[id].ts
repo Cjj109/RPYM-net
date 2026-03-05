@@ -134,6 +134,21 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
         SET estado = ?, fecha_pago = ?, updated_at = datetime('now')
         WHERE id = ?
       `).bind(status, fechaPago, id).run();
+
+      // Sincronizar is_paid en la transacción del cliente vinculada
+      if (status === 'pagado') {
+        await db.prepare(`
+          UPDATE customer_transactions
+          SET is_paid = 1, paid_date = ?, paid_method = COALESCE(paid_method, 'presupuesto')
+          WHERE presupuesto_id = ? AND type = 'purchase'
+        `).bind(fechaPago, id).run();
+      } else {
+        await db.prepare(`
+          UPDATE customer_transactions
+          SET is_paid = 0, paid_date = NULL
+          WHERE presupuesto_id = ? AND type = 'purchase'
+        `).bind(id).run();
+      }
     } else if ('customerName' in body && Object.keys(body).length === 1) {
       // Customer name only update (when assigning presupuesto to customer)
       const { customerName } = body;
