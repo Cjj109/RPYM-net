@@ -90,6 +90,7 @@ interface ParseOrderResult {
 // Detectar unidad explícita del usuario (ej: "1kg pepitona" → "kg")
 const explicitUnitRegex = /\d+(?:\.\d+)?\s*(kg|kilo|kilos)\b/i;
 const halfKgRegex = /(?:medio|1\/2)\s*(?:kg|kilo)?\b/i;
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function detectExplicitUnit(item: any, userText: string): string | null {
   if (item.requestedName) {
     if (explicitUnitRegex.test(item.requestedName) || halfKgRegex.test(item.requestedName)) {
@@ -102,9 +103,10 @@ function detectExplicitUnit(item: any, userText: string): string | null {
     const normalizedText = normalize(userText);
     const words = normalizedProd.split(/\s+/).filter((w: string) => w.length > 3);
     for (const word of words) {
-      const pattern = new RegExp(`\\d+(?:\\.\\d+)?\\s*(?:kg|kilo|kilos)\\s+[^,]*?${word}`, 'i');
+      const escaped = escapeRegex(word);
+      const pattern = new RegExp(`\\d+(?:\\.\\d+)?\\s*(?:kg|kilo|kilos)\\s+[^,]*?${escaped}`, 'i');
       if (pattern.test(normalizedText)) return 'kg';
-      const patternHalf = new RegExp(`(?:medio|1\\/2)\\s*(?:kg|kilo)?\\s+[^,]*?${word}`, 'i');
+      const patternHalf = new RegExp(`(?:medio|1\\/2)\\s*(?:kg|kilo)?\\s+[^,]*?${escaped}`, 'i');
       if (patternHalf.test(normalizedText)) return 'kg';
     }
   }
