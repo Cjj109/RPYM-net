@@ -10,6 +10,7 @@ const AdminProducts = lazy(() => import('./AdminProducts'));
 const AdminCustomers = lazy(() => import('./AdminCustomers'));
 const AdminFiscal = lazy(() => import('./AdminFiscal'));
 const AdminCalculator = lazy(() => import('./AdminCalculator'));
+const AdminSupplierPayments = lazy(() => import('./AdminSupplierPayments'));
 
 import {
   listPresupuestos,
@@ -51,7 +52,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}) {
-  const [activeTab, setActiveTab] = useState<'ver' | 'crear' | 'productos' | 'clientes' | 'config' | 'fiscal' | 'calc'>('ver');
+  const [activeTab, setActiveTab] = useState<'ver' | 'crear' | 'productos' | 'clientes' | 'config' | 'fiscal' | 'gastos' | 'calc'>('ver');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [currentUser, setCurrentUser] = useState<AdminUser | null>(null);
@@ -659,6 +660,16 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
               Fiscal
             </button>
             <button
+              onClick={() => setActiveTab('gastos')}
+              className={`py-2 px-3 sm:flex-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                activeTab === 'gastos'
+                  ? 'bg-white text-ocean-900'
+                  : 'text-ocean-200 hover:text-white'
+              }`}
+            >
+              Gastos
+            </button>
+            <button
               onClick={() => setActiveTab('calc')}
               className={`py-2 px-3 sm:flex-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
                 activeTab === 'calc'
@@ -676,6 +687,12 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
         <main className="max-w-7xl mx-auto" style={{ minHeight: 'calc(100dvh - 52px)' }}>
           <Suspense fallback={<div className="text-center py-12 text-ocean-700">Cargando...</div>}>
             <AdminCalculator bcvRate={bcvRate} />
+          </Suspense>
+        </main>
+      ) : activeTab === 'gastos' ? (
+        <main className="max-w-7xl mx-auto p-4">
+          <Suspense fallback={<div className="text-center py-12 text-ocean-700">Cargando...</div>}>
+            <AdminSupplierPayments />
           </Suspense>
         </main>
       ) : activeTab === 'fiscal' ? (
