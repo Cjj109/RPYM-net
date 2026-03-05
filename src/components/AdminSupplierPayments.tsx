@@ -182,7 +182,7 @@ export default function AdminSupplierPayments() {
       if (pago.montoBs) {
         setMontoMode('bs');
         setMontoBsInput(String(pago.montoBs));
-        setTasaParalela(pago.tasaCambio ? String(pago.tasaCambio) : '');
+        setTasaParalela(pago.tasaParalela ? String(pago.tasaParalela) : '');
       } else {
         setMontoMode('usd');
         setMontoBsInput('');
@@ -229,7 +229,8 @@ export default function AdminSupplierPayments() {
         ...pagoForm,
         removeImage: removeExistingImage,
         montoBs: montoMode === 'bs' ? Number(montoBsInput) || null : null,
-        tasaCambio: montoMode === 'bs' && tasaParalela ? Number(tasaParalela) : null,
+        tasaCambio: montoMode === 'bs' && tasaBcv ? tasaBcv : null,
+        tasaParalela: montoMode === 'bs' && tasaParalela ? Number(tasaParalela) : null,
       };
 
       const res = await fetch(url, {
@@ -513,6 +514,11 @@ export default function AdminSupplierPayments() {
                     <td className="px-4 py-3 text-ocean-700">{pago.producto}</td>
                     <td className="px-4 py-3 text-right">
                       <span className="font-semibold text-ocean-900">{formatUSD(pago.montoUsd)}</span>
+                      {pago.montoUsdParalelo != null && (
+                        <span className="block text-xs text-ocean-400" title="USD a tasa paralela">
+                          ~{formatUSD(pago.montoUsdParalelo)} paral.
+                        </span>
+                      )}
                       {pago.montoBs && (
                         <span className="block text-xs text-ocean-400">{formatBs(pago.montoBs)}</span>
                       )}
@@ -593,6 +599,9 @@ export default function AdminSupplierPayments() {
                   </div>
                   <div className="text-right">
                     <span className="font-bold text-ocean-900">{formatUSD(pago.montoUsd)}</span>
+                    {pago.montoUsdParalelo != null && (
+                      <span className="block text-xs text-ocean-400">~{formatUSD(pago.montoUsdParalelo)} paral.</span>
+                    )}
                     {pago.montoBs && (
                       <span className="block text-xs text-ocean-400">{formatBs(pago.montoBs)}</span>
                     )}
@@ -746,10 +755,9 @@ export default function AdminSupplierPayments() {
                       onChange={e => {
                         const bs = e.target.value;
                         setMontoBsInput(bs);
-                        // Auto-calculate USD from Bs
-                        const rate = tasaParalela ? Number(tasaParalela) : tasaBcv;
-                        if (rate && Number(bs)) {
-                          setPagoForm(prev => ({ ...prev, montoUsd: (Number(bs) / rate).toFixed(2) }));
+                        // Siempre usar BCV para monto_usd principal
+                        if (tasaBcv && Number(bs)) {
+                          setPagoForm(prev => ({ ...prev, montoUsd: (Number(bs) / tasaBcv).toFixed(2) }));
                         } else {
                           setPagoForm(prev => ({ ...prev, montoUsd: '' }));
                         }
@@ -760,22 +768,14 @@ export default function AdminSupplierPayments() {
 
                     <div>
                       <label className="block text-xs text-ocean-500 mb-1">
-                        Tasa (opcional — deja vacio para usar BCV {tasaBcv ? `${tasaBcv.toFixed(2)}` : ''})
+                        Tasa paralela (opcional — solo referencia)
                       </label>
                       <input
                         type="number"
                         step="0.01"
                         value={tasaParalela}
-                        onChange={e => {
-                          const rate = e.target.value;
-                          setTasaParalela(rate);
-                          // Recalculate USD
-                          const effectiveRate = Number(rate) || tasaBcv;
-                          if (effectiveRate && Number(montoBsInput)) {
-                            setPagoForm(prev => ({ ...prev, montoUsd: (Number(montoBsInput) / effectiveRate).toFixed(2) }));
-                          }
-                        }}
-                        placeholder={tasaBcv ? `BCV: ${tasaBcv.toFixed(2)}` : 'Tasa de cambio'}
+                        onChange={e => setTasaParalela(e.target.value)}
+                        placeholder="Ej: 85.00"
                         className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
                       />
                     </div>
@@ -784,25 +784,21 @@ export default function AdminSupplierPayments() {
                     {montoBsInput && Number(montoBsInput) > 0 && (
                       <div className="bg-ocean-50 rounded-lg p-3 text-sm space-y-1">
                         {tasaBcv && (
-                          <div className="flex justify-between text-ocean-600">
+                          <div className="flex justify-between text-ocean-700 font-medium">
                             <span>BCV ({tasaBcv.toFixed(2)})</span>
-                            <span className={!tasaParalela ? 'font-semibold text-ocean-900' : ''}>
+                            <span className="text-ocean-900">
                               {formatUSD(Number(montoBsInput) / tasaBcv)}
                             </span>
                           </div>
                         )}
                         {tasaParalela && Number(tasaParalela) > 0 && (
-                          <div className="flex justify-between text-ocean-600">
+                          <div className="flex justify-between text-ocean-500">
                             <span>Paralelo ({Number(tasaParalela).toFixed(2)})</span>
-                            <span className="font-semibold text-ocean-900">
+                            <span>
                               {formatUSD(Number(montoBsInput) / Number(tasaParalela))}
                             </span>
                           </div>
                         )}
-                        <div className="flex justify-between text-ocean-500 text-xs pt-1 border-t border-ocean-200">
-                          <span>Se guardara como</span>
-                          <span className="font-medium">{formatUSD(Number(pagoForm.montoUsd) || 0)}</span>
-                        </div>
                       </div>
                     )}
                   </div>
