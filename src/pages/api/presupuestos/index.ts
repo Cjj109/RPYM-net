@@ -124,7 +124,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const body = await request.json();
-    const { items, totalUSD, totalBs, totalUSDDivisa, hideRate, delivery, modoPrecio, customerName, customerAddress, clientIP, status, source, customDate } = body;
+    const { items, totalUSD, totalBs, totalUSDDivisa, hideRate, delivery, modoPrecio, customerName, customerAddress, clientIP, status, source, customDate, skipLink } = body;
 
     // Validate required fields
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -174,7 +174,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // Auto-link to customer if customerName matches an existing customer
     let linked = false;
     let linkedCustomerId: number | undefined;
-    if (customerName) {
+    if (customerName && !skipLink) {
       try {
         const linkResult = await linkBudgetToCustomer(db, id, customerName);
         if (linkResult.success) {

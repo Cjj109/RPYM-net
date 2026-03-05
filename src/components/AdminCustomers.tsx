@@ -1281,7 +1281,7 @@ export default function AdminCustomers() {
     }
   };
 
-  const handleAiConfirm = async () => {
+  const handleAiConfirm = async (budgetOnly = false) => {
     setAiExecuting(true);
     let successCount = 0;
     let failCount = 0;
@@ -1336,6 +1336,7 @@ export default function AdminCustomers() {
             customDate: txDate,
             modoPrecio,
             hideRate: (action.hideRate && action.pricingMode !== 'divisas') || false,
+            ...(budgetOnly && { skipLink: true }),
           }),
           credentials: 'include'
         });
@@ -1347,38 +1348,40 @@ export default function AdminCustomers() {
 
         const presupuestoId = presData.id;
 
-        // 2. Create transaction linked to presupuesto
-        // Skip if auto-link already created it (POST /api/presupuestos auto-links by customerName)
-        const alreadyLinked = presData.linked && presData.linkedCustomerId === customerId;
-        if (!alreadyLinked) {
-          const txPayload: any = {
-            type: 'purchase',
-            date: txDate,
-            description: `Presupuesto ${presupuestoId}`,
-            amountUsd: action.totalUSD,
-            amountBs: action.totalBs,
-            presupuestoId: presupuestoId,
-            notes: '',
-            currencyType: action.pricingMode === 'divisas' ? 'divisas' : 'dolar_bcv',
-            paymentMethod: '',
-            exchangeRate: bcvRate || ''
-          };
+        // 2. Create transaction linked to presupuesto (skip if budgetOnly)
+        if (!budgetOnly) {
+          // Skip if auto-link already created it (POST /api/presupuestos auto-links by customerName)
+          const alreadyLinked = presData.linked && presData.linkedCustomerId === customerId;
+          if (!alreadyLinked) {
+            const txPayload: any = {
+              type: 'purchase',
+              date: txDate,
+              description: `Presupuesto ${presupuestoId}`,
+              amountUsd: action.totalUSD,
+              amountBs: action.totalBs,
+              presupuestoId: presupuestoId,
+              notes: '',
+              currencyType: action.pricingMode === 'divisas' ? 'divisas' : 'dolar_bcv',
+              paymentMethod: '',
+              exchangeRate: bcvRate || ''
+            };
 
-          // Add dual amount if applicable
-          if (action.pricingMode === 'dual' && action.totalUSDDivisa) {
-            txPayload.amountUsdDivisa = action.totalUSDDivisa;
-          }
+            // Add dual amount if applicable
+            if (action.pricingMode === 'dual' && action.totalUSDDivisa) {
+              txPayload.amountUsdDivisa = action.totalUSDDivisa;
+            }
 
-          const txRes = await fetch(`/api/customers/${customerId}/transactions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(txPayload),
-            credentials: 'include'
-          });
+            const txRes = await fetch(`/api/customers/${customerId}/transactions`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(txPayload),
+              credentials: 'include'
+            });
 
-          const txData = await txRes.json();
-          if (!txData.success) {
-            throw new Error(txData.error || 'Error al crear transaccion');
+            const txData = await txRes.json();
+            if (!txData.success) {
+              throw new Error(txData.error || 'Error al crear transaccion');
+            }
           }
         }
         successCount++;
@@ -1834,13 +1837,20 @@ export default function AdminCustomers() {
               </div>
             )}
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <button
-                onClick={handleAiConfirm}
+                onClick={() => handleAiConfirm(false)}
                 disabled={aiExecuting || (!aiProductAction.customerId && !aiProductAction.customerName)}
                 className="px-3 py-1.5 bg-green-600 hover:bg-green-500 disabled:bg-green-300 text-white rounded-lg text-xs font-medium transition-colors"
               >
-                {aiExecuting ? 'Creando...' : 'Crear Presupuesto + Compra'}
+                {aiExecuting ? 'Creando...' : 'Presupuesto + Compra'}
+              </button>
+              <button
+                onClick={() => handleAiConfirm(true)}
+                disabled={aiExecuting || (!aiProductAction.customerId && !aiProductAction.customerName)}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-300 text-white rounded-lg text-xs font-medium transition-colors"
+              >
+                {aiExecuting ? 'Creando...' : 'Solo Presupuesto'}
               </button>
               <button
                 onClick={handleAiCancel}
@@ -1895,7 +1905,7 @@ export default function AdminCustomers() {
             </div>
             <div className="flex gap-2 mt-3">
               <button
-                onClick={handleAiConfirm}
+                onClick={() => handleAiConfirm()}
                 disabled={aiExecuting || aiActions.every(a => !a.customerId)}
                 className="px-3 py-1.5 bg-green-600 hover:bg-green-500 disabled:bg-green-300 text-white rounded-lg text-xs font-medium transition-colors"
               >
