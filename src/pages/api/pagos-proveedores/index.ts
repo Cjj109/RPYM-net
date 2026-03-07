@@ -15,6 +15,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
     const mes = url.searchParams.get('mes'); // YYYY-MM
     const proveedorId = url.searchParams.get('proveedor_id');
     const cuenta = url.searchParams.get('cuenta');
+    const factura = url.searchParams.get('factura'); // '1' = con factura, '0' = sin factura
     const search = url.searchParams.get('search');
 
     let query = `
@@ -40,9 +41,14 @@ export const GET: APIRoute = async ({ request, locals }) => {
       params.push(cuenta);
     }
 
+    if (factura === '1' || factura === '0') {
+      query += ` AND p.tiene_factura = ?`;
+      params.push(Number(factura));
+    }
+
     if (search) {
-      query += ` AND p.producto LIKE ?`;
-      params.push(`%${search}%`);
+      query += ` AND (p.producto LIKE ? OR pi.nombre LIKE ?)`;
+      params.push(`%${search}%`, `%${search}%`);
     }
 
     query += ` ORDER BY p.fecha DESC, p.created_at DESC`;
@@ -76,7 +82,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   try {
     const body = await request.json();
-    const { proveedorId, montoUsd, producto, fecha, metodoPago, cuenta, notas, montoBs, tasaCambio, tasaParalela } = body;
+    const { proveedorId, montoUsd, producto, fecha, metodoPago, cuenta, notas, montoBs, tasaCambio, tasaParalela, tieneFactura } = body;
 
     if (!proveedorId || !montoUsd || !producto?.trim() || !fecha) {
       return new Response(JSON.stringify({ success: false, error: 'Proveedor, monto, producto y fecha son requeridos' }), {
@@ -86,8 +92,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const result = await db.prepare(`
-      INSERT INTO pagos_proveedores (proveedor_id, monto_usd, monto_bs, tasa_cambio, tasa_paralela, producto, fecha, metodo_pago, cuenta, notas)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO pagos_proveedores (proveedor_id, monto_usd, monto_bs, tasa_cambio, tasa_paralela, producto, fecha, metodo_pago, cuenta, tiene_factura, notas)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       Number(proveedorId),
       Number(montoUsd),
@@ -98,6 +104,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       fecha,
       metodoPago || 'pago_movil',
       cuenta || 'pa',
+      tieneFactura ? 1 : 0,
       notas?.trim() || null
     ).run();
 

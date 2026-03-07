@@ -27,6 +27,7 @@ export interface D1PagoProveedor {
   monto_bs: number | null;
   tasa_cambio: number | null;
   tasa_paralela: number | null;
+  tiene_factura: number;
   imagen_key: string | null;
   notas: string | null;
   is_active: number;
@@ -67,6 +68,7 @@ export interface PagoProveedor {
   fecha: string;
   metodoPago: MetodoPago;
   cuenta: CuentaPago;
+  tieneFactura: boolean;
   imagenUrl: string | null;
   notas: string | null;
   createdAt: string;
@@ -142,6 +144,7 @@ export function transformPagoProveedor(row: D1PagoProveedorWithNombre): PagoProv
     fecha: row.fecha,
     metodoPago: row.metodo_pago as MetodoPago,
     cuenta: row.cuenta as CuentaPago,
+    tieneFactura: row.tiene_factura === 1,
     imagenUrl: row.imagen_key ? `/api/pagos-proveedores/imagen/${row.imagen_key}` : null,
     notas: row.notas,
     createdAt: row.created_at,

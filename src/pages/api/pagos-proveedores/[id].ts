@@ -13,7 +13,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
   try {
     const id = params.id;
     const body = await request.json();
-    const { proveedorId, montoUsd, producto, fecha, metodoPago, cuenta, notas, montoBs, tasaCambio, tasaParalela, removeImage } = body;
+    const { proveedorId, montoUsd, producto, fecha, metodoPago, cuenta, notas, montoBs, tasaCambio, tasaParalela, tieneFactura, removeImage } = body;
 
     if (!proveedorId || !montoUsd || !producto?.trim() || !fecha) {
       return new Response(JSON.stringify({ success: false, error: 'Proveedor, monto, producto y fecha son requeridos' }), {
@@ -43,7 +43,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
     await db.prepare(`
       UPDATE pagos_proveedores
       SET proveedor_id = ?, monto_usd = ?, monto_bs = ?, tasa_cambio = ?, tasa_paralela = ?, producto = ?, fecha = ?,
-          metodo_pago = ?, cuenta = ?, notas = ?, updated_at = datetime('now')
+          metodo_pago = ?, cuenta = ?, tiene_factura = ?, notas = ?, updated_at = datetime('now')
       WHERE id = ?
     `).bind(
       Number(proveedorId),
@@ -55,6 +55,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
       fecha,
       metodoPago || 'pago_movil',
       cuenta || 'pa',
+      tieneFactura ? 1 : 0,
       notas?.trim() || null,
       id
     ).run();
