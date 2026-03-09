@@ -34,6 +34,28 @@ export const GET: APIRoute = async ({ request, locals }) => {
       cantidad_pagos: number;
     }>();
 
+    // Desglose por factura y cuenta
+    const breakdown = await db.prepare(`
+      SELECT
+        COALESCE(SUM(CASE WHEN tiene_factura = 1 THEN monto_usd ELSE 0 END), 0) as total_con_factura,
+        COALESCE(SUM(CASE WHEN tiene_factura = 0 THEN monto_usd ELSE 0 END), 0) as total_sin_factura,
+        COALESCE(SUM(CASE WHEN cuenta = 'pa' THEN monto_usd ELSE 0 END), 0) as total_cuenta_pa,
+        COALESCE(SUM(CASE WHEN cuenta = 'carlos' THEN monto_usd ELSE 0 END), 0) as total_cuenta_carlos,
+        COUNT(*) as cantidad_total,
+        COALESCE(SUM(CASE WHEN tiene_factura = 1 THEN 1 ELSE 0 END), 0) as cantidad_con_factura,
+        COALESCE(SUM(CASE WHEN tiene_factura = 0 THEN 1 ELSE 0 END), 0) as cantidad_sin_factura
+      FROM pagos_proveedores
+      WHERE fecha LIKE ? AND is_active = 1
+    `).bind(`${mes}%`).first<{
+      total_con_factura: number;
+      total_sin_factura: number;
+      total_cuenta_pa: number;
+      total_cuenta_carlos: number;
+      cantidad_total: number;
+      cantidad_con_factura: number;
+      cantidad_sin_factura: number;
+    }>();
+
     const porProveedor: ResumenMensualProveedor[] = results.results.map(r => ({
       proveedorId: r.proveedor_id,
       proveedorNombre: r.proveedor_nombre,
@@ -44,6 +66,13 @@ export const GET: APIRoute = async ({ request, locals }) => {
     const resumen: ResumenMensual = {
       periodo: mes,
       totalUsd: porProveedor.reduce((sum, p) => sum + p.totalUsd, 0),
+      totalConFactura: breakdown?.total_con_factura || 0,
+      totalSinFactura: breakdown?.total_sin_factura || 0,
+      totalCuentaPa: breakdown?.total_cuenta_pa || 0,
+      totalCuentaCarlos: breakdown?.total_cuenta_carlos || 0,
+      cantidadTotal: breakdown?.cantidad_total || 0,
+      cantidadConFactura: breakdown?.cantidad_con_factura || 0,
+      cantidadSinFactura: breakdown?.cantidad_sin_factura || 0,
       porProveedor,
     };
 

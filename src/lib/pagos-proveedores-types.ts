@@ -84,6 +84,13 @@ export interface ResumenMensualProveedor {
 export interface ResumenMensual {
   periodo: string;
   totalUsd: number;
+  totalConFactura: number;
+  totalSinFactura: number;
+  totalCuentaPa: number;
+  totalCuentaCarlos: number;
+  cantidadTotal: number;
+  cantidadConFactura: number;
+  cantidadSinFactura: number;
   porProveedor: ResumenMensualProveedor[];
 }
 

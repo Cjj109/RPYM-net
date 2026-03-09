@@ -441,14 +441,84 @@ export default function AdminSupplierPayments() {
           </button>
         </div>
 
-        <div className="text-center mb-3">
-          <span className="text-2xl font-bold text-ocean-900">
-            {formatUSD(resumen?.totalUsd || 0)}
-          </span>
-          <span className="text-sm text-ocean-500 ml-2">
-            total del mes
-          </span>
-        </div>
+        {/* Total principal — refleja filtros activos */}
+        {(() => {
+          const hasFilters = facturaFilter || cuentaFilter || proveedorFilter || searchTerm;
+          const filteredTotal = hasFilters
+            ? pagos.reduce((sum, p) => sum + p.montoUsd, 0)
+            : resumen?.totalUsd || 0;
+          const filteredCount = hasFilters ? pagos.length : resumen?.cantidadTotal || 0;
+
+          // Build filter description
+          const filterParts: string[] = [];
+          if (facturaFilter === '0') filterParts.push('sin factura');
+          if (facturaFilter === '1') filterParts.push('con factura');
+          if (cuentaFilter === 'pa') filterParts.push('Cuenta PA');
+          if (cuentaFilter === 'carlos') filterParts.push('Cuenta Carlos');
+          if (proveedorFilter) {
+            const prov = resumen?.porProveedor.find(p => p.proveedorId === proveedorFilter);
+            if (prov) filterParts.push(prov.proveedorNombre);
+          }
+          if (searchTerm) filterParts.push(`"${searchTerm}"`);
+
+          return (
+            <div className="text-center mb-3">
+              <span className="text-2xl font-bold text-ocean-900">
+                {formatUSD(filteredTotal)}
+              </span>
+              <span className="text-sm text-ocean-500 ml-2">
+                {hasFilters ? (
+                  <>
+                    de {filteredCount} pago{filteredCount !== 1 ? 's' : ''}
+                    {filterParts.length > 0 && (
+                      <span className="block text-xs text-ocean-400 mt-0.5">
+                        Filtro: {filterParts.join(' + ')}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  `total del mes (${filteredCount} pagos)`
+                )}
+              </span>
+            </div>
+          );
+        })()}
+
+        {/* Desglose fiscal — visible siempre para contable/SENIAT */}
+        {resumen && resumen.totalUsd > 0 && !facturaFilter && !cuentaFilter && !proveedorFilter && !searchTerm && (
+          <div className="mb-3 mx-auto max-w-sm">
+            {/* Barra visual factura */}
+            <div className="flex rounded-full overflow-hidden h-2 mb-2">
+              {resumen.totalConFactura > 0 && (
+                <div
+                  className="bg-green-500 transition-all"
+                  style={{ width: `${(resumen.totalConFactura / resumen.totalUsd) * 100}%` }}
+                />
+              )}
+              {resumen.totalSinFactura > 0 && (
+                <div
+                  className="bg-orange-400 transition-all"
+                  style={{ width: `${(resumen.totalSinFactura / resumen.totalUsd) * 100}%` }}
+                />
+              )}
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-green-700">
+                <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1" />
+                Con factura: {formatUSD(resumen.totalConFactura)} ({resumen.cantidadConFactura})
+              </span>
+              <span className="text-orange-600">
+                <span className="inline-block w-2 h-2 rounded-full bg-orange-400 mr-1" />
+                Sin factura: {formatUSD(resumen.totalSinFactura)} ({resumen.cantidadSinFactura})
+              </span>
+            </div>
+            {/* Desglose por cuenta */}
+            <div className="flex justify-between text-xs mt-1.5 text-ocean-500">
+              <span>Cuenta PA: {formatUSD(resumen.totalCuentaPa)}</span>
+              <span>Cuenta Carlos: {formatUSD(resumen.totalCuentaCarlos)}</span>
+            </div>
+          </div>
+        )}
 
         {resumen && resumen.porProveedor.length > 0 && (
           <div className="flex flex-wrap gap-2 justify-center">
