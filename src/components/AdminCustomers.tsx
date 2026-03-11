@@ -734,15 +734,19 @@ export default function AdminCustomers() {
 
             const precio = effectiveCustomPrice || product?.precioUSD || 0;
             const precioDivisa = item.customPriceDivisa || product?.precioUSDDivisa || precio;
+            const productUnit = product?.unidad || item.unit || 'kg';
+            const isWholeUnit = productUnit !== 'kg';
             let qty = item.quantity;
             if (effectiveDollarAmount && effectiveDollarAmount > 0 && precio > 0) {
               qty = Math.round((effectiveDollarAmount / precio) * 1000) / 1000;
+              if (isWholeUnit) qty = Math.max(1, Math.floor(qty));
             }
             // Divisa: si hay dollarAmount, calcular cantidad divisa independiente
             let subtotalDivisa: number;
             let qtyDivisa: number | undefined;
             if (effectiveDollarAmount && effectiveDollarAmount > 0 && precioDivisa > 0) {
               qtyDivisa = Math.round((effectiveDollarAmount / precioDivisa) * 1000) / 1000;
+              if (isWholeUnit) qtyDivisa = Math.max(1, Math.floor(qtyDivisa));
               subtotalDivisa = effectiveDollarAmount;
             } else {
               subtotalDivisa = Math.round(precioDivisa * qty * 100) / 100;

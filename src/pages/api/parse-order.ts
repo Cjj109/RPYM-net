@@ -115,13 +115,16 @@ REGLAS DE INTERPRETACIÓN:
 - "2½", "2 1/2" = 2.5 kg
 - "2 cajas", "2cj" = 2 (unidad: caja)
 - Los números antes del producto indican cantidad (si no hay símbolo $)
-- Si no se especifica unidad, asumir "kg" para productos por peso
+- IMPORTANTE: Usa la unidad del catálogo para cada producto (kg, caja, unidad, paquete, etc.). NO asumas siempre "kg". Si el producto en el catálogo dice "Unidad: caja", el unit debe ser "caja". Si dice "Unidad: unidad", el unit debe ser "unidad". Solo usa "kg" si el catálogo dice "kg" o si el producto no se encontró.
 - Para camarones, las tallas como "41/50", "61/70" son importantes para el match
 - Redondear cantidades calculadas a 3 decimales
 
 ¡¡¡MONTOS EN DÓLARES - ULTRA CRÍTICO - LEE CON MUCHA ATENCIÓN!!!
 Cuando el $ va ANTES del nombre del producto (con "de" en medio), es un MONTO TOTAL a gastar.
-El cliente quiere COMPRAR por ese monto → DEBES calcular la cantidad = monto / precio por kg.
+El cliente quiere COMPRAR por ese monto → DEBES calcular la cantidad = monto / precio por unidad del catálogo.
+- Si el producto se vende por kg, calcular cantidad en kg
+- Si el producto se vende por caja, calcular cantidad en cajas (redondear hacia abajo a enteros)
+- Si el producto se vende por unidad, calcular cantidad en unidades (redondear hacia abajo a enteros)
 - PATRÓN: "$X de [producto]" o "X$ de [producto]" o "X dólares de [producto]"
 - dollarAmount = X, customPrice = null (NO es precio personalizado)
 - quantity = dollarAmount / precio del producto del catálogo
@@ -345,7 +348,7 @@ Responde SOLO con un JSON válido con esta estructura:
       "requestedName": "lo que escribió el usuario (ej: '$20 de calamar')",
       "suggestedName": "nombre sugerido para producto personalizado (solo si matched=false y tiene precio)" | null,
       "quantity": número calculado,
-      "unit": "kg" o "caja" o "paquete",
+      "unit": "la unidad del catálogo del producto (kg, caja, unidad, paquete, etc.)",
       "matched": true/false,
       "confidence": "high" | "medium" | "low",
       "dollarAmount": número o null (si el usuario especificó monto en $),
@@ -475,8 +478,13 @@ INSTRUCCIONES:
         const priceForCalc = effectiveMode === 'divisa'
           ? (product.precioUSDDivisa || product.precioUSD)
           : product.precioUSD;
-        const calculatedQty = Math.round((dollarAmount / priceForCalc) * 1000) / 1000;
-        return { ...item, quantity: calculatedQty, dollarAmount, customPrice: null };
+        let calculatedQty = Math.round((dollarAmount / priceForCalc) * 1000) / 1000;
+        // Para productos que no se venden por kg, redondear a enteros
+        if (product.unidad !== 'kg') {
+          calculatedQty = Math.floor(dollarAmount / priceForCalc);
+          if (calculatedQty < 1) calculatedQty = 1;
+        }
+        return { ...item, quantity: calculatedQty, unit: product.unidad, dollarAmount, customPrice: null };
       }
 
       return item;
