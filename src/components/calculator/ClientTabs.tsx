@@ -42,7 +42,7 @@ export function ClientTabs({
               >
                 <div className="truncate">{hasEntries ? client.name : client.name.replace('Cliente ', 'C')}</div>
                 {disp && (
-                  <div className={`text-[9px] font-bold rounded-full px-1.5 mx-auto mt-0.5 truncate max-w-full bg-white/70 ${disp.text}`}>
+                  <div className={`text-[9px] font-bold mx-auto mt-0.5 truncate max-w-full ${disp.text}`}>
                     {client.dispatcher}
                   </div>
                 )}
