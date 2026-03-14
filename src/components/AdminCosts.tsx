@@ -299,6 +299,19 @@ export default function AdminCosts() {
     if (subView === 'history') loadHistory();
   }, [subView, loadHistory]);
 
+  const deleteHistoryEntry = useCallback(async (id: number) => {
+    try {
+      const res = await fetch('/api/costs/history', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ id }),
+      });
+      const data = await res.json();
+      if (data.success) setHistory(prev => prev.filter(h => h.id !== id));
+    } catch { /* ignore */ }
+  }, []);
+
   const openEditCost = (product: ProductWithCost) => {
     setEditingProduct(product);
     setCostForm({
@@ -673,6 +686,7 @@ export default function AdminCosts() {
                       <th className="px-3 py-2 text-center text-xs font-semibold text-ocean-700">Var. Real</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-ocean-700">BCV / Par.</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-ocean-700">Nota</th>
+                      <th className="px-2 py-2"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-ocean-50">
@@ -716,6 +730,17 @@ export default function AdminCosts() {
                         </td>
                         <td className="px-3 py-2 text-xs text-ocean-600 max-w-[150px] truncate">
                           {h.notes || '-'}
+                        </td>
+                        <td className="px-2 py-2">
+                          <button
+                            onClick={() => deleteHistoryEntry(h.id)}
+                            className="text-red-400 hover:text-red-600 transition-colors"
+                            title="Eliminar"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -776,6 +801,7 @@ export default function AdminCosts() {
                     <th className="px-3 py-2 text-right text-xs font-semibold text-amber-800">Venta $</th>
                     <th className="px-3 py-2 text-right text-xs font-semibold text-amber-800">Costo $</th>
                     <th className="px-3 py-2 text-right text-xs font-semibold text-amber-800">$ Real Sim.</th>
+                    <th className="px-3 py-2 text-right text-xs font-semibold text-amber-800">Costo BCV Eq.</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-amber-800">% Gan $ Sim.</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-amber-800">% Gan Bs Sim.</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-amber-800">% Gan IVA Sim.</th>
@@ -793,6 +819,7 @@ export default function AdminCosts() {
                         <td className="px-3 py-2 text-right">{formatUSD(p.precio_usd)}</td>
                         <td className="px-3 py-2 text-right text-red-700">{formatUSD(p.cost_usd!)}</td>
                         <td className="px-3 py-2 text-right font-medium">{formatUSD(p.simulated.realCostUsd)}</td>
+                        <td className="px-3 py-2 text-right font-medium text-amber-700">{formatUSD(p.simulated.costBcvEquiv)}</td>
                         <td className="px-3 py-2 text-center">
                           <span className={`text-xs font-bold px-2 py-0.5 rounded ${marginColor(p.simulated.marginUsd)}`}>
                             {pct(p.simulated.marginUsd)}
