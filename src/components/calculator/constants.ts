@@ -21,4 +21,7 @@ export const LS_KEYS = {
 
 export const DEFAULT_CLIENT_NAME = (index: number) => `Cliente ${index + 1}`;
 
+/** Despachador por defecto según posición del cliente */
+export const DEFAULT_DISPATCHER: readonly string[] = ['Carlos', 'Luis', 'Pedro', 'Johan', 'Pa'];
+
 export const DEFAULT_CLIENTS_COUNT = 5;

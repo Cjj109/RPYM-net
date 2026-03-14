@@ -3,7 +3,7 @@ import { evalMathExpr } from '../lib/safe-math';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { migrateIfNeeded } from './calculator/migration';
 import type { ClientData, CalcEntry, SavedSession, UndoAction, RateConfig, ClientTotals } from './calculator/types';
-import { LS_KEYS, DEFAULT_CLIENT_NAME, DEFAULT_CLIENTS_COUNT } from './calculator/constants';
+import { LS_KEYS, DEFAULT_CLIENT_NAME, DEFAULT_CLIENTS_COUNT, DEFAULT_DISPATCHER } from './calculator/constants';
 import { ClockIcon, GearIcon } from './calculator/icons';
 import { CalcInput } from './calculator/CalcInput';
 import { ClientTabs } from './calculator/ClientTabs';
@@ -23,6 +23,7 @@ function makeDefaultClients(): ClientData[] {
   return Array.from({ length: DEFAULT_CLIENTS_COUNT }, (_, i) => ({
     id: crypto.randomUUID(),
     name: DEFAULT_CLIENT_NAME(i),
+    dispatcher: DEFAULT_DISPATCHER[i],
     entries: [],
   }));
 }
@@ -220,7 +221,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     updateClient(activeClient.id, c => ({
       ...c,
       name: DEFAULT_CLIENT_NAME(idx >= 0 ? idx : 0),
-      dispatcher: undefined,
+      dispatcher: DEFAULT_DISPATCHER[idx >= 0 ? idx : 0],
       entries: [],
     }));
     setInputAmount('');
@@ -234,6 +235,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     const newClient: ClientData = {
       id: crypto.randomUUID(),
       name: DEFAULT_CLIENT_NAME(clients.length),
+      dispatcher: DEFAULT_DISPATCHER[clients.length],
       entries: [],
     };
     setClients(prev => [...prev, newClient]);
