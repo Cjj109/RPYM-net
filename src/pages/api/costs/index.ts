@@ -87,21 +87,20 @@ export const GET: APIRoute = async ({ request, locals }) => {
       const costBcvDebit = costBcvEquiv * (1 + iva + debitComm);
       const costBcvCredit = costBcvEquiv * (1 + iva + creditComm);
 
-      // === Venta BCV con IVA (punto de venta) ===
-      const saleBcvPunto = precioBcv * (1 + iva);
-
       // === Márgenes ===
       // % GAN $ = margen en dólares divisa ($ real vs precio divisa)
       const marginUsd = realCostUsd > 0 ? (precioDivisa - realCostUsd) / realCostUsd : 0;
       // % GAN Bs = margen en dólares BCV pago móvil (precio BCV vs costo BCV equiv)
       const marginBsPm = costBcvEquiv > 0 ? (precioBcv - costBcvEquiv) / costBcvEquiv : 0;
-      // % GAN IVA = margen punto de venta (precio BCV+IVA vs costo BCV+IVA+comisión)
-      const marginBsIva = costBcvDebit > 0 ? (saleBcvPunto - costBcvDebit) / costBcvDebit : 0;
+      // % GAN IVA = margen punto de venta: IVA va al SENIAT y comisión al banco
+      // Ganancia = precio - costo - IVA (SENIAT) - comisión débito
+      const profitBsIva = precioBcv - costBcvEquiv - precioBcv * (iva + debitComm);
+      const marginBsIva = costBcvDebit > 0 ? profitBsIva / costBcvDebit : 0;
 
       // Ganancia real en $ paralelo (lo que realmente gano convertido)
       // PM: (precioBcv - costBcvEquiv) en BCV dollars → × bcv / parallel para $ real
       const profitRealPm = (precioBcv - costBcvEquiv) * (bcv / parallel);
-      const profitRealIva = (saleBcvPunto - costBcvDebit) * (bcv / parallel);
+      const profitRealIva = profitBsIva * (bcv / parallel);
 
       return {
         ...p,

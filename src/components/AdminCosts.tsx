@@ -215,11 +215,11 @@ export default function AdminCosts() {
       // Costo BCV equiv para margen Bs
       const costBcvEquiv = rateType === 'PARALELO' ? costUsd * (parallel / bcv) : costUsd;
       const costBcvDebit = costBcvEquiv * (1 + iva + debitComm);
-      const saleBcvPunto = precioBcv * (1 + iva);
 
       const marginUsd = realCostUsd > 0 ? (precioDivisa - realCostUsd) / realCostUsd : 0;
       const marginBsPm = costBcvEquiv > 0 ? (precioBcv - costBcvEquiv) / costBcvEquiv : 0;
-      const marginBsIva = costBcvDebit > 0 ? (saleBcvPunto - costBcvDebit) / costBcvDebit : 0;
+      const profitBsIva = precioBcv - costBcvEquiv - precioBcv * (iva + debitComm);
+      const marginBsIva = costBcvDebit > 0 ? profitBsIva / costBcvDebit : 0;
 
       return { ...p, simulated: { realCostUsd, costBcvEquiv, marginUsd, marginBsPm, marginBsIva } };
     });
