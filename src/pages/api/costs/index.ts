@@ -54,8 +54,11 @@ export const GET: APIRoute = async ({ request, locals }) => {
     const creditComm = settings.credit_commission;
 
     // Calculate all derived values for each product
+    // precio_usd = precio BCV (para cálculos en Bs)
+    // precio_usd_divisa = precio en dólares cash (para margen en $)
     const enrichedProducts = products.map((p: any) => {
-      const saleUsd = p.precio_usd;
+      const precioBcv = p.precio_usd;                                    // Precio venta BCV
+      const precioDivisa = p.precio_usd_divisa ?? p.precio_usd;         // Precio venta $ (divisa)
       const costUsd = p.cost_usd;
       const rateType = p.purchase_rate_type;
 
@@ -63,33 +66,38 @@ export const GET: APIRoute = async ({ request, locals }) => {
         return { ...p, calculated: null };
       }
 
-      // Sale conversions
-      const saleBsPm = saleUsd * parallel;
-      const saleBsPunto = saleUsd * parallel * (1 + iva);
-      const saleEquivBcv = saleUsd * (bcv / parallel);
-
-      // Cost conversions
+      // Cost real en $ paralelo
       const realCostUsd = calcRealUsd(costUsd, rateType, bcv, parallel);
+
+      // === Ventas en Bs (usando precio divisa × tasa paralela) ===
+      const saleBsPm = precioDivisa * parallel;
+      const saleBsPunto = precioDivisa * parallel * (1 + iva);
+
+      // === Costos en Bs ===
       const costBsPm = rateType === 'BCV' ? costUsd * bcv : costUsd * parallel;
       const costBsDebit = costBsPm * (1 + iva + debitComm);
       const costBsCredit = costBsPm * (1 + iva + creditComm);
 
-      // Margins
-      const marginUsd = realCostUsd > 0 ? (saleUsd - realCostUsd) / realCostUsd : 0;
+      // === Márgenes ===
+      // % GAN $ = margen en dólares (divisa vs costo real)
+      const marginUsd = realCostUsd > 0 ? (precioDivisa - realCostUsd) / realCostUsd : 0;
+      // % GAN Bs = margen en bolívares pago móvil
       const marginBsPm = costBsPm > 0 ? (saleBsPm - costBsPm) / costBsPm : 0;
+      // % GAN IVA = margen en bolívares punto de venta
       const marginBsIva = costBsDebit > 0 ? (saleBsPunto - costBsDebit) / costBsDebit : 0;
 
-      // Real profit in $
+      // Ganancia real en $ (lo que realmente gano convertido a dólares paralelo)
       const profitRealPm = (saleBsPm - costBsPm) / parallel;
       const profitRealIva = (saleBsPunto - costBsDebit) / parallel;
 
       return {
         ...p,
         calculated: {
+          precioDivisa,
+          precioBcv,
           realCostUsd,
           saleBsPm,
           saleBsPunto,
-          saleEquivBcv,
           costBsPm,
           costBsDebit,
           costBsCredit,

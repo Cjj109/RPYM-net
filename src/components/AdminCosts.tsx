@@ -18,10 +18,11 @@ interface CostSettings {
 }
 
 interface CalculatedValues {
+  precioDivisa: number;
+  precioBcv: number;
   realCostUsd: number;
   saleBsPm: number;
   saleBsPunto: number;
-  saleEquivBcv: number;
   costBsPm: number;
   costBsDebit: number;
   costBsCredit: number;
@@ -206,17 +207,17 @@ export default function AdminCosts() {
     const debitComm = settings.debitCommission;
 
     return products.filter(p => p.cost_usd != null).map(p => {
-      const saleUsd = p.precio_usd;
+      const precioDivisa = p.precio_usd_divisa ?? p.precio_usd;
       const costUsd = p.cost_usd!;
       const rateType = p.purchase_rate_type!;
 
       const realCostUsd = rateType === 'BCV' ? costUsd * (bcv / parallel) : costUsd;
-      const saleBsPm = saleUsd * parallel;
-      const saleBsPunto = saleUsd * parallel * (1 + iva);
+      const saleBsPm = precioDivisa * parallel;
+      const saleBsPunto = precioDivisa * parallel * (1 + iva);
       const costBsPm = rateType === 'BCV' ? costUsd * bcv : costUsd * parallel;
       const costBsDebit = costBsPm * (1 + iva + debitComm);
 
-      const marginUsd = realCostUsd > 0 ? (saleUsd - realCostUsd) / realCostUsd : 0;
+      const marginUsd = realCostUsd > 0 ? (precioDivisa - realCostUsd) / realCostUsd : 0;
       const marginBsPm = costBsPm > 0 ? (saleBsPm - costBsPm) / costBsPm : 0;
       const marginBsIva = costBsDebit > 0 ? (saleBsPunto - costBsDebit) / costBsDebit : 0;
 
@@ -447,15 +448,16 @@ export default function AdminCosts() {
                   <tr>
                     <th className="px-3 py-2 text-left text-xs font-semibold text-ocean-700">Producto</th>
                     <th className="px-3 py-2 text-right text-xs font-semibold text-ocean-700">Venta $</th>
+                    <th className="px-3 py-2 text-right text-xs font-semibold text-ocean-700">Venta BCV</th>
                     <th className="px-3 py-2 text-right text-xs font-semibold text-ocean-700">Costo $</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-ocean-700">Tasa</th>
                     <th className="px-3 py-2 text-right text-xs font-semibold text-ocean-700">$ Real</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-ocean-700">% Gan $</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-ocean-700">% Gan Bs</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-ocean-700">% Gan IVA</th>
-                    <th className="px-3 py-2 text-right text-xs font-semibold text-ocean-700">Gan Real PM</th>
-                    <th className="px-3 py-2 text-right text-xs font-semibold text-ocean-700">Gan Real IVA</th>
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-ocean-700">Editar</th>
+                    <th className="px-3 py-2 text-right text-xs font-semibold text-ocean-700">$ Real PM</th>
+                    <th className="px-3 py-2 text-right text-xs font-semibold text-ocean-700">$ Real IVA</th>
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-ocean-700"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ocean-50">
@@ -465,7 +467,10 @@ export default function AdminCosts() {
                         {p.nombre}
                         <span className="text-ocean-400 text-xs ml-1">/{p.unidad}</span>
                       </td>
-                      <td className="px-3 py-2 text-right font-semibold text-ocean-800">
+                      <td className="px-3 py-2 text-right font-semibold text-green-700">
+                        {formatUSD(p.precio_usd_divisa ?? p.precio_usd)}
+                      </td>
+                      <td className="px-3 py-2 text-right font-semibold text-blue-700">
                         {formatUSD(p.precio_usd)}
                       </td>
                       {p.calculated ? (
@@ -506,7 +511,7 @@ export default function AdminCosts() {
                           </td>
                         </>
                       ) : (
-                        <td colSpan={8} className="px-3 py-2 text-center text-ocean-400 italic">
+                        <td colSpan={9} className="px-3 py-2 text-center text-ocean-400 italic">
                           Sin costo asignado
                         </td>
                       )}
@@ -832,8 +837,12 @@ export default function AdminCosts() {
             <div className="p-4 space-y-4">
               <div className="bg-ocean-50 rounded-lg p-3 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-ocean-600">Precio de venta:</span>
-                  <span className="font-bold">{formatUSD(editingProduct.precio_usd)}</span>
+                  <span className="text-ocean-600">Venta $ (divisa):</span>
+                  <span className="font-bold text-green-700">{formatUSD(editingProduct.precio_usd_divisa ?? editingProduct.precio_usd)}</span>
+                </div>
+                <div className="flex justify-between mt-1">
+                  <span className="text-ocean-600">Venta $ (BCV):</span>
+                  <span className="font-bold text-blue-700">{formatUSD(editingProduct.precio_usd)}</span>
                 </div>
                 {editingProduct.cost_usd != null && (
                   <div className="flex justify-between mt-1">
@@ -879,10 +888,11 @@ export default function AdminCosts() {
                 <div className="bg-green-50 rounded-lg p-3 text-sm">
                   {(() => {
                     const cost = parseFloat(costForm.costUsd);
+                    const precioDivisa = editingProduct.precio_usd_divisa ?? editingProduct.precio_usd;
                     const realCost = costForm.rateType === 'BCV'
                       ? cost * (settings.bcvRate / settings.parallelRate)
                       : cost;
-                    const margin = realCost > 0 ? (editingProduct.precio_usd - realCost) / realCost : 0;
+                    const margin = realCost > 0 ? (precioDivisa - realCost) / realCost : 0;
                     return (
                       <>
                         <div className="flex justify-between">
@@ -890,7 +900,7 @@ export default function AdminCosts() {
                           <span className="font-bold">{formatUSD(realCost)}</span>
                         </div>
                         <div className="flex justify-between mt-1">
-                          <span className="text-green-700">Margen estimado:</span>
+                          <span className="text-green-700">Margen $ (divisa):</span>
                           <span className={`font-bold ${marginColor(margin).split(' ')[0]}`}>{pct(margin)}</span>
                         </div>
                       </>
