@@ -42,13 +42,13 @@ export function ClientTabs({
               >
                 <div className="truncate">{hasEntries ? client.name : client.name.replace('Cliente ', 'C')}</div>
                 {disp && (
-                  <div className={`text-[8px] font-semibold rounded-full px-1.5 mx-auto mt-0.5 truncate max-w-full ${disp.badge}`}>
+                  <div className={`text-[9px] font-bold rounded-full px-1.5 mx-auto mt-0.5 truncate max-w-full bg-white/70 ${disp.text}`}>
                     {client.dispatcher}
                   </div>
                 )}
                 {hasEntries ? (
                   <div className="mt-1">
-                    <div className={`text-sm sm:text-base font-mono font-bold leading-tight ${isActive ? 'text-green-700' : 'text-green-600'}`}>
+                    <div className={`text-sm sm:text-base font-mono font-bold leading-tight ${disp ? disp.text : (isActive ? 'text-green-700' : 'text-green-600')}`}>
                       {formatBs(Math.abs(totals.bs))}
                     </div>
                     <div className={`text-[10px] font-mono leading-tight ${isActive ? 'text-ocean-400' : 'text-ocean-300'}`}>
