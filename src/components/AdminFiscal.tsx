@@ -76,8 +76,8 @@ function getSeniatDueDates(periodo: string): { pago1: Date; pago2: Date; labelPa
   const pago2 = new Date(year, month, diaPago2);
 
   const prevMonth = month === 0 ? 11 : month - 1;
-  const labelPago1 = `Ret. 16-fin ${MESES_ES[prevMonth]} → vence ${diaPago1} ${MESES_ES[month]}`;
-  const labelPago2 = `Ret. 1-15 ${MESES_ES[month]} + IVA mensual → vence ${diaPago2} ${MESES_ES[month]}`;
+  const labelPago1 = `Ret. 16-fin ${MESES_ES[prevMonth]} + IVA mensual → vence ${diaPago1} ${MESES_ES[month]}`;
+  const labelPago2 = `Ret. 1-15 ${MESES_ES[month]} → vence ${diaPago2} ${MESES_ES[month]}`;
 
   return { pago1, pago2, labelPago1, labelPago2 };
 }
@@ -1774,8 +1774,9 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
         const ivaNet  = dashboardData?.ivaBalance ?? 0;
         const sumat   = dashboardData?.sumatPendiente ?? 0;
 
-        const totalRet     = retIva + retIslr + igtf;
-        const totalPago2   = totalRet + ivaNet;
+        const totalRet   = retIva + retIslr + igtf;
+        const totalPago1 = totalRet + ivaNet;  // ret. 16-fin prev + IVA
+        const totalPago2 = totalRet;            // ret. 1-15 actual solo
 
         const fmtDate = (d: Date) => d.toLocaleDateString('es-VE', { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -1797,11 +1798,14 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* ── Retenciones del período (se pagan en 2 cuotas) ── */}
+              {/* ── 1er pago: ret. 16-fin mes anterior + IVA mensual (contable) ── */}
               <div className="rounded-xl p-5 shadow-sm border border-sky-200 bg-sky-50">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-sky-700 mb-3">
-                  Retenciones del período
-                  <span className="ml-1 font-normal normal-case text-sky-500">(2 cuotas quincenal)</span>
-                </h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-sky-700">
+                    1er pago del mes
+                  </h4>
+                  <span className="text-[10px] bg-sky-100 text-sky-600 px-2 py-0.5 rounded-full">contable</span>
+                </div>
                 <div className="space-y-1.5 text-sm mb-3">
                   <div className="flex justify-between">
                     <span className="text-sky-800">Ret. IVA</span>
@@ -1815,46 +1819,49 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
                     <span className="text-sky-800">IGTF</span>
                     <span className="font-mono font-semibold text-sky-900">{formatBs(igtf)}</span>
                   </div>
-                </div>
-                <div className="pt-3 border-t border-sky-200 flex justify-between font-bold text-sky-900 mb-3">
-                  <span>Total</span>
-                  <span className="font-mono text-base">{formatBs(totalRet)}</span>
-                </div>
-                <div className="space-y-2">
-                  <DateBadge date={pago1} isPast={isPago1Past} label={labelPago1} />
-                  <DateBadge date={pago2} isPast={isPago2Past} label="Retenciones 1-15 del mes" />
-                </div>
-              </div>
-
-              {/* ── IVA + Anticipo (solo 2do pago) ── */}
-              <div className="rounded-xl p-5 shadow-sm border border-indigo-200 bg-indigo-50">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-indigo-700 mb-3">
-                  IVA mensual
-                  <span className="ml-1 font-normal normal-case text-indigo-500">(solo 2do pago)</span>
-                </h4>
-                <div className="space-y-1.5 text-sm mb-3">
-                  <div className="flex justify-between">
-                    <span className="text-indigo-800">IVA neto a pagar</span>
-                    <span className="font-mono font-semibold text-indigo-900">{formatBs(ivaNet)}</span>
+                  <div className="flex justify-between border-t border-sky-200 pt-1.5 mt-1.5">
+                    <span className="text-sky-800">IVA neto mensual</span>
+                    <span className="font-mono font-semibold text-sky-900">{formatBs(ivaNet)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-indigo-500">Anticipo IVA</span>
-                    <span className="font-mono text-indigo-400 text-xs">confirmar c/ contadora</span>
+                    <span className="text-sky-500 text-xs">Anticipo IVA</span>
+                    <span className="font-mono text-sky-400 text-xs">confirmar c/ contadora</span>
+                  </div>
+                </div>
+                <div className="pt-3 border-t border-sky-200 flex justify-between font-bold text-sky-900 mb-3">
+                  <span>Total estimado</span>
+                  <span className="font-mono text-base">{formatBs(totalPago1)}</span>
+                </div>
+                <DateBadge date={pago1} isPast={isPago1Past} label={labelPago1} />
+              </div>
+
+              {/* ── 2do pago: ret. 1-15 mes actual solo ── */}
+              <div className="rounded-xl p-5 shadow-sm border border-indigo-200 bg-indigo-50">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
+                    2do pago del mes
+                  </h4>
+                  <span className="text-[10px] bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">retenciones</span>
+                </div>
+                <div className="space-y-1.5 text-sm mb-3">
+                  <div className="flex justify-between">
+                    <span className="text-indigo-800">Ret. IVA</span>
+                    <span className="font-mono font-semibold text-indigo-900">{formatBs(retIva)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-indigo-800">Ret. ISLR</span>
+                    <span className="font-mono font-semibold text-indigo-900">{formatBs(retIslr)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-indigo-800">IGTF</span>
+                    <span className="font-mono font-semibold text-indigo-900">{formatBs(igtf)}</span>
                   </div>
                 </div>
                 <div className="pt-3 border-t border-indigo-200 flex justify-between font-bold text-indigo-900 mb-3">
-                  <span>Subtotal (sin anticipo)</span>
-                  <span className="font-mono text-base">{formatBs(ivaNet)}</span>
+                  <span>Total</span>
+                  <span className="font-mono text-base">{formatBs(totalPago2)}</span>
                 </div>
-                <div className="space-y-2">
-                  <DateBadge date={pago2} isPast={isPago2Past} label={labelPago2} />
-                </div>
-                <div className="mt-3 pt-3 border-t border-indigo-200">
-                  <div className="flex justify-between font-bold text-indigo-900 text-sm">
-                    <span>Total 2do pago (ret. + IVA)</span>
-                    <span className="font-mono">{formatBs(totalPago2)}</span>
-                  </div>
-                </div>
+                <DateBadge date={pago2} isPast={isPago2Past} label={labelPago2} />
               </div>
               <div className="rounded-xl p-5 shadow-sm border border-rose-200 bg-rose-50">
                 <div className="flex items-start justify-between mb-3">
