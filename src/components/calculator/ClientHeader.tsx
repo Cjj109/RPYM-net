@@ -93,6 +93,7 @@ export function ClientHeader({
   };
 
   const entries = client.entries;
+  const disp = client.dispatcher ? DISPATCHERS.find(d => d.name === client.dispatcher) : undefined;
 
   return (
     <div className="bg-white border-x border-ocean-100 px-2.5 sm:px-4 pt-2 sm:pt-3">
@@ -199,14 +200,20 @@ export function ClientHeader({
       </div>
 
       {entries.length > 0 && (
-        <div className={`p-2 sm:p-3 rounded-lg text-center ${totalUSD < 0 ? 'bg-red-50 border border-red-200' : 'bg-ocean-50'}`}>
-          <span className={`text-xs ${totalUSD < 0 ? 'text-red-500' : 'text-ocean-500'}`}>Total</span>
-          <p className={`text-xl sm:text-2xl font-bold mt-0.5 ${totalBs < 0 ? 'text-red-600' : 'text-ocean-800'}`}>
+        <div className={`p-2 sm:p-3 rounded-lg text-center ring-1 ${
+          totalUSD < 0
+            ? 'bg-red-50 border border-red-200 ring-red-200'
+            : disp
+              ? `${disp.bg} ${disp.ring}`
+              : 'bg-ocean-50 ring-ocean-100'
+        }`}>
+          <span className={`text-xs ${totalUSD < 0 ? 'text-red-500' : disp ? disp.text : 'text-ocean-500'}`}>Total</span>
+          <p className={`text-xl sm:text-2xl font-bold mt-0.5 ${totalBs < 0 ? 'text-red-600' : disp ? disp.text : 'text-ocean-800'}`}>
             {totalBs < 0 ? '-' : ''}{formatBs(Math.abs(totalBs))}
           </p>
           {editingTotal ? (
             <div className="flex items-center gap-1 justify-center mt-1">
-              <span className="text-xs font-mono text-ocean-400">$</span>
+              <span className={`text-xs font-mono ${disp ? disp.text : 'text-ocean-400'}`}>$</span>
               <input
                 ref={editTotalRef}
                 type="text"
@@ -222,13 +229,13 @@ export function ClientHeader({
                   if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                   if (e.key === 'Escape') setEditingTotal(false);
                 }}
-                className="w-20 text-xs font-mono bg-transparent border-b-2 border-ocean-400 outline-none py-0 text-center"
+                className="w-20 text-xs font-mono bg-transparent border-b-2 border-current outline-none py-0 text-center"
               />
             </div>
           ) : (
             <p
               onClick={() => { setEditingTotal(true); setEditTotalValue(Math.abs(totalUSD).toFixed(2)); }}
-              className={`text-xs font-mono cursor-pointer hover:underline mt-0.5 ${totalUSD < 0 ? 'text-red-400' : 'text-ocean-400'}`}
+              className={`text-xs font-mono cursor-pointer hover:underline mt-0.5 ${totalUSD < 0 ? 'text-red-400' : disp ? `${disp.text} opacity-70` : 'text-ocean-400'}`}
               title="Click para ajustar total"
             >
               {totalUSD < 0 ? '-' : ''}{formatUSD(Math.abs(totalUSD))}
