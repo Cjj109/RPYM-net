@@ -82,8 +82,9 @@ export const GET: APIRoute = async ({ request, locals }) => {
     const anticipoIslrAcumulado = facturaTotals?.anticipo_islr_total || 0;
     const igtfPagado = facturaTotals?.igtf_total || 0;
 
-    // IVA Balance = IVA Cobrado - IVA Pagado + Retenciones realizadas
-    const ivaBalance = ivaCobradoBs - ivaComprasBs + retencionIvaTotal;
+    // IVA Balance = IVA Cobrado - IVA Soportado (compras) - Retenciones entregadas a SENIAT
+    // Las retenciones ya pagadas son crédito fiscal que reduce lo que se debe declarar
+    const ivaBalance = ivaCobradoBs - ivaComprasBs - retencionIvaTotal;
 
     // SUMAT = 2.5% of gross income (total ventas)
     const sumatPendiente = totalVentasBs * 0.025;
