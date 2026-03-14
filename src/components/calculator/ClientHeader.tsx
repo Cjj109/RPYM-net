@@ -235,7 +235,7 @@ export function ClientHeader({
           ) : (
             <p
               onClick={() => { setEditingTotal(true); setEditTotalValue(Math.abs(totalUSD).toFixed(2)); }}
-              className={`text-xs font-mono cursor-pointer hover:underline mt-0.5 ${totalUSD < 0 ? 'text-red-400' : disp ? `${disp.text} opacity-70` : 'text-ocean-400'}`}
+              className={`text-xs font-mono font-bold cursor-pointer hover:underline mt-0.5 ${totalUSD < 0 ? 'text-red-400' : disp ? `${disp.text} opacity-70` : 'text-ocean-400'}`}
               title="Click para ajustar total"
             >
               {totalUSD < 0 ? '-' : ''}{formatUSD(Math.abs(totalUSD))}
