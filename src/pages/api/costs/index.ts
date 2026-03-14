@@ -54,11 +54,20 @@ export const GET: APIRoute = async ({ request, locals }) => {
     const creditComm = settings.credit_commission;
 
     // Calculate all derived values for each product
-    // precio_usd = precio BCV (para cálculos en Bs)
-    // precio_usd_divisa = precio en dólares cash (para margen en $)
+    //
+    // Dos sistemas de precios:
+    //   1. BCV: precio_usd es el precio en "dólares BCV" → cliente paga precio_usd × tasa_bcv Bs
+    //   2. Divisa: precio_usd_divisa es el precio en dólares cash
+    //
+    // Costos se convierten al sistema correspondiente:
+    //   - $ Real (paralelo): para comparar vs precio divisa
+    //   - $ BCV equiv: para comparar vs precio BCV
+    //     PARALELO → costo × tasa_paralela / tasa_bcv (lo que cuesta en "dólares BCV")
+    //     BCV → costo tal cual (ya está en BCV)
+    //
     const enrichedProducts = products.map((p: any) => {
-      const precioBcv = p.precio_usd;                                    // Precio venta BCV
-      const precioDivisa = p.precio_usd_divisa ?? p.precio_usd;         // Precio venta $ (divisa)
+      const precioBcv = p.precio_usd;                                              // Precio venta BCV
+      const precioDivisa = p.precio_usd_divisa ?? (precioBcv * (bcv / parallel));  // Precio divisa (o equivalente)
       const costUsd = p.cost_usd;
       const rateType = p.purchase_rate_type;
 
@@ -66,29 +75,33 @@ export const GET: APIRoute = async ({ request, locals }) => {
         return { ...p, calculated: null };
       }
 
-      // Cost real en $ paralelo
+      // === Costo en $ Real (paralelo) — para comparar vs precio divisa ===
       const realCostUsd = calcRealUsd(costUsd, rateType, bcv, parallel);
 
-      // === Ventas en Bs (usando precio divisa × tasa paralela) ===
-      const saleBsPm = precioDivisa * parallel;
-      const saleBsPunto = precioDivisa * parallel * (1 + iva);
+      // === Costo en $ BCV equivalente — para comparar vs precio BCV ===
+      // PARALELO: costo × tasa_paralela / tasa_bcv (convierte a dólares BCV)
+      // BCV: costo tal cual
+      const costBcvEquiv = rateType === 'PARALELO' ? costUsd * (parallel / bcv) : costUsd;
 
-      // === Costos en Bs ===
-      const costBsPm = rateType === 'BCV' ? costUsd * bcv : costUsd * parallel;
-      const costBsDebit = costBsPm * (1 + iva + debitComm);
-      const costBsCredit = costBsPm * (1 + iva + creditComm);
+      // Costo BCV equiv con IVA + comisiones
+      const costBcvDebit = costBcvEquiv * (1 + iva + debitComm);
+      const costBcvCredit = costBcvEquiv * (1 + iva + creditComm);
+
+      // === Venta BCV con IVA (punto de venta) ===
+      const saleBcvPunto = precioBcv * (1 + iva);
 
       // === Márgenes ===
-      // % GAN $ = margen en dólares (divisa vs costo real)
+      // % GAN $ = margen en dólares divisa ($ real vs precio divisa)
       const marginUsd = realCostUsd > 0 ? (precioDivisa - realCostUsd) / realCostUsd : 0;
-      // % GAN Bs = margen en bolívares pago móvil
-      const marginBsPm = costBsPm > 0 ? (saleBsPm - costBsPm) / costBsPm : 0;
-      // % GAN IVA = margen en bolívares punto de venta
-      const marginBsIva = costBsDebit > 0 ? (saleBsPunto - costBsDebit) / costBsDebit : 0;
+      // % GAN Bs = margen en dólares BCV pago móvil (precio BCV vs costo BCV equiv)
+      const marginBsPm = costBcvEquiv > 0 ? (precioBcv - costBcvEquiv) / costBcvEquiv : 0;
+      // % GAN IVA = margen punto de venta (precio BCV+IVA vs costo BCV+IVA+comisión)
+      const marginBsIva = costBcvDebit > 0 ? (saleBcvPunto - costBcvDebit) / costBcvDebit : 0;
 
-      // Ganancia real en $ (lo que realmente gano convertido a dólares paralelo)
-      const profitRealPm = (saleBsPm - costBsPm) / parallel;
-      const profitRealIva = (saleBsPunto - costBsDebit) / parallel;
+      // Ganancia real en $ paralelo (lo que realmente gano convertido)
+      // PM: (precioBcv - costBcvEquiv) en BCV dollars → × bcv / parallel para $ real
+      const profitRealPm = (precioBcv - costBcvEquiv) * (bcv / parallel);
+      const profitRealIva = (saleBcvPunto - costBcvDebit) * (bcv / parallel);
 
       return {
         ...p,
@@ -96,11 +109,9 @@ export const GET: APIRoute = async ({ request, locals }) => {
           precioDivisa,
           precioBcv,
           realCostUsd,
-          saleBsPm,
-          saleBsPunto,
-          costBsPm,
-          costBsDebit,
-          costBsCredit,
+          costBcvEquiv,
+          costBcvDebit,
+          costBcvCredit,
           marginUsd,
           marginBsPm,
           marginBsIva,

@@ -21,11 +21,9 @@ interface CalculatedValues {
   precioDivisa: number;
   precioBcv: number;
   realCostUsd: number;
-  saleBsPm: number;
-  saleBsPunto: number;
-  costBsPm: number;
-  costBsDebit: number;
-  costBsCredit: number;
+  costBcvEquiv: number;
+  costBcvDebit: number;
+  costBcvCredit: number;
   marginUsd: number;
   marginBsPm: number;
   marginBsIva: number;
@@ -207,21 +205,23 @@ export default function AdminCosts() {
     const debitComm = settings.debitCommission;
 
     return products.filter(p => p.cost_usd != null).map(p => {
-      const precioDivisa = p.precio_usd_divisa ?? p.precio_usd;
+      const precioBcv = p.precio_usd;
+      const precioDivisa = p.precio_usd_divisa ?? (precioBcv * (bcv / parallel));
       const costUsd = p.cost_usd!;
       const rateType = p.purchase_rate_type!;
 
+      // $ Real (paralelo) para margen divisa
       const realCostUsd = rateType === 'BCV' ? costUsd * (bcv / parallel) : costUsd;
-      const saleBsPm = precioDivisa * parallel;
-      const saleBsPunto = precioDivisa * parallel * (1 + iva);
-      const costBsPm = rateType === 'BCV' ? costUsd * bcv : costUsd * parallel;
-      const costBsDebit = costBsPm * (1 + iva + debitComm);
+      // Costo BCV equiv para margen Bs
+      const costBcvEquiv = rateType === 'PARALELO' ? costUsd * (parallel / bcv) : costUsd;
+      const costBcvDebit = costBcvEquiv * (1 + iva + debitComm);
+      const saleBcvPunto = precioBcv * (1 + iva);
 
       const marginUsd = realCostUsd > 0 ? (precioDivisa - realCostUsd) / realCostUsd : 0;
-      const marginBsPm = costBsPm > 0 ? (saleBsPm - costBsPm) / costBsPm : 0;
-      const marginBsIva = costBsDebit > 0 ? (saleBsPunto - costBsDebit) / costBsDebit : 0;
+      const marginBsPm = costBcvEquiv > 0 ? (precioBcv - costBcvEquiv) / costBcvEquiv : 0;
+      const marginBsIva = costBcvDebit > 0 ? (saleBcvPunto - costBcvDebit) / costBcvDebit : 0;
 
-      return { ...p, simulated: { realCostUsd, marginUsd, marginBsPm, marginBsIva } };
+      return { ...p, simulated: { realCostUsd, costBcvEquiv, marginUsd, marginBsPm, marginBsIva } };
     });
   }, [products, settings, simBcv, simParallel]);
 
@@ -452,6 +452,7 @@ export default function AdminCosts() {
                     <th className="px-3 py-2 text-right text-xs font-semibold text-ocean-700">Costo $</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-ocean-700">Tasa</th>
                     <th className="px-3 py-2 text-right text-xs font-semibold text-ocean-700">$ Real</th>
+                    <th className="px-3 py-2 text-right text-xs font-semibold text-ocean-700">Costo BCV</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-ocean-700">% Gan $</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-ocean-700">% Gan Bs</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-ocean-700">% Gan IVA</th>
@@ -468,7 +469,10 @@ export default function AdminCosts() {
                         <span className="text-ocean-400 text-xs ml-1">/{p.unidad}</span>
                       </td>
                       <td className="px-3 py-2 text-right font-semibold text-green-700">
-                        {formatUSD(p.precio_usd_divisa ?? p.precio_usd)}
+                        {p.precio_usd_divisa != null
+                          ? formatUSD(p.precio_usd_divisa)
+                          : <span className="text-ocean-400">—</span>
+                        }
                       </td>
                       <td className="px-3 py-2 text-right font-semibold text-blue-700">
                         {formatUSD(p.precio_usd)}
@@ -485,8 +489,11 @@ export default function AdminCosts() {
                               {p.purchase_rate_type}
                             </span>
                           </td>
-                          <td className="px-3 py-2 text-right font-medium text-ocean-800">
+                          <td className="px-3 py-2 text-right font-medium text-ocean-600">
                             {formatUSD(p.calculated.realCostUsd)}
+                          </td>
+                          <td className="px-3 py-2 text-right font-medium text-blue-600">
+                            {formatUSD(p.calculated.costBcvEquiv)}
                           </td>
                           <td className="px-3 py-2 text-center">
                             <span className={`text-xs font-bold px-2 py-0.5 rounded ${marginColor(p.calculated.marginUsd)}`}>
@@ -511,7 +518,7 @@ export default function AdminCosts() {
                           </td>
                         </>
                       ) : (
-                        <td colSpan={9} className="px-3 py-2 text-center text-ocean-400 italic">
+                        <td colSpan={10} className="px-3 py-2 text-center text-ocean-400 italic">
                           Sin costo asignado
                         </td>
                       )}
