@@ -15,6 +15,8 @@ interface CalcInputProps {
   inputCurrency: 'USD' | 'Bs';
   description: string;
   activeRate: number;
+  dispatcherBg?: string;
+  dispatcherText?: string;
   onInputAmountChange: (val: string) => void;
   onCurrencyToggle: () => void;
   onDescriptionChange: (val: string) => void;
@@ -24,6 +26,7 @@ interface CalcInputProps {
 
 export function CalcInput({
   inputAmount, inputCurrency, description, activeRate,
+  dispatcherBg, dispatcherText,
   onInputAmountChange, onCurrencyToggle, onDescriptionChange, onAddEntry, amountRef,
 }: CalcInputProps) {
   const noteRef = useRef<HTMLInputElement>(null);
@@ -76,7 +79,7 @@ export function CalcInput({
         />
         <button
           onClick={onCurrencyToggle}
-          className="px-3 sm:px-4 py-2.5 sm:py-3 bg-ocean-100 text-ocean-700 font-bold text-base sm:text-lg rounded-lg hover:bg-ocean-200 transition-colors min-w-[48px] sm:min-w-[56px]"
+          className={`px-3 sm:px-4 py-2.5 sm:py-3 font-bold text-base sm:text-lg rounded-lg transition-colors min-w-[48px] sm:min-w-[56px] ${dispatcherBg && dispatcherText ? `${dispatcherBg} ${dispatcherText} hover:opacity-80` : 'bg-ocean-100 text-ocean-700 hover:bg-ocean-200'}`}
         >
           {inputCurrency === 'USD' ? '$' : 'Bs'}
         </button>

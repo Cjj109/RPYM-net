@@ -48,6 +48,40 @@ const SUB_TAB_LABELS: Record<FiscalSubTab, string> = {
   'consultas': 'Consultas AI',
 };
 
+/**
+ * Calendario SENIAT para RIF terminado en 7.
+ * primeraQuincena[mes]: día límite (mismo mes) para retenciones del 1 al 15.
+ * segundaQuincena[mes]: día límite (mes SIGUIENTE) para retenciones del 16 al fin.
+ * Índice 0 = Enero ... 11 = Diciembre.
+ */
+const SENIAT_CALENDAR_RIF7 = {
+  primeraQuincena:  [27, 24, 18, 17, 26, 22, 31, 20, 22, 27, 19, 18],
+  segundaQuincena:  [12, 11,  2,  6, 11,  4, 15, 10,  4, 13,  3,  2],
+} as const;
+
+const MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+/** Dado un período "YYYY-MM" devuelve las dos fechas de pago SENIAT del mes */
+function getSeniatDueDates(periodo: string): { pago1: Date; pago2: Date; labelPago1: string; labelPago2: string } {
+  const [yearStr, monthStr] = periodo.split('-');
+  const year = parseInt(yearStr);
+  const month = parseInt(monthStr) - 1; // 0-indexed
+
+  // Pago 1: día de a.2 del mes actual (para retenciones 16-fin del mes ANTERIOR)
+  const diaPago1 = SENIAT_CALENDAR_RIF7.segundaQuincena[month];
+  const pago1 = new Date(year, month, diaPago1);
+
+  // Pago 2: día de a.1 del mes actual (para retenciones 1-15 del mes actual)
+  const diaPago2 = SENIAT_CALENDAR_RIF7.primeraQuincena[month];
+  const pago2 = new Date(year, month, diaPago2);
+
+  const prevMonth = month === 0 ? 11 : month - 1;
+  const labelPago1 = `Ret. 16-fin ${MESES_ES[prevMonth]} → vence ${diaPago1} ${MESES_ES[month]}`;
+  const labelPago2 = `Ret. 1-15 ${MESES_ES[month]} + IVA mensual → vence ${diaPago2} ${MESES_ES[month]}`;
+
+  return { pago1, pago2, labelPago1, labelPago2 };
+}
+
 export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
   const [activeSubTab, setActiveSubTab] = useState<FiscalSubTab>('dashboard');
 
@@ -1724,13 +1758,144 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
             </div>
           )}
         </div>
-      ) : (
+      ) : null}
+
+      {/* ── Calendario SENIAT ── */}
+      {(() => {
+        const { pago1, pago2, labelPago1, labelPago2 } = getSeniatDueDates(dashboardPeriod);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const isPago1Past = pago1 < today;
+        const isPago2Past = pago2 < today;
+
+        const retIva   = dashboardData?.retencionIvaTotal ?? 0;
+        const retIslr  = dashboardData?.anticipoIslrAcumulado ?? 0;
+        const igtf     = (dashboardData?.igtfPagado ?? 0) + (dashboardData?.igtfVentasCobrado ?? 0);
+        const ivaNet   = dashboardData?.ivaBalance ?? 0;
+        const sumat    = dashboardData?.sumatPendiente ?? 0;
+
+        // Estimación: retenciones se reparten ~50/50 entre las dos quincenas
+        const retIva1  = retIva  / 2;
+        const retIva2  = retIva  / 2;
+        const retIslr1 = retIslr / 2;
+        const retIslr2 = retIslr / 2;
+        const igtf1    = igtf    / 2;
+        const igtf2    = igtf    / 2;
+
+        const total1 = retIva1 + retIslr1 + igtf1;
+        const total2 = retIva2 + retIslr2 + igtf2 + ivaNet;
+
+        const cardBase = 'rounded-xl p-5 shadow-sm border';
+        const itemRow = (name: string, amount: number, note?: string, textCls?: string, monoCls?: string) => (
+          <div key={name} className="flex justify-between text-sm">
+            <span className={textCls ?? 'text-sky-800'}>
+              {name}{note && <span className="text-[10px] opacity-60 ml-1">{note}</span>}
+            </span>
+            <span className={`font-mono font-semibold ${monoCls ?? 'text-sky-900'}`}>{formatBs(amount)}</span>
+          </div>
+        );
+
+        return (
+          <div className="mt-6">
+            <h3 className="text-base font-semibold text-ocean-900 mb-3">
+              Pagos SENIAT — {MESES_ES[parseInt(dashboardPeriod.split('-')[1]) - 1]} {dashboardPeriod.split('-')[0]}
+              <span className="ml-2 text-xs font-normal text-ocean-500">RIF terminado en 7</span>
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* ── Pago 1: retenciones quincena anterior (16-fin) ── */}
+              <div className={`${cardBase} ${isPago1Past ? 'border-gray-200 bg-gray-50 opacity-70' : 'border-sky-200 bg-sky-50'}`}>
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <span className={`text-xs font-semibold uppercase tracking-wide ${isPago1Past ? 'text-gray-400' : 'text-sky-700'}`}>
+                      {isPago1Past ? '✓ Vencido' : '1er pago SENIAT'}
+                    </span>
+                    <p className={`text-lg font-bold mt-0.5 ${isPago1Past ? 'text-gray-500' : 'text-sky-900'}`}>
+                      {pago1.toLocaleDateString('es-VE', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    </p>
+                    <p className={`text-[11px] mt-0.5 ${isPago1Past ? 'text-gray-400' : 'text-sky-600'}`}>{labelPago1}</p>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${isPago1Past ? 'bg-gray-200 text-gray-500' : 'bg-sky-100 text-sky-700'}`}>
+                    SENIAT
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  {itemRow('Ret. IVA',  retIva1,  '(est. ½ mensual)', isPago1Past ? 'text-gray-500' : 'text-sky-800', isPago1Past ? 'text-gray-500' : 'text-sky-900')}
+                  {itemRow('Ret. ISLR', retIslr1, '(est. ½ mensual)', isPago1Past ? 'text-gray-500' : 'text-sky-800', isPago1Past ? 'text-gray-500' : 'text-sky-900')}
+                  {itemRow('IGTF',      igtf1,    '(est. ½ mensual)', isPago1Past ? 'text-gray-500' : 'text-sky-800', isPago1Past ? 'text-gray-500' : 'text-sky-900')}
+                </div>
+                <div className={`mt-3 pt-3 border-t flex justify-between font-bold ${isPago1Past ? 'border-gray-200 text-gray-600' : 'border-sky-200 text-sky-900'}`}>
+                  <span>Total estimado</span>
+                  <span className="font-mono text-base">{formatBs(total1)}</span>
+                </div>
+              </div>
+
+              {/* ── Pago 2: retenciones 1ra quincena + IVA mensual ── */}
+              <div className={`${cardBase} ${isPago2Past ? 'border-gray-200 bg-gray-50 opacity-70' : 'border-indigo-200 bg-indigo-50'}`}>
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <span className={`text-xs font-semibold uppercase tracking-wide ${isPago2Past ? 'text-gray-400' : 'text-indigo-700'}`}>
+                      {isPago2Past ? '✓ Vencido' : '2do pago SENIAT'}
+                    </span>
+                    <p className={`text-lg font-bold mt-0.5 ${isPago2Past ? 'text-gray-500' : 'text-indigo-900'}`}>
+                      {pago2.toLocaleDateString('es-VE', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    </p>
+                    <p className={`text-[11px] mt-0.5 ${isPago2Past ? 'text-gray-400' : 'text-indigo-600'}`}>{labelPago2}</p>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${isPago2Past ? 'bg-gray-200 text-gray-500' : 'bg-indigo-100 text-indigo-700'}`}>
+                    SENIAT
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  {itemRow('Ret. IVA',       retIva2,  '(est. ½ mensual)', isPago2Past ? 'text-gray-500' : 'text-indigo-800', isPago2Past ? 'text-gray-500' : 'text-indigo-900')}
+                  {itemRow('Ret. ISLR',      retIslr2, '(est. ½ mensual)', isPago2Past ? 'text-gray-500' : 'text-indigo-800', isPago2Past ? 'text-gray-500' : 'text-indigo-900')}
+                  {itemRow('IGTF',           igtf2,    '(est. ½ mensual)', isPago2Past ? 'text-gray-500' : 'text-indigo-800', isPago2Past ? 'text-gray-500' : 'text-indigo-900')}
+                  {itemRow('IVA neto mensual', ivaNet,  undefined,          isPago2Past ? 'text-gray-500' : 'text-indigo-800', isPago2Past ? 'text-gray-500' : 'text-indigo-900')}
+                  {itemRow('Anticipo IVA',   0,        '(confirmar c/ contadora)', isPago2Past ? 'text-gray-400' : 'text-indigo-500', isPago2Past ? 'text-gray-400' : 'text-indigo-400')}
+                </div>
+                <div className={`mt-3 pt-3 border-t flex justify-between font-bold ${isPago2Past ? 'border-gray-200 text-gray-600' : 'border-indigo-200 text-indigo-900'}`}>
+                  <span>Total estimado</span>
+                  <span className="font-mono text-base">{formatBs(total2)}</span>
+                </div>
+              </div>
+              <div className="rounded-xl p-5 shadow-sm border border-rose-200 bg-rose-50">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-rose-700">Pago mensual</span>
+                    <p className="text-lg font-bold mt-0.5 text-rose-900">SUMAT / SENIAT mensual</p>
+                    <p className="text-[11px] mt-0.5 text-rose-600">Impuesto municipal + declaración IVA anual</p>
+                  </div>
+                  <span className="text-xs px-2 py-1 rounded-full font-medium bg-rose-100 text-rose-700">SUMAT</span>
+                </div>
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-rose-800">SUMAT (2.5% ventas)</span>
+                    <span className="font-mono font-semibold text-rose-900">{formatBs(sumat)}</span>
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-rose-200 flex justify-between font-bold text-rose-900">
+                  <span>Total mensual</span>
+                  <span className="font-mono text-base">{formatBs(sumat)}</span>
+                </div>
+                <p className="text-[10px] text-rose-500 mt-2">
+                  Declaración IVA (firma personal) se hace 1 vez/mes
+                </p>
+              </div>
+            </div>
+            <p className="text-[11px] text-ocean-400 mt-2">
+              * Los montos de retenciones son estimados (½ del total mensual por quincena). Los importes reales dependen de las retenciones de cada período quincenal.
+            </p>
+          </div>
+        );
+      })()}
+
+      {!dashboardData && (
         <div className="text-center py-12 text-ocean-600">
           No hay datos para el período seleccionado
         </div>
       )}
     </div>
   );
+
 
   const renderProveedores = () => (
     <div className="space-y-4">

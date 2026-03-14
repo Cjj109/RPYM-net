@@ -23,11 +23,13 @@ export function ClientTabs({
           const isActive = client.id === activeClientId;
           const totals = allClientTotals.get(client.id) || { usd: 0, bs: 0 };
           const hasEntries = client.entries.length > 0;
+          const disp = client.dispatcher ? DISPATCHERS.find(d => d.name === client.dispatcher) : undefined;
+          const tabBg = disp ? disp.bg : (isActive ? 'bg-white' : 'bg-ocean-50/50');
 
           return (
             <div key={client.id} className={`relative transition-all duration-200 ${
               hasEntries ? 'flex-[2] min-w-[90px] sm:min-w-[110px]' : 'flex-[0.6] min-w-[40px] sm:min-w-[50px]'
-            } ${isActive ? 'bg-white' : 'bg-ocean-50/50'}`}>
+            } ${tabBg}`}>
               <button
                 onClick={() => {
                   if (isActive) onStartRenaming(client.id);
@@ -39,14 +41,11 @@ export function ClientTabs({
                 title={isActive ? 'Click para renombrar' : ''}
               >
                 <div className="truncate">{hasEntries ? client.name : client.name.replace('Cliente ', 'C')}</div>
-                {client.dispatcher && (() => {
-                  const disp = DISPATCHERS.find(d => d.name === client.dispatcher);
-                  return (
-                    <div className={`text-[8px] font-semibold rounded-full px-1.5 mx-auto mt-0.5 truncate max-w-full ${disp ? disp.badge : 'bg-gray-50 text-gray-500'}`}>
-                      {client.dispatcher}
-                    </div>
-                  );
-                })()}
+                {disp && (
+                  <div className={`text-[8px] font-semibold rounded-full px-1.5 mx-auto mt-0.5 truncate max-w-full ${disp.badge}`}>
+                    {client.dispatcher}
+                  </div>
+                )}
                 {hasEntries ? (
                   <div className="mt-1">
                     <div className={`text-sm sm:text-base font-mono font-bold leading-tight ${isActive ? 'text-green-700' : 'text-green-600'}`}>

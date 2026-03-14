@@ -3,7 +3,7 @@ import { evalMathExpr } from '../lib/safe-math';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { migrateIfNeeded } from './calculator/migration';
 import type { ClientData, CalcEntry, SavedSession, UndoAction, RateConfig, ClientTotals } from './calculator/types';
-import { LS_KEYS, DEFAULT_CLIENT_NAME, DEFAULT_CLIENTS_COUNT, DEFAULT_DISPATCHER } from './calculator/constants';
+import { LS_KEYS, DEFAULT_CLIENT_NAME, DEFAULT_CLIENTS_COUNT, DEFAULT_DISPATCHER, DISPATCHERS } from './calculator/constants';
 import { ClockIcon, GearIcon } from './calculator/icons';
 import { CalcInput } from './calculator/CalcInput';
 import { ClientTabs } from './calculator/ClientTabs';
@@ -60,6 +60,9 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   const activeRate = rateConfig.useManualRate && rateConfig.manualRate
     ? parseFloat(rateConfig.manualRate) : autoRate;
   const entries = activeClient?.entries ?? [];
+  const activeDispatcher = activeClient?.dispatcher
+    ? DISPATCHERS.find(d => d.name === activeClient.dispatcher)
+    : undefined;
 
   // === Totales memoizados ===
   const allClientTotals = useMemo(() => {
@@ -377,6 +380,8 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
           inputCurrency={inputCurrency}
           description={description}
           activeRate={activeRate}
+          dispatcherBg={activeDispatcher?.bg}
+          dispatcherText={activeDispatcher?.text}
           onInputAmountChange={setInputAmount}
           onCurrencyToggle={() => setInputCurrency(prev => prev === 'USD' ? 'Bs' : 'USD')}
           onDescriptionChange={setDescription}
