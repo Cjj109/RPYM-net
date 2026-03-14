@@ -12,7 +12,6 @@ import { HistoryPanel } from './calculator/HistoryPanel';
 import { RateSettings } from './calculator/RateSettings';
 import { ClientHeader } from './calculator/ClientHeader';
 
-import { GeneralTotal } from './calculator/GeneralTotal';
 import { KeyboardHelp } from './calculator/KeyboardHelp';
 import { UndoToast } from './calculator/UndoToast';
 
@@ -74,17 +73,6 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
 
   const currentTotals = allClientTotals.get(activeClient?.id ?? '') ?? { usd: 0, bs: 0 };
 
-  const generalTotals = useMemo(() => {
-    let usd = 0, bs = 0, activeCount = 0;
-    for (const [, t] of allClientTotals) {
-      if (t.usd !== 0 || t.bs !== 0) {
-        usd += t.usd;
-        bs += t.bs;
-        activeCount++;
-      }
-    }
-    return { usd, bs, activeCount };
-  }, [allClientTotals]);
 
   // === Helpers de mutación ===
   const updateClient = useCallback((clientId: string, updater: (c: ClientData) => ClientData) => {
@@ -419,11 +407,6 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
           />
         )}
 
-        <GeneralTotal
-          totalUSD={generalTotals.usd}
-          totalBs={generalTotals.bs}
-          activeClientCount={generalTotals.activeCount}
-        />
       </div>
 
       <EntryList

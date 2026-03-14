@@ -5,6 +5,7 @@ export const DISPATCHERS: readonly Dispatcher[] = [
   { name: 'Pa', bg: 'bg-emerald-100', text: 'text-emerald-700', ring: 'ring-emerald-300', badge: 'bg-emerald-50 text-emerald-600' },
   { name: 'Luis', bg: 'bg-amber-100', text: 'text-amber-700', ring: 'ring-amber-300', badge: 'bg-amber-50 text-amber-600' },
   { name: 'Pedro', bg: 'bg-rose-100', text: 'text-rose-700', ring: 'ring-rose-300', badge: 'bg-rose-50 text-rose-600' },
+  { name: 'Johan', bg: 'bg-violet-100', text: 'text-violet-700', ring: 'ring-violet-300', badge: 'bg-violet-50 text-violet-600' },
 ] as const;
 
 export const LS_KEYS = {
