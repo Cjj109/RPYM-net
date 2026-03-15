@@ -34,6 +34,7 @@ interface DispatcherStats {
 
 export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: HistoryPanelProps) {
   const [view, setView] = useState<'summary' | 'detail'>('summary');
+  const [expandedDispatcher, setExpandedDispatcher] = useState<string | null>(null);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
 
   const stats = useMemo(() => {
@@ -107,22 +108,79 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
           <div className="space-y-1.5">
             {stats.byDispatcher.map(stat => {
               const disp = DISPATCHERS.find(d => d.name === stat.name);
+              const isExpanded = expandedDispatcher === stat.name;
+              const dispSessions = isExpanded ? sessions.filter(s => (s.dispatcher || 'Sin asignar') === stat.name) : [];
               return (
-                <div key={stat.name} className={`flex items-center justify-between rounded-lg px-3 py-2 ring-1 ${disp ? `${disp.bg} ${disp.ring}` : 'bg-gray-50 ring-gray-200'}`}>
-                  <div>
-                    <span className={`text-sm font-semibold ${disp ? disp.text : 'text-gray-700'}`}>{stat.name}</span>
-                    <div className={`text-[10px] ${disp ? `${disp.text} opacity-70` : 'text-gray-400'}`}>
-                      {stat.clients.size} cliente{stat.clients.size !== 1 ? 's' : ''} · {stat.sessionCount} op.
+                <div key={stat.name}>
+                  <button
+                    onClick={() => setExpandedDispatcher(prev => prev === stat.name ? null : stat.name)}
+                    className={`w-full flex items-center justify-between rounded-lg px-3 py-2 ring-1 transition-colors ${disp ? `${disp.bg} ${disp.ring}` : 'bg-gray-50 ring-gray-200'}`}
+                  >
+                    <div className="text-left">
+                      <span className={`text-sm font-semibold ${disp ? disp.text : 'text-gray-700'}`}>{stat.name}</span>
+                      <div className={`text-[10px] ${disp ? `${disp.text} opacity-70` : 'text-gray-400'}`}>
+                        {stat.clients.size} cliente{stat.clients.size !== 1 ? 's' : ''} · {stat.sessionCount} op.
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <p className={`text-sm font-bold font-mono ${disp ? disp.text : 'text-gray-700'}`}>
-                      {stat.totalBs < 0 ? '-' : ''}{formatBs(Math.abs(stat.totalBs))}
-                    </p>
-                    <p className={`text-[10px] font-mono font-bold ${disp ? `${disp.text} opacity-70` : 'text-gray-400'}`}>
-                      {stat.totalUSD < 0 ? '-' : ''}{formatUSD(Math.abs(stat.totalUSD))}
-                    </p>
-                  </div>
+                    <div className="text-right">
+                      <p className={`text-sm font-bold font-mono ${disp ? disp.text : 'text-gray-700'}`}>
+                        {stat.totalBs < 0 ? '-' : ''}{formatBs(Math.abs(stat.totalBs))}
+                      </p>
+                      <p className={`text-[10px] font-mono font-bold ${disp ? `${disp.text} opacity-70` : 'text-gray-400'}`}>
+                        {stat.totalUSD < 0 ? '-' : ''}{formatUSD(Math.abs(stat.totalUSD))}
+                      </p>
+                    </div>
+                  </button>
+                  {isExpanded && (
+                    <div className="mt-1 ml-2 space-y-1">
+                      {dispSessions.map(session => (
+                        <div key={session.id} className="bg-white rounded border border-ocean-100 overflow-hidden">
+                          <button
+                            onClick={() => setExpandedSession(prev => prev === session.id ? null : session.id)}
+                            className="w-full px-3 py-1.5 flex items-center justify-between hover:bg-ocean-50/50 transition-colors text-left"
+                          >
+                            <div className="min-w-0">
+                              <span className="text-xs font-medium text-ocean-700">{session.clientName}</span>
+                              <span className="text-[10px] text-ocean-400 ml-1.5">({session.entries.length})</span>
+                              <div className="text-[10px] text-ocean-400">
+                                {formatHistoryDate(session.timestamp)} {formatTime(session.timestamp)}
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0 ml-2">
+                              <div className="text-xs font-mono font-bold text-ocean-500">{formatUSD(Math.abs(session.totalUSD))}</div>
+                              <div className="text-sm font-bold font-mono text-green-700">{formatBs(Math.abs(session.totalBs))}</div>
+                            </div>
+                          </button>
+                          {expandedSession === session.id && (
+                            <div className="px-3 pb-2 space-y-0.5 bg-ocean-50/30">
+                              {session.entries.map(entry => (
+                                <div key={entry.id} className="flex items-center justify-between text-[11px] py-0.5">
+                                  <span className="text-ocean-500 truncate mr-2">{entry.description || '—'}</span>
+                                  <div className="text-right shrink-0">
+                                    <span className={`font-mono ${entry.isNegative ? 'text-red-400' : 'text-ocean-400'}`}>
+                                      {entry.isNegative ? '-' : ''}{formatUSD(entry.amountUSD)}
+                                    </span>
+                                    <span className={`font-mono ml-1.5 font-medium ${entry.isNegative ? 'text-red-600' : 'text-green-700'}`}>
+                                      {entry.isNegative ? '-' : ''}{formatBs(entry.amountBs)}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                              <div className="flex items-center justify-between pt-1">
+                                <span className="text-[9px] text-ocean-300">Tasa: Bs. {session.rate.toFixed(2)}</span>
+                                <button
+                                  onClick={() => onRemoveSession(session.id)}
+                                  className="text-[9px] text-red-400 hover:text-red-600 transition-colors"
+                                >
+                                  Eliminar
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
