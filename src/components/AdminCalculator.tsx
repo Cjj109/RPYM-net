@@ -1,17 +1,17 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { evalMathExpr } from '../lib/safe-math';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { migrateIfNeeded } from './calculator/migration';
-import type { ClientData, CalcEntry, SavedSession, UndoAction, RateConfig, ClientTotals } from './calculator/types';
-import { LS_KEYS, DEFAULT_CLIENT_NAME, DEFAULT_CLIENTS_COUNT, DEFAULT_DISPATCHER, DISPATCHERS } from './calculator/constants';
+import { migrateToDispatchers } from './calculator/migration';
+import type { DispatcherTab, SubClient, CalcEntry, SavedSession, UndoAction, RateConfig, ClientTotals } from './calculator/types';
+import { LS_KEYS, DEFAULT_SUBCLIENT_NAME, DEFAULT_SUBCLIENT_COUNT, DISPATCHERS } from './calculator/constants';
 import { ClockIcon, GearIcon } from './calculator/icons';
 import { CalcInput } from './calculator/CalcInput';
 import { ClientTabs } from './calculator/ClientTabs';
+import { SubClientCards } from './calculator/SubClientCards';
 import { EntryList } from './calculator/EntryList';
 import { HistoryPanel } from './calculator/HistoryPanel';
 import { RateSettings } from './calculator/RateSettings';
 import { ClientHeader } from './calculator/ClientHeader';
-
 import { KeyboardHelp } from './calculator/KeyboardHelp';
 import { UndoToast } from './calculator/UndoToast';
 
@@ -19,12 +19,19 @@ interface AdminCalculatorProps {
   bcvRate?: { rate: number; date: string; source: string };
 }
 
-function makeDefaultClients(): ClientData[] {
-  return Array.from({ length: DEFAULT_CLIENTS_COUNT }, (_, i) => ({
+function makeDefaultSubClients(): SubClient[] {
+  return Array.from({ length: DEFAULT_SUBCLIENT_COUNT }, (_, i) => ({
     id: crypto.randomUUID(),
-    name: DEFAULT_CLIENT_NAME(i),
-    dispatcher: DEFAULT_DISPATCHER[i],
+    name: DEFAULT_SUBCLIENT_NAME(i),
     entries: [],
+  }));
+}
+
+function makeDefaultDispatchers(): DispatcherTab[] {
+  return DISPATCHERS.map(d => ({
+    id: crypto.randomUUID(),
+    dispatcher: d.name,
+    clients: makeDefaultSubClients(),
   }));
 }
 
@@ -32,13 +39,14 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   // Migración de formato viejo (una sola vez)
   const migrated = useRef(false);
   if (!migrated.current) {
-    migrateIfNeeded();
+    migrateToDispatchers();
     migrated.current = true;
   }
 
   // === Estado persistido ===
-  const [clients, setClients] = useLocalStorage<ClientData[]>(LS_KEYS.CLIENTS, makeDefaultClients);
-  const [activeClientId, setActiveClientId] = useLocalStorage<string>(LS_KEYS.ACTIVE_CLIENT, () => clients[0]?.id ?? '');
+  const [dispatchers, setDispatchers] = useLocalStorage<DispatcherTab[]>(LS_KEYS.DISPATCHERS, makeDefaultDispatchers);
+  const [activeDispatcherId, setActiveDispatcherId] = useLocalStorage<string>(LS_KEYS.ACTIVE_DISPATCHER, () => dispatchers[0]?.id ?? '');
+  const [activeClientId, setActiveClientId] = useLocalStorage<string>(LS_KEYS.ACTIVE_SUBCLIENT, () => dispatchers[0]?.clients[0]?.id ?? '');
   const [sessions, setSessions] = useLocalStorage<SavedSession[]>(LS_KEYS.SESSIONS, []);
   const [rateConfig, setRateConfig] = useLocalStorage<RateConfig>(LS_KEYS.RATE_CONFIG, { useManualRate: false, manualRate: '' });
 
@@ -56,38 +64,44 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   const amountRef = useRef<HTMLInputElement>(null);
 
   // === Derivados ===
-  const activeClient = clients.find(c => c.id === activeClientId) ?? clients[0];
+  const activeDispatcher = dispatchers.find(d => d.id === activeDispatcherId) ?? dispatchers[0];
+  const dispatcherInfo = activeDispatcher ? DISPATCHERS.find(d => d.name === activeDispatcher.dispatcher) : undefined;
+  const activeClient = activeDispatcher?.clients.find(c => c.id === activeClientId)
+    ?? activeDispatcher?.clients[0];
   const activeRate = rateConfig.useManualRate && rateConfig.manualRate
     ? parseFloat(rateConfig.manualRate) : autoRate;
   const entries = activeClient?.entries ?? [];
-  const activeDispatcher = activeClient?.dispatcher
-    ? DISPATCHERS.find(d => d.name === activeClient.dispatcher)
-    : undefined;
 
-  // === Totales memoizados ===
-  const allClientTotals = useMemo(() => {
+  // === Totales memoizados por sub-cliente del dispatcher activo ===
+  const subClientTotals = useMemo(() => {
     const totals = new Map<string, ClientTotals>();
-    for (const client of clients) {
+    if (!activeDispatcher) return totals;
+    for (const client of activeDispatcher.clients) {
       const usd = client.entries.reduce((sum, e) => sum + (e.isNegative ? -e.amountUSD : e.amountUSD), 0);
       const bs = client.entries.reduce((sum, e) => sum + (e.isNegative ? -e.amountBs : e.amountBs), 0);
       totals.set(client.id, { usd, bs });
     }
     return totals;
-  }, [clients]);
+  }, [activeDispatcher]);
 
-  const currentTotals = allClientTotals.get(activeClient?.id ?? '') ?? { usd: 0, bs: 0 };
-
+  const currentTotals = subClientTotals.get(activeClient?.id ?? '') ?? { usd: 0, bs: 0 };
 
   // === Helpers de mutación ===
-  const updateClient = useCallback((clientId: string, updater: (c: ClientData) => ClientData) => {
-    setClients(prev => prev.map(c => c.id === clientId ? updater(c) : c));
-  }, [setClients]);
-
-  const updateClientEntries = useCallback((clientId: string, updater: (entries: CalcEntry[]) => CalcEntry[]) => {
-    setClients(prev => prev.map(c =>
-      c.id === clientId ? { ...c, entries: updater(c.entries) } : c
+  const updateSubClientEntries = useCallback((dispatcherId: string, clientId: string, updater: (entries: CalcEntry[]) => CalcEntry[]) => {
+    setDispatchers(prev => prev.map(d =>
+      d.id === dispatcherId
+        ? { ...d, clients: d.clients.map(c => c.id === clientId ? { ...c, entries: updater(c.entries) } : c) }
+        : d
     ));
-  }, [setClients]);
+  }, [setDispatchers]);
+
+  const updateSubClient = useCallback((dispatcherId: string, clientId: string, updater: (c: SubClient) => SubClient) => {
+    setDispatchers(prev => prev.map(d =>
+      d.id === dispatcherId
+        ? { ...d, clients: d.clients.map(c => c.id === clientId ? updater(c) : c) }
+        : d
+    ));
+  }, [setDispatchers]);
 
   // === Undo ===
   const scheduleUndoDismiss = useCallback(() => {
@@ -99,17 +113,16 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     if (!undoAction) return;
     switch (undoAction.type) {
       case 'delete_entry':
-        updateClientEntries(undoAction.clientId, entries => {
+        updateSubClientEntries(undoAction.dispatcherId, undoAction.clientId, entries => {
           const copy = [...entries];
           copy.splice(undoAction.index, 0, undoAction.entry);
           return copy;
         });
         break;
       case 'clear_all':
-        updateClient(undoAction.clientId, c => ({
+        updateSubClient(undoAction.dispatcherId, undoAction.clientId, c => ({
           ...c,
           name: undoAction.clientName,
-          dispatcher: undoAction.dispatcher,
           entries: undoAction.entries,
         }));
         if (undoAction.sessionId) {
@@ -119,7 +132,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     }
     setUndoAction(null);
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-  }, [undoAction, updateClient, updateClientEntries, setSessions]);
+  }, [undoAction, updateSubClient, updateSubClientEntries, setSessions]);
 
   useEffect(() => {
     return () => { if (undoTimerRef.current) clearTimeout(undoTimerRef.current); };
@@ -128,7 +141,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   // === Acciones ===
   const addEntry = useCallback(() => {
     const parsed = evalMathExpr(inputAmount);
-    if (parsed === 0 || !activeRate || !activeClient) return;
+    if (parsed === 0 || !activeRate || !activeDispatcher || !activeClient) return;
 
     let usd: number, bs: number;
     if (inputCurrency === 'USD') {
@@ -146,38 +159,38 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
       isNegative: false,
       expression: hasExpression ? inputAmount.trim() : undefined,
     };
-    updateClientEntries(activeClient.id, prev => [...prev, entry]);
+    updateSubClientEntries(activeDispatcher.id, activeClient.id, prev => [...prev, entry]);
     setInputAmount('');
     setDescription('');
-  }, [inputAmount, inputCurrency, activeRate, activeClient, description, updateClientEntries]);
+  }, [inputAmount, inputCurrency, activeRate, activeDispatcher, activeClient, description, updateSubClientEntries]);
 
   const removeEntry = useCallback((entryId: string) => {
-    if (!activeClient) return;
+    if (!activeDispatcher || !activeClient) return;
     const idx = activeClient.entries.findIndex(e => e.id === entryId);
     const entry = activeClient.entries[idx];
     if (!entry) return;
 
-    setUndoAction({ type: 'delete_entry', clientId: activeClient.id, entry, index: idx });
+    setUndoAction({ type: 'delete_entry', dispatcherId: activeDispatcher.id, clientId: activeClient.id, entry, index: idx });
     scheduleUndoDismiss();
-    updateClientEntries(activeClient.id, prev => prev.filter(e => e.id !== entryId));
-  }, [activeClient, updateClientEntries, scheduleUndoDismiss]);
+    updateSubClientEntries(activeDispatcher.id, activeClient.id, prev => prev.filter(e => e.id !== entryId));
+  }, [activeDispatcher, activeClient, updateSubClientEntries, scheduleUndoDismiss]);
 
   const updateEntryDescription = useCallback((entryId: string, description: string) => {
-    if (!activeClient) return;
-    updateClientEntries(activeClient.id, prev =>
+    if (!activeDispatcher || !activeClient) return;
+    updateSubClientEntries(activeDispatcher.id, activeClient.id, prev =>
       prev.map(e => e.id === entryId ? { ...e, description } : e)
     );
-  }, [activeClient, updateClientEntries]);
+  }, [activeDispatcher, activeClient, updateSubClientEntries]);
 
   const updateEntryAmount = useCallback((entryId: string, newUSD: number) => {
-    if (newUSD <= 0 || !activeRate || !activeClient) return;
-    updateClientEntries(activeClient.id, prev =>
+    if (newUSD <= 0 || !activeRate || !activeDispatcher || !activeClient) return;
+    updateSubClientEntries(activeDispatcher.id, activeClient.id, prev =>
       prev.map(e => e.id === entryId ? { ...e, amountUSD: newUSD, amountBs: newUSD * activeRate } : e)
     );
-  }, [activeClient, activeRate, updateClientEntries]);
+  }, [activeDispatcher, activeClient, activeRate, updateSubClientEntries]);
 
   const adjustTotal = useCallback((newTotalUSD: number) => {
-    if (!activeRate || !activeClient) return;
+    if (!activeRate || !activeDispatcher || !activeClient) return;
     const diff = newTotalUSD - currentTotals.usd;
     if (Math.abs(diff) < 0.001) return;
     const entry: CalcEntry = {
@@ -187,11 +200,11 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
       amountBs: Math.abs(diff) * activeRate,
       isNegative: diff < 0,
     };
-    updateClientEntries(activeClient.id, prev => [...prev, entry]);
-  }, [activeClient, activeRate, currentTotals.usd, updateClientEntries]);
+    updateSubClientEntries(activeDispatcher.id, activeClient.id, prev => [...prev, entry]);
+  }, [activeDispatcher, activeClient, activeRate, currentTotals.usd, updateSubClientEntries]);
 
   const clearAll = useCallback(() => {
-    if (!activeClient) return;
+    if (!activeDispatcher || !activeClient) return;
     const clientEntries = activeClient.entries;
     let sessionId: string | undefined;
 
@@ -200,7 +213,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
       const session: SavedSession = {
         id: sessionId,
         clientName: activeClient.name,
-        dispatcher: activeClient.dispatcher,
+        dispatcher: activeDispatcher.dispatcher,
         entries: [...clientEntries],
         totalUSD: currentTotals.usd,
         totalBs: currentTotals.bs,
@@ -212,63 +225,59 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
 
     setUndoAction({
       type: 'clear_all',
+      dispatcherId: activeDispatcher.id,
       clientId: activeClient.id,
       entries: [...clientEntries],
       clientName: activeClient.name,
-      dispatcher: activeClient.dispatcher,
       sessionId,
     });
     scheduleUndoDismiss();
 
-    const idx = clients.indexOf(activeClient);
-    updateClient(activeClient.id, c => ({
+    const idx = activeDispatcher.clients.indexOf(activeClient);
+    updateSubClient(activeDispatcher.id, activeClient.id, c => ({
       ...c,
-      name: DEFAULT_CLIENT_NAME(idx >= 0 ? idx : 0),
-      dispatcher: DEFAULT_DISPATCHER[idx >= 0 ? idx : 0],
+      name: DEFAULT_SUBCLIENT_NAME(idx >= 0 ? idx : 0),
       entries: [],
     }));
     setInputAmount('');
     setDescription('');
-  }, [activeClient, clients, currentTotals, activeRate, setSessions, updateClient, scheduleUndoDismiss]);
+  }, [activeDispatcher, activeClient, currentTotals, activeRate, setSessions, updateSubClient, scheduleUndoDismiss]);
 
   clearAllRef.current = clearAll;
 
-  // === Gestión de clientes ===
-  const addClient = useCallback(() => {
-    const newClient: ClientData = {
+  // === Gestión de sub-clientes ===
+  const renameSubClient = useCallback((name: string) => {
+    if (!activeDispatcher || !activeClient) return;
+    updateSubClient(activeDispatcher.id, activeClient.id, c => ({ ...c, name }));
+  }, [activeDispatcher, activeClient, updateSubClient]);
+
+  const addSubClient = useCallback(() => {
+    if (!activeDispatcher) return;
+    const newClient: SubClient = {
       id: crypto.randomUUID(),
-      name: DEFAULT_CLIENT_NAME(clients.length),
-      dispatcher: DEFAULT_DISPATCHER[clients.length],
+      name: DEFAULT_SUBCLIENT_NAME(activeDispatcher.clients.length),
       entries: [],
     };
-    setClients(prev => [...prev, newClient]);
+    setDispatchers(prev => prev.map(d =>
+      d.id === activeDispatcher.id
+        ? { ...d, clients: [...d.clients, newClient] }
+        : d
+    ));
     setActiveClientId(newClient.id);
-  }, [clients.length, setClients, setActiveClientId]);
+  }, [activeDispatcher, setDispatchers, setActiveClientId]);
 
-  const removeClient = useCallback(() => {
-    if (clients.length <= 1 || !activeClient) return;
-    const idx = clients.indexOf(activeClient);
-    setClients(prev => prev.filter(c => c.id !== activeClient.id));
+  const removeSubClient = useCallback(() => {
+    if (!activeDispatcher || !activeClient || activeDispatcher.clients.length <= 1) return;
+    const idx = activeDispatcher.clients.indexOf(activeClient);
+    const remaining = activeDispatcher.clients.filter(c => c.id !== activeClient.id);
+    setDispatchers(prev => prev.map(d =>
+      d.id === activeDispatcher.id
+        ? { ...d, clients: remaining }
+        : d
+    ));
     const newIdx = idx > 0 ? idx - 1 : 0;
-    const remaining = clients.filter(c => c.id !== activeClient.id);
     setActiveClientId(remaining[newIdx]?.id ?? remaining[0]?.id ?? '');
-  }, [clients, activeClient, setClients, setActiveClientId]);
-
-  const renameClient = useCallback((name: string) => {
-    if (!activeClient) return;
-    updateClient(activeClient.id, c => ({ ...c, name }));
-  }, [activeClient, updateClient]);
-
-  const setDispatcher = useCallback((dispatcher: string | undefined) => {
-    if (!activeClient) return;
-    updateClient(activeClient.id, c => ({ ...c, dispatcher }));
-  }, [activeClient, updateClient]);
-
-  const handleStartRenaming = useCallback((_id: string) => {
-    // ClientHeader maneja su propio estado de edición de nombre
-    // Este callback existe para que ClientTabs pueda disparar rename
-    // cuando el tab activo es clickeado de nuevo
-  }, []);
+  }, [activeDispatcher, activeClient, setDispatchers, setActiveClientId]);
 
   // === Efectos ===
   // Fetch tasa BCV al montar
@@ -285,25 +294,37 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
       .finally(() => setRateLoading(false));
   }, [initialBcv]);
 
-  // Foco al cambiar de cliente
+  // Foco al cambiar de sub-cliente
   useEffect(() => {
     amountRef.current?.focus();
   }, [activeClientId]);
 
+  // Asegurar que activeClientId sea válido cuando cambia el dispatcher
+  useEffect(() => {
+    if (!activeDispatcher) return;
+    const validClient = activeDispatcher.clients.find(c => c.id === activeClientId);
+    if (!validClient && activeDispatcher.clients.length > 0) {
+      setActiveClientId(activeDispatcher.clients[0].id);
+    }
+  }, [activeDispatcherId, activeDispatcher, activeClientId, setActiveClientId]);
+
   // Navegación global con teclado
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // No interceptar si hay input activo (excepto nuestro amount input)
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' && target !== amountRef.current) return;
 
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
+        if (!activeDispatcher) return;
+        const clients = activeDispatcher.clients;
         const idx = clients.findIndex(c => c.id === activeClientId);
         const newIdx = (idx - 1 + clients.length) % clients.length;
         setActiveClientId(clients[newIdx].id);
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
+        if (!activeDispatcher) return;
+        const clients = activeDispatcher.clients;
         const idx = clients.findIndex(c => c.id === activeClientId);
         const newIdx = (idx + 1) % clients.length;
         setActiveClientId(clients[newIdx].id);
@@ -321,7 +342,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     };
     document.addEventListener('keydown', handleGlobalKeyDown);
     return () => document.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [clients, activeClientId, setActiveClientId]);
+  }, [activeDispatcher, activeClientId, setActiveClientId]);
 
   // === Render ===
   return (
@@ -380,8 +401,8 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
           inputCurrency={inputCurrency}
           description={description}
           activeRate={activeRate}
-          dispatcherBg={activeDispatcher?.bg}
-          dispatcherText={activeDispatcher?.text}
+          dispatcherBg={dispatcherInfo?.bg}
+          dispatcherText={dispatcherInfo?.text}
           onInputAmountChange={setInputAmount}
           onCurrencyToggle={() => setInputCurrency(prev => prev === 'USD' ? 'Bs' : 'USD')}
           onDescriptionChange={setDescription}
@@ -389,31 +410,42 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
           amountRef={amountRef}
         />
 
+        {/* Tabs de repartidores */}
         <ClientTabs
-          clients={clients}
+          dispatchers={dispatchers}
+          activeDispatcherId={activeDispatcherId}
           activeClientId={activeClientId}
-          allClientTotals={allClientTotals}
-          onSelectClient={setActiveClientId}
-          onStartRenaming={handleStartRenaming}
-          onAddClient={addClient}
+          onSelectDispatcher={setActiveDispatcherId}
         />
 
-        {activeClient && (
+        {/* Header del repartidor activo + acciones del sub-cliente */}
+        {activeDispatcher && activeClient && (
           <ClientHeader
+            dispatcher={activeDispatcher}
             client={activeClient}
             totalUSD={currentTotals.usd}
             totalBs={currentTotals.bs}
             activeRate={activeRate}
-            clientCount={clients.length}
-            onRename={renameClient}
-            onSetDispatcher={setDispatcher}
+            onRename={renameSubClient}
             onClearAll={clearAll}
-            onRemoveClient={removeClient}
             onAdjustTotal={adjustTotal}
             amountRef={amountRef}
           />
         )}
 
+        {/* Cards de sub-clientes */}
+        {activeDispatcher && (
+          <SubClientCards
+            clients={activeDispatcher.clients}
+            activeClientId={activeClientId}
+            subClientTotals={subClientTotals}
+            dispatcher={activeDispatcher.dispatcher}
+            onSelectClient={setActiveClientId}
+            onAddClient={addSubClient}
+            onRemoveClient={removeSubClient}
+            clientCount={activeDispatcher.clients.length}
+          />
+        )}
       </div>
 
       <EntryList

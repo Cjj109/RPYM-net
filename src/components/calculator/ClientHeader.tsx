@@ -1,28 +1,24 @@
 import { useState, useRef, useEffect } from 'react';
 import { formatUSD, formatBs } from '../../lib/format';
-import type { ClientData, CalcEntry } from './types';
+import type { DispatcherTab, SubClient } from './types';
 import { DISPATCHERS } from './constants';
-import { PencilIcon, TrashIcon, CopyIcon, WhatsAppIcon } from './icons';
+import { PencilIcon, CopyIcon, WhatsAppIcon } from './icons';
 import { WhatsAppModal } from './WhatsAppModal';
 
 interface ClientHeaderProps {
-  client: ClientData;
+  dispatcher: DispatcherTab;
+  client: SubClient;
   totalUSD: number;
   totalBs: number;
   activeRate: number;
-  clientCount: number;
   onRename: (name: string) => void;
-  onSetDispatcher: (name: string | undefined) => void;
   onClearAll: () => void;
-  onRemoveClient: () => void;
   onAdjustTotal: (newTotalUSD: number) => void;
   amountRef: React.RefObject<HTMLInputElement | null>;
 }
 
-function buildClientSummary(client: ClientData, totalUSD: number, totalBs: number, activeRate: number): string {
-  let text = `*${client.name}*\n`;
-  if (client.dispatcher) text += `Despachador: ${client.dispatcher}\n`;
-  text += `\n`;
+function buildClientSummary(dispatcher: DispatcherTab, client: SubClient, totalUSD: number, totalBs: number, activeRate: number): string {
+  let text = `*${dispatcher.dispatcher} — ${client.name}*\n\n`;
 
   for (const entry of client.entries) {
     const sign = entry.isNegative ? '-' : '';
@@ -37,13 +33,12 @@ function buildClientSummary(client: ClientData, totalUSD: number, totalBs: numbe
 }
 
 export function ClientHeader({
-  client, totalUSD, totalBs, activeRate, clientCount,
-  onRename, onSetDispatcher, onClearAll, onRemoveClient, onAdjustTotal, amountRef,
+  dispatcher, client, totalUSD, totalBs, activeRate,
+  onRename, onClearAll, onAdjustTotal, amountRef,
 }: ClientHeaderProps) {
   const [editingName, setEditingName] = useState(false);
   const [editNameValue, setEditNameValue] = useState('');
   const editNameRef = useRef<HTMLInputElement>(null);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [editingTotal, setEditingTotal] = useState(false);
   const [editTotalValue, setEditTotalValue] = useState('');
   const editTotalRef = useRef<HTMLInputElement>(null);
@@ -62,9 +57,10 @@ export function ClientHeader({
     }
   }, [editingTotal]);
 
-  // Resetear confirmación al cambiar de cliente
+  // Resetear edición al cambiar de cliente
   useEffect(() => {
-    setConfirmingDelete(false);
+    setEditingName(false);
+    setEditingTotal(false);
   }, [client.id]);
 
   const startRenaming = () => {
@@ -78,27 +74,24 @@ export function ClientHeader({
   };
 
   const handleCopy = async () => {
-    const summary = buildClientSummary(client, totalUSD, totalBs, activeRate);
+    const summary = buildClientSummary(dispatcher, client, totalUSD, totalBs, activeRate);
     try {
       await navigator.clipboard.writeText(summary);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // fallback: no hacer nada
+      // fallback
     }
   };
 
-  const handleWhatsApp = () => {
-    setShowWhatsApp(true);
-  };
-
   const entries = client.entries;
-  const disp = client.dispatcher ? DISPATCHERS.find(d => d.name === client.dispatcher) : undefined;
+  const disp = DISPATCHERS.find(d => d.name === dispatcher.dispatcher);
 
   return (
     <div className="bg-white border-x border-ocean-100 px-2.5 sm:px-4 pt-2 sm:pt-3">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
+          {/* Nombre del sub-cliente (editable) */}
           {editingName ? (
             <input
               ref={editNameRef}
@@ -122,27 +115,6 @@ export function ClientHeader({
               <PencilIcon className="w-3 h-3 inline-block ml-1 text-ocean-300" />
             </h2>
           )}
-          <div className="flex items-center gap-1">
-            {DISPATCHERS.map(d => {
-              const isActive = client.dispatcher === d.name;
-              return (
-                <button
-                  key={d.name}
-                  onClick={() => {
-                    onSetDispatcher(isActive ? undefined : d.name);
-                    requestAnimationFrame(() => amountRef.current?.focus());
-                  }}
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-semibold transition-all ${
-                    isActive
-                      ? `${d.bg} ${d.text} ring-1 ${d.ring} scale-105`
-                      : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'
-                  }`}
-                >
-                  {d.name}
-                </button>
-              );
-            })}
-          </div>
         </div>
         <div className="flex items-center gap-2">
           {entries.length > 0 && (
@@ -155,7 +127,7 @@ export function ClientHeader({
                 <CopyIcon className="w-3.5 h-3.5" />
               </button>
               <button
-                onClick={handleWhatsApp}
+                onClick={() => setShowWhatsApp(true)}
                 className="p-1 text-green-500 hover:text-green-700 rounded transition-colors"
                 title="Enviar por WhatsApp"
               >
@@ -168,33 +140,6 @@ export function ClientHeader({
                 Limpiar
               </button>
             </>
-          )}
-          {clientCount > 1 && (
-            confirmingDelete ? (
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-red-500">Eliminar?</span>
-                <button
-                  onClick={() => { onRemoveClient(); setConfirmingDelete(false); }}
-                  className="text-[10px] font-medium text-red-600 hover:text-red-800 transition-colors"
-                >
-                  Si
-                </button>
-                <button
-                  onClick={() => setConfirmingDelete(false)}
-                  className="text-[10px] font-medium text-ocean-400 hover:text-ocean-600 transition-colors"
-                >
-                  No
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setConfirmingDelete(true)}
-                className="text-xs text-ocean-300 hover:text-red-500 transition-colors"
-                title="Eliminar cliente"
-              >
-                <TrashIcon />
-              </button>
-            )
           )}
         </div>
       </div>
@@ -247,7 +192,7 @@ export function ClientHeader({
       {showWhatsApp && (
         <WhatsAppModal
           entries={entries}
-          clientName={client.name}
+          clientName={`${dispatcher.dispatcher} — ${client.name}`}
           totalUSD={totalUSD}
           totalBs={totalBs}
           activeRate={activeRate}

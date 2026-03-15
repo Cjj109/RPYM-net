@@ -7,6 +7,19 @@ export interface CalcEntry {
   expression?: string;
 }
 
+export interface SubClient {
+  id: string;
+  name: string;
+  entries: CalcEntry[];
+}
+
+export interface DispatcherTab {
+  id: string;
+  dispatcher: string;
+  clients: SubClient[];
+}
+
+/** @deprecated Usar DispatcherTab + SubClient */
 export interface ClientData {
   id: string;
   name: string;
@@ -26,8 +39,8 @@ export interface SavedSession {
 }
 
 export type UndoAction =
-  | { type: 'delete_entry'; clientId: string; entry: CalcEntry; index: number }
-  | { type: 'clear_all'; clientId: string; entries: CalcEntry[]; clientName: string; dispatcher?: string; sessionId?: string };
+  | { type: 'delete_entry'; dispatcherId: string; clientId: string; entry: CalcEntry; index: number }
+  | { type: 'clear_all'; dispatcherId: string; clientId: string; entries: CalcEntry[]; clientName: string; sessionId?: string };
 
 export interface RateConfig {
   useManualRate: boolean;
