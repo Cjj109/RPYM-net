@@ -520,32 +520,18 @@ export default function AdminSupplierPayments() {
           </div>
         )}
 
-        {resumen && resumen.porProveedor.length > 0 && (
-          <div className="flex flex-wrap gap-2 justify-center">
-            {proveedorFilter && (
-              <button
-                onClick={() => setProveedorFilter(null)}
-                className="px-3 py-1.5 rounded-full text-xs font-medium bg-ocean-100 text-ocean-700 hover:bg-ocean-200"
-              >
-                Todos
-              </button>
-            )}
-            {resumen.porProveedor.map(p => (
-              <button
-                key={p.proveedorId}
-                onClick={() => setProveedorFilter(
-                  proveedorFilter === p.proveedorId ? null : p.proveedorId
-                )}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  proveedorFilter === p.proveedorId
-                    ? 'bg-ocean-600 text-white'
-                    : 'bg-ocean-50 text-ocean-700 hover:bg-ocean-100'
-                }`}
-              >
-                {p.proveedorNombre} {formatUSD(p.totalUsd)}
-                <span className="ml-1 opacity-60">({p.cantidadPagos})</span>
-              </button>
-            ))}
+        {/* Indicador de filtro por proveedor activo */}
+        {proveedorFilter && resumen && (
+          <div className="flex items-center justify-center gap-2">
+            <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-ocean-600 text-white">
+              {resumen.porProveedor.find(p => p.proveedorId === proveedorFilter)?.proveedorNombre ?? 'Proveedor'}
+            </span>
+            <button
+              onClick={() => setProveedorFilter(null)}
+              className="px-3 py-1.5 rounded-full text-xs font-medium bg-ocean-100 text-ocean-700 hover:bg-ocean-200"
+            >
+              Ver todos
+            </button>
           </div>
         )}
       </div>
@@ -1222,13 +1208,34 @@ export default function AdminSupplierPayments() {
               {proveedores.length === 0 ? (
                 <div className="p-6 text-center text-ocean-400 text-sm">No hay proveedores registrados</div>
               ) : (
-                proveedores.map(prov => (
-                  <div key={prov.id} className="px-6 py-3 flex items-center justify-between gap-3">
+                proveedores
+                  .map(prov => {
+                    const stats = resumen?.porProveedor.find(p => p.proveedorId === prov.id);
+                    return { prov, stats };
+                  })
+                  .sort((a, b) => (b.stats?.totalUsd ?? 0) - (a.stats?.totalUsd ?? 0))
+                  .map(({ prov, stats }) => (
+                  <div
+                    key={prov.id}
+                    className="px-6 py-3 flex items-center justify-between gap-3 hover:bg-ocean-50/50 cursor-pointer"
+                    onClick={() => {
+                      setProveedorFilter(proveedorFilter === prov.id ? null : prov.id);
+                      setShowProveedoresList(false);
+                    }}
+                  >
                     <div className="min-w-0 flex-1">
                       <span className="font-medium text-ocean-900 text-sm">{prov.nombre}</span>
+                      {stats ? (
+                        <p className="text-xs text-ocean-500 mt-0.5">
+                          <span className="font-semibold text-ocean-700">{formatUSD(stats.totalUsd)}</span>
+                          <span className="ml-1 opacity-60">({stats.cantidadPagos} pago{stats.cantidadPagos !== 1 ? 's' : ''})</span>
+                        </p>
+                      ) : (
+                        <p className="text-xs text-ocean-300 mt-0.5">Sin pagos este mes</p>
+                      )}
                       {prov.notas && <p className="text-xs text-ocean-400 truncate">{prov.notas}</p>}
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
                       <button
                         onClick={() => { setShowProveedoresList(false); openProveedorModal(prov); }}
                         className="p-1.5 text-ocean-400 hover:text-ocean-600 rounded"
