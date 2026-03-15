@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react';
 import { formatUSD, formatBs } from '../../lib/format';
 import type { SubClient, ClientTotals } from './types';
 import { DISPATCHERS } from './constants';
@@ -10,6 +11,7 @@ interface SubClientCardsProps {
   dispatcher: string;
   navFocused: boolean;
   onSelectClient: (id: string) => void;
+  onRenameClient: (name: string) => void;
   onAddClient: () => void;
   onRemoveClient: () => void;
   clientCount: number;
@@ -17,9 +19,28 @@ interface SubClientCardsProps {
 
 export function SubClientCards({
   clients, activeClientId, subClientTotals, dispatcher, navFocused,
-  onSelectClient, onAddClient, onRemoveClient, clientCount,
+  onSelectClient, onRenameClient, onAddClient, onRemoveClient, clientCount,
 }: SubClientCardsProps) {
   const disp = DISPATCHERS.find(d => d.name === dispatcher);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const editRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingId) {
+      requestAnimationFrame(() => { editRef.current?.focus(); editRef.current?.select(); });
+    }
+  }, [editingId]);
+
+  // Reset editing when active client changes
+  useEffect(() => {
+    setEditingId(null);
+  }, [activeClientId]);
+
+  const finishRename = () => {
+    if (editValue.trim()) onRenameClient(editValue.trim());
+    setEditingId(null);
+  };
 
   return (
     <div className="bg-white border-x border-ocean-100 px-2 sm:px-3 pb-2">
@@ -28,22 +49,46 @@ export function SubClientCards({
           const isActive = client.id === activeClientId;
           const totals = subClientTotals.get(client.id) || { usd: 0, bs: 0 };
           const hasEntries = client.entries.length > 0;
+          const isEditing = editingId === client.id;
 
           return (
             <button
               key={client.id}
-              onClick={() => onSelectClient(client.id)}
+              onClick={() => {
+                if (isActive && !isEditing) {
+                  setEditingId(client.id);
+                  setEditValue(client.name);
+                } else if (!isActive) {
+                  onSelectClient(client.id);
+                }
+              }}
               className={`flex flex-col items-center px-2.5 py-1.5 rounded-lg transition-all shrink-0 min-w-[70px] ${
                 isActive
                   ? `${disp?.bg ?? 'bg-ocean-100'} ${navFocused ? `ring-2 ${disp?.ring ?? 'ring-ocean-300'} scale-[1.02]` : `ring-1 ${disp?.ring ?? 'ring-ocean-200'}`}`
                   : 'bg-gray-50 hover:bg-gray-100'
               }`}
             >
-              <span className={`text-[10px] font-semibold truncate max-w-[80px] ${
-                isActive ? (disp?.text ?? 'text-ocean-700') : 'text-gray-500'
-              }`}>
-                {client.name}
-              </span>
+              {isEditing ? (
+                <input
+                  ref={editRef}
+                  type="text"
+                  value={editValue}
+                  onChange={e => setEditValue(e.target.value)}
+                  onBlur={finishRename}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                    if (e.key === 'Escape') setEditingId(null);
+                  }}
+                  onClick={e => e.stopPropagation()}
+                  className="w-16 text-[10px] font-semibold text-center bg-transparent border-b border-current outline-none py-0"
+                />
+              ) : (
+                <span className={`text-[10px] font-semibold truncate max-w-[80px] ${
+                  isActive ? (disp?.text ?? 'text-ocean-700') : 'text-gray-500'
+                }`}>
+                  {client.name}
+                </span>
+              )}
               {hasEntries ? (
                 <>
                   <span className={`text-sm font-mono font-bold leading-tight mt-0.5 ${

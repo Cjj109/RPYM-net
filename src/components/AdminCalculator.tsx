@@ -459,21 +459,6 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
           onSelectDispatcher={(id) => { setActiveDispatcherId(id); setNavLevel('dispatcher'); }}
         />
 
-        {/* Header del repartidor activo + acciones del sub-cliente */}
-        {activeDispatcher && activeClient && (
-          <ClientHeader
-            dispatcher={activeDispatcher}
-            client={activeClient}
-            totalUSD={currentTotals.usd}
-            totalBs={currentTotals.bs}
-            activeRate={activeRate}
-            onRename={renameSubClient}
-            onClearAll={clearAll}
-            onAdjustTotal={adjustTotal}
-            amountRef={amountRef}
-          />
-        )}
-
         {/* Cards de sub-clientes */}
         {activeDispatcher && (
           <SubClientCards
@@ -483,9 +468,24 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
             dispatcher={activeDispatcher.dispatcher}
             navFocused={navLevel === 'subclient'}
             onSelectClient={(id) => { setActiveClientId(id); setNavLevel('subclient'); }}
+            onRenameClient={renameSubClient}
             onAddClient={addSubClient}
             onRemoveClient={removeSubClient}
             clientCount={activeDispatcher.clients.length}
+          />
+        )}
+
+        {/* Total del sub-cliente + acciones */}
+        {activeDispatcher && activeClient && (
+          <ClientHeader
+            dispatcher={activeDispatcher}
+            client={activeClient}
+            totalUSD={currentTotals.usd}
+            totalBs={currentTotals.bs}
+            activeRate={activeRate}
+            onClearAll={clearAll}
+            onAdjustTotal={adjustTotal}
+            amountRef={amountRef}
           />
         )}
       </div>
