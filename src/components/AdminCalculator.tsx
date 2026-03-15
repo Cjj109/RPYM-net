@@ -46,7 +46,13 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   // === Estado persistido ===
   const [dispatchers, setDispatchers] = useLocalStorage<DispatcherTab[]>(LS_KEYS.DISPATCHERS, makeDefaultDispatchers);
   const [activeDispatcherId, setActiveDispatcherId] = useLocalStorage<string>(LS_KEYS.ACTIVE_DISPATCHER, () => dispatchers[0]?.id ?? '');
-  const [activeClientId, setActiveClientId] = useLocalStorage<string>(LS_KEYS.ACTIVE_SUBCLIENT, () => dispatchers[0]?.clients[0]?.id ?? '');
+  const [activeClientMap, setActiveClientMap] = useLocalStorage<Record<string, string>>(LS_KEYS.ACTIVE_SUBCLIENT_MAP, () => {
+    const map: Record<string, string> = {};
+    for (const d of dispatchers) {
+      map[d.id] = d.clients[0]?.id ?? '';
+    }
+    return map;
+  });
   const [sessions, setSessions] = useLocalStorage<SavedSession[]>(LS_KEYS.SESSIONS, []);
   const [rateConfig, setRateConfig] = useLocalStorage<RateConfig>(LS_KEYS.RATE_CONFIG, { useManualRate: false, manualRate: '' });
 
@@ -66,8 +72,13 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   // === Derivados ===
   const activeDispatcher = dispatchers.find(d => d.id === activeDispatcherId) ?? dispatchers[0];
   const dispatcherInfo = activeDispatcher ? DISPATCHERS.find(d => d.name === activeDispatcher.dispatcher) : undefined;
+  const activeClientId = activeClientMap[activeDispatcherId] ?? activeDispatcher?.clients[0]?.id ?? '';
   const activeClient = activeDispatcher?.clients.find(c => c.id === activeClientId)
     ?? activeDispatcher?.clients[0];
+
+  const setActiveClientId = useCallback((clientId: string) => {
+    setActiveClientMap(prev => ({ ...prev, [activeDispatcherId]: clientId }));
+  }, [activeDispatcherId, setActiveClientMap]);
   const activeRate = rateConfig.useManualRate && rateConfig.manualRate
     ? parseFloat(rateConfig.manualRate) : autoRate;
   const entries = activeClient?.entries ?? [];
@@ -299,14 +310,18 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     amountRef.current?.focus();
   }, [activeClientId]);
 
-  // Asegurar que activeClientId sea válido cuando cambia el dispatcher
+  // Asegurar que el mapa tenga entrada para cada dispatcher
   useEffect(() => {
-    if (!activeDispatcher) return;
-    const validClient = activeDispatcher.clients.find(c => c.id === activeClientId);
-    if (!validClient && activeDispatcher.clients.length > 0) {
-      setActiveClientId(activeDispatcher.clients[0].id);
+    let needsUpdate = false;
+    const updated = { ...activeClientMap };
+    for (const d of dispatchers) {
+      if (!updated[d.id] || !d.clients.some(c => c.id === updated[d.id])) {
+        updated[d.id] = d.clients[0]?.id ?? '';
+        needsUpdate = true;
+      }
     }
-  }, [activeDispatcherId, activeDispatcher, activeClientId, setActiveClientId]);
+    if (needsUpdate) setActiveClientMap(updated);
+  }, [dispatchers, activeClientMap, setActiveClientMap]);
 
   // Navegación global con teclado
   useEffect(() => {
@@ -316,18 +331,14 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
 
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        if (!activeDispatcher) return;
-        const clients = activeDispatcher.clients;
-        const idx = clients.findIndex(c => c.id === activeClientId);
-        const newIdx = (idx - 1 + clients.length) % clients.length;
-        setActiveClientId(clients[newIdx].id);
+        const idx = dispatchers.findIndex(d => d.id === activeDispatcherId);
+        const newIdx = (idx - 1 + dispatchers.length) % dispatchers.length;
+        setActiveDispatcherId(dispatchers[newIdx].id);
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        if (!activeDispatcher) return;
-        const clients = activeDispatcher.clients;
-        const idx = clients.findIndex(c => c.id === activeClientId);
-        const newIdx = (idx + 1) % clients.length;
-        setActiveClientId(clients[newIdx].id);
+        const idx = dispatchers.findIndex(d => d.id === activeDispatcherId);
+        const newIdx = (idx + 1) % dispatchers.length;
+        setActiveDispatcherId(dispatchers[newIdx].id);
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         amountRef.current?.focus();
@@ -342,7 +353,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     };
     document.addEventListener('keydown', handleGlobalKeyDown);
     return () => document.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [activeDispatcher, activeClientId, setActiveClientId]);
+  }, [dispatchers, activeDispatcherId, setActiveDispatcherId]);
 
   // === Render ===
   return (
@@ -414,7 +425,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
         <ClientTabs
           dispatchers={dispatchers}
           activeDispatcherId={activeDispatcherId}
-          activeClientId={activeClientId}
+          activeClientMap={activeClientMap}
           onSelectDispatcher={setActiveDispatcherId}
         />
 

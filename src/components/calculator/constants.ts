@@ -12,6 +12,7 @@ export const LS_KEYS = {
   DISPATCHERS: 'rpym_calc_dispatchers',
   ACTIVE_DISPATCHER: 'rpym_calc_active_dispatcher',
   ACTIVE_SUBCLIENT: 'rpym_calc_active_subclient',
+  ACTIVE_SUBCLIENT_MAP: 'rpym_calc_active_subclient_map',
   SESSIONS: 'rpym_calc_sessions',
   RATE_CONFIG: 'rpym_calc_rate_config',
   // Claves del formato anterior (para migración)

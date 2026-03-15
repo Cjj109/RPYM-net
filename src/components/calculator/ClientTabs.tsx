@@ -5,12 +5,12 @@ import { DISPATCHERS } from './constants';
 interface ClientTabsProps {
   dispatchers: DispatcherTab[];
   activeDispatcherId: string;
-  activeClientId: string;
+  activeClientMap: Record<string, string>;
   onSelectDispatcher: (id: string) => void;
 }
 
-function getClientTotals(tab: DispatcherTab, activeClientId: string): ClientTotals {
-  const client = tab.clients.find(c => c.id === activeClientId) ?? tab.clients[0];
+function getSelectedClientTotals(tab: DispatcherTab, clientId: string): ClientTotals {
+  const client = tab.clients.find(c => c.id === clientId) ?? tab.clients[0];
   if (!client) return { usd: 0, bs: 0 };
   const usd = client.entries.reduce((sum, e) => sum + (e.isNegative ? -e.amountUSD : e.amountUSD), 0);
   const bs = client.entries.reduce((sum, e) => sum + (e.isNegative ? -e.amountBs : e.amountBs), 0);
@@ -18,15 +18,16 @@ function getClientTotals(tab: DispatcherTab, activeClientId: string): ClientTota
 }
 
 export function ClientTabs({
-  dispatchers, activeDispatcherId, activeClientId, onSelectDispatcher,
+  dispatchers, activeDispatcherId, activeClientMap, onSelectDispatcher,
 }: ClientTabsProps) {
   return (
     <div className="mt-2 sm:mt-3 bg-white rounded-t-xl shadow-sm border border-ocean-100 border-b-0">
       <div className="flex">
         {dispatchers.map(tab => {
           const isActive = tab.id === activeDispatcherId;
-          const totals = isActive ? getClientTotals(tab, activeClientId) : { usd: 0, bs: 0 };
-          const hasEntries = isActive && (totals.bs !== 0 || totals.usd !== 0);
+          const selectedClientId = activeClientMap[tab.id] ?? tab.clients[0]?.id ?? '';
+          const totals = getSelectedClientTotals(tab, selectedClientId);
+          const hasEntries = totals.bs !== 0 || totals.usd !== 0;
           const disp = DISPATCHERS.find(d => d.name === tab.dispatcher);
           const tabBg = disp ? disp.bg : (isActive ? 'bg-white' : 'bg-ocean-50/50');
 
