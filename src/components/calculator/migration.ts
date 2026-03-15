@@ -97,9 +97,28 @@ function migrateV2ToDispatchers(clients: ClientData[]): DispatcherTab[] {
  * Maneja tanto V1 (claves separadas) como V2 (ClientData[]).
  */
 export function migrateToDispatchers(): void {
-  // Si ya hay datos en el nuevo formato, no migrar
+  // Si ya hay datos en el nuevo formato, reordenar según DISPATCHERS
   const existing = localStorage.getItem(LS_KEYS.DISPATCHERS);
-  if (existing !== null) return;
+  if (existing !== null) {
+    try {
+      const tabs: DispatcherTab[] = JSON.parse(existing);
+      const ordered: DispatcherTab[] = [];
+      for (const d of DISPATCHERS) {
+        const found = tabs.find(t => t.dispatcher === d.name);
+        if (found) ordered.push(found);
+      }
+      // Agregar cualquier dispatcher que no esté en DISPATCHERS al final
+      for (const t of tabs) {
+        if (!ordered.some(o => o.id === t.id)) ordered.push(t);
+      }
+      if (ordered.length > 0) {
+        localStorage.setItem(LS_KEYS.DISPATCHERS, JSON.stringify(ordered));
+      }
+    } catch {
+      // ignorar errores
+    }
+    return;
+  }
 
   // Intentar migrar desde V2 (ClientData[])
   const v2Data = localStorage.getItem(LS_KEYS.CLIENTS);
