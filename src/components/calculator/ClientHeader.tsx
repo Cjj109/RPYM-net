@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { formatUSD, formatBs } from '../../lib/format';
 import type { DispatcherTab, SubClient } from './types';
 import { DISPATCHERS } from './constants';
-import { CopyIcon, WhatsAppIcon } from './icons';
+import { CopyIcon, WhatsAppIcon, TrashIcon } from './icons';
 import { WhatsAppModal } from './WhatsAppModal';
 
 interface ClientHeaderProps {
@@ -66,33 +66,7 @@ export function ClientHeader({
   const disp = DISPATCHERS.find(d => d.name === dispatcher.dispatcher);
 
   return (
-    <div className="bg-white border-x border-ocean-100 px-2.5 sm:px-4 pt-2 sm:pt-3">
-      {/* Acciones */}
-      {entries.length > 0 && (
-        <div className="flex items-center justify-end gap-2 mb-2">
-          <button
-            onClick={handleCopy}
-            className={`p-1 rounded transition-colors ${copied ? 'text-green-600' : 'text-ocean-300 hover:text-ocean-600'}`}
-            title={copied ? 'Copiado!' : 'Copiar resumen'}
-          >
-            <CopyIcon className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => setShowWhatsApp(true)}
-            className="p-1 text-green-500 hover:text-green-700 rounded transition-colors"
-            title="Enviar por WhatsApp"
-          >
-            <WhatsAppIcon className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={onClearAll}
-            className="text-xs text-red-500 hover:text-red-700 transition-colors"
-          >
-            Limpiar
-          </button>
-        </div>
-      )}
-
+    <div className="bg-white border-x border-ocean-100 px-2.5 sm:px-4">
       {/* Total */}
       {entries.length > 0 && (
         <div className={`p-2 sm:p-3 rounded-lg text-center ring-1 ${
@@ -136,6 +110,21 @@ export function ClientHeader({
               {totalUSD < 0 ? '-' : ''}{formatUSD(Math.abs(totalUSD))}
             </p>
           )}
+        </div>
+      )}
+
+      {/* Acciones */}
+      {entries.length > 0 && (
+        <div className="flex items-center justify-center gap-3 py-1.5">
+          <button onClick={handleCopy} className="p-1.5 text-ocean-300 hover:text-ocean-600 transition-colors" title="Copiar resumen">
+            {copied ? <span className="text-green-500 text-xs font-medium">✓</span> : <CopyIcon className="w-4 h-4" />}
+          </button>
+          <button onClick={() => setShowWhatsApp(true)} className="p-1.5 text-ocean-300 hover:text-green-600 transition-colors" title="Enviar por WhatsApp">
+            <WhatsAppIcon className="w-4 h-4" />
+          </button>
+          <button onClick={onClearAll} className="p-1.5 text-ocean-200 hover:text-red-500 transition-colors" title="Limpiar entradas">
+            <TrashIcon className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
