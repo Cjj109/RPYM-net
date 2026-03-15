@@ -92,11 +92,11 @@ export function CalcInput({
       )}
 
       {activeRate > 0 && (
-        <div className="mt-1.5 sm:mt-2 p-2 sm:p-3 bg-ocean-50 rounded-lg text-center">
-          <span className="text-xs text-ocean-500">
+        <div className={`mt-1.5 sm:mt-2 p-2 sm:p-3 rounded-lg text-center ${dispatcherBg ?? 'bg-ocean-50'}`}>
+          <span className={`text-xs ${dispatcherText ?? 'text-ocean-500'}`}>
             {inputCurrency === 'USD' ? 'Bolívares' : 'Dólares'}
           </span>
-          <p className="text-xl sm:text-2xl font-bold text-ocean-800">
+          <p className={`text-xl sm:text-2xl font-bold ${dispatcherText ?? 'text-ocean-800'}`}>
             {inputCurrency === 'USD' ? formatBs(convertedBs) : formatUSD(convertedUSD)}
           </p>
         </div>
