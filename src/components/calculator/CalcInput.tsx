@@ -86,7 +86,7 @@ export function CalcInput({
       </div>
 
       {hasExpression && parsedAmount !== 0 && (
-        <div className="mt-1 px-1 text-sm text-ocean-500">
+        <div className={`mt-1 px-1 text-sm font-bold ${dispatcherText ?? 'text-ocean-500'}`}>
           = {inputCurrency === 'USD' ? formatUSD(parsedAmount) : formatBs(parsedAmount)}
         </div>
       )}
