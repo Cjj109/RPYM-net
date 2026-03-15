@@ -1,4 +1,4 @@
-import { formatBs } from '../../lib/format';
+import { formatUSD, formatBs } from '../../lib/format';
 import type { DispatcherTab, ClientTotals } from './types';
 import { DISPATCHERS } from './constants';
 
@@ -32,7 +32,9 @@ export function ClientTabs({
           const tabBg = disp ? disp.bg : (isActive ? 'bg-white' : 'bg-ocean-50/50');
 
           return (
-            <div key={tab.id} className={`relative flex-1 transition-all duration-200 ${tabBg}`}>
+            <div key={tab.id} className={`relative flex-1 transition-all duration-200 ${tabBg} ${
+              isActive ? `ring-2 ${disp?.ring ?? 'ring-ocean-300'} scale-[1.03] z-10 rounded-t-lg` : ''
+            }`}>
               <button
                 onClick={() => onSelectDispatcher(tab.id)}
                 className={`w-full py-2 font-medium transition-colors truncate px-1.5 ${
@@ -46,6 +48,9 @@ export function ClientTabs({
                   <div className="mt-0.5">
                     <div className={`text-sm font-mono font-bold leading-tight ${disp ? disp.text : 'text-green-700'}`}>
                       {formatBs(Math.abs(totals.bs))}
+                    </div>
+                    <div className={`text-[10px] font-mono leading-tight ${isActive ? 'text-ocean-400' : 'text-ocean-300'}`}>
+                      {formatUSD(Math.abs(totals.usd))}
                     </div>
                   </div>
                 ) : (
