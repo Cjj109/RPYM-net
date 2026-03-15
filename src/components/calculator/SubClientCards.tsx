@@ -8,6 +8,7 @@ interface SubClientCardsProps {
   activeClientId: string;
   subClientTotals: Map<string, ClientTotals>;
   dispatcher: string;
+  navFocused: boolean;
   onSelectClient: (id: string) => void;
   onAddClient: () => void;
   onRemoveClient: () => void;
@@ -15,7 +16,7 @@ interface SubClientCardsProps {
 }
 
 export function SubClientCards({
-  clients, activeClientId, subClientTotals, dispatcher,
+  clients, activeClientId, subClientTotals, dispatcher, navFocused,
   onSelectClient, onAddClient, onRemoveClient, clientCount,
 }: SubClientCardsProps) {
   const disp = DISPATCHERS.find(d => d.name === dispatcher);
@@ -34,7 +35,7 @@ export function SubClientCards({
               onClick={() => onSelectClient(client.id)}
               className={`flex flex-col items-center px-2.5 py-1.5 rounded-lg transition-all shrink-0 min-w-[70px] ${
                 isActive
-                  ? `${disp?.bg ?? 'bg-ocean-100'} ring-2 ${disp?.ring ?? 'ring-ocean-300'} scale-[1.02]`
+                  ? `${disp?.bg ?? 'bg-ocean-100'} ${navFocused ? `ring-2 ${disp?.ring ?? 'ring-ocean-300'} scale-[1.02]` : `ring-1 ${disp?.ring ?? 'ring-ocean-200'}`}`
                   : 'bg-gray-50 hover:bg-gray-100'
               }`}
             >

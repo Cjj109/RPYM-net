@@ -64,6 +64,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   const [description, setDescription] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [navLevel, setNavLevel] = useState<'input' | 'dispatcher' | 'subclient'>('input');
   const [undoAction, setUndoAction] = useState<UndoAction | null>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearAllRef = useRef<() => void>(() => {});
@@ -323,25 +324,52 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     if (needsUpdate) setActiveClientMap(updated);
   }, [dispatchers, activeClientMap, setActiveClientMap]);
 
-  // Navegación global con teclado
+  // Navegación global con teclado (3 niveles: input → dispatcher → subclient)
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' && target !== amountRef.current) return;
 
-      if (e.key === 'ArrowLeft') {
+      if (e.key === 'ArrowDown') {
         e.preventDefault();
-        const idx = dispatchers.findIndex(d => d.id === activeDispatcherId);
-        const newIdx = (idx - 1 + dispatchers.length) % dispatchers.length;
-        setActiveDispatcherId(dispatchers[newIdx].id);
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        const idx = dispatchers.findIndex(d => d.id === activeDispatcherId);
-        const newIdx = (idx + 1) % dispatchers.length;
-        setActiveDispatcherId(dispatchers[newIdx].id);
+        if (navLevel === 'input') {
+          setNavLevel('dispatcher');
+          amountRef.current?.blur();
+        } else if (navLevel === 'dispatcher') {
+          setNavLevel('subclient');
+        }
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        amountRef.current?.focus();
+        if (navLevel === 'subclient') {
+          setNavLevel('dispatcher');
+        } else {
+          setNavLevel('input');
+          amountRef.current?.focus();
+        }
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (navLevel === 'dispatcher') {
+          const idx = dispatchers.findIndex(d => d.id === activeDispatcherId);
+          const newIdx = (idx - 1 + dispatchers.length) % dispatchers.length;
+          setActiveDispatcherId(dispatchers[newIdx].id);
+        } else if (navLevel === 'subclient' && activeDispatcher) {
+          const clients = activeDispatcher.clients;
+          const idx = clients.findIndex(c => c.id === activeClientId);
+          const newIdx = (idx - 1 + clients.length) % clients.length;
+          setActiveClientId(clients[newIdx].id);
+        }
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (navLevel === 'dispatcher') {
+          const idx = dispatchers.findIndex(d => d.id === activeDispatcherId);
+          const newIdx = (idx + 1) % dispatchers.length;
+          setActiveDispatcherId(dispatchers[newIdx].id);
+        } else if (navLevel === 'subclient' && activeDispatcher) {
+          const clients = activeDispatcher.clients;
+          const idx = clients.findIndex(c => c.id === activeClientId);
+          const newIdx = (idx + 1) % clients.length;
+          setActiveClientId(clients[newIdx].id);
+        }
       } else if (e.key === '\\') {
         e.preventDefault();
         clearAllRef.current();
@@ -349,11 +377,12 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
         e.preventDefault();
         setInputCurrency(prev => prev === 'USD' ? 'Bs' : 'USD');
         amountRef.current?.focus();
+        setNavLevel('input');
       }
     };
     document.addEventListener('keydown', handleGlobalKeyDown);
     return () => document.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [dispatchers, activeDispatcherId, setActiveDispatcherId]);
+  }, [dispatchers, activeDispatcherId, activeDispatcher, activeClientId, navLevel, setActiveDispatcherId, setActiveClientId]);
 
   // === Render ===
   return (
@@ -426,7 +455,8 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
           dispatchers={dispatchers}
           activeDispatcherId={activeDispatcherId}
           activeClientMap={activeClientMap}
-          onSelectDispatcher={setActiveDispatcherId}
+          navFocused={navLevel === 'dispatcher'}
+          onSelectDispatcher={(id) => { setActiveDispatcherId(id); setNavLevel('dispatcher'); }}
         />
 
         {/* Header del repartidor activo + acciones del sub-cliente */}
@@ -451,7 +481,8 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
             activeClientId={activeClientId}
             subClientTotals={subClientTotals}
             dispatcher={activeDispatcher.dispatcher}
-            onSelectClient={setActiveClientId}
+            navFocused={navLevel === 'subclient'}
+            onSelectClient={(id) => { setActiveClientId(id); setNavLevel('subclient'); }}
             onAddClient={addSubClient}
             onRemoveClient={removeSubClient}
             clientCount={activeDispatcher.clients.length}

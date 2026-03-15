@@ -6,6 +6,7 @@ interface ClientTabsProps {
   dispatchers: DispatcherTab[];
   activeDispatcherId: string;
   activeClientMap: Record<string, string>;
+  navFocused: boolean;
   onSelectDispatcher: (id: string) => void;
 }
 
@@ -18,7 +19,7 @@ function getSelectedClientTotals(tab: DispatcherTab, clientId: string): ClientTo
 }
 
 export function ClientTabs({
-  dispatchers, activeDispatcherId, activeClientMap, onSelectDispatcher,
+  dispatchers, activeDispatcherId, activeClientMap, navFocused, onSelectDispatcher,
 }: ClientTabsProps) {
   return (
     <div className="mt-2 sm:mt-3 bg-white rounded-t-xl shadow-sm border border-ocean-100 border-b-0">
@@ -33,7 +34,7 @@ export function ClientTabs({
 
           return (
             <div key={tab.id} className={`relative flex-1 transition-all duration-200 ${tabBg} ${
-              isActive ? `ring-2 ${disp?.ring ?? 'ring-ocean-300'} scale-[1.03] z-10 rounded-t-lg` : ''
+              isActive && navFocused ? `ring-2 ${disp?.ring ?? 'ring-ocean-300'} scale-[1.03] z-10 rounded-t-lg` : ''
             }`}>
               <button
                 onClick={() => onSelectDispatcher(tab.id)}
