@@ -4,12 +4,13 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import { migrateToDispatchers } from './calculator/migration';
 import type { DispatcherTab, SubClient, CalcEntry, SavedSession, UndoAction, RateConfig, ClientTotals } from './calculator/types';
 import { LS_KEYS, DEFAULT_SUBCLIENT_NAME, DEFAULT_SUBCLIENT_COUNT, DISPATCHERS } from './calculator/constants';
-import { ClockIcon, GearIcon } from './calculator/icons';
+import { ClockIcon, GearIcon, QueueIcon } from './calculator/icons';
 import { CalcInput } from './calculator/CalcInput';
 import { ClientTabs } from './calculator/ClientTabs';
 import { SubClientCards } from './calculator/SubClientCards';
 import { EntryList } from './calculator/EntryList';
 import { HistoryPanel } from './calculator/HistoryPanel';
+import { QueuePanel } from './calculator/QueuePanel';
 import { RateSettings } from './calculator/RateSettings';
 import { ClientHeader } from './calculator/ClientHeader';
 import { KeyboardHelp } from './calculator/KeyboardHelp';
@@ -63,6 +64,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   const [inputCurrency, setInputCurrency] = useState<'USD' | 'Bs'>('USD');
   const [description, setDescription] = useState('');
   const [showHistory, setShowHistory] = useState(false);
+  const [showQueue, setShowQueue] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [navLevel, setNavLevel] = useState<'input' | 'dispatcher' | 'subclient'>('input');
   const [undoAction, setUndoAction] = useState<UndoAction | null>(null);
@@ -401,9 +403,25 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
           </div>
           <div className="flex items-center gap-2">
             <KeyboardHelp />
+            {(() => {
+              const todayStr = new Date().toDateString();
+              const todayCount = sessions.filter(s => new Date(s.timestamp).toDateString() === todayStr).length;
+              return todayCount > 0 ? (
+                <button
+                  onClick={() => { setShowQueue(prev => !prev); setShowHistory(false); }}
+                  className={`relative p-1.5 rounded-lg transition-colors ${showQueue ? 'bg-ocean-100 text-ocean-700' : 'text-ocean-400 hover:text-ocean-600 hover:bg-ocean-50'}`}
+                  title="Cola"
+                >
+                  <QueueIcon />
+                  <span className="absolute -top-1 -right-1 bg-ocean-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                    {todayCount}
+                  </span>
+                </button>
+              ) : null;
+            })()}
             {sessions.length > 0 && (
               <button
-                onClick={() => setShowHistory(prev => !prev)}
+                onClick={() => { setShowHistory(prev => !prev); setShowQueue(false); }}
                 className={`p-1.5 rounded-lg transition-colors ${showHistory ? 'bg-ocean-100 text-ocean-700' : 'text-ocean-400 hover:text-ocean-600 hover:bg-ocean-50'}`}
                 title="Historial"
               >
@@ -425,6 +443,13 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
             autoRate={autoRate}
             rateConfig={rateConfig}
             onRateConfigChange={setRateConfig}
+          />
+        )}
+
+        {showQueue && (
+          <QueuePanel
+            sessions={sessions}
+            onRemoveSession={(id) => setSessions(prev => prev.filter(s => s.id !== id))}
           />
         )}
 
