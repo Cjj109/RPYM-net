@@ -49,7 +49,7 @@ export function ClientTabs({
                     <div className={`text-sm font-mono font-bold leading-tight ${disp ? disp.text : 'text-green-700'}`}>
                       {formatBs(Math.abs(totals.bs))}
                     </div>
-                    <div className={`text-[10px] font-mono leading-tight ${isActive ? 'text-ocean-400' : 'text-ocean-300'}`}>
+                    <div className={`text-[10px] font-mono font-bold leading-tight ${disp ? disp.text : 'text-green-700'}`}>
                       {formatUSD(Math.abs(totals.usd))}
                     </div>
                   </div>
