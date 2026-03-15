@@ -44,7 +44,7 @@ export function SubClientCards({
 
   return (
     <div className="bg-white border-x border-ocean-100 px-2 sm:px-3 pb-0.5">
-      <div className="flex gap-1.5 overflow-x-auto py-1">
+      <div className="flex gap-1.5 overflow-x-auto py-1 px-0.5">
         {clients.map(client => {
           const isActive = client.id === activeClientId;
           const totals = subClientTotals.get(client.id) || { usd: 0, bs: 0 };
