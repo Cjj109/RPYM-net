@@ -99,6 +99,7 @@ export default function AdminCosts() {
   const [settings, setSettings] = useState<CostSettings | null>(null);
   const [products, setProducts] = useState<ProductWithCost[]>([]);
   const [bags, setBags] = useState<BagPrice[]>([]);
+  const [liveBcvRate, setLiveBcvRate] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -131,8 +132,12 @@ export default function AdminCosts() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/costs', { credentials: 'include' });
+      const [res, bcvRes] = await Promise.all([
+        fetch('/api/costs', { credentials: 'include' }),
+        fetch('/api/config/bcv-rate').then(r => r.json()).catch(() => null),
+      ]);
       const data = await res.json();
+      if (bcvRes?.rate) setLiveBcvRate(bcvRes.rate);
       if (data.success) {
         setSettings(data.settings);
         setProducts(data.products);
@@ -367,6 +372,29 @@ export default function AdminCosts() {
           ))}
         </div>
       </div>
+
+      {/* BCV rate sync banner */}
+      {liveBcvRate != null && settings && Math.abs(liveBcvRate - settings.bcvRate) >= 0.01 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-amber-800">
+              Nueva tasa BCV disponible: <span className="font-bold">Bs. {liveBcvRate.toFixed(2)}</span>
+            </p>
+            <p className="text-xs text-amber-600">
+              Costos usa Bs. {settings.bcvRate.toFixed(2)} — diferencia de Bs. {Math.abs(liveBcvRate - settings.bcvRate).toFixed(2)}
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setSettingsForm(f => ({ ...f, bcvRate: String(liveBcvRate) }));
+              setSubView('settings');
+            }}
+            className="shrink-0 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            Actualizar
+          </button>
+        </div>
+      )}
 
       {/* ── DASHBOARD ─────────────────────────────── */}
       {subView === 'dashboard' && (
