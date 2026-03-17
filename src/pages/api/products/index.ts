@@ -39,7 +39,7 @@ export const GET: APIRoute = async ({ locals }) => {
     }
 
     const results = await db.prepare(`
-      SELECT * FROM products WHERE cost_only = 0 ORDER BY sort_order ASC, categoria ASC, nombre ASC
+      SELECT * FROM products WHERE solo_costos = 0 ORDER BY sort_order ASC, categoria ASC, nombre ASC
     `).all<ProductRow>();
 
     const products = results.results.map(row => ({

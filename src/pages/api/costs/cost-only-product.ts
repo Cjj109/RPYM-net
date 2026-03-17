@@ -1,6 +1,7 @@
 /**
- * API: Crear y eliminar productos solo-costo
+ * API: Crear, actualizar y eliminar productos solo-costo
  * POST: Crea un producto que solo existe en la sección de costos
+ * PUT: Actualiza precios de venta de un producto solo-costo
  * DELETE: Elimina un producto solo-costo
  */
 import type { APIRoute } from 'astro';
@@ -14,7 +15,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const { db } = auth;
 
   try {
-    const { nombre, categoria, unidad, costUsd, purchaseRateType } = await request.json();
+    const { nombre, categoria, unidad, costUsd, purchaseRateType, precioUsd, precioUsdDivisa } = await request.json();
 
     if (!nombre?.trim() || !categoria?.trim()) {
       return new Response(JSON.stringify({ success: false, error: 'Nombre y categoría son requeridos' }), {
@@ -34,11 +35,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    // Crear producto con cost_only = 1, disponible = 0, precio_usd = 0
+    // Crear producto con solo_costos = 1, disponible = 0
     const productResult = await db.prepare(`
-      INSERT INTO products (nombre, categoria, unidad, precio_usd, disponible, cost_only, sort_order)
-      VALUES (?, ?, ?, 0, 0, 1, 9999)
-    `).bind(nombre.trim(), categoria.trim(), unidad || 'kg').run();
+      INSERT INTO products (nombre, categoria, unidad, precio_usd, precio_usd_divisa, disponible, solo_costos, sort_order)
+      VALUES (?, ?, ?, ?, ?, 0, 1, 9999)
+    `).bind(
+      nombre.trim(),
+      categoria.trim(),
+      unidad || 'kg',
+      precioUsd ?? 0,
+      precioUsdDivisa ?? null
+    ).run();
 
     const productId = productResult.meta.last_row_id;
 
@@ -79,6 +86,36 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
 };
 
+export const PUT: APIRoute = async ({ request, locals }) => {
+  const auth = await requireAuth(request, locals);
+  if (auth instanceof Response) return auth;
+  const { db } = auth;
+
+  try {
+    const { productId, precioUsd, precioUsdDivisa } = await request.json();
+
+    if (!productId) {
+      return new Response(JSON.stringify({ success: false, error: 'productId es requerido' }), {
+        status: 400, headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    await db.prepare(`
+      UPDATE products SET precio_usd = ?, precio_usd_divisa = ?, updated_at = datetime('now')
+      WHERE id = ? AND solo_costos = 1
+    `).bind(precioUsd ?? 0, precioUsdDivisa ?? null, productId).run();
+
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200, headers: { 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    console.error('Error actualizando precios solo-costo:', error);
+    return new Response(JSON.stringify({ success: false, error: 'Error al actualizar precios' }), {
+      status: 500, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+};
+
 export const DELETE: APIRoute = async ({ request, locals }) => {
   const auth = await requireAuth(request, locals);
   if (auth instanceof Response) return auth;
@@ -87,9 +124,9 @@ export const DELETE: APIRoute = async ({ request, locals }) => {
   try {
     const { id } = await request.json();
 
-    // Verificar que sea cost_only
+    // Verificar que sea solo_costos
     const product = await db.prepare(
-      'SELECT id, cost_only FROM products WHERE id = ?'
+      'SELECT id, solo_costos FROM products WHERE id = ?'
     ).bind(id).first<any>();
 
     if (!product) {
@@ -98,7 +135,7 @@ export const DELETE: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    if (product.cost_only !== 1) {
+    if (product.solo_costos !== 1) {
       return new Response(JSON.stringify({ success: false, error: 'Solo se pueden eliminar productos solo-costo desde aquí' }), {
         status: 400, headers: { 'Content-Type': 'application/json' }
       });

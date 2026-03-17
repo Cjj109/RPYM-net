@@ -39,7 +39,7 @@ interface ProductWithCost {
   precio_usd_divisa: number | null;
   unidad: string;
   disponible: number;
-  cost_only: number;
+  solo_costos: number;
   cost_usd: number | null;
   purchase_rate_type: string | null;
   supplier: string | null;
@@ -111,7 +111,7 @@ export default function AdminCosts() {
 
   // Cost edit modal
   const [editingProduct, setEditingProduct] = useState<ProductWithCost | null>(null);
-  const [costForm, setCostForm] = useState({ costUsd: '', rateType: 'PARALELO', notes: '' });
+  const [costForm, setCostForm] = useState({ costUsd: '', rateType: 'PARALELO', notes: '', precioUsd: '', precioUsdDivisa: '' });
   const [isSaving, setIsSaving] = useState(false);
 
   // Settings form
@@ -125,7 +125,7 @@ export default function AdminCosts() {
 
   // Cost-only product creation
   const [showCostOnlyForm, setShowCostOnlyForm] = useState(false);
-  const [costOnlyForm, setCostOnlyForm] = useState({ nombre: '', categoria: '', unidad: 'kg', costUsd: '', rateType: 'PARALELO' });
+  const [costOnlyForm, setCostOnlyForm] = useState({ nombre: '', categoria: '', unidad: 'kg', costUsd: '', rateType: 'PARALELO', precioUsd: '', precioUsdDivisa: '' });
 
   // Simulator
   const [simBcv, setSimBcv] = useState('');
@@ -201,7 +201,7 @@ export default function AdminCosts() {
 
   // Products with low margins
   const lowMarginProducts = useMemo(() =>
-    products.filter(p => p.calculated && p.calculated.marginUsd < 0.10 && !p.cost_only),
+    products.filter(p => p.calculated && p.calculated.marginUsd < 0.10 && !p.solo_costos),
     [products]
   );
 
@@ -276,6 +276,20 @@ export default function AdminCosts() {
     if (!editingProduct) return;
     setIsSaving(true);
     try {
+      // Si es solo_costos, también actualizar precios de venta
+      if (editingProduct.solo_costos) {
+        await fetch('/api/costs/cost-only-product', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            productId: editingProduct.id,
+            precioUsd: parseFloat(costForm.precioUsd) || 0,
+            precioUsdDivisa: costForm.precioUsdDivisa ? parseFloat(costForm.precioUsdDivisa) : null,
+          })
+        });
+      }
+
       const res = await fetch('/api/costs/product', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -333,7 +347,9 @@ export default function AdminCosts() {
     setCostForm({
       costUsd: product.cost_usd != null ? String(product.cost_usd) : '',
       rateType: product.purchase_rate_type || 'PARALELO',
-      notes: ''
+      notes: '',
+      precioUsd: String(product.precio_usd || ''),
+      precioUsdDivisa: product.precio_usd_divisa != null ? String(product.precio_usd_divisa) : '',
     });
   };
 
@@ -351,12 +367,14 @@ export default function AdminCosts() {
           unidad: costOnlyForm.unidad,
           costUsd: parseFloat(costOnlyForm.costUsd),
           purchaseRateType: costOnlyForm.rateType,
+          precioUsd: costOnlyForm.precioUsd ? parseFloat(costOnlyForm.precioUsd) : 0,
+          precioUsdDivisa: costOnlyForm.precioUsdDivisa ? parseFloat(costOnlyForm.precioUsdDivisa) : null,
         })
       });
       const data = await res.json();
       if (data.success) {
         setShowCostOnlyForm(false);
-        setCostOnlyForm({ nombre: '', categoria: '', unidad: 'kg', costUsd: '', rateType: 'PARALELO' });
+        setCostOnlyForm({ nombre: '', categoria: '', unidad: 'kg', costUsd: '', rateType: 'PARALELO', precioUsd: '', precioUsdDivisa: '' });
         loadData();
       } else {
         alert(data.error);
@@ -613,6 +631,28 @@ export default function AdminCosts() {
                     <option value="BCV">BCV</option>
                   </select>
                 </div>
+                <div>
+                  <label className="block text-xs text-amber-700 mb-1">Venta $ (BCV)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={costOnlyForm.precioUsd}
+                    onChange={e => setCostOnlyForm(f => ({ ...f, precioUsd: e.target.value }))}
+                    className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-blue-50/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-amber-700 mb-1">Venta $ (divisa)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={costOnlyForm.precioUsdDivisa}
+                    onChange={e => setCostOnlyForm(f => ({ ...f, precioUsdDivisa: e.target.value }))}
+                    className="w-full px-3 py-2 border border-green-200 rounded-lg text-sm focus:ring-1 focus:ring-green-500 outline-none bg-green-50/50"
+                  />
+                </div>
                 <div className="flex items-end gap-2">
                   <button
                     onClick={handleCreateCostOnly}
@@ -655,31 +695,28 @@ export default function AdminCosts() {
                 </thead>
                 <tbody className="divide-y divide-ocean-50">
                   {filteredProducts.map(p => (
-                    <tr key={p.id} className={`hover:bg-ocean-50/30 ${p.cost_only ? 'bg-amber-50/30' : ''}`}>
+                    <tr key={p.id} className={`hover:bg-ocean-50/30 ${p.solo_costos ? 'bg-amber-50/30' : ''}`}>
                       <td className="px-3 py-2 font-medium text-ocean-900 whitespace-nowrap">
                         {p.nombre}
                         <span className="text-ocean-400 text-xs ml-1">/{p.unidad}</span>
-                        {p.cost_only === 1 && (
+                        {p.solo_costos === 1 && (
                           <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium">
                             Solo costo
                           </span>
                         )}
                       </td>
-                      {p.cost_only ? (
-                        <td colSpan={2} className="px-3 py-2 text-center text-xs text-ocean-400 italic">—</td>
-                      ) : (
-                        <>
-                          <td className="px-3 py-2 text-right font-semibold text-green-700">
-                            {p.precio_usd_divisa != null
-                              ? formatUSD(p.precio_usd_divisa)
-                              : <span className="text-ocean-400">—</span>
-                            }
-                          </td>
-                          <td className="px-3 py-2 text-right font-semibold text-blue-700">
-                            {formatUSD(p.precio_usd)}
-                          </td>
-                        </>
-                      )}
+                      <td className="px-3 py-2 text-right font-semibold text-green-700">
+                        {p.precio_usd_divisa != null && p.precio_usd_divisa > 0
+                          ? formatUSD(p.precio_usd_divisa)
+                          : <span className="text-ocean-400">—</span>
+                        }
+                      </td>
+                      <td className="px-3 py-2 text-right font-semibold text-blue-700">
+                        {p.precio_usd > 0
+                          ? formatUSD(p.precio_usd)
+                          : <span className="text-ocean-400">—</span>
+                        }
+                      </td>
                       {p.calculated ? (
                         <>
                           <td className="px-3 py-2 text-right text-red-700 font-medium">
@@ -698,9 +735,7 @@ export default function AdminCosts() {
                           <td className="px-3 py-2 text-right font-medium text-blue-600">
                             {formatUSD(p.calculated.costBcvEquiv)}
                           </td>
-                          {p.cost_only ? (
-                            <td colSpan={4} className="px-3 py-2 text-center text-xs text-ocean-400 italic">—</td>
-                          ) : (
+                          {p.precio_usd > 0 ? (
                             <>
                               <td className="px-3 py-2 text-center">
                                 <span className={`text-xs font-bold px-2 py-0.5 rounded ${marginColor(p.calculated.marginUsd)}`}>
@@ -720,11 +755,13 @@ export default function AdminCosts() {
                               <td className="px-3 py-2 text-right text-green-700 font-medium">
                                 {formatUSD(p.calculated.profitRealPm)}
                               </td>
+                              <td className="px-3 py-2 text-right text-green-700 font-medium">
+                                {formatUSD(p.calculated.profitRealIva)}
+                              </td>
                             </>
+                          ) : (
+                            <td colSpan={5} className="px-3 py-2 text-center text-xs text-ocean-400 italic">Sin precio de venta</td>
                           )}
-                          <td className="px-3 py-2 text-right text-green-700 font-medium">
-                            {p.cost_only ? '—' : formatUSD(p.calculated.profitRealIva)}
-                          </td>
                         </>
                       ) : (
                         <td colSpan={10} className="px-3 py-2 text-center text-ocean-400 italic">
@@ -742,7 +779,7 @@ export default function AdminCosts() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
                           </button>
-                          {p.cost_only === 1 && (
+                          {p.solo_costos === 1 && (
                             <button
                               onClick={() => handleDeleteCostOnly(p.id)}
                               className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -1078,22 +1115,59 @@ export default function AdminCosts() {
               </button>
             </div>
             <div className="p-4 space-y-4">
-              <div className="bg-ocean-50 rounded-lg p-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-ocean-600">Venta $ (divisa):</span>
-                  <span className="font-bold text-green-700">{formatUSD(editingProduct.precio_usd_divisa ?? editingProduct.precio_usd)}</span>
-                </div>
-                <div className="flex justify-between mt-1">
-                  <span className="text-ocean-600">Venta $ (BCV):</span>
-                  <span className="font-bold text-blue-700">{formatUSD(editingProduct.precio_usd)}</span>
-                </div>
-                {editingProduct.cost_usd != null && (
-                  <div className="flex justify-between mt-1">
-                    <span className="text-ocean-600">Costo actual:</span>
-                    <span className="font-bold text-red-700">{formatUSD(editingProduct.cost_usd)} ({editingProduct.purchase_rate_type})</span>
+              {editingProduct.solo_costos ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold">SOLO COSTOS</span>
+                    <span className="text-xs text-ocean-500">Precios de venta editables</span>
                   </div>
-                )}
-              </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-ocean-700 mb-1">Venta $ (BCV)</label>
+                      <input
+                        type="number" step="0.01" min="0"
+                        value={costForm.precioUsd}
+                        onChange={e => setCostForm(f => ({ ...f, precioUsd: e.target.value }))}
+                        className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-blue-50/50"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-ocean-700 mb-1">Venta $ (divisa)</label>
+                      <input
+                        type="number" step="0.01" min="0"
+                        value={costForm.precioUsdDivisa}
+                        onChange={e => setCostForm(f => ({ ...f, precioUsdDivisa: e.target.value }))}
+                        className="w-full px-3 py-2 border border-green-200 rounded-lg text-sm focus:ring-1 focus:ring-green-500 outline-none bg-green-50/50"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                  {editingProduct.cost_usd != null && (
+                    <div className="bg-ocean-50 rounded-lg p-2 text-sm flex justify-between">
+                      <span className="text-ocean-600">Costo actual:</span>
+                      <span className="font-bold text-red-700">{formatUSD(editingProduct.cost_usd)} ({editingProduct.purchase_rate_type})</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-ocean-50 rounded-lg p-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-ocean-600">Venta $ (divisa):</span>
+                    <span className="font-bold text-green-700">{formatUSD(editingProduct.precio_usd_divisa ?? editingProduct.precio_usd)}</span>
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    <span className="text-ocean-600">Venta $ (BCV):</span>
+                    <span className="font-bold text-blue-700">{formatUSD(editingProduct.precio_usd)}</span>
+                  </div>
+                  {editingProduct.cost_usd != null && (
+                    <div className="flex justify-between mt-1">
+                      <span className="text-ocean-600">Costo actual:</span>
+                      <span className="font-bold text-red-700">{formatUSD(editingProduct.cost_usd)} ({editingProduct.purchase_rate_type})</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-ocean-700 mb-1">Costo de compra ($)</label>
@@ -1131,7 +1205,9 @@ export default function AdminCosts() {
                 <div className="bg-green-50 rounded-lg p-3 text-sm">
                   {(() => {
                     const cost = parseFloat(costForm.costUsd);
-                    const precioDivisa = editingProduct.precio_usd_divisa ?? editingProduct.precio_usd;
+                    const precioDivisa = editingProduct.solo_costos
+                      ? (parseFloat(costForm.precioUsdDivisa) || parseFloat(costForm.precioUsd) || 0)
+                      : (editingProduct.precio_usd_divisa ?? editingProduct.precio_usd);
                     const realCost = costForm.rateType === 'BCV'
                       ? cost * (settings.bcvRate / settings.parallelRate)
                       : cost;
