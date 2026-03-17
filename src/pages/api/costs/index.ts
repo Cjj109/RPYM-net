@@ -36,15 +36,15 @@ export const GET: APIRoute = async ({ request, locals }) => {
       }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // Get all products with their costs
+    // Get all products with their costs (include cost-only products)
     const { results: products } = await db.prepare(`
       SELECT
-        p.id, p.nombre, p.categoria, p.precio_usd, p.precio_usd_divisa, p.unidad, p.disponible,
+        p.id, p.nombre, p.categoria, p.precio_usd, p.precio_usd_divisa, p.unidad, p.disponible, p.cost_only,
         pc.cost_usd, pc.purchase_rate_type, pc.supplier, pc.notes as cost_notes, pc.updated_at as cost_updated_at
       FROM products p
       LEFT JOIN product_costs pc ON pc.product_id = p.id
-      WHERE p.disponible = 1
-      ORDER BY p.sort_order, p.nombre
+      WHERE p.disponible = 1 OR p.cost_only = 1
+      ORDER BY p.cost_only ASC, p.sort_order, p.nombre
     `).all();
 
     const bcv = settings.bcv_rate;

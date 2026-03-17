@@ -39,6 +39,7 @@ interface ProductWithCost {
   precio_usd_divisa: number | null;
   unidad: string;
   disponible: number;
+  cost_only: number;
   cost_usd: number | null;
   purchase_rate_type: string | null;
   supplier: string | null;
@@ -122,6 +123,10 @@ export default function AdminCosts() {
   const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
   const [historyProductFilter, setHistoryProductFilter] = useState<string>('');
 
+  // Cost-only product creation
+  const [showCostOnlyForm, setShowCostOnlyForm] = useState(false);
+  const [costOnlyForm, setCostOnlyForm] = useState({ nombre: '', categoria: '', unidad: 'kg', costUsd: '', rateType: 'PARALELO' });
+
   // Simulator
   const [simBcv, setSimBcv] = useState('');
   const [simParallel, setSimParallel] = useState('');
@@ -196,7 +201,13 @@ export default function AdminCosts() {
 
   // Products with low margins
   const lowMarginProducts = useMemo(() =>
-    products.filter(p => p.calculated && p.calculated.marginUsd < 0.10),
+    products.filter(p => p.calculated && p.calculated.marginUsd < 0.10 && !p.cost_only),
+    [products]
+  );
+
+  // Unique categories for cost-only product form
+  const categories = useMemo(() =>
+    [...new Set(products.map(p => p.categoria))].sort(),
     [products]
   );
 
@@ -324,6 +335,54 @@ export default function AdminCosts() {
       rateType: product.purchase_rate_type || 'PARALELO',
       notes: ''
     });
+  };
+
+  const handleCreateCostOnly = async () => {
+    if (!costOnlyForm.nombre.trim() || !costOnlyForm.costUsd) return;
+    setIsSaving(true);
+    try {
+      const res = await fetch('/api/costs/cost-only-product', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          nombre: costOnlyForm.nombre,
+          categoria: costOnlyForm.categoria || categories[0] || 'Otros',
+          unidad: costOnlyForm.unidad,
+          costUsd: parseFloat(costOnlyForm.costUsd),
+          purchaseRateType: costOnlyForm.rateType,
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowCostOnlyForm(false);
+        setCostOnlyForm({ nombre: '', categoria: '', unidad: 'kg', costUsd: '', rateType: 'PARALELO' });
+        loadData();
+      } else {
+        alert(data.error);
+      }
+    } catch {
+      alert('Error de conexión');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteCostOnly = async (id: number) => {
+    if (!confirm('¿Eliminar este producto solo-costo?')) return;
+    try {
+      const res = await fetch('/api/costs/cost-only-product', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ id }),
+      });
+      const data = await res.json();
+      if (data.success) loadData();
+      else alert(data.error);
+    } catch {
+      alert('Error de conexión');
+    }
   };
 
   // ── Render ─────────────────────────────────────────
@@ -478,8 +537,100 @@ export default function AdminCosts() {
                   <option value="costUsd">Costo $</option>
                 </select>
               </div>
+              <button
+                onClick={() => setShowCostOnlyForm(true)}
+                className="px-3 py-2 bg-amber-500 hover:bg-amber-400 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+              >
+                + Solo costo
+              </button>
             </div>
           </div>
+
+          {/* Cost-only product form */}
+          {showCostOnlyForm && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <h3 className="text-sm font-bold text-amber-800 mb-3">Nuevo producto solo costo</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs text-amber-700 mb-1">Nombre</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Hielo, Gasolina..."
+                    value={costOnlyForm.nombre}
+                    onChange={e => setCostOnlyForm(f => ({ ...f, nombre: e.target.value }))}
+                    className="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm focus:ring-1 focus:ring-amber-500 outline-none"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-amber-700 mb-1">Categoría</label>
+                  <input
+                    type="text"
+                    list="cost-only-categories"
+                    placeholder="Ej: Insumos"
+                    value={costOnlyForm.categoria}
+                    onChange={e => setCostOnlyForm(f => ({ ...f, categoria: e.target.value }))}
+                    className="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm focus:ring-1 focus:ring-amber-500 outline-none"
+                  />
+                  <datalist id="cost-only-categories">
+                    {categories.map(c => <option key={c} value={c} />)}
+                  </datalist>
+                </div>
+                <div>
+                  <label className="block text-xs text-amber-700 mb-1">Unidad</label>
+                  <select
+                    value={costOnlyForm.unidad}
+                    onChange={e => setCostOnlyForm(f => ({ ...f, unidad: e.target.value }))}
+                    className="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm focus:ring-1 focus:ring-amber-500 outline-none"
+                  >
+                    <option value="kg">kg</option>
+                    <option value="unidad">unidad</option>
+                    <option value="caja">caja</option>
+                    <option value="paquete">paquete</option>
+                    <option value="bolsa">bolsa</option>
+                    <option value="litro">litro</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-amber-700 mb-1">Costo USD</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={costOnlyForm.costUsd}
+                    onChange={e => setCostOnlyForm(f => ({ ...f, costUsd: e.target.value }))}
+                    className="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm focus:ring-1 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-amber-700 mb-1">Tasa de compra</label>
+                  <select
+                    value={costOnlyForm.rateType}
+                    onChange={e => setCostOnlyForm(f => ({ ...f, rateType: e.target.value }))}
+                    className="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm focus:ring-1 focus:ring-amber-500 outline-none"
+                  >
+                    <option value="PARALELO">Paralelo</option>
+                    <option value="BCV">BCV</option>
+                  </select>
+                </div>
+                <div className="flex items-end gap-2">
+                  <button
+                    onClick={handleCreateCostOnly}
+                    disabled={isSaving || !costOnlyForm.nombre.trim() || !costOnlyForm.costUsd}
+                    className="px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:bg-amber-300 text-white rounded-lg text-sm font-medium transition-colors"
+                  >
+                    {isSaving ? 'Creando...' : 'Crear'}
+                  </button>
+                  <button
+                    onClick={() => setShowCostOnlyForm(false)}
+                    className="px-4 py-2 text-amber-700 hover:bg-amber-100 rounded-lg text-sm transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Product table */}
           <div className="bg-white rounded-xl shadow-sm border border-ocean-100 overflow-hidden">
@@ -504,20 +655,31 @@ export default function AdminCosts() {
                 </thead>
                 <tbody className="divide-y divide-ocean-50">
                   {filteredProducts.map(p => (
-                    <tr key={p.id} className="hover:bg-ocean-50/30">
+                    <tr key={p.id} className={`hover:bg-ocean-50/30 ${p.cost_only ? 'bg-amber-50/30' : ''}`}>
                       <td className="px-3 py-2 font-medium text-ocean-900 whitespace-nowrap">
                         {p.nombre}
                         <span className="text-ocean-400 text-xs ml-1">/{p.unidad}</span>
+                        {p.cost_only === 1 && (
+                          <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium">
+                            Solo costo
+                          </span>
+                        )}
                       </td>
-                      <td className="px-3 py-2 text-right font-semibold text-green-700">
-                        {p.precio_usd_divisa != null
-                          ? formatUSD(p.precio_usd_divisa)
-                          : <span className="text-ocean-400">—</span>
-                        }
-                      </td>
-                      <td className="px-3 py-2 text-right font-semibold text-blue-700">
-                        {formatUSD(p.precio_usd)}
-                      </td>
+                      {p.cost_only ? (
+                        <td colSpan={2} className="px-3 py-2 text-center text-xs text-ocean-400 italic">—</td>
+                      ) : (
+                        <>
+                          <td className="px-3 py-2 text-right font-semibold text-green-700">
+                            {p.precio_usd_divisa != null
+                              ? formatUSD(p.precio_usd_divisa)
+                              : <span className="text-ocean-400">—</span>
+                            }
+                          </td>
+                          <td className="px-3 py-2 text-right font-semibold text-blue-700">
+                            {formatUSD(p.precio_usd)}
+                          </td>
+                        </>
+                      )}
                       {p.calculated ? (
                         <>
                           <td className="px-3 py-2 text-right text-red-700 font-medium">
@@ -536,26 +698,32 @@ export default function AdminCosts() {
                           <td className="px-3 py-2 text-right font-medium text-blue-600">
                             {formatUSD(p.calculated.costBcvEquiv)}
                           </td>
-                          <td className="px-3 py-2 text-center">
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded ${marginColor(p.calculated.marginUsd)}`}>
-                              {pct(p.calculated.marginUsd)}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-center">
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded ${marginColor(p.calculated.marginBsPm)}`}>
-                              {pct(p.calculated.marginBsPm)}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-center">
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded ${marginColor(p.calculated.marginBsIva)}`}>
-                              {pct(p.calculated.marginBsIva)}
-                            </span>
-                          </td>
+                          {p.cost_only ? (
+                            <td colSpan={4} className="px-3 py-2 text-center text-xs text-ocean-400 italic">—</td>
+                          ) : (
+                            <>
+                              <td className="px-3 py-2 text-center">
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded ${marginColor(p.calculated.marginUsd)}`}>
+                                  {pct(p.calculated.marginUsd)}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded ${marginColor(p.calculated.marginBsPm)}`}>
+                                  {pct(p.calculated.marginBsPm)}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded ${marginColor(p.calculated.marginBsIva)}`}>
+                                  {pct(p.calculated.marginBsIva)}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-right text-green-700 font-medium">
+                                {formatUSD(p.calculated.profitRealPm)}
+                              </td>
+                            </>
+                          )}
                           <td className="px-3 py-2 text-right text-green-700 font-medium">
-                            {formatUSD(p.calculated.profitRealPm)}
-                          </td>
-                          <td className="px-3 py-2 text-right text-green-700 font-medium">
-                            {formatUSD(p.calculated.profitRealIva)}
+                            {p.cost_only ? '—' : formatUSD(p.calculated.profitRealIva)}
                           </td>
                         </>
                       ) : (
@@ -564,15 +732,28 @@ export default function AdminCosts() {
                         </td>
                       )}
                       <td className="px-3 py-2 text-center">
-                        <button
-                          onClick={() => openEditCost(p)}
-                          className="p-1.5 text-ocean-600 hover:bg-ocean-50 rounded-lg transition-colors"
-                          title="Editar costo"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
+                        <div className="flex items-center gap-1 justify-center">
+                          <button
+                            onClick={() => openEditCost(p)}
+                            className="p-1.5 text-ocean-600 hover:bg-ocean-50 rounded-lg transition-colors"
+                            title="Editar costo"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          {p.cost_only === 1 && (
+                            <button
+                              onClick={() => handleDeleteCostOnly(p.id)}
+                              className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Eliminar"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
