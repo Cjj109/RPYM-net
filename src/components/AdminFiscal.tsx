@@ -2021,32 +2021,60 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
             <table className="w-full">
               <thead className="bg-ocean-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-ocean-600">Fecha</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-ocean-600">Gravable</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-ocean-600">IVA</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-ocean-600">BI IGTF</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-ocean-600">IGTF</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-ocean-600">Total</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-ocean-600">OCR</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-ocean-600">Acciones</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-ocean-600">Fecha</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-ocean-600">Día</th>
+                  <th className="px-3 py-3 text-right text-xs font-medium text-ocean-600">Total Bs</th>
+                  <th className="px-3 py-3 text-right text-xs font-medium text-ocean-600">Tasa</th>
+                  <th className="px-3 py-3 text-right text-xs font-medium text-ocean-600">Total $</th>
+                  <th className="px-3 py-3 text-center text-xs font-medium text-ocean-600">vs Sem.</th>
+                  <th className="px-3 py-3 text-right text-xs font-medium text-ocean-600">Gravable</th>
+                  <th className="px-3 py-3 text-right text-xs font-medium text-ocean-600">IVA</th>
+                  <th className="px-3 py-3 text-right text-xs font-medium text-ocean-600">IGTF</th>
+                  <th className="px-3 py-3 text-center text-xs font-medium text-ocean-600">OCR</th>
+                  <th className="px-3 py-3 text-center text-xs font-medium text-ocean-600">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ocean-100">
                 {reportesZ.map((r) => (
                   <tr key={r.id} className="hover:bg-ocean-50/50">
-                    <td className="px-4 py-3 text-sm font-medium text-ocean-900">{formatDateReadable(r.fecha)}</td>
-                    <td className="px-4 py-3 text-sm text-right text-ocean-600">{formatBs(r.subtotalGravable)}</td>
-                    <td className="px-4 py-3 text-sm text-right text-green-600 font-medium">{formatBs(r.ivaCobrado)}</td>
-                    <td className="px-4 py-3 text-sm text-right text-amber-600">{formatBs(r.baseImponibleIgtf)}</td>
-                    <td className="px-4 py-3 text-sm text-right text-amber-700 font-medium">{formatBs(r.igtfVentas)}</td>
-                    <td className="px-4 py-3 text-sm text-right text-ocean-900 font-semibold">{formatBs(r.totalVentas)}</td>
-                    <td className="px-4 py-3 text-center">
-                      {r.ocrVerified ? (
-                        <span className="text-green-600">Verificado</span>
-                      ) : r.imageUrl ? (
-                        <span className="text-amber-600">Pendiente</span>
+                    <td className="px-3 py-3 text-sm font-medium text-ocean-900">{formatDateReadable(r.fecha)}</td>
+                    <td className="px-3 py-3 text-xs text-ocean-500 capitalize">{r.diaSemana || '—'}</td>
+                    <td className="px-3 py-3 text-sm text-right text-ocean-900 font-semibold">{formatBs(r.totalVentas)}</td>
+                    <td className="px-3 py-3 text-xs text-right text-ocean-400">
+                      {r.bcvRate ? r.bcvRate.toFixed(2) : '—'}
+                    </td>
+                    <td className="px-3 py-3 text-sm text-right text-green-700 font-bold">
+                      {r.totalVentasUsd != null ? formatUSD(r.totalVentasUsd) : '—'}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {r.variacionSemana != null ? (
+                        <span
+                          className={`text-xs font-bold px-2 py-0.5 rounded ${
+                            r.variacionSemana >= 0
+                              ? 'bg-green-50 text-green-700'
+                              : 'bg-red-50 text-red-700'
+                          }`}
+                          title={r.fechaAnterior
+                            ? `vs ${formatDateReadable(r.fechaAnterior)} (${r.totalVentasUsdAnterior != null ? formatUSD(r.totalVentasUsdAnterior) : ''})`
+                            : ''
+                          }
+                        >
+                          {r.variacionSemana >= 0 ? '+' : ''}{(r.variacionSemana * 100).toFixed(1)}%
+                        </span>
                       ) : (
-                        <span className="text-ocean-400">Manual</span>
+                        <span className="text-ocean-300 text-xs">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 text-sm text-right text-ocean-600">{formatBs(r.subtotalGravable)}</td>
+                    <td className="px-3 py-3 text-sm text-right text-green-600 font-medium">{formatBs(r.ivaCobrado)}</td>
+                    <td className="px-3 py-3 text-sm text-right text-amber-700 font-medium">{formatBs(r.igtfVentas)}</td>
+                    <td className="px-3 py-3 text-center">
+                      {r.ocrVerified ? (
+                        <span className="text-green-600 text-xs">OK</span>
+                      ) : r.imageUrl ? (
+                        <span className="text-amber-600 text-xs">Pend</span>
+                      ) : (
+                        <span className="text-ocean-400 text-xs">Man</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-center">

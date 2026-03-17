@@ -1,10 +1,18 @@
 import type { APIRoute } from 'astro';
 import { requireAuth } from '../../../../lib/require-auth';
-import { transformReporteZ, type D1FiscalReporteZ } from '../../../../lib/fiscal-types';
+import { transformReporteZ, type D1FiscalReporteZ, type FiscalReporteZ } from '../../../../lib/fiscal-types';
 
 export const prerender = false;
 
-// GET /api/fiscal/reportes-z - List all Z reports
+const DIAS_SEMANA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+
+/** Obtiene el día de semana (0=dom..6=sáb) de una fecha YYYY-MM-DD */
+function getDayOfWeek(fecha: string): number {
+  const [y, m, d] = fecha.split('-').map(Number);
+  return new Date(y, m - 1, d).getDay();
+}
+
+// GET /api/fiscal/reportes-z - List all Z reports with BCV rate and weekly comparison
 export const GET: APIRoute = async ({ request, locals }) => {
   const auth = await requireAuth(request, locals);
   if (auth instanceof Response) return auth;
@@ -29,9 +37,68 @@ export const GET: APIRoute = async ({ request, locals }) => {
       : db.prepare(query);
     const results = await stmt.all<D1FiscalReporteZ>();
 
+    // Obtener tasas BCV para todas las fechas de los reportes
+    const fechas = results.results.map(r => r.fecha);
+    let bcvRatesMap: Record<string, number> = {};
+
+    if (fechas.length > 0) {
+      // Buscar tasas en bcv_rates
+      const placeholders = fechas.map(() => '?').join(',');
+      const ratesResult = await db.prepare(
+        `SELECT date, usd_rate FROM bcv_rates WHERE date IN (${placeholders})`
+      ).bind(...fechas).all<{ date: string; usd_rate: number }>();
+      for (const r of ratesResult.results) {
+        bcvRatesMap[r.date] = r.usd_rate;
+      }
+
+      // Para fechas sin tasa en bcv_rates, buscar la más cercana anterior
+      for (const fecha of fechas) {
+        if (!bcvRatesMap[fecha]) {
+          const closest = await db.prepare(
+            `SELECT usd_rate FROM bcv_rates WHERE date <= ? ORDER BY date DESC LIMIT 1`
+          ).bind(fecha).first<{ usd_rate: number }>();
+          if (closest) bcvRatesMap[fecha] = closest.usd_rate;
+        }
+      }
+    }
+
+    // Transformar y enriquecer reportes
+    const reportes: FiscalReporteZ[] = results.results.map(transformReporteZ);
+
+    // Calcular USD y día de semana para cada reporte
+    for (const r of reportes) {
+      const rate = bcvRatesMap[r.fecha] || null;
+      r.bcvRate = rate;
+      r.totalVentasUsd = rate ? r.totalVentas / rate : null;
+      r.diaSemana = DIAS_SEMANA[getDayOfWeek(r.fecha)];
+    }
+
+    // Calcular variación vs mismo día de semana anterior
+    // Ordenar por fecha ASC para recorrer cronológicamente
+    const sortedByDate = [...reportes].sort((a, b) => a.fecha.localeCompare(b.fecha));
+    // Mapa: día de semana → último total USD visto
+    const lastByDay: Record<number, { totalUsd: number; fecha: string }> = {};
+
+    for (const r of sortedByDate) {
+      const dow = getDayOfWeek(r.fecha);
+      const prev = lastByDay[dow];
+      if (prev && r.totalVentasUsd != null && prev.totalUsd > 0) {
+        r.variacionSemana = (r.totalVentasUsd - prev.totalUsd) / prev.totalUsd;
+        r.totalVentasUsdAnterior = prev.totalUsd;
+        r.fechaAnterior = prev.fecha;
+      } else {
+        r.variacionSemana = null;
+        r.totalVentasUsdAnterior = null;
+        r.fechaAnterior = null;
+      }
+      if (r.totalVentasUsd != null) {
+        lastByDay[dow] = { totalUsd: r.totalVentasUsd, fecha: r.fecha };
+      }
+    }
+
     return new Response(JSON.stringify({
       success: true,
-      reportes: results.results.map(transformReporteZ),
+      reportes,
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },

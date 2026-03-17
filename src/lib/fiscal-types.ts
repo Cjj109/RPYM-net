@@ -155,6 +155,13 @@ export interface FiscalReporteZ {
   notes: string | null;
   createdAt: string;
   updatedAt: string;
+  // Campos calculados (enriquecidos por el API)
+  bcvRate?: number | null;        // Tasa BCV del día del reporte
+  totalVentasUsd?: number | null; // total_ventas / bcvRate
+  diaSemana?: string | null;      // Día de la semana (lunes, martes, etc.)
+  variacionSemana?: number | null; // % variación vs mismo día semana anterior
+  totalVentasUsdAnterior?: number | null; // Total USD del Z anterior mismo día
+  fechaAnterior?: string | null;  // Fecha del Z anterior mismo día
 }
 
 export interface FiscalRetencionIva {
