@@ -20,7 +20,6 @@ import type {
   MarginSimulatorResult,
   TipoPagoSeniat,
   ConceptoPago,
-  EstimacionQuincena,
 } from '../lib/fiscal-types';
 import {
   FISCAL_CONSTANTS,
@@ -1850,139 +1849,6 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
   // Render Components
   // =====================
 
-  const EstimacionDeclaraciones = ({ dashboardData: dd, dashboardPeriod: dp }: { dashboardData: FiscalDashboardData; dashboardPeriod: string }) => {
-    const { pago1, pago2 } = getSeniatDueDates(dp);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const [yStr, mStr] = dp.split('-');
-    const isCurrentMonth = today.getFullYear() === parseInt(yStr) && (today.getMonth() + 1) === parseInt(mStr);
-
-    const emptyQ = { retencionIva: 0, retencionIslr: 0, igtfCompras: 0, igtfVentas: 0, ventasBs: 0, ivaDebito: 0, ivaCredito: 0, facturasCount: 0, reportesZCount: 0 };
-    const q1 = dd.estimacionQ1 ?? emptyQ;
-    const q2 = dd.estimacionQ2 ?? emptyQ;
-    const ivaNeto = dd.ivaBalance ?? 0;
-    const pagos = dd.pagosSeniat ?? [];
-
-    const pagadoReal = (tipoPago: TipoPagoSeniat, concepto: ConceptoPago, quincena: number | null): number => {
-      const p = pagos.find(pg => pg.tipoPago === tipoPago && pg.concepto === concepto && (quincena == null ? true : pg.quincena === quincena));
-      return p ? p.monto : 0;
-    };
-    const esNA = (tipoPago: TipoPagoSeniat, concepto: ConceptoPago, quincena: number | null): boolean => {
-      const p = pagos.find(pg => pg.tipoPago === tipoPago && pg.concepto === concepto && (quincena == null ? true : pg.quincena === quincena));
-      return !!p && p.monto === 0 && p.notes === 'No aplica';
-    };
-
-    const pago1Lines = [
-      { label: 'Ret. IVA (Q2)', estimado: q2.retencionIva, pagado: pagadoReal('pago1', 'retencion_iva', 2), na: esNA('pago1', 'retencion_iva', 2) },
-      { label: 'Ret. ISLR (Q2)', estimado: q2.retencionIslr, pagado: pagadoReal('pago1', 'retencion_islr', 2), na: esNA('pago1', 'retencion_islr', 2) },
-      { label: 'IGTF (Q2)', estimado: q2.igtfCompras + q2.igtfVentas, pagado: pagadoReal('pago1', 'igtf', 2), na: esNA('pago1', 'igtf', 2) },
-      { label: 'IVA neto mensual', estimado: ivaNeto > 0 ? ivaNeto : 0, pagado: pagadoReal('pago1', 'iva_neto', null), na: esNA('pago1', 'iva_neto', null) },
-    ];
-    const pago2Lines = [
-      { label: 'Ret. IVA (Q1)', estimado: q1.retencionIva, pagado: pagadoReal('pago2', 'retencion_iva', 1), na: esNA('pago2', 'retencion_iva', 1) },
-      { label: 'Ret. ISLR (Q1)', estimado: q1.retencionIslr, pagado: pagadoReal('pago2', 'retencion_islr', 1), na: esNA('pago2', 'retencion_islr', 1) },
-      { label: 'IGTF (Q1)', estimado: q1.igtfCompras + q1.igtfVentas, pagado: pagadoReal('pago2', 'igtf', 1), na: esNA('pago2', 'igtf', 1) },
-    ];
-
-    const sumatEstimado = dd.sumatPendiente ?? 0;
-    const sumatPagado = pagadoReal('sumat', 'sumat', null);
-    const sumatNA = esNA('sumat', 'sumat', null);
-
-    const totalEst1 = pago1Lines.reduce((s, l) => s + (l.na ? 0 : l.estimado), 0);
-    const totalPag1 = pago1Lines.reduce((s, l) => s + l.pagado, 0);
-    const totalEst2 = pago2Lines.reduce((s, l) => s + (l.na ? 0 : l.estimado), 0);
-    const totalPag2 = pago2Lines.reduce((s, l) => s + l.pagado, 0);
-    const isPago1Paid = pago1Lines.every(l => l.pagado > 0 || l.na);
-    const isPago2Paid = pago2Lines.every(l => l.pagado > 0 || l.na);
-    const isPago1Past = pago1 < today;
-    const isPago2Past = pago2 < today;
-
-    const EstLine = ({ label, estimado, pagado, na }: { label: string; estimado: number; pagado: number; na: boolean }) => {
-      const pendiente = na ? 0 : Math.max(estimado - pagado, 0);
-      return (
-        <div className="flex items-center justify-between py-1 text-sm">
-          <span className={na ? 'text-gray-400 line-through' : pagado >= estimado && estimado > 0 ? 'text-green-700' : 'text-ocean-800'}>
-            {label}
-          </span>
-          <div className="flex items-center gap-3 font-mono">
-            {na ? (
-              <span className="text-gray-400 text-xs">N/A</span>
-            ) : (
-              <>
-                <span className="text-ocean-600 text-xs" title="Estimado">{formatBs(estimado)}</span>
-                {pagado > 0 && <span className="text-green-600 text-xs" title="Pagado">-{formatBs(pagado)}</span>}
-                <span className={`font-semibold ${pendiente > 0 ? 'text-amber-700' : 'text-green-700'}`}>
-                  {pendiente > 0 ? formatBs(pendiente) : '✓'}
-                </span>
-              </>
-            )}
-          </div>
-        </div>
-      );
-    };
-
-    const renderEstCard = (
-      title: string, subtitle: string,
-      lines: typeof pago1Lines,
-      totalEst: number, totalPag: number,
-      allPaid: boolean, isPast: boolean,
-      borderCls: string, bgCls: string, textCls: string,
-    ) => {
-      const pend = Math.max(totalEst - totalPag, 0);
-      const accumulating = isCurrentMonth && !isPast;
-      return (
-        <div className={`rounded-xl p-5 shadow-sm border ${allPaid ? 'border-green-200 bg-green-50/50' : `${borderCls} ${bgCls}`}`}>
-          <div className="flex items-center justify-between mb-1">
-            <h4 className={`text-xs font-semibold uppercase tracking-wide ${allPaid ? 'text-green-700' : textCls}`}>{title}</h4>
-            {accumulating && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium animate-pulse">En curso</span>}
-            {allPaid && <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Pagado</span>}
-          </div>
-          <p className="text-[10px] text-ocean-500 mb-3">{subtitle}</p>
-          <div className="space-y-0.5">
-            {lines.map(l => <EstLine key={l.label} {...l} />)}
-          </div>
-          <div className={`mt-3 pt-2 border-t ${allPaid ? 'border-green-200' : 'border-ocean-200'} flex items-center justify-between`}>
-            <span className="text-xs font-medium text-ocean-600">Total pendiente</span>
-            <span className={`font-mono font-bold text-lg ${pend > 0 ? 'text-amber-800' : 'text-green-700'}`}>
-              {pend > 0 ? formatBs(pend) : '✓ Completo'}
-            </span>
-          </div>
-          {pend > 0 && dd.bcvRate > 0 && (
-            <div className="text-right">
-              <span className="text-[10px] text-ocean-500 font-mono">≈ {formatUSD(pend / dd.bcvRate)}</span>
-            </div>
-          )}
-        </div>
-      );
-    };
-
-    return (
-      <div className="mt-6">
-        <h3 className="text-base font-semibold text-ocean-900 mb-1">Estimación de declaraciones</h3>
-        <p className="text-xs text-ocean-500 mb-3">Montos estimados en tiempo real según facturas y reportes Z. Se actualiza al agregar datos.</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {renderEstCard('1er Pago', `Ret. Q2 (16-fin) + IVA mensual — ${q2.facturasCount} fact., ${q2.reportesZCount + q1.reportesZCount} rep. Z`,
-            pago1Lines, totalEst1, totalPag1, isPago1Paid, isPago1Past,
-            'border-sky-200', 'bg-gradient-to-br from-white to-sky-50', 'text-sky-700')}
-          {renderEstCard('2do Pago', `Ret. Q1 (1-15) — ${q1.facturasCount} fact., ${q1.reportesZCount} rep. Z`,
-            pago2Lines, totalEst2, totalPag2, isPago2Paid, isPago2Past,
-            'border-indigo-200', 'bg-gradient-to-br from-white to-indigo-50', 'text-indigo-700')}
-          <div className={`rounded-xl p-5 shadow-sm border ${sumatPagado > 0 || sumatNA ? 'border-green-200 bg-green-50/50' : 'border-rose-200 bg-gradient-to-br from-white to-rose-50'}`}>
-            <h4 className={`text-xs font-semibold uppercase tracking-wide mb-1 ${sumatPagado > 0 || sumatNA ? 'text-green-700' : 'text-rose-700'}`}>SUMAT</h4>
-            <p className="text-[10px] text-ocean-500 mb-3">2.5% ventas — declaración mensual</p>
-            <EstLine label="SUMAT (2.5% ventas)" estimado={sumatEstimado} pagado={sumatPagado} na={sumatNA} />
-            <div className={`mt-3 pt-2 border-t ${sumatPagado > 0 || sumatNA ? 'border-green-200' : 'border-rose-200'} flex items-center justify-between`}>
-              <span className="text-xs font-medium text-ocean-600">Pendiente</span>
-              <span className={`font-mono font-bold text-lg ${!sumatNA && sumatEstimado - sumatPagado > 0 ? 'text-amber-800' : 'text-green-700'}`}>
-                {sumatNA ? '✓ N/A' : sumatEstimado - sumatPagado > 0 ? formatBs(sumatEstimado - sumatPagado) : '✓ Completo'}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   const renderDashboard = () => (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-4">
@@ -2005,7 +1871,6 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
         <div className="text-center py-12 text-ocean-600">Cargando...</div>
       ) : dashboardData ? (
         <>
-        <div className="bg-red-500 text-white p-4 rounded-lg text-center font-bold text-lg">PRUEBA ESTIMACION v2 — Si ves esto, el deploy funciona</div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Ventas Card */}
           <div className="bg-white rounded-xl p-6 shadow-sm border border-ocean-100">
@@ -2137,80 +2002,6 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
             </div>
           )}
         </div>
-        {/* ── Estimación inline ── */}
-        {(() => {
-          const emptyQ = { retencionIva: 0, retencionIslr: 0, igtfCompras: 0, igtfVentas: 0, ventasBs: 0, ivaDebito: 0, ivaCredito: 0, facturasCount: 0, reportesZCount: 0 };
-          const eq1 = (dashboardData as any).estimacionQ1 ?? emptyQ;
-          const eq2 = (dashboardData as any).estimacionQ2 ?? emptyQ;
-          const ivN = dashboardData.ivaBalance ?? 0;
-          const pgos = dashboardData.pagosSeniat ?? [];
-
-          const paid = (tp: string, con: string, q: number | null) => {
-            const p = pgos.find((pg: any) => pg.tipoPago === tp && pg.concepto === con && (q == null ? true : pg.quincena === q));
-            return p ? p.monto : 0;
-          };
-          const naCheck = (tp: string, con: string, q: number | null) => {
-            const p = pgos.find((pg: any) => pg.tipoPago === tp && pg.concepto === con && (q == null ? true : pg.quincena === q));
-            return !!p && p.monto === 0 && p.notes === 'No aplica';
-          };
-
-          const rows = [
-            { titulo: '1er Pago — Q2 (16-fin)', color: 'sky', items: [
-              { l: 'Ret. IVA', est: eq2.retencionIva, pag: paid('pago1','retencion_iva',2), na: naCheck('pago1','retencion_iva',2) },
-              { l: 'Ret. ISLR', est: eq2.retencionIslr, pag: paid('pago1','retencion_islr',2), na: naCheck('pago1','retencion_islr',2) },
-              { l: 'IGTF', est: eq2.igtfCompras + eq2.igtfVentas, pag: paid('pago1','igtf',2), na: naCheck('pago1','igtf',2) },
-              { l: 'IVA neto', est: ivN > 0 ? ivN : 0, pag: paid('pago1','iva_neto',null), na: naCheck('pago1','iva_neto',null) },
-            ]},
-            { titulo: '2do Pago — Q1 (1-15)', color: 'indigo', items: [
-              { l: 'Ret. IVA', est: eq1.retencionIva, pag: paid('pago2','retencion_iva',1), na: naCheck('pago2','retencion_iva',1) },
-              { l: 'Ret. ISLR', est: eq1.retencionIslr, pag: paid('pago2','retencion_islr',1), na: naCheck('pago2','retencion_islr',1) },
-              { l: 'IGTF', est: eq1.igtfCompras + eq1.igtfVentas, pag: paid('pago2','igtf',1), na: naCheck('pago2','igtf',1) },
-            ]},
-            { titulo: 'SUMAT', color: 'rose', items: [
-              { l: 'SUMAT (2.5%)', est: dashboardData.sumatPendiente ?? 0, pag: paid('sumat','sumat',null), na: naCheck('sumat','sumat',null) },
-            ]},
-          ];
-
-          return (
-            <div className="mt-4 bg-white rounded-xl p-6 shadow-sm border border-ocean-200">
-              <h3 className="text-base font-semibold text-ocean-900 mb-4">Estimación de declaraciones</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {rows.map(card => {
-                  const totalEst = card.items.reduce((s, i) => s + (i.na ? 0 : i.est), 0);
-                  const totalPag = card.items.reduce((s, i) => s + i.pag, 0);
-                  const pend = Math.max(totalEst - totalPag, 0);
-                  return (
-                    <div key={card.titulo}>
-                      <h4 className="text-sm font-semibold text-ocean-800 mb-2">{card.titulo}</h4>
-                      <div className="space-y-1">
-                        {card.items.map(item => {
-                          const iPend = item.na ? 0 : Math.max(item.est - item.pag, 0);
-                          return (
-                            <div key={item.l} className="flex justify-between text-sm">
-                              <span className={item.na ? 'text-gray-400 line-through' : 'text-ocean-700'}>{item.l}</span>
-                              <span className={`font-mono ${item.na ? 'text-gray-400' : iPend > 0 ? 'text-amber-700 font-semibold' : 'text-green-600'}`}>
-                                {item.na ? 'N/A' : iPend > 0 ? formatBs(iPend) : '✓ Pagado'}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div className="mt-2 pt-2 border-t border-ocean-100 flex justify-between">
-                        <span className="text-xs text-ocean-500">Pendiente</span>
-                        <span className={`font-mono font-bold ${pend > 0 ? 'text-amber-800' : 'text-green-700'}`}>
-                          {pend > 0 ? formatBs(pend) : '✓'}
-                        </span>
-                      </div>
-                      {pend > 0 && dashboardData.bcvRate > 0 && (
-                        <div className="text-right text-[10px] text-ocean-400 font-mono">≈ {formatUSD(pend / dashboardData.bcvRate)}</div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })()}
         </>
       ) : null}
 
@@ -2308,6 +2099,42 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
         const allPago2Paid = cardPaidCount(pago2Items) === pago2Items.length;
         const allSumatPaid = cardPaidCount(sumatItems) === sumatItems.length;
 
+        // Calcular pendiente por tarjeta (estimado - pagado, excluyendo N/A)
+        const cardPendiente = (items: LineItem[]) => {
+          let total = 0;
+          for (const item of items) {
+            const pago = getPago(item.tipoPago, item.concepto, item.quincena);
+            const isItemNA = pago && pago.monto === 0 && pago.notes === 'No aplica';
+            if (isItemNA) continue;
+            if (pago) {
+              // Ya pagó: la diferencia si pagó menos del estimado
+              total += Math.max(item.monto - pago.monto, 0);
+            } else {
+              total += item.monto;
+            }
+          }
+          return total;
+        };
+
+        const pendPago1 = cardPendiente(pago1Items);
+        const pendPago2 = cardPendiente(pago2Items);
+        const pendSumat = cardPendiente(sumatItems);
+        const rate = dashboardData?.bcvRate ?? 0;
+
+        const PendienteBadge = ({ pendiente, borderClass }: { pendiente: number; borderClass: string }) => (
+          pendiente > 0 ? (
+            <div className={`mt-3 pt-2 border-t ${borderClass}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-ocean-600">Pendiente estimado</span>
+                <div className="text-right">
+                  <span className="font-mono font-bold text-amber-800">{formatBs(pendiente)}</span>
+                  {rate > 0 && <span className="text-[10px] text-ocean-400 font-mono ml-1">≈ {formatUSD(pendiente / rate)}</span>}
+                </div>
+              </div>
+            </div>
+          ) : null
+        );
+
         return (
           <div className="mt-6">
             <h3 className="text-base font-semibold text-ocean-900 mb-3">
@@ -2333,6 +2160,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
                     <ObligationLine item={pago1Items[3]} colorClass="text-sky-800" />
                   </div>
                 </div>
+                <PendienteBadge pendiente={pendPago1} borderClass={allPago1Paid ? 'border-green-200' : 'border-sky-200'} />
                 <DateBadge date={pago1} isPast={isPago1Past} label={labelPago1} />
               </div>
 
@@ -2351,6 +2179,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
                     <ObligationLine key={item.concepto} item={item} colorClass="text-indigo-800" />
                   ))}
                 </div>
+                <PendienteBadge pendiente={pendPago2} borderClass={allPago2Paid ? 'border-green-200' : 'border-indigo-200'} />
                 <DateBadge date={pago2} isPast={isPago2Past} label={labelPago2} />
               </div>
 
@@ -2367,13 +2196,14 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
                     <ObligationLine key={item.concepto} item={item} colorClass="text-rose-800" />
                   ))}
                 </div>
+                <PendienteBadge pendiente={pendSumat} borderClass={allSumatPaid ? 'border-green-200' : 'border-rose-200'} />
                 <p className="text-[10px] text-rose-500 mt-1">
                   Declaración IVA (firma personal) se hace 1 vez/mes
                 </p>
               </div>
             </div>
             <p className="text-[11px] text-ocean-400 mt-2">
-              * Montos estimados del período. El monto real se registra al pagar cada concepto.
+              * Montos estimados del período según facturas y reportes Z registrados. Se actualiza en tiempo real.
             </p>
           </div>
         );
