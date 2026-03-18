@@ -2013,6 +2013,15 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
         const isPago1Past = pago1 < today;
         const isPago2Past = pago2 < today;
 
+        // Fecha del próximo mes para mostrar "Próximo vencimiento"
+        const [yrStr, moStr] = dashboardPeriod.split('-');
+        const yr = parseInt(yrStr);
+        const mo = parseInt(moStr) - 1;
+        const nextMo = mo === 11 ? 0 : mo + 1;
+        const nextYr = mo === 11 ? yr + 1 : yr;
+        const nextPeriodo = `${nextYr}-${String(nextMo + 1).padStart(2, '0')}`;
+        const { pago1: nextPago1, pago2: nextPago2 } = getSeniatDueDates(nextPeriodo);
+
         // Montos desglosados por quincena
         const estQ1 = dashboardData?.estimacionQ1;
         const estQ2 = dashboardData?.estimacionQ2;
@@ -2021,13 +2030,24 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
 
         const fmtDate = (d: Date) => d.toLocaleDateString('es-VE', { day: 'numeric', month: 'long', year: 'numeric' });
 
-        const DateBadge = ({ date, isPast, label }: { date: Date; isPast: boolean; label: string }) => (
-          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${isPast ? 'bg-gray-100 text-gray-400' : 'bg-ocean-100 text-ocean-800'}`}>
-            <span className="text-base">{isPast ? '✓' : '📅'}</span>
-            <div>
-              <p className="font-semibold">{fmtDate(date)}</p>
-              <p className="text-[11px] opacity-70">{label}</p>
+        const DateBadge = ({ date, isPast, label, nextDate, nextLabel }: { date: Date; isPast: boolean; label: string; nextDate?: Date; nextLabel?: string }) => (
+          <div className="space-y-1.5 mt-3">
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${isPast ? 'bg-gray-100 text-gray-400' : 'bg-ocean-100 text-ocean-800'}`}>
+              <span className="text-base">{isPast ? '✓' : '📅'}</span>
+              <div>
+                <p className="font-semibold">{fmtDate(date)}</p>
+                <p className="text-[11px] opacity-70">{label}</p>
+              </div>
             </div>
+            {isPast && nextDate && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-amber-50 text-amber-800 border border-amber-200">
+                <span className="text-base">📅</span>
+                <div>
+                  <p className="font-semibold">{fmtDate(nextDate)}</p>
+                  <p className="text-[11px] opacity-70">{nextLabel}</p>
+                </div>
+              </div>
+            )}
           </div>
         );
 
@@ -2161,7 +2181,8 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
                   </div>
                 </div>
                 <PendienteBadge pendiente={pendPago1} borderClass={allPago1Paid ? 'border-green-200' : 'border-sky-200'} />
-                <DateBadge date={pago1} isPast={isPago1Past} label={labelPago1} />
+                <DateBadge date={pago1} isPast={isPago1Past} label={labelPago1}
+                  nextDate={nextPago1} nextLabel={`Próximo: Ret. 16-fin ${MESES_ES[mo]} + IVA → ${fmtDate(nextPago1)}`} />
               </div>
 
               {/* ── 2do pago: ret. 1-15 mes actual ── */}
@@ -2180,7 +2201,8 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
                   ))}
                 </div>
                 <PendienteBadge pendiente={pendPago2} borderClass={allPago2Paid ? 'border-green-200' : 'border-indigo-200'} />
-                <DateBadge date={pago2} isPast={isPago2Past} label={labelPago2} />
+                <DateBadge date={pago2} isPast={isPago2Past} label={labelPago2}
+                  nextDate={nextPago2} nextLabel={`Próximo: Ret. 1-15 ${MESES_ES[nextMo]} → ${fmtDate(nextPago2)}`} />
               </div>
 
               {/* ── SUMAT ── */}
