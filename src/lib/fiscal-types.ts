@@ -98,8 +98,20 @@ export interface D1FiscalRetencionIvaWithDetails extends D1FiscalRetencionIva {
   fecha_factura?: string;
 }
 
-export type TipoPagoSeniat = 'pago1' | 'pago2' | 'sumat';
-export type ConceptoPago = 'retencion_iva' | 'retencion_islr' | 'igtf' | 'iva_neto' | 'sumat';
+export type TipoPagoSeniat = 'pago1' | 'pago2' | 'sumat' | 'otro';
+export type ConceptoPago = 'retencion_iva' | 'retencion_islr' | 'igtf' | 'iva_neto' | 'sumat' | 'multa' | 'islr_anual' | 'grandes_patrimonios' | 'otro';
+
+export const CONCEPTO_LABELS: Record<ConceptoPago, string> = {
+  retencion_iva: 'Ret. IVA',
+  retencion_islr: 'Ret. ISLR',
+  igtf: 'IGTF',
+  iva_neto: 'IVA neto',
+  sumat: 'SUMAT',
+  multa: 'Multa',
+  islr_anual: 'ISLR anual',
+  grandes_patrimonios: 'Grandes Patrimonios',
+  otro: 'Otro',
+};
 
 export interface D1FiscalPagoSeniat {
   id: number;

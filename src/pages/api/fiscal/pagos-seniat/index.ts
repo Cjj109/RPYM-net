@@ -14,17 +14,22 @@ export const GET: APIRoute = async ({ request, locals }) => {
   try {
     const url = new URL(request.url);
     const periodo = url.searchParams.get('periodo');
+    const year = url.searchParams.get('year');
 
-    if (!periodo) {
-      return new Response(JSON.stringify({ success: false, error: 'Período es requerido' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    let results;
+    if (periodo) {
+      results = await db.prepare(
+        'SELECT * FROM fiscal_pagos_seniat WHERE periodo = ? ORDER BY tipo_pago, created_at DESC'
+      ).bind(periodo).all<D1FiscalPagoSeniat>();
+    } else if (year) {
+      results = await db.prepare(
+        'SELECT * FROM fiscal_pagos_seniat WHERE periodo LIKE ? ORDER BY periodo DESC, fecha_pago DESC'
+      ).bind(`${year}%`).all<D1FiscalPagoSeniat>();
+    } else {
+      results = await db.prepare(
+        'SELECT * FROM fiscal_pagos_seniat ORDER BY periodo DESC, fecha_pago DESC'
+      ).all<D1FiscalPagoSeniat>();
     }
-
-    const results = await db.prepare(
-      'SELECT * FROM fiscal_pagos_seniat WHERE periodo = ? ORDER BY tipo_pago, created_at DESC'
-    ).bind(periodo).all<D1FiscalPagoSeniat>();
 
     return new Response(JSON.stringify({
       success: true,
@@ -115,7 +120,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    const tiposValidos = ['pago1', 'pago2', 'sumat'];
+    const tiposValidos = ['pago1', 'pago2', 'sumat', 'otro'];
     if (!tiposValidos.includes(tipoPago)) {
       return new Response(JSON.stringify({ success: false, error: 'Tipo de pago inválido' }), {
         status: 400,

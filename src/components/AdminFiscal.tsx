@@ -23,13 +23,14 @@ import type {
 } from '../lib/fiscal-types';
 import {
   FISCAL_CONSTANTS,
+  CONCEPTO_LABELS,
   calculateRetentions,
   calculateMarginSimulation,
   validateRif,
   formatRif,
 } from '../lib/fiscal-types';
 
-type FiscalSubTab = 'dashboard' | 'reportes-z' | 'proveedores' | 'facturas' | 'retenciones' | 'simulador' | 'consultas';
+type FiscalSubTab = 'dashboard' | 'reportes-z' | 'proveedores' | 'facturas' | 'retenciones' | 'pagos' | 'simulador' | 'consultas';
 
 interface BCVRateData {
   rate: number;
@@ -47,6 +48,7 @@ const SUB_TAB_LABELS: Record<FiscalSubTab, string> = {
   'proveedores': 'Proveedores',
   'facturas': 'Facturas',
   'retenciones': 'Retenciones',
+  'pagos': 'Pagos',
   'simulador': 'Simulador',
   'consultas': 'Consultas AI',
 };
@@ -194,6 +196,25 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
   const [viewingPago, setViewingPago] = useState<FiscalPagoSeniat | null>(null);
   const pagoFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Pagos tab state
+  const [pagosTabYear, setPagosTabYear] = useState<string>(() => String(new Date().getFullYear()));
+  const [pagosTabData, setPagosTabData] = useState<FiscalPagoSeniat[]>([]);
+  const [pagosTabLoading, setPagosTabLoading] = useState(false);
+  const [showNewPagoModal, setShowNewPagoModal] = useState(false);
+  const [newPagoForm, setNewPagoForm] = useState({
+    periodo: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`,
+    concepto: 'multa' as ConceptoPago,
+    fechaPago: new Date().toISOString().split('T')[0],
+    monto: '',
+    numeroPlanilla: '',
+    referenciaBancaria: '',
+    banco: '',
+    notes: '',
+  });
+  const [newPagoImage, setNewPagoImage] = useState<File | null>(null);
+  const [savingNewPago, setSavingNewPago] = useState(false);
+  const newPagoFileRef = useRef<HTMLInputElement>(null);
+
   // Simulador state
   const [simuladorInput, setSimuladorInput] = useState<MarginSimulatorInput>({
     costo: 0,
@@ -331,6 +352,66 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
     return dashboardData?.pagosSeniat?.find(p =>
       p.tipoPago === tipoPago && p.concepto === concepto && (quincena == null ? true : p.quincena === quincena)
     );
+  };
+
+  // =====================
+  // Pagos Tab Functions
+  // =====================
+
+  const loadPagosTab = useCallback(async () => {
+    setPagosTabLoading(true);
+    try {
+      const response = await fetch(`/api/fiscal/pagos-seniat?year=${pagosTabYear}`, {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setPagosTabData(data.pagos || []);
+      } else {
+        setError('Error cargando pagos');
+      }
+    } catch {
+      setError('Error de conexión');
+    } finally {
+      setPagosTabLoading(false);
+    }
+  }, [pagosTabYear]);
+
+  const handleCreateExtraPago = async () => {
+    if (!newPagoForm.monto || !newPagoForm.concepto) return;
+    setSavingNewPago(true);
+    try {
+      const formData = new FormData();
+      formData.append('periodo', newPagoForm.periodo);
+      formData.append('tipoPago', 'otro');
+      formData.append('concepto', newPagoForm.concepto);
+      formData.append('fechaPago', newPagoForm.fechaPago);
+      formData.append('monto', newPagoForm.monto);
+      if (newPagoForm.numeroPlanilla) formData.append('numeroPlanilla', newPagoForm.numeroPlanilla);
+      if (newPagoForm.referenciaBancaria) formData.append('referenciaBancaria', newPagoForm.referenciaBancaria);
+      if (newPagoForm.banco) formData.append('banco', newPagoForm.banco);
+      if (newPagoForm.notes) formData.append('notes', newPagoForm.notes);
+      if (newPagoImage) formData.append('image', newPagoImage);
+
+      const response = await fetch('/api/fiscal/pagos-seniat', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSuccess('Pago registrado');
+        setShowNewPagoModal(false);
+        setNewPagoImage(null);
+        loadPagosTab();
+      } else {
+        setError(data.error || 'Error al registrar pago');
+      }
+    } catch {
+      setError('Error de conexión');
+    } finally {
+      setSavingNewPago(false);
+    }
   };
 
   // =====================
@@ -1721,8 +1802,11 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
       case 'retenciones':
         loadRetenciones();
         break;
+      case 'pagos':
+        loadPagosTab();
+        break;
     }
-  }, [activeSubTab, loadDashboard, loadProveedores, loadReportesZ, loadFacturas, loadRetenciones, proveedores.length]);
+  }, [activeSubTab, loadDashboard, loadProveedores, loadReportesZ, loadFacturas, loadRetenciones, loadPagosTab, proveedores.length]);
 
   // =====================
   // Render Helpers
@@ -2760,6 +2844,241 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
     </div>
   );
 
+  const renderPagos = () => {
+    // Agrupar pagos por período
+    const byPeriod: Record<string, FiscalPagoSeniat[]> = {};
+    for (const p of pagosTabData) {
+      if (!byPeriod[p.periodo]) byPeriod[p.periodo] = [];
+      byPeriod[p.periodo].push(p);
+    }
+    const periods = Object.keys(byPeriod).sort((a, b) => b.localeCompare(a));
+    const rate = bcvRate?.rate || 1;
+
+    // Totales del año
+    const totalBsYear = pagosTabData.reduce((s, p) => s + p.monto, 0);
+
+    // Conceptos extras (no vinculados a las tarjetas del dashboard)
+    const EXTRA_CONCEPTOS: { value: ConceptoPago; label: string }[] = [
+      { value: 'multa', label: 'Multa' },
+      { value: 'islr_anual', label: 'ISLR anual' },
+      { value: 'grandes_patrimonios', label: 'Grandes Patrimonios' },
+      { value: 'retencion_iva', label: 'Ret. IVA (extra)' },
+      { value: 'retencion_islr', label: 'Ret. ISLR (extra)' },
+      { value: 'igtf', label: 'IGTF (extra)' },
+      { value: 'iva_neto', label: 'IVA neto (extra)' },
+      { value: 'sumat', label: 'SUMAT (extra)' },
+      { value: 'otro', label: 'Otro' },
+    ];
+
+    return (
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-semibold text-ocean-900">Historial de Pagos</h2>
+          <div className="flex items-center gap-3">
+            <select
+              value={pagosTabYear}
+              onChange={e => setPagosTabYear(e.target.value)}
+              className="px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-1 focus:ring-ocean-500 outline-none"
+            >
+              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => {
+                setShowNewPagoModal(true);
+                setNewPagoForm(f => ({
+                  ...f,
+                  periodo: `${pagosTabYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}`,
+                  fechaPago: new Date().toISOString().split('T')[0],
+                  monto: '',
+                  numeroPlanilla: '',
+                  referenciaBancaria: '',
+                  banco: '',
+                  notes: '',
+                  concepto: 'multa' as ConceptoPago,
+                }));
+                setNewPagoImage(null);
+              }}
+              className="px-4 py-2 bg-ocean-600 text-white rounded-lg text-sm font-semibold hover:bg-ocean-700"
+            >
+              + Agregar pago
+            </button>
+          </div>
+        </div>
+
+        {/* Resumen año */}
+        {pagosTabData.length > 0 && (
+          <div className="bg-ocean-50 rounded-xl p-4 flex flex-wrap gap-6">
+            <div>
+              <p className="text-xs text-ocean-500">Total {pagosTabYear} (Bs)</p>
+              <p className="text-lg font-bold text-ocean-900 font-mono">{formatBs(totalBsYear)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-ocean-500">Equivalente USD (tasa {rate.toFixed(2)})</p>
+              <p className="text-lg font-bold text-green-700 font-mono">{formatUSD(totalBsYear / rate)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-ocean-500">Pagos registrados</p>
+              <p className="text-lg font-bold text-ocean-900">{pagosTabData.length}</p>
+            </div>
+          </div>
+        )}
+
+        {pagosTabLoading ? (
+          <div className="text-center py-8 text-ocean-500">Cargando...</div>
+        ) : periods.length === 0 ? (
+          <div className="text-center py-12 text-ocean-400">No hay pagos registrados en {pagosTabYear}</div>
+        ) : (
+          periods.map(periodo => {
+            const pagos = byPeriod[periodo];
+            const totalBs = pagos.reduce((s, p) => s + p.monto, 0);
+            const [y, m] = periodo.split('-');
+            const mesLabel = `${MESES_ES[parseInt(m) - 1]} ${y}`;
+
+            return (
+              <div key={periodo} className="bg-white rounded-xl shadow-sm border border-ocean-100 overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-3 bg-ocean-50 border-b border-ocean-100">
+                  <h3 className="font-semibold text-ocean-900">{mesLabel}</h3>
+                  <div className="flex gap-4 text-sm">
+                    <span className="font-mono font-semibold text-ocean-800">{formatBs(totalBs)}</span>
+                    <span className="font-mono font-semibold text-green-700">{formatUSD(totalBs / rate)}</span>
+                  </div>
+                </div>
+                <div className="divide-y divide-ocean-50">
+                  {pagos.map(p => (
+                    <div key={p.id} className="flex items-center justify-between px-5 py-3 hover:bg-ocean-50/50">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold whitespace-nowrap ${
+                          p.tipoPago === 'otro' ? 'bg-purple-100 text-purple-700' :
+                          p.tipoPago === 'pago1' ? 'bg-sky-100 text-sky-700' :
+                          p.tipoPago === 'pago2' ? 'bg-indigo-100 text-indigo-700' :
+                          'bg-rose-100 text-rose-700'
+                        }`}>
+                          {p.concepto ? (CONCEPTO_LABELS[p.concepto] || p.concepto) : p.tipoPago}
+                        </span>
+                        {p.quincena && <span className="text-[10px] text-ocean-400">Q{p.quincena}</span>}
+                        <span className="text-xs text-ocean-500 truncate">{formatDateDMY(p.fechaPago)}</span>
+                        {p.banco && <span className="text-xs text-ocean-400 hidden sm:inline">· {p.banco}</span>}
+                        {p.notes && <span className="text-xs text-ocean-400 hidden md:inline truncate">· {p.notes}</span>}
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <div className="text-right">
+                          <p className="font-mono text-sm font-semibold text-ocean-900">{formatBs(p.monto)}</p>
+                          <p className="font-mono text-xs text-green-600">{formatUSD(p.monto / rate)}</p>
+                        </div>
+                        <div className="flex gap-1">
+                          {p.imageUrl && (
+                            <button onClick={() => setViewingPago(p)} className="text-ocean-400 hover:text-ocean-600 text-xs">
+                              ver
+                            </button>
+                          )}
+                          <button onClick={() => handleDeletePago(p.id)} className="text-red-400 hover:text-red-600 text-xs">
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })
+        )}
+
+        {/* Modal: Nuevo Pago Extra */}
+        {showNewPagoModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowNewPagoModal(false)}>
+            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-ocean-900">Agregar pago</h3>
+                  <button onClick={() => setShowNewPagoModal(false)} className="text-ocean-400 hover:text-ocean-600 text-xl">&times;</button>
+                </div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-ocean-700 mb-1">Período</label>
+                      <input type="month" value={newPagoForm.periodo}
+                        onChange={e => setNewPagoForm(f => ({ ...f, periodo: e.target.value }))}
+                        className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-1 focus:ring-ocean-500 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-ocean-700 mb-1">Concepto</label>
+                      <select value={newPagoForm.concepto}
+                        onChange={e => setNewPagoForm(f => ({ ...f, concepto: e.target.value as ConceptoPago }))}
+                        className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-1 focus:ring-ocean-500 outline-none">
+                        {EXTRA_CONCEPTOS.map(c => (
+                          <option key={c.value} value={c.value}>{c.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-ocean-700 mb-1">Fecha de pago</label>
+                      <input type="date" value={newPagoForm.fechaPago}
+                        onChange={e => setNewPagoForm(f => ({ ...f, fechaPago: e.target.value }))}
+                        className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-1 focus:ring-ocean-500 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-ocean-700 mb-1">Monto (Bs)</label>
+                      <input type="number" step="0.01" min="0" value={newPagoForm.monto}
+                        onChange={e => setNewPagoForm(f => ({ ...f, monto: e.target.value }))}
+                        className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-1 focus:ring-ocean-500 outline-none font-mono" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-ocean-700 mb-1">Número de planilla</label>
+                    <input type="text" value={newPagoForm.numeroPlanilla}
+                      onChange={e => setNewPagoForm(f => ({ ...f, numeroPlanilla: e.target.value }))}
+                      className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-1 focus:ring-ocean-500 outline-none" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-ocean-700 mb-1">Referencia bancaria</label>
+                      <input type="text" value={newPagoForm.referenciaBancaria}
+                        onChange={e => setNewPagoForm(f => ({ ...f, referenciaBancaria: e.target.value }))}
+                        className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-1 focus:ring-ocean-500 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-ocean-700 mb-1">Banco</label>
+                      <input type="text" value={newPagoForm.banco}
+                        onChange={e => setNewPagoForm(f => ({ ...f, banco: e.target.value }))}
+                        className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-1 focus:ring-ocean-500 outline-none" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-ocean-700 mb-1">Nota (opcional)</label>
+                    <input type="text" value={newPagoForm.notes}
+                      onChange={e => setNewPagoForm(f => ({ ...f, notes: e.target.value }))}
+                      className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-1 focus:ring-ocean-500 outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-ocean-700 mb-1">Comprobante (imagen)</label>
+                    <input ref={newPagoFileRef} type="file" accept="image/*"
+                      onChange={e => setNewPagoImage(e.target.files?.[0] || null)}
+                      className="w-full text-sm text-ocean-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-ocean-100 file:text-ocean-700 hover:file:bg-ocean-200" />
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <button onClick={() => setShowNewPagoModal(false)} className="flex-1 py-2 px-4 rounded-lg border border-ocean-200 text-ocean-700 text-sm hover:bg-ocean-50">
+                      Cancelar
+                    </button>
+                    <button onClick={handleCreateExtraPago} disabled={savingNewPago || !newPagoForm.monto}
+                      className="flex-1 py-2 px-4 rounded-lg bg-ocean-600 text-white text-sm font-semibold hover:bg-ocean-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                      {savingNewPago ? 'Guardando...' : 'Guardar pago'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderSimulador = () => (
     <div className="max-w-2xl mx-auto space-y-6">
       <h2 className="text-xl font-semibold text-ocean-900">Simulador de Margen Fiscal</h2>
@@ -3694,6 +4013,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
         {activeSubTab === 'reportes-z' && renderReportesZ()}
         {activeSubTab === 'facturas' && renderFacturas()}
         {activeSubTab === 'retenciones' && renderRetenciones()}
+        {activeSubTab === 'pagos' && renderPagos()}
         {activeSubTab === 'simulador' && renderSimulador()}
         {activeSubTab === 'consultas' && renderConsultas()}
       </div>
