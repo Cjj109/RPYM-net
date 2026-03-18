@@ -2136,7 +2136,80 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
             </div>
           )}
         </div>
-        <EstimacionDeclaraciones dashboardData={dashboardData} dashboardPeriod={dashboardPeriod} />
+        {/* ── Estimación inline ── */}
+        {(() => {
+          const emptyQ = { retencionIva: 0, retencionIslr: 0, igtfCompras: 0, igtfVentas: 0, ventasBs: 0, ivaDebito: 0, ivaCredito: 0, facturasCount: 0, reportesZCount: 0 };
+          const eq1 = (dashboardData as any).estimacionQ1 ?? emptyQ;
+          const eq2 = (dashboardData as any).estimacionQ2 ?? emptyQ;
+          const ivN = dashboardData.ivaBalance ?? 0;
+          const pgos = dashboardData.pagosSeniat ?? [];
+
+          const paid = (tp: string, con: string, q: number | null) => {
+            const p = pgos.find((pg: any) => pg.tipoPago === tp && pg.concepto === con && (q == null ? true : pg.quincena === q));
+            return p ? p.monto : 0;
+          };
+          const naCheck = (tp: string, con: string, q: number | null) => {
+            const p = pgos.find((pg: any) => pg.tipoPago === tp && pg.concepto === con && (q == null ? true : pg.quincena === q));
+            return !!p && p.monto === 0 && p.notes === 'No aplica';
+          };
+
+          const rows = [
+            { titulo: '1er Pago — Q2 (16-fin)', color: 'sky', items: [
+              { l: 'Ret. IVA', est: eq2.retencionIva, pag: paid('pago1','retencion_iva',2), na: naCheck('pago1','retencion_iva',2) },
+              { l: 'Ret. ISLR', est: eq2.retencionIslr, pag: paid('pago1','retencion_islr',2), na: naCheck('pago1','retencion_islr',2) },
+              { l: 'IGTF', est: eq2.igtfCompras + eq2.igtfVentas, pag: paid('pago1','igtf',2), na: naCheck('pago1','igtf',2) },
+              { l: 'IVA neto', est: ivN > 0 ? ivN : 0, pag: paid('pago1','iva_neto',null), na: naCheck('pago1','iva_neto',null) },
+            ]},
+            { titulo: '2do Pago — Q1 (1-15)', color: 'indigo', items: [
+              { l: 'Ret. IVA', est: eq1.retencionIva, pag: paid('pago2','retencion_iva',1), na: naCheck('pago2','retencion_iva',1) },
+              { l: 'Ret. ISLR', est: eq1.retencionIslr, pag: paid('pago2','retencion_islr',1), na: naCheck('pago2','retencion_islr',1) },
+              { l: 'IGTF', est: eq1.igtfCompras + eq1.igtfVentas, pag: paid('pago2','igtf',1), na: naCheck('pago2','igtf',1) },
+            ]},
+            { titulo: 'SUMAT', color: 'rose', items: [
+              { l: 'SUMAT (2.5%)', est: dashboardData.sumatPendiente ?? 0, pag: paid('sumat','sumat',null), na: naCheck('sumat','sumat',null) },
+            ]},
+          ];
+
+          return (
+            <div className="mt-4 bg-white rounded-xl p-6 shadow-sm border border-ocean-200">
+              <h3 className="text-base font-semibold text-ocean-900 mb-4">Estimación de declaraciones</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {rows.map(card => {
+                  const totalEst = card.items.reduce((s, i) => s + (i.na ? 0 : i.est), 0);
+                  const totalPag = card.items.reduce((s, i) => s + i.pag, 0);
+                  const pend = Math.max(totalEst - totalPag, 0);
+                  return (
+                    <div key={card.titulo}>
+                      <h4 className="text-sm font-semibold text-ocean-800 mb-2">{card.titulo}</h4>
+                      <div className="space-y-1">
+                        {card.items.map(item => {
+                          const iPend = item.na ? 0 : Math.max(item.est - item.pag, 0);
+                          return (
+                            <div key={item.l} className="flex justify-between text-sm">
+                              <span className={item.na ? 'text-gray-400 line-through' : 'text-ocean-700'}>{item.l}</span>
+                              <span className={`font-mono ${item.na ? 'text-gray-400' : iPend > 0 ? 'text-amber-700 font-semibold' : 'text-green-600'}`}>
+                                {item.na ? 'N/A' : iPend > 0 ? formatBs(iPend) : '✓ Pagado'}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-ocean-100 flex justify-between">
+                        <span className="text-xs text-ocean-500">Pendiente</span>
+                        <span className={`font-mono font-bold ${pend > 0 ? 'text-amber-800' : 'text-green-700'}`}>
+                          {pend > 0 ? formatBs(pend) : '✓'}
+                        </span>
+                      </div>
+                      {pend > 0 && dashboardData.bcvRate > 0 && (
+                        <div className="text-right text-[10px] text-ocean-400 font-mono">≈ {formatUSD(pend / dashboardData.bcvRate)}</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
         </>
       ) : null}
 
