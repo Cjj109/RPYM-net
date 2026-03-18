@@ -29,8 +29,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // Verify target exists
     const target = await db.prepare(
-      'SELECT id FROM compras_proveedores WHERE id = ? AND is_active = 1'
-    ).bind(targetId).first();
+      'SELECT id, monto_total FROM compras_proveedores WHERE id = ? AND is_active = 1'
+    ).bind(targetId).first<{ id: number; monto_total: number }>();
 
     if (!target) {
       return new Response(JSON.stringify({ success: false, error: 'Compra destino no encontrada' }), {
@@ -38,7 +38,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    // Move abonos and soft-delete sources atomically
+    // Sum monto_total from source compras to add to target
+    const sourcePlaceholders = filteredSourceIds.map(() => '?').join(',');
+    const sourceSum = await db.prepare(
+      `SELECT COALESCE(SUM(monto_total), 0) as total FROM compras_proveedores WHERE id IN (${sourcePlaceholders}) AND is_active = 1`
+    ).bind(...filteredSourceIds).first<{ total: number }>();
+
+    const newMontoTotal = target.monto_total + (sourceSum?.total || 0);
+
+    // Move abonos, update target total, and soft-delete sources atomically
     const statements = [];
 
     // Move all active abonos from sources to target
@@ -50,11 +58,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
       );
     }
 
-    // Soft-delete source compras
-    const placeholders = filteredSourceIds.map(() => '?').join(',');
+    // Update target monto_total with combined amount
     statements.push(
       db.prepare(
-        `UPDATE compras_proveedores SET is_active = 0, updated_at = datetime('now') WHERE id IN (${placeholders})`
+        "UPDATE compras_proveedores SET monto_total = ?, updated_at = datetime('now') WHERE id = ?"
+      ).bind(newMontoTotal, targetId)
+    );
+
+    // Soft-delete source compras
+    statements.push(
+      db.prepare(
+        `UPDATE compras_proveedores SET is_active = 0, updated_at = datetime('now') WHERE id IN (${sourcePlaceholders})`
       ).bind(...filteredSourceIds)
     );
 
