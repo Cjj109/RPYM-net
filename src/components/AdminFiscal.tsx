@@ -20,6 +20,7 @@ import type {
   MarginSimulatorResult,
   TipoPagoSeniat,
   ConceptoPago,
+  EstimacionQuincena,
 } from '../lib/fiscal-types';
 import {
   FISCAL_CONSTANTS,
@@ -2003,6 +2004,183 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
         </div>
       ) : null}
 
+      {/* ── Estimación de próximas declaraciones ── */}
+      {dashboardData && (() => {
+        const { pago1, pago2 } = getSeniatDueDates(dashboardPeriod);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const [yStr, mStr] = dashboardPeriod.split('-');
+        const currentDay = today.getDate();
+        const isCurrentMonth = today.getFullYear() === parseInt(yStr) && (today.getMonth() + 1) === parseInt(mStr);
+
+        const q1 = dashboardData.estimacionQ1;
+        const q2 = dashboardData.estimacionQ2;
+
+        // IVA neto mensual = total débito - total crédito
+        const ivaNeto = dashboardData.ivaBalance;
+
+        // Helper: check if a payment was made (and is not N/A)
+        const pagadoReal = (tipoPago: TipoPagoSeniat, concepto: ConceptoPago, quincena: number | null): number => {
+          const p = dashboardData.pagosSeniat.find(
+            pg => pg.tipoPago === tipoPago && pg.concepto === concepto && (quincena == null ? true : pg.quincena === quincena)
+          );
+          return p ? p.monto : 0;
+        };
+        const isNA = (tipoPago: TipoPagoSeniat, concepto: ConceptoPago, quincena: number | null): boolean => {
+          const p = dashboardData.pagosSeniat.find(
+            pg => pg.tipoPago === tipoPago && pg.concepto === concepto && (quincena == null ? true : pg.quincena === quincena)
+          );
+          return !!p && p.monto === 0 && p.notes === 'No aplica';
+        };
+
+        // Pago 1 (Q2: retenciones 16-fin mes anterior + IVA mensual)
+        const pago1Lines = [
+          { label: 'Ret. IVA (Q2)', estimado: q2.retencionIva, pagado: pagadoReal('pago1', 'retencion_iva', 2), na: isNA('pago1', 'retencion_iva', 2) },
+          { label: 'Ret. ISLR (Q2)', estimado: q2.retencionIslr, pagado: pagadoReal('pago1', 'retencion_islr', 2), na: isNA('pago1', 'retencion_islr', 2) },
+          { label: 'IGTF (Q2)', estimado: q2.igtfCompras + q2.igtfVentas, pagado: pagadoReal('pago1', 'igtf', 2), na: isNA('pago1', 'igtf', 2) },
+          { label: 'IVA neto mensual', estimado: ivaNeto > 0 ? ivaNeto : 0, pagado: pagadoReal('pago1', 'iva_neto', null), na: isNA('pago1', 'iva_neto', null) },
+        ];
+
+        // Pago 2 (Q1: retenciones 1-15 mes actual)
+        const pago2Lines = [
+          { label: 'Ret. IVA (Q1)', estimado: q1.retencionIva, pagado: pagadoReal('pago2', 'retencion_iva', 1), na: isNA('pago2', 'retencion_iva', 1) },
+          { label: 'Ret. ISLR (Q1)', estimado: q1.retencionIslr, pagado: pagadoReal('pago2', 'retencion_islr', 1), na: isNA('pago2', 'retencion_islr', 1) },
+          { label: 'IGTF (Q1)', estimado: q1.igtfCompras + q1.igtfVentas, pagado: pagadoReal('pago2', 'igtf', 1), na: isNA('pago2', 'igtf', 1) },
+        ];
+
+        // SUMAT mensual
+        const sumatEstimado = dashboardData.sumatPendiente;
+        const sumatPagado = pagadoReal('sumat', 'sumat', null);
+        const sumatNA = isNA('sumat', 'sumat', null);
+
+        const totalEstimadoPago1 = pago1Lines.reduce((s, l) => s + (l.na ? 0 : l.estimado), 0);
+        const totalPagadoPago1 = pago1Lines.reduce((s, l) => s + l.pagado, 0);
+        const totalEstimadoPago2 = pago2Lines.reduce((s, l) => s + (l.na ? 0 : l.estimado), 0);
+        const totalPagadoPago2 = pago2Lines.reduce((s, l) => s + l.pagado, 0);
+
+        const isPago1Paid = pago1Lines.every(l => l.pagado > 0 || l.na);
+        const isPago2Paid = pago2Lines.every(l => l.pagado > 0 || l.na);
+
+        // Determine "next" payment
+        const isPago1Past = pago1 < today;
+        const isPago2Past = pago2 < today;
+
+        const EstLine = ({ label, estimado, pagado, na }: { label: string; estimado: number; pagado: number; na: boolean }) => {
+          const pendiente = na ? 0 : Math.max(estimado - pagado, 0);
+          return (
+            <div className="flex items-center justify-between py-1 text-sm">
+              <span className={na ? 'text-gray-400 line-through' : pagado >= estimado && estimado > 0 ? 'text-green-700' : 'text-ocean-800'}>
+                {label}
+              </span>
+              <div className="flex items-center gap-3 font-mono">
+                {na ? (
+                  <span className="text-gray-400 text-xs">N/A</span>
+                ) : (
+                  <>
+                    <span className="text-ocean-600 text-xs" title="Estimado">{formatBs(estimado)}</span>
+                    {pagado > 0 && <span className="text-green-600 text-xs" title="Pagado">-{formatBs(pagado)}</span>}
+                    <span className={`font-semibold ${pendiente > 0 ? 'text-amber-700' : 'text-green-700'}`}>
+                      {pendiente > 0 ? formatBs(pendiente) : '✓'}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        };
+
+        const EstCard = ({ title, subtitle, lines, totalEstimado, totalPagado, allPaid, isPast, accentColor }: {
+          title: string; subtitle: string; lines: typeof pago1Lines;
+          totalEstimado: number; totalPagado: number; allPaid: boolean; isPast: boolean;
+          accentColor: string;
+        }) => {
+          const pendienteTotal = Math.max(totalEstimado - totalPagado, 0);
+          const isAccumulating = isCurrentMonth && !isPast;
+          return (
+            <div className={`rounded-xl p-5 shadow-sm border ${allPaid ? 'border-green-200 bg-green-50/50' : `border-${accentColor}-200 bg-gradient-to-br from-white to-${accentColor}-50`}`}>
+              <div className="flex items-center justify-between mb-1">
+                <h4 className={`text-xs font-semibold uppercase tracking-wide ${allPaid ? 'text-green-700' : `text-${accentColor}-700`}`}>
+                  {title}
+                </h4>
+                {isAccumulating && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium animate-pulse">
+                    En curso
+                  </span>
+                )}
+                {allPaid && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
+                    Pagado
+                  </span>
+                )}
+              </div>
+              <p className="text-[10px] text-ocean-500 mb-3">{subtitle}</p>
+              <div className="space-y-0.5">
+                {lines.map(l => <EstLine key={l.label} {...l} />)}
+              </div>
+              <div className={`mt-3 pt-2 border-t ${allPaid ? 'border-green-200' : 'border-ocean-200'} flex items-center justify-between`}>
+                <span className="text-xs font-medium text-ocean-600">Total pendiente</span>
+                <span className={`font-mono font-bold text-lg ${pendienteTotal > 0 ? 'text-amber-800' : 'text-green-700'}`}>
+                  {pendienteTotal > 0 ? formatBs(pendienteTotal) : '✓ Completo'}
+                </span>
+              </div>
+              {pendienteTotal > 0 && dashboardData.bcvRate > 0 && (
+                <div className="text-right">
+                  <span className="text-[10px] text-ocean-500 font-mono">
+                    ≈ {formatUSD(pendienteTotal / dashboardData.bcvRate)}
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        };
+
+        return (
+          <div className="mt-6">
+            <h3 className="text-base font-semibold text-ocean-900 mb-1">
+              Estimación de declaraciones
+            </h3>
+            <p className="text-xs text-ocean-500 mb-3">
+              Montos estimados en tiempo real según facturas y reportes Z registrados. Se actualiza al agregar datos.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <EstCard
+                title="1er Pago"
+                subtitle={`Ret. Q2 (16-fin) + IVA mensual — ${q2.facturasCount} fact., ${q2.reportesZCount + q1.reportesZCount} rep. Z`}
+                lines={pago1Lines}
+                totalEstimado={totalEstimadoPago1}
+                totalPagado={totalPagadoPago1}
+                allPaid={isPago1Paid}
+                isPast={isPago1Past}
+                accentColor="sky"
+              />
+              <EstCard
+                title="2do Pago"
+                subtitle={`Ret. Q1 (1-15) — ${q1.facturasCount} fact., ${q1.reportesZCount} rep. Z`}
+                lines={pago2Lines}
+                totalEstimado={totalEstimadoPago2}
+                totalPagado={totalPagadoPago2}
+                allPaid={isPago2Paid}
+                isPast={isPago2Past}
+                accentColor="indigo"
+              />
+              <div className={`rounded-xl p-5 shadow-sm border ${sumatPagado > 0 || sumatNA ? 'border-green-200 bg-green-50/50' : 'border-rose-200 bg-gradient-to-br from-white to-rose-50'}`}>
+                <h4 className={`text-xs font-semibold uppercase tracking-wide mb-1 ${sumatPagado > 0 || sumatNA ? 'text-green-700' : 'text-rose-700'}`}>
+                  SUMAT
+                </h4>
+                <p className="text-[10px] text-ocean-500 mb-3">2.5% ventas — declaración mensual</p>
+                <EstLine label="SUMAT (2.5% ventas)" estimado={sumatEstimado} pagado={sumatPagado} na={sumatNA} />
+                <div className={`mt-3 pt-2 border-t ${sumatPagado > 0 || sumatNA ? 'border-green-200' : 'border-rose-200'} flex items-center justify-between`}>
+                  <span className="text-xs font-medium text-ocean-600">Pendiente</span>
+                  <span className={`font-mono font-bold text-lg ${!sumatNA && sumatEstimado - sumatPagado > 0 ? 'text-amber-800' : 'text-green-700'}`}>
+                    {sumatNA ? '✓ N/A' : sumatEstimado - sumatPagado > 0 ? formatBs(sumatEstimado - sumatPagado) : '✓ Completo'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── Calendario SENIAT ── */}
       {(() => {
         const { pago1, pago2, labelPago1, labelPago2 } = getSeniatDueDates(dashboardPeriod);
@@ -2011,9 +2189,9 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
         const isPago1Past = pago1 < today;
         const isPago2Past = pago2 < today;
 
-        const retIva  = dashboardData?.retencionIvaTotal ?? 0;
-        const retIslr = dashboardData?.anticipoIslrAcumulado ?? 0;
-        const igtf    = (dashboardData?.igtfPagado ?? 0) + (dashboardData?.igtfVentasCobrado ?? 0);
+        // Montos desglosados por quincena
+        const estQ1 = dashboardData?.estimacionQ1;
+        const estQ2 = dashboardData?.estimacionQ2;
         const ivaNet  = dashboardData?.ivaBalance ?? 0;
         const sumat   = dashboardData?.sumatPendiente ?? 0;
 
@@ -2031,16 +2209,18 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
 
         type LineItem = { label: string; concepto: ConceptoPago; monto: number; tipoPago: TipoPagoSeniat; quincena: number | null };
 
+        // Pago 1: retenciones Q2 (16-fin mes anterior) + IVA mensual
         const pago1Items: LineItem[] = [
-          { label: 'Ret. IVA', concepto: 'retencion_iva', monto: retIva, tipoPago: 'pago1', quincena: 2 },
-          { label: 'Ret. ISLR', concepto: 'retencion_islr', monto: retIslr, tipoPago: 'pago1', quincena: 2 },
-          { label: 'IGTF', concepto: 'igtf', monto: igtf, tipoPago: 'pago1', quincena: 2 },
-          { label: 'IVA neto mensual', concepto: 'iva_neto', monto: ivaNet, tipoPago: 'pago1', quincena: null },
+          { label: 'Ret. IVA (Q2)', concepto: 'retencion_iva', monto: estQ2?.retencionIva ?? 0, tipoPago: 'pago1', quincena: 2 },
+          { label: 'Ret. ISLR (Q2)', concepto: 'retencion_islr', monto: estQ2?.retencionIslr ?? 0, tipoPago: 'pago1', quincena: 2 },
+          { label: 'IGTF (Q2)', concepto: 'igtf', monto: (estQ2?.igtfCompras ?? 0) + (estQ2?.igtfVentas ?? 0), tipoPago: 'pago1', quincena: 2 },
+          { label: 'IVA neto mensual', concepto: 'iva_neto', monto: ivaNet > 0 ? ivaNet : 0, tipoPago: 'pago1', quincena: null },
         ];
+        // Pago 2: retenciones Q1 (1-15 mes actual)
         const pago2Items: LineItem[] = [
-          { label: 'Ret. IVA', concepto: 'retencion_iva', monto: retIva, tipoPago: 'pago2', quincena: 1 },
-          { label: 'Ret. ISLR', concepto: 'retencion_islr', monto: retIslr, tipoPago: 'pago2', quincena: 1 },
-          { label: 'IGTF', concepto: 'igtf', monto: igtf, tipoPago: 'pago2', quincena: 1 },
+          { label: 'Ret. IVA (Q1)', concepto: 'retencion_iva', monto: estQ1?.retencionIva ?? 0, tipoPago: 'pago2', quincena: 1 },
+          { label: 'Ret. ISLR (Q1)', concepto: 'retencion_islr', monto: estQ1?.retencionIslr ?? 0, tipoPago: 'pago2', quincena: 1 },
+          { label: 'IGTF (Q1)', concepto: 'igtf', monto: (estQ1?.igtfCompras ?? 0) + (estQ1?.igtfVentas ?? 0), tipoPago: 'pago2', quincena: 1 },
         ];
         const sumatItems: LineItem[] = [
           { label: 'SUMAT (2.5% ventas)', concepto: 'sumat', monto: sumat, tipoPago: 'sumat', quincena: null },

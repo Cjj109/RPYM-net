@@ -294,6 +294,23 @@ export interface FiscalDashboardData {
 
   // Pagos SENIAT
   pagosSeniat: FiscalPagoSeniat[];
+
+  // Estimaciones por quincena
+  estimacionQ1: EstimacionQuincena; // Facturas/ventas del 1-15
+  estimacionQ2: EstimacionQuincena; // Facturas/ventas del 16-fin
+}
+
+/** Desglose de obligaciones por quincena para estimación */
+export interface EstimacionQuincena {
+  retencionIva: number;
+  retencionIslr: number;
+  igtfCompras: number;
+  igtfVentas: number;
+  ventasBs: number;
+  ivaDebito: number;
+  ivaCredito: number;
+  facturasCount: number;
+  reportesZCount: number;
 }
 
 // =====================

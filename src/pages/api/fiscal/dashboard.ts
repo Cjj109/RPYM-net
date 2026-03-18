@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { requireAuth } from '../../../lib/require-auth';
-import { transformPagoSeniat, type D1FiscalPagoSeniat, type FiscalDashboardData } from '../../../lib/fiscal-types';
+import { transformPagoSeniat, type D1FiscalPagoSeniat, type FiscalDashboardData, type EstimacionQuincena } from '../../../lib/fiscal-types';
 
 export const prerender = false;
 
@@ -78,6 +78,50 @@ export const GET: APIRoute = async ({ request, locals }) => {
       WHERE periodo_fiscal = ?
     `).bind(periodo).first<{ count: number }>();
 
+    // ── Quincena split: facturas de compra por quincena ──
+    const facturaQ1 = await db.prepare(`
+      SELECT
+        COALESCE(SUM(retencion_iva), 0) as ret_iva,
+        COALESCE(SUM(anticipo_islr), 0) as ret_islr,
+        COALESCE(SUM(CASE WHEN igtf IS NOT NULL THEN igtf ELSE 0 END), 0) as igtf,
+        COALESCE(SUM(iva), 0) as iva_credito,
+        COUNT(*) as cnt
+      FROM fiscal_facturas_compra
+      WHERE fecha_factura LIKE ? AND CAST(substr(fecha_factura, 9, 2) AS INTEGER) <= 15
+    `).bind(`${periodo}%`).first<{ ret_iva: number; ret_islr: number; igtf: number; iva_credito: number; cnt: number }>();
+
+    const facturaQ2 = await db.prepare(`
+      SELECT
+        COALESCE(SUM(retencion_iva), 0) as ret_iva,
+        COALESCE(SUM(anticipo_islr), 0) as ret_islr,
+        COALESCE(SUM(CASE WHEN igtf IS NOT NULL THEN igtf ELSE 0 END), 0) as igtf,
+        COALESCE(SUM(iva), 0) as iva_credito,
+        COUNT(*) as cnt
+      FROM fiscal_facturas_compra
+      WHERE fecha_factura LIKE ? AND CAST(substr(fecha_factura, 9, 2) AS INTEGER) > 15
+    `).bind(`${periodo}%`).first<{ ret_iva: number; ret_islr: number; igtf: number; iva_credito: number; cnt: number }>();
+
+    // ── Quincena split: Z reports (ventas/IGTF) por quincena ──
+    const zQ1 = await db.prepare(`
+      SELECT
+        COALESCE(SUM(total_ventas), 0) as ventas,
+        COALESCE(SUM(iva_cobrado), 0) as iva_debito,
+        COALESCE(SUM(igtf_ventas), 0) as igtf_ventas,
+        COUNT(*) as cnt
+      FROM fiscal_reportes_z
+      WHERE fecha LIKE ? AND CAST(substr(fecha, 9, 2) AS INTEGER) <= 15
+    `).bind(`${periodo}%`).first<{ ventas: number; iva_debito: number; igtf_ventas: number; cnt: number }>();
+
+    const zQ2 = await db.prepare(`
+      SELECT
+        COALESCE(SUM(total_ventas), 0) as ventas,
+        COALESCE(SUM(iva_cobrado), 0) as iva_debito,
+        COALESCE(SUM(igtf_ventas), 0) as igtf_ventas,
+        COUNT(*) as cnt
+      FROM fiscal_reportes_z
+      WHERE fecha LIKE ? AND CAST(substr(fecha, 9, 2) AS INTEGER) > 15
+    `).bind(`${periodo}%`).first<{ ventas: number; iva_debito: number; igtf_ventas: number; cnt: number }>();
+
     // Calculate dashboard data
     const totalVentasBs = zTotals?.total_ventas || 0;
     const ivaCobradoBs = zTotals?.iva_cobrado || 0;
@@ -137,6 +181,30 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
       // Pagos SENIAT
       pagosSeniat: pagosResult.results.map(transformPagoSeniat),
+
+      // Estimaciones por quincena
+      estimacionQ1: {
+        retencionIva: facturaQ1?.ret_iva || 0,
+        retencionIslr: facturaQ1?.ret_islr || 0,
+        igtfCompras: facturaQ1?.igtf || 0,
+        igtfVentas: zQ1?.igtf_ventas || 0,
+        ventasBs: zQ1?.ventas || 0,
+        ivaDebito: zQ1?.iva_debito || 0,
+        ivaCredito: facturaQ1?.iva_credito || 0,
+        facturasCount: facturaQ1?.cnt || 0,
+        reportesZCount: zQ1?.cnt || 0,
+      } satisfies EstimacionQuincena,
+      estimacionQ2: {
+        retencionIva: facturaQ2?.ret_iva || 0,
+        retencionIslr: facturaQ2?.ret_islr || 0,
+        igtfCompras: facturaQ2?.igtf || 0,
+        igtfVentas: zQ2?.igtf_ventas || 0,
+        ventasBs: zQ2?.ventas || 0,
+        ivaDebito: zQ2?.iva_debito || 0,
+        ivaCredito: facturaQ2?.iva_credito || 0,
+        facturasCount: facturaQ2?.cnt || 0,
+        reportesZCount: zQ2?.cnt || 0,
+      } satisfies EstimacionQuincena,
     };
 
     return new Response(JSON.stringify({
