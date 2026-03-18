@@ -264,6 +264,45 @@
     50% { opacity: 1; transform: scale(1.2); }
   }
 
+  /* === Banner Tricolor Campeones === */
+  .campeones-banner {
+    display: flex;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+  }
+
+  .campeones-banner-stripe:nth-child(1) { flex: 1; background: #FFD100; }
+  .campeones-banner-stripe:nth-child(2) { flex: 1; background: #003DA5; }
+  .campeones-banner-stripe:nth-child(3) { flex: 1; background: #CF142B; }
+
+  .campeones-header-icons {
+    display: flex;
+    justify-content: space-around;
+    position: absolute;
+    top: 6px;
+    left: 0;
+    right: 0;
+    padding: 0 8%;
+  }
+
+  .campeones-header-icon {
+    font-size: 1rem;
+    animation: campeones-header-bounce 2s ease-in-out infinite;
+    filter: drop-shadow(0 2px 4px rgba(255, 209, 0, 0.5));
+  }
+
+  .campeones-header-icon:nth-child(odd) {
+    animation-delay: 0.3s;
+  }
+
+  @keyframes campeones-header-bounce {
+    0%, 100% { opacity: 0.8; transform: scale(1) rotate(0deg); }
+    50% { opacity: 1; transform: scale(1.3) rotate(10deg); }
+  }
+
   /* Reduced motion */
   @media (prefers-reduced-motion: reduce) {
     .christmas-light,
@@ -272,7 +311,8 @@
     .header-bubble,
     .valentine-heart-icon,
     .halloween-pumpkin-icon,
-    .mundial-star-icon {
+    .mundial-star-icon,
+    .campeones-header-icon {
       animation: none;
     }
   }
@@ -356,6 +396,20 @@
         <span class="mundial-star-icon">⭐</span>
         <span class="mundial-star-icon">⭐</span>
         <span class="mundial-star-icon">⭐</span>
+      </div>
+    `,
+    campeones: () => `
+      <div class="campeones-banner">
+        <div class="campeones-banner-stripe"></div>
+        <div class="campeones-banner-stripe"></div>
+        <div class="campeones-banner-stripe"></div>
+      </div>
+      <div class="campeones-header-icons">
+        <span class="campeones-header-icon">⭐</span>
+        <span class="campeones-header-icon">🏆</span>
+        <span class="campeones-header-icon">⚾</span>
+        <span class="campeones-header-icon">🇻🇪</span>
+        <span class="campeones-header-icon">⭐</span>
       </div>
     `
   };

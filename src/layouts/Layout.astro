@@ -151,7 +151,7 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
     <script is:inline>
       (function() {
         var POLL_INTERVAL = 30000; // 30 seconds
-        var VALID_THEMES = ['ocean', 'carnival', 'christmas', 'easter', 'valentine', 'mundial', 'halloween'];
+        var VALID_THEMES = ['ocean', 'carnival', 'christmas', 'easter', 'valentine', 'mundial', 'halloween', 'campeones'];
 
         function applyTheme(theme) {
           if (!VALID_THEMES.includes(theme)) return;
@@ -165,7 +165,8 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
             easter: '#be185d',
             valentine: '#e11d48',
             mundial: '#16a34a',
-            halloween: '#f97316'
+            halloween: '#f97316',
+            campeones: '#003DA5'
           };
           var metaTheme = document.querySelector('meta[name="theme-color"]');
           if (metaTheme) metaTheme.setAttribute('content', themeColors[theme]);

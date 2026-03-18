@@ -75,6 +75,13 @@ const THEMES: ThemeConfig[] = [
     colors: ['#f97316', '#9333ea', '#1c1917'],
     icon: '🎃'
   },
+  {
+    id: 'campeones',
+    name: 'Campeones',
+    description: 'Venezuela Campeón Mundial ⚾🇻🇪',
+    colors: ['#FFD100', '#003DA5', '#CF142B'],
+    icon: '🏆'
+  },
 ];
 
 export default function AdminSettings({ currentBcvRate }: Props) {
@@ -150,7 +157,8 @@ export default function AdminSettings({ currentBcvRate }: Props) {
           easter: '#be185d',
           valentine: '#e11d48',
           mundial: '#16a34a',
-          halloween: '#f97316'
+          halloween: '#f97316',
+          campeones: '#003DA5'
         };
         document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColors[selectedTheme]);
 

@@ -146,6 +146,30 @@
   --theme-bg-to: #fefce8;
 }
 
+/* Campeones - Venezuela Campeón Mundial de Béisbol 🇻🇪🏆⚾ */
+[data-theme="campeones"] {
+  --theme-primary-50: #eef2ff;
+  --theme-primary-100: #e0e7ff;
+  --theme-primary-200: #c7d2fe;
+  --theme-primary-300: #a5b4fc;
+  --theme-primary-400: #818cf8;
+  --theme-primary-500: #2563eb;
+  --theme-primary-600: #1d4ed8;
+  --theme-primary-700: #1e40af;
+  --theme-primary-800: #1e3a8a;
+  --theme-primary-900: #172554;
+  --theme-primary-950: #0f172a;
+
+  --theme-accent-100: #fef9c3;
+  --theme-accent-300: #fde047;
+  --theme-accent-400: #facc15;
+  --theme-accent-500: #eab308;
+  --theme-accent-600: #ca8a04;
+
+  --theme-bg-from: #fefce8;
+  --theme-bg-to: #eef2ff;
+}
+
 /* Halloween - Naranja, Morado, Negro */
 [data-theme="halloween"] {
   --theme-primary-50: #fff7ed;
@@ -375,6 +399,83 @@
   color: #fbbf24;
   margin-right: 8px;
   text-shadow: 0 0 10px rgba(251, 191, 36, 0.6);
+}
+
+/* === CAMPEONES - CELEBRACIÓN VENEZUELA CAMPEÓN 🇻🇪 === */
+
+/* Fondo celebración con destellos tricolor */
+[data-theme="campeones"] body {
+  background:
+    radial-gradient(ellipse at 15% 15%, rgba(255, 209, 0, 0.1) 0%, transparent 40%),
+    radial-gradient(ellipse at 85% 20%, rgba(207, 20, 43, 0.07) 0%, transparent 35%),
+    radial-gradient(ellipse at 50% 80%, rgba(0, 61, 165, 0.06) 0%, transparent 45%),
+    radial-gradient(ellipse at 70% 50%, rgba(255, 209, 0, 0.05) 0%, transparent 30%),
+    linear-gradient(180deg, var(--theme-bg-from) 0%, var(--theme-bg-to) 100%) !important;
+}
+
+/* Cards con borde tricolor venezolano */
+[data-theme="campeones"] .themed-card {
+  position: relative;
+  border: 2px solid #1e40af !important;
+  box-shadow:
+    0 0 0 1px #1d4ed8,
+    0 4px 12px rgba(30, 64, 175, 0.2),
+    0 0 20px rgba(234, 179, 8, 0.12);
+}
+
+/* Barra tricolor superior en cards */
+[data-theme="campeones"] .themed-card::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -2px;
+  right: -2px;
+  height: 4px;
+  background: linear-gradient(90deg, #FFD100 0%, #FFD100 33%, #003DA5 33%, #003DA5 66%, #CF142B 66%, #CF142B 100%);
+  z-index: 5;
+  border-radius: 4px 4px 0 0;
+}
+
+/* Estrella dorada en esquina */
+[data-theme="campeones"] .themed-card::after {
+  content: '⭐';
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  font-size: 18px;
+  z-index: 5;
+  filter: drop-shadow(0 0 6px rgba(234, 179, 8, 0.8));
+  animation: champion-star-pulse 2s ease-in-out infinite;
+}
+
+/* Trofeo en headers */
+[data-theme="campeones"] h1::before,
+[data-theme="campeones"] h2::before {
+  content: '🏆';
+  margin-right: 8px;
+  filter: drop-shadow(0 0 8px rgba(234, 179, 8, 0.6));
+}
+
+[data-theme="campeones"] h1,
+[data-theme="campeones"] h2.font-display {
+  text-shadow: 0 0 15px rgba(234, 179, 8, 0.3);
+}
+
+/* Spotlight dorado en hero */
+[data-theme="campeones"] section.hero-section {
+  position: relative;
+}
+
+[data-theme="campeones"] section.hero-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 300px;
+  height: 400px;
+  background: radial-gradient(ellipse at center, rgba(255, 209, 0, 0.12) 0%, transparent 70%);
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 /* === HALLOWEEN - REDISEÑO COMPLETO MODO TERROR === */
@@ -1310,6 +1411,59 @@
 @keyframes trophy-pulse {
   0%, 100% { transform: scale(1); opacity: 0.8; }
   50% { transform: scale(1.2); opacity: 1; }
+}
+
+/* === CAMPEONES - Botones bandera venezolana === */
+[data-theme="campeones"] .themed-button,
+[data-theme="campeones"] a[href*="whatsapp"] {
+  background: linear-gradient(180deg, #FFD100 0%, #003DA5 45%, #CF142B 100%) !important;
+  border: 2px solid #FFD100 !important;
+  box-shadow:
+    0 4px 15px rgba(0, 61, 165, 0.4),
+    0 0 20px rgba(255, 209, 0, 0.2);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  color: white !important;
+  position: relative;
+  font-weight: bold;
+}
+
+/* Shine sweep tricolor */
+[data-theme="campeones"] .themed-button::before,
+[data-theme="campeones"] a[href*="whatsapp"]::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  animation: champion-shine 2.5s ease-in-out infinite;
+}
+
+@keyframes champion-shine {
+  0% { left: -100%; }
+  50%, 100% { left: 200%; }
+}
+
+/* Trofeo en botón */
+[data-theme="campeones"] .themed-button::after,
+[data-theme="campeones"] a[href*="whatsapp"]::after {
+  content: '🏆';
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  font-size: 14px;
+  animation: champion-star-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes champion-star-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.3); opacity: 1; }
 }
 
 /* === HALLOWEEN - Botones CALABAZA BRILLANTE con sangre === */
@@ -2364,6 +2518,192 @@ h1, h2, h3, h4, h5, h6 {
   color: rgba(251, 191, 36, 0.5);
 }
 
+/* === CAMPEONES - Confetti tricolor, pelotas y trofeos === */
+@keyframes campeones-fall {
+  0% {
+    transform: translateY(-100vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg);
+    opacity: 0.3;
+  }
+}
+
+@keyframes campeones-drift {
+  0%, 100% { margin-left: 0; }
+  25% { margin-left: 20px; }
+  75% { margin-left: -20px; }
+}
+
+@keyframes firework-sparkle {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* Confetti tricolor venezolano */
+.campeones-confetti {
+  --confetti-size: 8px;
+  position: fixed;
+  top: -50px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.campeones-confetti.yellow {
+  width: var(--confetti-size);
+  height: calc(var(--confetti-size) * 0.6);
+  background: linear-gradient(135deg, #FFD100 0%, #FFC107 100%);
+  box-shadow: 0 0 6px rgba(255, 209, 0, 0.5);
+}
+
+.campeones-confetti.blue {
+  width: var(--confetti-size);
+  height: calc(var(--confetti-size) * 0.6);
+  background: linear-gradient(135deg, #003DA5 0%, #1e40af 100%);
+  box-shadow: 0 0 6px rgba(0, 61, 165, 0.5);
+}
+
+.campeones-confetti.red {
+  width: var(--confetti-size);
+  height: calc(var(--confetti-size) * 0.6);
+  background: linear-gradient(135deg, #CF142B 0%, #EF3340 100%);
+  box-shadow: 0 0 6px rgba(207, 20, 43, 0.5);
+}
+
+/* Pelota de béisbol */
+.campeones-baseball {
+  --ball-size: 14px;
+  position: fixed;
+  top: -50px;
+  z-index: 2;
+  pointer-events: none;
+  width: var(--ball-size);
+  height: var(--ball-size);
+  background: radial-gradient(circle at 30% 30%, #ffffff 0%, #f5f5f0 60%, #e8e4d8 100%);
+  border-radius: 50%;
+  box-shadow:
+    inset 0 -2px 4px rgba(0, 0, 0, 0.1),
+    inset 0 2px 4px rgba(255, 255, 255, 0.8),
+    0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Costuras de la pelota */
+.campeones-baseball::before {
+  content: '';
+  position: absolute;
+  top: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(var(--ball-size) * 0.7);
+  height: calc(var(--ball-size) * 0.3);
+  border: 2px solid #CF142B;
+  border-bottom: none;
+  border-radius: 50% 50% 0 0;
+}
+
+.campeones-baseball::after {
+  content: '';
+  position: absolute;
+  bottom: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(var(--ball-size) * 0.7);
+  height: calc(var(--ball-size) * 0.3);
+  border: 2px solid #CF142B;
+  border-top: none;
+  border-radius: 0 0 50% 50%;
+}
+
+/* Estrella de campeón */
+.campeones-star {
+  --star-size: 12px;
+  position: fixed;
+  top: -50px;
+  z-index: 2;
+  pointer-events: none;
+  width: var(--star-size);
+  height: var(--star-size);
+  background: linear-gradient(135deg, #FFD100 0%, #FFA000 50%, #FFD100 100%);
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  box-shadow: 0 0 8px rgba(255, 209, 0, 0.6);
+  animation: firework-sparkle 2s ease-in-out infinite;
+}
+
+.campeones-star::before {
+  content: '';
+  position: absolute;
+  top: 25%;
+  left: 30%;
+  width: 40%;
+  height: 30%;
+  background: radial-gradient(ellipse, rgba(255, 255, 255, 0.8) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+/* Trofeo de campeón */
+.campeones-trophy {
+  --trophy-size: 14px;
+  position: fixed;
+  top: -50px;
+  z-index: 2;
+  pointer-events: none;
+  width: var(--trophy-size);
+  height: calc(var(--trophy-size) * 1.4);
+}
+
+.campeones-trophy::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  width: 80%;
+  height: 60%;
+  background: linear-gradient(135deg, #FFD100 0%, #D4A600 40%, #FFD100 60%, #B8860B 100%);
+  border-radius: 50% 50% 40% 40% / 60% 60% 40% 40%;
+  box-shadow:
+    inset 2px 2px 4px rgba(255, 255, 255, 0.6),
+    inset -1px -1px 3px rgba(0, 0, 0, 0.2),
+    0 0 12px rgba(255, 209, 0, 0.5);
+}
+
+.campeones-trophy::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 25%;
+  width: 50%;
+  height: 35%;
+  background: linear-gradient(to bottom, #B8860B 0%, #8B6914 50%, #6B4F10 100%);
+  clip-path: polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Bandera venezolana mini */
+.campeones-flag {
+  --flag-size: 12px;
+  position: fixed;
+  top: -50px;
+  z-index: 2;
+  pointer-events: none;
+  width: var(--flag-size);
+  height: calc(var(--flag-size) * 0.7);
+  background: linear-gradient(180deg, #FFD100 0%, #FFD100 33%, #003DA5 33%, #003DA5 66%, #CF142B 66%, #CF142B 100%);
+  border-radius: 1px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.campeones-flag::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  width: 2px;
+  height: calc(100% + 6px);
+  background: #666;
+  border-radius: 1px;
+}
+
 /* === HALLOWEEN - Murciélagos y calabazas === */
 @keyframes halloween-fall {
   0% {
@@ -2526,7 +2866,12 @@ h1, h2, h3, h4, h5, h6 {
   .mundial-trophy,
   .mundial-confetti,
   .halloween-bat,
-  .halloween-pumpkin {
+  .halloween-pumpkin,
+  .campeones-confetti,
+  .campeones-baseball,
+  .campeones-star,
+  .campeones-trophy,
+  .campeones-flag {
     animation: none;
     display: none;
   }

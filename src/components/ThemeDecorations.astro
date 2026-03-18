@@ -192,6 +192,53 @@
         return element;
       }
     },
+    campeones: {
+      count: 35,
+      create: (i) => {
+        const element = document.createElement('div');
+        const type = i % 10;
+        const delay = Math.random() * 6;
+        const duration = 6 + Math.random() * 6;
+
+        if (type < 2) {
+          // Confetti amarillo
+          element.className = 'campeones-confetti yellow';
+          element.style.setProperty('--confetti-size', `${6 + Math.random() * 8}px`);
+          element.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+        } else if (type < 4) {
+          // Confetti azul
+          element.className = 'campeones-confetti blue';
+          element.style.setProperty('--confetti-size', `${6 + Math.random() * 8}px`);
+          element.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+        } else if (type < 6) {
+          // Confetti rojo
+          element.className = 'campeones-confetti red';
+          element.style.setProperty('--confetti-size', `${6 + Math.random() * 8}px`);
+          element.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+        } else if (type < 7) {
+          // Pelota de béisbol
+          element.className = 'campeones-baseball';
+          element.style.setProperty('--ball-size', `${10 + Math.random() * 8}px`);
+        } else if (type < 8) {
+          // Estrella dorada
+          element.className = 'campeones-star';
+          element.style.setProperty('--star-size', `${10 + Math.random() * 8}px`);
+        } else if (type < 9) {
+          // Trofeo
+          element.className = 'campeones-trophy';
+          element.style.setProperty('--trophy-size', `${12 + Math.random() * 6}px`);
+        } else {
+          // Bandera venezolana
+          element.className = 'campeones-flag';
+          element.style.setProperty('--flag-size', `${10 + Math.random() * 6}px`);
+        }
+
+        element.style.left = `${Math.random() * 100}%`;
+        element.style.opacity = `${0.6 + Math.random() * 0.35}`;
+        element.style.animation = `campeones-fall ${duration}s linear ${delay}s infinite, campeones-drift ${3 + Math.random() * 3}s ease-in-out ${delay}s infinite`;
+        return element;
+      }
+    },
     halloween: {
       count: 15,
       create: (i) => {
