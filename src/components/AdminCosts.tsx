@@ -107,6 +107,7 @@ export default function AdminCosts() {
   // Dashboard filters
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMargin, setFilterMargin] = useState<'all' | 'low' | 'medium' | 'high'>('all');
+  const [filterMarginType, setFilterMarginType] = useState<'usd' | 'bsPm' | 'iva'>('usd');
   const [sortBy, setSortBy] = useState<'name' | 'marginUsd' | 'marginBs' | 'costUsd'>('name');
 
   // Cost edit modal
@@ -176,7 +177,9 @@ export default function AdminCosts() {
     let list = products.filter(p => {
       if (searchTerm && !p.nombre.toLowerCase().includes(searchTerm.toLowerCase())) return false;
       if (filterMargin !== 'all' && p.calculated) {
-        const m = p.calculated.marginUsd;
+        const m = filterMarginType === 'iva' ? p.calculated.marginBsIva
+          : filterMarginType === 'bsPm' ? p.calculated.marginBsPm
+          : p.calculated.marginUsd;
         if (filterMargin === 'low' && m >= 0.10) return false;
         if (filterMargin === 'medium' && (m < 0.10 || m >= 0.20)) return false;
         if (filterMargin === 'high' && m < 0.20) return false;
@@ -531,16 +534,27 @@ export default function AdminCosts() {
               </div>
               <div>
                 <label className="block text-xs text-ocean-600 mb-1">Margen</label>
-                <select
-                  value={filterMargin}
-                  onChange={e => setFilterMargin(e.target.value as any)}
-                  className="px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-1 focus:ring-ocean-500 outline-none"
-                >
-                  <option value="all">Todos</option>
-                  <option value="low">Bajo (&lt;10%)</option>
-                  <option value="medium">Medio (10-20%)</option>
-                  <option value="high">Alto (&gt;20%)</option>
-                </select>
+                <div className="flex gap-1">
+                  <select
+                    value={filterMargin}
+                    onChange={e => setFilterMargin(e.target.value as any)}
+                    className="px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-1 focus:ring-ocean-500 outline-none"
+                  >
+                    <option value="all">Todos</option>
+                    <option value="low">Bajo (&lt;10%)</option>
+                    <option value="medium">Medio (10-20%)</option>
+                    <option value="high">Alto (&gt;20%)</option>
+                  </select>
+                  <select
+                    value={filterMarginType}
+                    onChange={e => setFilterMarginType(e.target.value as any)}
+                    className="px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-1 focus:ring-ocean-500 outline-none"
+                  >
+                    <option value="usd">$ USD</option>
+                    <option value="bsPm">Bs PM</option>
+                    <option value="iva">IVA</option>
+                  </select>
+                </div>
               </div>
               <div>
                 <label className="block text-xs text-ocean-600 mb-1">Ordenar</label>
