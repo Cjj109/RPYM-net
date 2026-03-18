@@ -2005,6 +2005,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
         <div className="text-center py-12 text-ocean-600">Cargando...</div>
       ) : dashboardData ? (
         <>
+        <div className="bg-red-500 text-white p-4 rounded-lg text-center font-bold text-lg">PRUEBA ESTIMACION v2 — Si ves esto, el deploy funciona</div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Ventas Card */}
           <div className="bg-white rounded-xl p-6 shadow-sm border border-ocean-100">
