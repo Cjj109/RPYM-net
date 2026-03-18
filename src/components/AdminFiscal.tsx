@@ -29,6 +29,7 @@ import {
   validateRif,
   formatRif,
 } from '../lib/fiscal-types';
+import ZReportAnalytics from './ZReportAnalytics';
 
 type FiscalSubTab = 'dashboard' | 'reportes-z' | 'proveedores' | 'facturas' | 'retenciones' | 'pagos' | 'simulador' | 'consultas';
 
@@ -103,6 +104,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
   const [reportesZLoading, setReportesZLoading] = useState(false);
   const [showZModal, setShowZModal] = useState(false);
   const [editingReporteZ, setEditingReporteZ] = useState<FiscalReporteZ | null>(null);
+  const [showZAnalytics, setShowZAnalytics] = useState(false);
   const [editingRateId, setEditingRateId] = useState<number | null>(null);
   const [editingRateValue, setEditingRateValue] = useState('');
   const [zFormData, setZFormData] = useState<ReporteZFormData>({
@@ -2419,16 +2421,24 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold text-ocean-900">Reportes Z</h2>
-        <button
-          onClick={() => {
-            resetZForm();
-            setEditingReporteZ(null);
-            setShowZModal(true);
-          }}
-          className="px-4 py-2 bg-ocean-600 text-white rounded-lg text-sm hover:bg-ocean-500"
-        >
-          + Nuevo Reporte Z
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowZAnalytics(true)}
+            className="px-4 py-2 bg-ocean-100 text-ocean-700 rounded-lg text-sm hover:bg-ocean-200 font-medium"
+          >
+            Analytics
+          </button>
+          <button
+            onClick={() => {
+              resetZForm();
+              setEditingReporteZ(null);
+              setShowZModal(true);
+            }}
+            className="px-4 py-2 bg-ocean-600 text-white rounded-lg text-sm hover:bg-ocean-500"
+          >
+            + Nuevo Reporte Z
+          </button>
+        </div>
       </div>
 
       {reportesZLoading ? (
@@ -4066,6 +4076,14 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
       {showZModal && renderZModal()}
       {showFacturaModal && renderFacturaModal()}
       {showRetencionModal && renderRetencionModal()}
+
+      {/* Analytics modal */}
+      {showZAnalytics && (
+        <ZReportAnalytics
+          reportes={reportesZ}
+          onClose={() => setShowZAnalytics(false)}
+        />
+      )}
 
       {/* Hidden div for comprobante image capture */}
       <div ref={captureRef} style={{ display: 'none' }} />
