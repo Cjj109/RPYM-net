@@ -19,6 +19,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
     const factura = url.searchParams.get('factura');
     const search = url.searchParams.get('search');
     const estado = url.searchParams.get('estado'); // pendiente | pagada
+    const modoPrecio = url.searchParams.get('modo_precio');
 
     let query = `
       SELECT c.*, pi.nombre as proveedor_nombre,
@@ -52,6 +53,11 @@ export const GET: APIRoute = async ({ request, locals }) => {
     if (search) {
       query += ` AND (c.producto LIKE ? OR pi.nombre LIKE ?)`;
       params.push(`%${search}%`, `%${search}%`);
+    }
+
+    if (modoPrecio) {
+      query += ` AND c.modo_precio = ?`;
+      params.push(modoPrecio);
     }
 
     if (estado === 'pendiente') {
@@ -108,9 +114,23 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   try {
     const body = await request.json();
-    const { proveedorId, producto, montoTotal, fecha, tieneFactura, notas } = body;
+    const { proveedorId, producto, montoTotal, montoTotalBs, tasaReferencia, modoPrecio, fecha, tieneFactura, notas } = body;
 
-    if (!proveedorId || !montoTotal || !producto?.trim() || !fecha) {
+    const modo = modoPrecio || 'bcv';
+
+    // For Bs mode, calculate USD from Bs + tasa
+    let finalMontoTotal = Number(montoTotal);
+    if (modo === 'bs') {
+      if (!montoTotalBs || !tasaReferencia) {
+        return new Response(JSON.stringify({ success: false, error: 'Monto en Bs y tasa de referencia son requeridos para modo Bs' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      finalMontoTotal = Number(montoTotalBs) / Number(tasaReferencia);
+    }
+
+    if (!proveedorId || !finalMontoTotal || !producto?.trim() || !fecha) {
       return new Response(JSON.stringify({ success: false, error: 'Proveedor, monto total, producto y fecha son requeridos' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
@@ -118,12 +138,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const result = await db.prepare(`
-      INSERT INTO compras_proveedores (proveedor_id, producto, monto_total, fecha, tiene_factura, notas)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO compras_proveedores (proveedor_id, producto, monto_total, monto_total_bs, tasa_referencia, modo_precio, fecha, tiene_factura, notas)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       Number(proveedorId),
       producto.trim(),
-      Number(montoTotal),
+      finalMontoTotal,
+      modo === 'bs' ? Number(montoTotalBs) : null,
+      modo === 'bs' ? Number(tasaReferencia) : null,
+      modo,
       fecha,
       tieneFactura ? 1 : 0,
       notas?.trim() || null

@@ -21,6 +21,9 @@ export interface D1CompraProveedor {
   proveedor_id: number;
   producto: string;
   monto_total: number;
+  monto_total_bs: number | null;
+  tasa_referencia: number | null;
+  modo_precio: string;
   fecha: string;
   tiene_factura: number;
   nota_entrega_key: string | null;
@@ -91,6 +94,7 @@ export interface ProveedorInformal {
 
 export type MetodoPago = 'pago_movil' | 'transferencia' | 'efectivo';
 export type CuentaPago = 'pa' | 'carlos' | 'venezuela';
+export type ModoPrecioCompra = 'bcv' | 'paralelo' | 'bs' | 'efectivo_usd';
 
 export interface AbonoProveedor {
   id: number;
@@ -114,6 +118,9 @@ export interface CompraProveedor {
   proveedorNombre: string;
   producto: string;
   montoTotal: number;
+  montoTotalBs: number | null;
+  tasaReferencia: number | null;
+  modoPrecio: ModoPrecioCompra;
   totalAbonado: number;
   saldoPendiente: number;
   fecha: string;
@@ -193,6 +200,20 @@ export const CUENTA_SHORT: Record<CuentaPago, string> = {
   venezuela: 'Vzla',
 };
 
+export const MODO_PRECIO_LABELS: Record<ModoPrecioCompra, string> = {
+  bcv: 'BCV',
+  paralelo: 'Paralelo',
+  bs: 'Bolívares',
+  efectivo_usd: 'Efectivo USD',
+};
+
+export const MODO_PRECIO_SHORT: Record<ModoPrecioCompra, string> = {
+  bcv: 'BCV',
+  paralelo: 'Paral.',
+  bs: 'Bs',
+  efectivo_usd: 'Efect.',
+};
+
 // =====================
 // Transform Functions
 // =====================
@@ -240,6 +261,9 @@ export function transformCompraProveedor(
     proveedorNombre: row.proveedor_nombre,
     producto: row.producto,
     montoTotal: row.monto_total,
+    montoTotalBs: row.monto_total_bs,
+    tasaReferencia: row.tasa_referencia,
+    modoPrecio: (row.modo_precio || 'bcv') as ModoPrecioCompra,
     totalAbonado,
     saldoPendiente: row.monto_total - totalAbonado,
     fecha: row.fecha,

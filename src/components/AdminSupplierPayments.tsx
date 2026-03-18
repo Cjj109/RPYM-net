@@ -4,8 +4,8 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { formatUSD, formatBs, formatDateShort } from '../lib/format';
-import type { ProveedorInformal, CompraProveedor, AbonoProveedor, ResumenMensual, MetodoPago, CuentaPago } from '../lib/pagos-proveedores-types';
-import { METODO_PAGO_LABELS, METODO_PAGO_SHORT, CUENTA_LABELS, CUENTA_SHORT } from '../lib/pagos-proveedores-types';
+import type { ProveedorInformal, CompraProveedor, AbonoProveedor, ResumenMensual, MetodoPago, CuentaPago, ModoPrecioCompra } from '../lib/pagos-proveedores-types';
+import { METODO_PAGO_LABELS, METODO_PAGO_SHORT, CUENTA_LABELS, CUENTA_SHORT, MODO_PRECIO_LABELS, MODO_PRECIO_SHORT } from '../lib/pagos-proveedores-types';
 
 const MONTHS_FULL_CAP = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
@@ -56,6 +56,9 @@ export default function AdminSupplierPayments() {
     fecha: new Date().toISOString().split('T')[0],
     tieneFactura: false,
     notas: '',
+    modoPrecio: 'bcv' as ModoPrecioCompra,
+    montoTotalBs: '',
+    tasaReferencia: '',
   });
   const [notaEntregaFile, setNotaEntregaFile] = useState<File | null>(null);
   const [notaEntregaPreview, setNotaEntregaPreview] = useState<string | null>(null);
@@ -108,6 +111,20 @@ export default function AdminSupplierPayments() {
   const [confirmDeleteProveedorId, setConfirmDeleteProveedorId] = useState<number | null>(null);
   const [isDeletingProveedor, setIsDeletingProveedor] = useState(false);
 
+  // Merge mode
+  const [mergeMode, setMergeMode] = useState(false);
+  const [selectedCompraIds, setSelectedCompraIds] = useState<Set<number>>(new Set());
+  const [showMergeModal, setShowMergeModal] = useState(false);
+  const [mergeTargetId, setMergeTargetId] = useState<number | null>(null);
+  const [isMerging, setIsMerging] = useState(false);
+
+  // Modo precio filter
+  const [modoPrecioFilter, setModoPrecioFilter] = useState<ModoPrecioCompra | ''>('');
+
+  // Quick nota upload ref
+  const notaUploadRef = useRef<HTMLInputElement>(null);
+  const [uploadingNotaCompraId, setUploadingNotaCompraId] = useState<number | null>(null);
+
   // ── Data Loading ──────────────────────────────────────
 
   const loadProveedores = useCallback(async () => {
@@ -138,6 +155,7 @@ export default function AdminSupplierPayments() {
       if (facturaFilter) params.set('factura', facturaFilter);
       if (searchTerm) params.set('search', searchTerm);
       if (estadoFilter) params.set('estado', estadoFilter);
+      if (modoPrecioFilter) params.set('modo_precio', modoPrecioFilter);
 
       const res = await fetch(`/api/pagos-proveedores/compras?${params}`);
       const data = await res.json();
@@ -145,7 +163,7 @@ export default function AdminSupplierPayments() {
     } catch {
       console.error('Error loading compras');
     }
-  }, [mesSeleccionado, proveedorFilter, cuentaFilter, facturaFilter, searchTerm, estadoFilter]);
+  }, [mesSeleccionado, proveedorFilter, cuentaFilter, facturaFilter, searchTerm, estadoFilter, modoPrecioFilter]);
 
   const loadResumen = useCallback(async () => {
     try {
@@ -201,6 +219,9 @@ export default function AdminSupplierPayments() {
         fecha: compra.fecha,
         tieneFactura: compra.tieneFactura,
         notas: compra.notas || '',
+        modoPrecio: compra.modoPrecio || 'bcv',
+        montoTotalBs: compra.montoTotalBs ? String(compra.montoTotalBs) : '',
+        tasaReferencia: compra.tasaReferencia ? String(compra.tasaReferencia) : '',
       });
       setProveedorSearchTerm(compra.proveedorNombre);
       setNotaEntregaPreview(compra.notaEntregaUrl);
@@ -213,6 +234,9 @@ export default function AdminSupplierPayments() {
         fecha: new Date().toISOString().split('T')[0],
         tieneFactura: false,
         notas: '',
+        modoPrecio: 'bcv',
+        montoTotalBs: '',
+        tasaReferencia: '',
       });
       setProveedorSearchTerm('');
       setNotaEntregaPreview(null);
@@ -223,9 +247,22 @@ export default function AdminSupplierPayments() {
   };
 
   const handleSaveCompra = async () => {
-    if (!compraForm.proveedorId || !compraForm.montoTotal || !compraForm.producto.trim() || !compraForm.fecha) {
+    if (!compraForm.proveedorId || !compraForm.producto.trim() || !compraForm.fecha) {
       alert('Completa proveedor, monto total, producto y fecha');
       return;
+    }
+
+    // Validate monto based on mode
+    if (compraForm.modoPrecio === 'bs') {
+      if (!compraForm.montoTotalBs) {
+        alert('Completa el monto en Bs');
+        return;
+      }
+    } else {
+      if (!compraForm.montoTotal) {
+        alert('Completa el monto total');
+        return;
+      }
     }
 
     setIsSavingCompra(true);
@@ -235,10 +272,16 @@ export default function AdminSupplierPayments() {
         ? `/api/pagos-proveedores/compras/${editingCompra.id}`
         : '/api/pagos-proveedores/compras';
 
-      const payload = {
+      const payload: Record<string, unknown> = {
         ...compraForm,
         removeNotaEntrega,
+        modoPrecio: compraForm.modoPrecio,
       };
+
+      if (compraForm.modoPrecio === 'bs') {
+        payload.montoTotalBs = compraForm.montoTotalBs;
+        payload.tasaReferencia = compraForm.tasaReferencia;
+      }
 
       const res = await fetch(url, {
         method,
@@ -530,6 +573,73 @@ export default function AdminSupplierPayments() {
     }
   };
 
+  // ── Merge handlers ────────────────────────────────────
+
+  const toggleCompraSelection = (id: number) => {
+    setSelectedCompraIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleMerge = async () => {
+    if (!mergeTargetId || selectedCompraIds.size < 2) return;
+    setIsMerging(true);
+    try {
+      const sourceIds = [...selectedCompraIds].filter(id => id !== mergeTargetId);
+      const res = await fetch('/api/pagos-proveedores/compras/merge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceIds, targetId: mergeTargetId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowMergeModal(false);
+        setMergeMode(false);
+        setSelectedCompraIds(new Set());
+        setMergeTargetId(null);
+        await Promise.all([loadCompras(), loadResumen()]);
+      } else {
+        alert(data.error || 'Error al fusionar');
+      }
+    } catch {
+      alert('Error de conexion');
+    } finally {
+      setIsMerging(false);
+    }
+  };
+
+  // ── Quick nota upload handler ─────────────────────────
+
+  const handleQuickNotaUpload = async (compraId: number, file: File) => {
+    if (file.size > 10 * 1024 * 1024) {
+      alert('El archivo es demasiado grande. Maximo 10MB.');
+      return;
+    }
+    setUploadingNotaCompraId(compraId);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('compraId', String(compraId));
+      const res = await fetch('/api/pagos-proveedores/upload-nota-entrega', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success) {
+        await loadCompras();
+      } else {
+        alert(data.error || 'Error al subir nota');
+      }
+    } catch {
+      alert('Error de conexion');
+    } finally {
+      setUploadingNotaCompraId(null);
+    }
+  };
+
   // ── Helper: progress bar percentage ───────────────────
 
   const progressPercent = (compra: CompraProveedor) => {
@@ -574,7 +684,7 @@ export default function AdminSupplierPayments() {
 
         {/* Total principal */}
         {(() => {
-          const hasFilters = facturaFilter || cuentaFilter || proveedorFilter || searchTerm || estadoFilter;
+          const hasFilters = facturaFilter || cuentaFilter || proveedorFilter || searchTerm || estadoFilter || modoPrecioFilter;
           const filteredTotal = hasFilters
             ? compras.reduce((sum, c) => sum + c.totalAbonado, 0)
             : resumen?.totalUsd || 0;
@@ -595,6 +705,7 @@ export default function AdminSupplierPayments() {
             if (prov) filterParts.push(prov.proveedorNombre);
           }
           if (searchTerm) filterParts.push(`"${searchTerm}"`);
+          if (modoPrecioFilter) filterParts.push(MODO_PRECIO_LABELS[modoPrecioFilter]);
 
           return (
             <div className="text-center mb-3">
@@ -620,7 +731,7 @@ export default function AdminSupplierPayments() {
         })()}
 
         {/* Desglose fiscal */}
-        {resumen && resumen.totalUsd > 0 && !facturaFilter && !cuentaFilter && !proveedorFilter && !searchTerm && !estadoFilter && (
+        {resumen && resumen.totalUsd > 0 && !facturaFilter && !cuentaFilter && !proveedorFilter && !searchTerm && !estadoFilter && !modoPrecioFilter && (
           <div className="mb-3 mx-auto max-w-sm">
             <div className="flex rounded-full overflow-hidden h-2 mb-2">
               {resumen.totalConFactura > 0 && (
@@ -774,7 +885,50 @@ export default function AdminSupplierPayments() {
             Cuenta Venezuela
           </button>
 
-          {(facturaFilter || cuentaFilter || searchTerm || proveedorFilter || estadoFilter) && (
+          <span className="w-px bg-ocean-200 mx-1" />
+
+          <button
+            onClick={() => setModoPrecioFilter(m => m === 'bcv' ? '' : 'bcv')}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              modoPrecioFilter === 'bcv'
+                ? 'bg-violet-600 text-white'
+                : 'bg-violet-50 text-violet-700 hover:bg-violet-100'
+            }`}
+          >
+            BCV
+          </button>
+          <button
+            onClick={() => setModoPrecioFilter(m => m === 'paralelo' ? '' : 'paralelo')}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              modoPrecioFilter === 'paralelo'
+                ? 'bg-violet-600 text-white'
+                : 'bg-violet-50 text-violet-700 hover:bg-violet-100'
+            }`}
+          >
+            Paralelo
+          </button>
+          <button
+            onClick={() => setModoPrecioFilter(m => m === 'bs' ? '' : 'bs')}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              modoPrecioFilter === 'bs'
+                ? 'bg-violet-600 text-white'
+                : 'bg-violet-50 text-violet-700 hover:bg-violet-100'
+            }`}
+          >
+            Bs
+          </button>
+          <button
+            onClick={() => setModoPrecioFilter(m => m === 'efectivo_usd' ? '' : 'efectivo_usd')}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              modoPrecioFilter === 'efectivo_usd'
+                ? 'bg-violet-600 text-white'
+                : 'bg-violet-50 text-violet-700 hover:bg-violet-100'
+            }`}
+          >
+            Efectivo USD
+          </button>
+
+          {(facturaFilter || cuentaFilter || searchTerm || proveedorFilter || estadoFilter || modoPrecioFilter) && (
             <>
               <span className="w-px bg-ocean-200 mx-1" />
               <button
@@ -784,6 +938,7 @@ export default function AdminSupplierPayments() {
                   setEstadoFilter('');
                   setSearchTerm('');
                   setProveedorFilter(null);
+                  setModoPrecioFilter('');
                 }}
                 className="px-3 py-1.5 rounded-full text-xs font-medium bg-red-50 text-red-600 hover:bg-red-100"
               >
@@ -813,6 +968,23 @@ export default function AdminSupplierPayments() {
           >
             Ver Proveedores
           </button>
+          <button
+            onClick={() => {
+              if (mergeMode) {
+                setMergeMode(false);
+                setSelectedCompraIds(new Set());
+              } else {
+                setMergeMode(true);
+              }
+            }}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${
+              mergeMode
+                ? 'bg-amber-500 text-white hover:bg-amber-600'
+                : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+            }`}
+          >
+            {mergeMode ? 'Cancelar Fusion' : 'Fusionar'}
+          </button>
         </div>
       </div>
 
@@ -832,9 +1004,26 @@ export default function AdminSupplierPayments() {
                 {/* Compra header */}
                 <div
                   className="p-4 cursor-pointer hover:bg-ocean-50/50"
-                  onClick={() => setExpandedCompraId(isExpanded ? null : compra.id)}
+                  onClick={() => {
+                    if (mergeMode) {
+                      toggleCompraSelection(compra.id);
+                    } else {
+                      setExpandedCompraId(isExpanded ? null : compra.id);
+                    }
+                  }}
                 >
                   <div className="flex items-start justify-between gap-3">
+                    {mergeMode && (
+                      <div className="flex items-center pt-1 shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={selectedCompraIds.has(compra.id)}
+                          onChange={() => toggleCompraSelection(compra.id)}
+                          onClick={e => e.stopPropagation()}
+                          className="w-5 h-5 rounded border-ocean-300 text-amber-500 focus:ring-amber-400"
+                        />
+                      </div>
+                    )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-semibold text-ocean-900">{compra.proveedorNombre}</span>
@@ -859,7 +1048,15 @@ export default function AdminSupplierPayments() {
                       <span className="text-sm text-ocean-600">{compra.producto}</span>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="font-bold text-ocean-900">{formatUSD(compra.montoTotal)}</div>
+                      <div className="flex items-center gap-1.5 justify-end">
+                        <span className="font-bold text-ocean-900">{formatUSD(compra.montoTotal)}</span>
+                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-violet-100 text-violet-700 font-medium">
+                          {MODO_PRECIO_SHORT[compra.modoPrecio]}
+                        </span>
+                      </div>
+                      {compra.modoPrecio === 'bs' && compra.montoTotalBs && (
+                        <span className="text-xs text-ocean-400">{formatBs(compra.montoTotalBs)}</span>
+                      )}
                       {isPagada ? (
                         <span className="text-xs text-emerald-600 font-medium">Pagada</span>
                       ) : (
@@ -990,12 +1187,141 @@ export default function AdminSupplierPayments() {
                           Eliminar
                         </button>
                       )}
+
+                      {/* Quick nota upload */}
+                      {!compra.notaEntregaUrl ? (
+                        <>
+                          <button
+                            onClick={() => {
+                              if (notaUploadRef.current) {
+                                notaUploadRef.current.dataset.compraId = String(compra.id);
+                                notaUploadRef.current.click();
+                              }
+                            }}
+                            disabled={uploadingNotaCompraId === compra.id}
+                            className="px-3 py-1.5 bg-violet-50 text-violet-700 rounded-lg text-xs font-medium hover:bg-violet-100 disabled:opacity-50"
+                          >
+                            {uploadingNotaCompraId === compra.id ? 'Subiendo...' : 'Adjuntar Nota/Factura'}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => setImagenAmpliada(compra.notaEntregaUrl)}
+                            className="px-3 py-1.5 bg-violet-50 text-violet-700 rounded-lg text-xs font-medium hover:bg-violet-100"
+                          >
+                            Ver Nota
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (notaUploadRef.current) {
+                                notaUploadRef.current.dataset.compraId = String(compra.id);
+                                notaUploadRef.current.click();
+                              }
+                            }}
+                            disabled={uploadingNotaCompraId === compra.id}
+                            className="px-3 py-1.5 bg-violet-50 text-violet-600 rounded-lg text-xs font-medium hover:bg-violet-100 disabled:opacity-50"
+                          >
+                            {uploadingNotaCompraId === compra.id ? 'Subiendo...' : 'Cambiar Nota'}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Hidden file input for quick nota uploads */}
+      <input
+        ref={notaUploadRef}
+        type="file"
+        accept="image/*,application/pdf"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          const compraId = notaUploadRef.current?.dataset.compraId;
+          if (file && compraId) {
+            handleQuickNotaUpload(Number(compraId), file);
+          }
+          e.target.value = '';
+        }}
+      />
+
+      {/* ── Merge floating bar ────────────────────────────── */}
+      {mergeMode && selectedCompraIds.size >= 2 && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-ocean-200 shadow-lg p-4 z-40">
+          <div className="max-w-lg mx-auto flex items-center justify-between">
+            <span className="text-sm text-ocean-700 font-medium">
+              {selectedCompraIds.size} compras seleccionadas
+            </span>
+            <button
+              onClick={() => { setMergeTargetId(null); setShowMergeModal(true); }}
+              className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600"
+            >
+              Fusionar en...
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Merge ──────────────────────────────────── */}
+      {showMergeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-xl">
+            <div className="px-6 py-4 border-b border-ocean-100">
+              <h3 className="text-lg font-semibold text-ocean-900">Fusionar compras</h3>
+              <p className="text-sm text-ocean-500 mt-1">
+                Selecciona la compra destino. Los abonos de las demas se moveran a esta.
+              </p>
+            </div>
+            <div className="p-6 space-y-2 max-h-[50vh] overflow-y-auto">
+              {compras
+                .filter(c => selectedCompraIds.has(c.id))
+                .map(c => (
+                  <label
+                    key={c.id}
+                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      mergeTargetId === c.id
+                        ? 'border-amber-400 bg-amber-50'
+                        : 'border-ocean-200 hover:bg-ocean-50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="mergeTarget"
+                      checked={mergeTargetId === c.id}
+                      onChange={() => setMergeTargetId(c.id)}
+                      className="w-4 h-4 text-amber-500 focus:ring-amber-400"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium text-ocean-900">{c.proveedorNombre}</div>
+                      <div className="text-xs text-ocean-500">
+                        {c.producto} — {formatUSD(c.montoTotal)} — {c.abonos.length} abono{c.abonos.length !== 1 ? 's' : ''}
+                      </div>
+                    </div>
+                  </label>
+                ))}
+            </div>
+            <div className="px-6 py-4 border-t border-ocean-100 flex gap-3 justify-end">
+              <button
+                onClick={() => setShowMergeModal(false)}
+                className="px-4 py-2 text-sm text-ocean-600 hover:bg-ocean-50 rounded-lg"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleMerge}
+                disabled={!mergeTargetId || isMerging}
+                className="px-6 py-2 text-sm bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 disabled:opacity-50"
+              >
+                {isMerging ? 'Fusionando...' : 'Confirmar Fusion'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1075,18 +1401,95 @@ export default function AdminSupplierPayments() {
                 />
               </div>
 
-              {/* Monto total */}
+              {/* Modo precio */}
               <div>
-                <label className="block text-sm font-medium text-ocean-700 mb-1">Monto Total (USD)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={compraForm.montoTotal}
-                  onChange={e => setCompraForm(prev => ({ ...prev, montoTotal: e.target.value }))}
-                  placeholder="0.00"
-                  className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
-                />
+                <label className="block text-sm font-medium text-ocean-700 mb-1">Modo de precio</label>
+                <div className="flex flex-wrap gap-2">
+                  {(Object.entries(MODO_PRECIO_LABELS) as [ModoPrecioCompra, string][]).map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setCompraForm(prev => ({ ...prev, modoPrecio: val }))}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        compraForm.modoPrecio === val
+                          ? 'bg-ocean-600 text-white'
+                          : 'bg-ocean-50 text-ocean-700 hover:bg-ocean-100'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {/* Monto total — conditional based on modoPrecio */}
+              {compraForm.modoPrecio === 'bs' ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-ocean-700 mb-1">Monto en Bs</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={compraForm.montoTotalBs}
+                      onChange={e => {
+                        const bs = e.target.value;
+                        setCompraForm(prev => {
+                          const updated = { ...prev, montoTotalBs: bs };
+                          // Auto-calculate USD equivalent if we have a reference rate
+                          if (prev.tasaReferencia && Number(bs) && Number(prev.tasaReferencia)) {
+                            updated.montoTotal = (Number(bs) / Number(prev.tasaReferencia)).toFixed(2);
+                          }
+                          return updated;
+                        });
+                      }}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-ocean-700 mb-1">Tasa de referencia</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={compraForm.tasaReferencia}
+                      onChange={e => {
+                        const tasa = e.target.value;
+                        setCompraForm(prev => {
+                          const updated = { ...prev, tasaReferencia: tasa };
+                          if (Number(prev.montoTotalBs) && Number(tasa)) {
+                            updated.montoTotal = (Number(prev.montoTotalBs) / Number(tasa)).toFixed(2);
+                          }
+                          return updated;
+                        });
+                      }}
+                      placeholder={tasaBcv ? `BCV: ${tasaBcv.toFixed(2)}` : 'Ej: 80.00'}
+                      className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
+                    />
+                  </div>
+                  {compraForm.montoTotalBs && compraForm.tasaReferencia && Number(compraForm.tasaReferencia) > 0 && (
+                    <div className="bg-ocean-50 rounded-lg p-3 text-sm">
+                      <div className="flex justify-between text-ocean-700 font-medium">
+                        <span>Equivalente USD</span>
+                        <span className="text-ocean-900">
+                          {formatUSD(Number(compraForm.montoTotalBs) / Number(compraForm.tasaReferencia))}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-ocean-700 mb-1">Monto Total (USD)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={compraForm.montoTotal}
+                    onChange={e => setCompraForm(prev => ({ ...prev, montoTotal: e.target.value }))}
+                    placeholder="0.00"
+                    className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
+                  />
+                </div>
+              )}
 
               {/* Fecha */}
               <div>

@@ -59,9 +59,21 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
   try {
     const id = params.id;
     const body = await request.json();
-    const { proveedorId, producto, montoTotal, fecha, tieneFactura, notas, removeNotaEntrega } = body;
+    const { proveedorId, producto, montoTotal, montoTotalBs, tasaReferencia, modoPrecio, fecha, tieneFactura, notas, removeNotaEntrega } = body;
 
-    if (!proveedorId || !montoTotal || !producto?.trim() || !fecha) {
+    const modo = modoPrecio || 'bcv';
+
+    let finalMontoTotal = Number(montoTotal);
+    if (modo === 'bs') {
+      if (!montoTotalBs || !tasaReferencia) {
+        return new Response(JSON.stringify({ success: false, error: 'Monto en Bs y tasa de referencia son requeridos para modo Bs' }), {
+          status: 400, headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      finalMontoTotal = Number(montoTotalBs) / Number(tasaReferencia);
+    }
+
+    if (!proveedorId || !finalMontoTotal || !producto?.trim() || !fecha) {
       return new Response(JSON.stringify({ success: false, error: 'Proveedor, monto total, producto y fecha son requeridos' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
@@ -88,13 +100,16 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
 
     await db.prepare(`
       UPDATE compras_proveedores
-      SET proveedor_id = ?, producto = ?, monto_total = ?, fecha = ?,
-          tiene_factura = ?, notas = ?, updated_at = datetime('now')
+      SET proveedor_id = ?, producto = ?, monto_total = ?, monto_total_bs = ?, tasa_referencia = ?,
+          modo_precio = ?, fecha = ?, tiene_factura = ?, notas = ?, updated_at = datetime('now')
       WHERE id = ?
     `).bind(
       Number(proveedorId),
       producto.trim(),
-      Number(montoTotal),
+      finalMontoTotal,
+      modo === 'bs' ? Number(montoTotalBs) : null,
+      modo === 'bs' ? Number(tasaReferencia) : null,
+      modo,
       fecha,
       tieneFactura ? 1 : 0,
       notas?.trim() || null,
