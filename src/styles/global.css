@@ -427,13 +427,13 @@
 [data-theme="campeones"] .themed-card::before {
   content: '';
   position: absolute;
-  top: -3px;
+  top: -2px;
   left: -2px;
   right: -2px;
-  height: 4px;
-  background: linear-gradient(90deg, #FFD100 0%, #FFD100 33%, #003DA5 33%, #003DA5 66%, #CF142B 66%, #CF142B 100%);
+  height: 6px;
+  background: linear-gradient(90deg, #FFD100 0%, #FFD100 33.3%, #003DA5 33.3%, #003DA5 66.6%, #CF142B 66.6%, #CF142B 100%);
   z-index: 5;
-  border-radius: 4px 4px 0 0;
+  border-radius: 6px 6px 0 0;
 }
 
 /* Estrella dorada en esquina */
@@ -1450,16 +1450,7 @@
   50%, 100% { left: 200%; }
 }
 
-/* Trofeo en botón */
-[data-theme="campeones"] .themed-button::after,
-[data-theme="campeones"] a[href*="whatsapp"]::after {
-  content: '🏆';
-  position: absolute;
-  top: -10px;
-  right: -10px;
-  font-size: 14px;
-  animation: champion-star-pulse 1.5s ease-in-out infinite;
-}
+/* Sin decoración extra en botones */
 
 @keyframes champion-star-pulse {
   0%, 100% { transform: scale(1); opacity: 0.8; }
