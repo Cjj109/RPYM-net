@@ -114,7 +114,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   try {
     const body = await request.json();
-    const { proveedorId, producto, montoTotal, montoTotalBs, tasaReferencia, modoPrecio, fecha, tieneFactura, notas } = body;
+    const { proveedorId, producto, montoTotal, montoTotalBs, tasaReferencia, tasaReferenciaParalela, modoPrecio, fecha, tieneFactura, notas } = body;
 
     const modo = modoPrecio || 'bcv';
 
@@ -138,14 +138,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const result = await db.prepare(`
-      INSERT INTO compras_proveedores (proveedor_id, producto, monto_total, monto_total_bs, tasa_referencia, modo_precio, fecha, tiene_factura, notas)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO compras_proveedores (proveedor_id, producto, monto_total, monto_total_bs, tasa_referencia, tasa_referencia_paralela, modo_precio, fecha, tiene_factura, notas)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       Number(proveedorId),
       producto.trim(),
       finalMontoTotal,
       modo === 'bs' ? Number(montoTotalBs) : null,
       modo === 'bs' ? Number(tasaReferencia) : null,
+      modo === 'bs' && tasaReferenciaParalela ? Number(tasaReferenciaParalela) : null,
       modo,
       fecha,
       tieneFactura ? 1 : 0,

@@ -59,7 +59,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
   try {
     const id = params.id;
     const body = await request.json();
-    const { proveedorId, producto, montoTotal, montoTotalBs, tasaReferencia, modoPrecio, fecha, tieneFactura, notas, removeNotaEntrega } = body;
+    const { proveedorId, producto, montoTotal, montoTotalBs, tasaReferencia, tasaReferenciaParalela, modoPrecio, fecha, tieneFactura, notas, removeNotaEntrega } = body;
 
     const modo = modoPrecio || 'bcv';
 
@@ -101,7 +101,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
     await db.prepare(`
       UPDATE compras_proveedores
       SET proveedor_id = ?, producto = ?, monto_total = ?, monto_total_bs = ?, tasa_referencia = ?,
-          modo_precio = ?, fecha = ?, tiene_factura = ?, notas = ?, updated_at = datetime('now')
+          tasa_referencia_paralela = ?, modo_precio = ?, fecha = ?, tiene_factura = ?, notas = ?, updated_at = datetime('now')
       WHERE id = ?
     `).bind(
       Number(proveedorId),
@@ -109,6 +109,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
       finalMontoTotal,
       modo === 'bs' ? Number(montoTotalBs) : null,
       modo === 'bs' ? Number(tasaReferencia) : null,
+      modo === 'bs' && tasaReferenciaParalela ? Number(tasaReferenciaParalela) : null,
       modo,
       fecha,
       tieneFactura ? 1 : 0,

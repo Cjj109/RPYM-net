@@ -23,6 +23,7 @@ export interface D1CompraProveedor {
   monto_total: number;
   monto_total_bs: number | null;
   tasa_referencia: number | null;
+  tasa_referencia_paralela: number | null;
   modo_precio: string;
   fecha: string;
   tiene_factura: number;
@@ -122,6 +123,8 @@ export interface CompraProveedor {
   montoTotal: number;
   montoTotalBs: number | null;
   tasaReferencia: number | null;
+  tasaReferenciaParalela: number | null;
+  montoTotalUsdParalelo: number | null;
   modoPrecio: ModoPrecioCompra;
   totalAbonado: number;
   saldoPendiente: number;
@@ -267,6 +270,10 @@ export function transformCompraProveedor(
     montoTotal: row.monto_total,
     montoTotalBs: row.monto_total_bs,
     tasaReferencia: row.tasa_referencia,
+    tasaReferenciaParalela: row.tasa_referencia_paralela,
+    montoTotalUsdParalelo: row.monto_total_bs && row.tasa_referencia_paralela
+      ? row.monto_total_bs / row.tasa_referencia_paralela
+      : null,
     modoPrecio: (row.modo_precio || 'bcv') as ModoPrecioCompra,
     totalAbonado,
     saldoPendiente: row.monto_total - totalAbonado,

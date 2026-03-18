@@ -59,6 +59,7 @@ export default function AdminSupplierPayments() {
     modoPrecio: 'bcv' as ModoPrecioCompra,
     montoTotalBs: '',
     tasaReferencia: '',
+    tasaReferenciaParalela: '',
   });
   const [notaEntregaFile, setNotaEntregaFile] = useState<File | null>(null);
   const [notaEntregaPreview, setNotaEntregaPreview] = useState<string | null>(null);
@@ -222,6 +223,7 @@ export default function AdminSupplierPayments() {
         modoPrecio: compra.modoPrecio || 'bcv',
         montoTotalBs: compra.montoTotalBs ? String(compra.montoTotalBs) : '',
         tasaReferencia: compra.tasaReferencia ? String(compra.tasaReferencia) : '',
+        tasaReferenciaParalela: compra.tasaReferenciaParalela ? String(compra.tasaReferenciaParalela) : '',
       });
       setProveedorSearchTerm(compra.proveedorNombre);
       setNotaEntregaPreview(compra.notaEntregaUrl);
@@ -237,6 +239,7 @@ export default function AdminSupplierPayments() {
         modoPrecio: 'bcv',
         montoTotalBs: '',
         tasaReferencia: '',
+        tasaReferenciaParalela: '',
       });
       setProveedorSearchTerm('');
       setNotaEntregaPreview(null);
@@ -281,6 +284,7 @@ export default function AdminSupplierPayments() {
       if (compraForm.modoPrecio === 'bs') {
         payload.montoTotalBs = compraForm.montoTotalBs;
         payload.tasaReferencia = compraForm.tasaReferencia;
+        payload.tasaReferenciaParalela = compraForm.tasaReferenciaParalela || null;
       }
 
       const res = await fetch(url, {
@@ -1107,6 +1111,9 @@ export default function AdminSupplierPayments() {
                       {compra.modoPrecio === 'bs' && compra.montoTotalBs && (
                         <span className="text-xs text-ocean-400">{formatBs(compra.montoTotalBs)}</span>
                       )}
+                      {compra.montoTotalUsdParalelo != null && (
+                        <span className="text-xs text-ocean-400">~{formatUSD(compra.montoTotalUsdParalelo)} paral.</span>
+                      )}
                       {isPagada ? (
                         <>
                           <span className="text-xs text-emerald-600 font-medium">
@@ -1521,34 +1528,57 @@ export default function AdminSupplierPayments() {
                       className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-ocean-700 mb-1">Tasa de referencia</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={compraForm.tasaReferencia}
-                      onChange={e => {
-                        const tasa = e.target.value;
-                        setCompraForm(prev => {
-                          const updated = { ...prev, tasaReferencia: tasa };
-                          if (Number(prev.montoTotalBs) && Number(tasa)) {
-                            updated.montoTotal = (Number(prev.montoTotalBs) / Number(tasa)).toFixed(2);
-                          }
-                          return updated;
-                        });
-                      }}
-                      placeholder={tasaBcv ? `BCV: ${tasaBcv.toFixed(2)}` : 'Ej: 80.00'}
-                      className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
-                    />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-ocean-700 mb-1">Tasa BCV</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={compraForm.tasaReferencia}
+                        onChange={e => {
+                          const tasa = e.target.value;
+                          setCompraForm(prev => {
+                            const updated = { ...prev, tasaReferencia: tasa };
+                            if (Number(prev.montoTotalBs) && Number(tasa)) {
+                              updated.montoTotal = (Number(prev.montoTotalBs) / Number(tasa)).toFixed(2);
+                            }
+                            return updated;
+                          });
+                        }}
+                        placeholder={tasaBcv ? `${tasaBcv.toFixed(2)}` : 'Ej: 80.00'}
+                        className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-ocean-700 mb-1">Tasa Paralelo</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={compraForm.tasaReferenciaParalela}
+                        onChange={e => setCompraForm(prev => ({ ...prev, tasaReferenciaParalela: e.target.value }))}
+                        placeholder="Opcional"
+                        className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
+                      />
+                    </div>
                   </div>
-                  {compraForm.montoTotalBs && compraForm.tasaReferencia && Number(compraForm.tasaReferencia) > 0 && (
-                    <div className="bg-ocean-50 rounded-lg p-3 text-sm">
-                      <div className="flex justify-between text-ocean-700 font-medium">
-                        <span>Equivalente USD</span>
-                        <span className="text-ocean-900">
-                          {formatUSD(Number(compraForm.montoTotalBs) / Number(compraForm.tasaReferencia))}
-                        </span>
-                      </div>
+                  {compraForm.montoTotalBs && Number(compraForm.montoTotalBs) > 0 && (compraForm.tasaReferencia || compraForm.tasaReferenciaParalela) && (
+                    <div className="bg-ocean-50 rounded-lg p-3 text-sm space-y-1">
+                      {compraForm.tasaReferencia && Number(compraForm.tasaReferencia) > 0 && (
+                        <div className="flex justify-between text-ocean-700 font-medium">
+                          <span>BCV ({Number(compraForm.tasaReferencia).toFixed(2)})</span>
+                          <span className="text-ocean-900">
+                            {formatUSD(Number(compraForm.montoTotalBs) / Number(compraForm.tasaReferencia))}
+                          </span>
+                        </div>
+                      )}
+                      {compraForm.tasaReferenciaParalela && Number(compraForm.tasaReferenciaParalela) > 0 && (
+                        <div className="flex justify-between text-ocean-500">
+                          <span>Paralelo ({Number(compraForm.tasaReferenciaParalela).toFixed(2)})</span>
+                          <span>
+                            {formatUSD(Number(compraForm.montoTotalBs) / Number(compraForm.tasaReferenciaParalela))}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
