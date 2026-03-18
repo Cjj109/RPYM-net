@@ -45,16 +45,20 @@ export default function ZReportAnalytics({ reportes, onClose }: Props) {
 
   // ── Data for trend chart ──────────────────────────
   const trendData = useMemo(() => {
-    return filtered.map(r => ({
-      fecha: r.fecha.slice(5), // MM-DD
-      fechaFull: r.fecha,
-      totalUsd: r.totalVentasUsd ? Math.round(r.totalVentasUsd * 100) / 100 : 0,
-      divisas: r.baseImponibleIgtf || 0,
-      totalBs: r.totalVentas,
-      tasa: r.bcvRate || 0,
-      igtf: r.igtfVentas || 0,
-      dia: r.diaSemana || '',
-    }));
+    return filtered.map(r => {
+      const tasa = r.bcvRate || 1;
+      const divisasUsd = r.baseImponibleIgtf ? r.baseImponibleIgtf / tasa : 0;
+      return {
+        fecha: r.fecha.slice(5), // MM-DD
+        fechaFull: r.fecha,
+        totalUsd: r.totalVentasUsd ? Math.round(r.totalVentasUsd * 100) / 100 : 0,
+        divisas: Math.round(divisasUsd * 100) / 100,
+        totalBs: r.totalVentas,
+        tasa,
+        igtf: r.igtfVentas || 0,
+        dia: r.diaSemana || '',
+      };
+    });
   }, [filtered]);
 
   // ── Moving average (7 days) ────────────────────────
@@ -78,8 +82,9 @@ export default function ZReportAnalytics({ reportes, onClose }: Props) {
 
     filtered.forEach(r => {
       const dow = new Date(r.fecha + 'T12:00:00').getDay();
+      const tasa = r.bcvRate || 1;
       byDay[dow].totalUsd.push(r.totalVentasUsd || 0);
-      byDay[dow].divisas.push(r.baseImponibleIgtf || 0);
+      byDay[dow].divisas.push(r.baseImponibleIgtf ? r.baseImponibleIgtf / tasa : 0);
     });
 
     return [1, 2, 3, 4, 5, 6, 0].map(dow => { // Lun-Dom
@@ -102,9 +107,10 @@ export default function ZReportAnalytics({ reportes, onClose }: Props) {
 
     filtered.forEach(r => {
       const mes = r.fecha.slice(0, 7);
+      const tasa = r.bcvRate || 1;
       if (!byMonth[mes]) byMonth[mes] = { totalUsd: 0, divisas: 0, dias: 0, totalBs: 0 };
       byMonth[mes].totalUsd += r.totalVentasUsd || 0;
-      byMonth[mes].divisas += r.baseImponibleIgtf || 0;
+      byMonth[mes].divisas += r.baseImponibleIgtf ? r.baseImponibleIgtf / tasa : 0;
       byMonth[mes].totalBs += r.totalVentas;
       byMonth[mes].dias++;
     });
@@ -127,7 +133,10 @@ export default function ZReportAnalytics({ reportes, onClose }: Props) {
   const stats = useMemo(() => {
     if (filtered.length === 0) return null;
     const totalUsd = filtered.reduce((s, r) => s + (r.totalVentasUsd || 0), 0);
-    const totalDivisas = filtered.reduce((s, r) => s + (r.baseImponibleIgtf || 0), 0);
+    const totalDivisas = filtered.reduce((s, r) => {
+      const tasa = r.bcvRate || 1;
+      return s + (r.baseImponibleIgtf ? r.baseImponibleIgtf / tasa : 0);
+    }, 0);
     const totalBs = filtered.reduce((s, r) => s + r.totalVentas, 0);
     const avgUsd = totalUsd / filtered.length;
     const avgDivisas = totalDivisas / filtered.length;
