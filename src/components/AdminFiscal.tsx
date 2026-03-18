@@ -2004,6 +2004,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
       {dashboardLoading ? (
         <div className="text-center py-12 text-ocean-600">Cargando...</div>
       ) : dashboardData ? (
+        <>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Ventas Card */}
           <div className="bg-white rounded-xl p-6 shadow-sm border border-ocean-100">
@@ -2135,10 +2136,9 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
             </div>
           )}
         </div>
+        <EstimacionDeclaraciones dashboardData={dashboardData} dashboardPeriod={dashboardPeriod} />
+        </>
       ) : null}
-
-      {/* ── Estimación de próximas declaraciones ── */}
-      {dashboardData && <EstimacionDeclaraciones dashboardData={dashboardData} dashboardPeriod={dashboardPeriod} />}
 
       {/* ── Calendario SENIAT ── */}
       {(() => {
