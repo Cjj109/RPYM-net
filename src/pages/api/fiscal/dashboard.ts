@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { requireAuth } from '../../../lib/require-auth';
-import type { FiscalDashboardData } from '../../../lib/fiscal-types';
+import { transformPagoSeniat, type D1FiscalPagoSeniat, type FiscalDashboardData } from '../../../lib/fiscal-types';
 
 export const prerender = false;
 
@@ -66,6 +66,11 @@ export const GET: APIRoute = async ({ request, locals }) => {
       facturas_count: number;
     }>();
 
+    // Get pagos SENIAT for the period
+    const pagosResult = await db.prepare(
+      'SELECT * FROM fiscal_pagos_seniat WHERE periodo = ? ORDER BY tipo_pago, created_at DESC'
+    ).bind(periodo).all<D1FiscalPagoSeniat>();
+
     // Get retenciones count for the period
     const retencionesCount = await db.prepare(`
       SELECT COUNT(*) as count
@@ -129,6 +134,9 @@ export const GET: APIRoute = async ({ request, locals }) => {
       reportesZCount: zTotals?.reportes_count || 0,
       facturasCount: facturaTotals?.facturas_count || 0,
       retencionesCount: retencionesCount?.count || 0,
+
+      // Pagos SENIAT
+      pagosSeniat: pagosResult.results.map(transformPagoSeniat),
     };
 
     return new Response(JSON.stringify({

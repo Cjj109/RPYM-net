@@ -97,6 +97,23 @@ export interface D1FiscalRetencionIvaWithDetails extends D1FiscalRetencionIva {
   fecha_factura?: string;
 }
 
+export type TipoPagoSeniat = 'pago1' | 'pago2' | 'sumat';
+
+export interface D1FiscalPagoSeniat {
+  id: number;
+  periodo: string;
+  tipo_pago: TipoPagoSeniat;
+  fecha_pago: string;
+  monto: number;
+  numero_planilla: string | null;
+  referencia_bancaria: string | null;
+  banco: string | null;
+  image_key: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // =====================
 // API Response Types (camelCase)
 // =====================
@@ -179,6 +196,21 @@ export interface FiscalRetencionIva {
   createdAt: string;
 }
 
+export interface FiscalPagoSeniat {
+  id: number;
+  periodo: string;
+  tipoPago: TipoPagoSeniat;
+  fechaPago: string;
+  monto: number;
+  numeroPlanilla: string | null;
+  referenciaBancaria: string | null;
+  banco: string | null;
+  imageUrl: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // =====================
 // OCR Types
 // =====================
@@ -240,6 +272,9 @@ export interface FiscalDashboardData {
   reportesZCount: number;
   facturasCount: number;
   retencionesCount: number;
+
+  // Pagos SENIAT
+  pagosSeniat: FiscalPagoSeniat[];
 }
 
 // =====================
@@ -395,6 +430,23 @@ export function transformRetencion(row: D1FiscalRetencionIvaWithDetails): Fiscal
     montoRetenido: row.monto_retenido,
     pdfUrl: row.pdf_key ? `/api/fiscal/retencion-pdf/${row.pdf_key}` : null,
     createdAt: row.created_at,
+  };
+}
+
+export function transformPagoSeniat(row: D1FiscalPagoSeniat): FiscalPagoSeniat {
+  return {
+    id: row.id,
+    periodo: row.periodo,
+    tipoPago: row.tipo_pago,
+    fechaPago: row.fecha_pago,
+    monto: row.monto,
+    numeroPlanilla: row.numero_planilla,
+    referenciaBancaria: row.referencia_bancaria,
+    banco: row.banco,
+    imageUrl: row.image_key ? `/api/fiscal/comprobante-seniat/${row.image_key}` : null,
+    notes: row.notes,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 

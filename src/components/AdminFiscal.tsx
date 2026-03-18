@@ -10,6 +10,7 @@ import type {
   FiscalFacturaCompra,
   FiscalReporteZ,
   FiscalRetencionIva,
+  FiscalPagoSeniat,
   FiscalDashboardData,
   OcrZReportData,
   ProveedorFormData,
@@ -17,6 +18,7 @@ import type {
   ReporteZFormData,
   MarginSimulatorInput,
   MarginSimulatorResult,
+  TipoPagoSeniat,
 } from '../lib/fiscal-types';
 import {
   FISCAL_CONSTANTS,
@@ -174,6 +176,21 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
     montoRetenido: 0,
   });
 
+  // Pagos SENIAT state
+  const [showPagoForm, setShowPagoForm] = useState<TipoPagoSeniat | null>(null);
+  const [pagoForm, setPagoForm] = useState({
+    fechaPago: new Date().toISOString().split('T')[0],
+    monto: '',
+    numeroPlanilla: '',
+    referenciaBancaria: '',
+    banco: '',
+    notes: '',
+  });
+  const [pagoImage, setPagoImage] = useState<File | null>(null);
+  const [savingPago, setSavingPago] = useState(false);
+  const [viewingPago, setViewingPago] = useState<FiscalPagoSeniat | null>(null);
+  const pagoFileInputRef = useRef<HTMLInputElement>(null);
+
   // Simulador state
   const [simuladorInput, setSimuladorInput] = useState<MarginSimulatorInput>({
     costo: 0,
@@ -230,6 +247,84 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
       setDashboardLoading(false);
     }
   }, [dashboardPeriod]);
+
+  // =====================
+  // Pagos SENIAT Functions
+  // =====================
+
+  const openPagoForm = (tipo: TipoPagoSeniat, montoEstimado: number) => {
+    setShowPagoForm(tipo);
+    setPagoForm({
+      fechaPago: new Date().toISOString().split('T')[0],
+      monto: montoEstimado > 0 ? montoEstimado.toFixed(2) : '',
+      numeroPlanilla: '',
+      referenciaBancaria: '',
+      banco: '',
+      notes: '',
+    });
+    setPagoImage(null);
+  };
+
+  const handleSavePago = async () => {
+    if (!showPagoForm || !pagoForm.monto) return;
+    setSavingPago(true);
+    try {
+      const formData = new FormData();
+      formData.append('periodo', dashboardPeriod);
+      formData.append('tipoPago', showPagoForm);
+      formData.append('fechaPago', pagoForm.fechaPago);
+      formData.append('monto', pagoForm.monto);
+      if (pagoForm.numeroPlanilla) formData.append('numeroPlanilla', pagoForm.numeroPlanilla);
+      if (pagoForm.referenciaBancaria) formData.append('referenciaBancaria', pagoForm.referenciaBancaria);
+      if (pagoForm.banco) formData.append('banco', pagoForm.banco);
+      if (pagoForm.notes) formData.append('notes', pagoForm.notes);
+      if (pagoImage) formData.append('image', pagoImage);
+
+      const response = await fetch('/api/fiscal/pagos-seniat', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setSuccess('Pago registrado correctamente');
+        setShowPagoForm(null);
+        loadDashboard();
+      } else {
+        setError(data.error || 'Error al registrar pago');
+      }
+    } catch (err) {
+      console.error('Error saving pago:', err);
+      setError('Error de conexión');
+    } finally {
+      setSavingPago(false);
+    }
+  };
+
+  const handleDeletePago = async (pagoId: number) => {
+    if (!confirm('¿Eliminar este registro de pago?')) return;
+    try {
+      const response = await fetch(`/api/fiscal/pagos-seniat/${pagoId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSuccess('Pago eliminado');
+        setViewingPago(null);
+        loadDashboard();
+      } else {
+        setError(data.error || 'Error al eliminar');
+      }
+    } catch (err) {
+      setError('Error de conexión');
+    }
+  };
+
+  const getPagoForTipo = (tipo: TipoPagoSeniat): FiscalPagoSeniat | undefined => {
+    return dashboardData?.pagosSeniat?.find(p => p.tipoPago === tipo);
+  };
 
   // =====================
   // Proveedores Functions
@@ -1778,6 +1873,10 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
         const totalPago1 = totalRet + ivaNet;  // ret. 16-fin prev + IVA
         const totalPago2 = totalRet;            // ret. 1-15 actual solo
 
+        const pagoPago1 = getPagoForTipo('pago1');
+        const pagoPago2 = getPagoForTipo('pago2');
+        const pagoSumat = getPagoForTipo('sumat');
+
         const fmtDate = (d: Date) => d.toLocaleDateString('es-VE', { day: 'numeric', month: 'long', year: 'numeric' });
 
         const DateBadge = ({ date, isPast, label }: { date: Date; isPast: boolean; label: string }) => (
@@ -1790,6 +1889,40 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
           </div>
         );
 
+        const PaidBadge = ({ pago }: { pago: FiscalPagoSeniat }) => (
+          <div className="mt-3 pt-3 border-t border-green-200">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">PAGADO</span>
+              <button onClick={() => setViewingPago(pago)} className="text-[10px] text-green-600 underline hover:text-green-800">ver detalle</button>
+            </div>
+            <div className="text-sm space-y-1">
+              <div className="flex justify-between">
+                <span className="text-green-700">Monto pagado</span>
+                <span className="font-mono font-bold text-green-800">{formatBs(pago.monto)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-green-600 text-xs">Fecha</span>
+                <span className="text-green-700 text-xs">{formatDateDMY(pago.fechaPago)}</span>
+              </div>
+              {pago.banco && (
+                <div className="flex justify-between">
+                  <span className="text-green-600 text-xs">Banco</span>
+                  <span className="text-green-700 text-xs">{pago.banco}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+        const PayButton = ({ tipo, montoEstimado }: { tipo: TipoPagoSeniat; montoEstimado: number }) => (
+          <button
+            onClick={() => openPagoForm(tipo, montoEstimado)}
+            className="mt-3 w-full py-2 px-3 rounded-lg text-sm font-semibold text-white bg-ocean-600 hover:bg-ocean-700 transition-colors"
+          >
+            Registrar pago
+          </button>
+        );
+
         return (
           <div className="mt-6">
             <h3 className="text-base font-semibold text-ocean-900 mb-3">
@@ -1797,94 +1930,116 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
               <span className="ml-2 text-xs font-normal text-ocean-500">RIF terminado en 7</span>
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* ── Retenciones del período (se pagan en 2 cuotas) ── */}
               {/* ── 1er pago: ret. 16-fin mes anterior + IVA mensual (contable) ── */}
-              <div className="rounded-xl p-5 shadow-sm border border-sky-200 bg-sky-50">
+              <div className={`rounded-xl p-5 shadow-sm border ${pagoPago1 ? 'border-green-300 bg-green-50' : 'border-sky-200 bg-sky-50'}`}>
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-xs font-semibold uppercase tracking-wide text-sky-700">
+                  <h4 className={`text-xs font-semibold uppercase tracking-wide ${pagoPago1 ? 'text-green-700' : 'text-sky-700'}`}>
                     1er pago del mes
                   </h4>
-                  <span className="text-[10px] bg-sky-100 text-sky-600 px-2 py-0.5 rounded-full">contable</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${pagoPago1 ? 'bg-green-100 text-green-600' : 'bg-sky-100 text-sky-600'}`}>contable</span>
                 </div>
                 <div className="space-y-1.5 text-sm mb-3">
                   <div className="flex justify-between">
-                    <span className="text-sky-800">Ret. IVA</span>
-                    <span className="font-mono font-semibold text-sky-900">{formatBs(retIva)}</span>
+                    <span className={pagoPago1 ? 'text-green-700' : 'text-sky-800'}>Ret. IVA</span>
+                    <span className={`font-mono font-semibold ${pagoPago1 ? 'text-green-800' : 'text-sky-900'}`}>{formatBs(retIva)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sky-800">Ret. ISLR</span>
-                    <span className="font-mono font-semibold text-sky-900">{formatBs(retIslr)}</span>
+                    <span className={pagoPago1 ? 'text-green-700' : 'text-sky-800'}>Ret. ISLR</span>
+                    <span className={`font-mono font-semibold ${pagoPago1 ? 'text-green-800' : 'text-sky-900'}`}>{formatBs(retIslr)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sky-800">IGTF</span>
-                    <span className="font-mono font-semibold text-sky-900">{formatBs(igtf)}</span>
+                    <span className={pagoPago1 ? 'text-green-700' : 'text-sky-800'}>IGTF</span>
+                    <span className={`font-mono font-semibold ${pagoPago1 ? 'text-green-800' : 'text-sky-900'}`}>{formatBs(igtf)}</span>
                   </div>
-                  <div className="flex justify-between border-t border-sky-200 pt-1.5 mt-1.5">
-                    <span className="text-sky-800">IVA neto mensual</span>
-                    <span className="font-mono font-semibold text-sky-900">{formatBs(ivaNet)}</span>
+                  <div className={`flex justify-between border-t pt-1.5 mt-1.5 ${pagoPago1 ? 'border-green-200' : 'border-sky-200'}`}>
+                    <span className={pagoPago1 ? 'text-green-700' : 'text-sky-800'}>IVA neto mensual</span>
+                    <span className={`font-mono font-semibold ${pagoPago1 ? 'text-green-800' : 'text-sky-900'}`}>{formatBs(ivaNet)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sky-500 text-xs">Anticipo IVA</span>
-                    <span className="font-mono text-sky-400 text-xs">confirmar c/ contadora</span>
+                    <span className={`text-xs ${pagoPago1 ? 'text-green-500' : 'text-sky-500'}`}>Anticipo IVA</span>
+                    <span className={`font-mono text-xs ${pagoPago1 ? 'text-green-400' : 'text-sky-400'}`}>confirmar c/ contadora</span>
                   </div>
                 </div>
-                <div className="pt-3 border-t border-sky-200 flex justify-between font-bold text-sky-900 mb-3">
+                <div className={`pt-3 border-t flex justify-between font-bold mb-3 ${pagoPago1 ? 'border-green-200 text-green-900' : 'border-sky-200 text-sky-900'}`}>
                   <span>Total estimado</span>
                   <span className="font-mono text-base">{formatBs(totalPago1)}</span>
                 </div>
-                <DateBadge date={pago1} isPast={isPago1Past} label={labelPago1} />
+                {pagoPago1 ? (
+                  <PaidBadge pago={pagoPago1} />
+                ) : (
+                  <>
+                    <DateBadge date={pago1} isPast={isPago1Past} label={labelPago1} />
+                    <PayButton tipo="pago1" montoEstimado={totalPago1} />
+                  </>
+                )}
               </div>
 
               {/* ── 2do pago: ret. 1-15 mes actual solo ── */}
-              <div className="rounded-xl p-5 shadow-sm border border-indigo-200 bg-indigo-50">
+              <div className={`rounded-xl p-5 shadow-sm border ${pagoPago2 ? 'border-green-300 bg-green-50' : 'border-indigo-200 bg-indigo-50'}`}>
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
+                  <h4 className={`text-xs font-semibold uppercase tracking-wide ${pagoPago2 ? 'text-green-700' : 'text-indigo-700'}`}>
                     2do pago del mes
                   </h4>
-                  <span className="text-[10px] bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">retenciones</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${pagoPago2 ? 'bg-green-100 text-green-600' : 'bg-indigo-100 text-indigo-600'}`}>retenciones</span>
                 </div>
                 <div className="space-y-1.5 text-sm mb-3">
                   <div className="flex justify-between">
-                    <span className="text-indigo-800">Ret. IVA</span>
-                    <span className="font-mono font-semibold text-indigo-900">{formatBs(retIva)}</span>
+                    <span className={pagoPago2 ? 'text-green-700' : 'text-indigo-800'}>Ret. IVA</span>
+                    <span className={`font-mono font-semibold ${pagoPago2 ? 'text-green-800' : 'text-indigo-900'}`}>{formatBs(retIva)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-indigo-800">Ret. ISLR</span>
-                    <span className="font-mono font-semibold text-indigo-900">{formatBs(retIslr)}</span>
+                    <span className={pagoPago2 ? 'text-green-700' : 'text-indigo-800'}>Ret. ISLR</span>
+                    <span className={`font-mono font-semibold ${pagoPago2 ? 'text-green-800' : 'text-indigo-900'}`}>{formatBs(retIslr)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-indigo-800">IGTF</span>
-                    <span className="font-mono font-semibold text-indigo-900">{formatBs(igtf)}</span>
+                    <span className={pagoPago2 ? 'text-green-700' : 'text-indigo-800'}>IGTF</span>
+                    <span className={`font-mono font-semibold ${pagoPago2 ? 'text-green-800' : 'text-indigo-900'}`}>{formatBs(igtf)}</span>
                   </div>
                 </div>
-                <div className="pt-3 border-t border-indigo-200 flex justify-between font-bold text-indigo-900 mb-3">
+                <div className={`pt-3 border-t flex justify-between font-bold mb-3 ${pagoPago2 ? 'border-green-200 text-green-900' : 'border-indigo-200 text-indigo-900'}`}>
                   <span>Total</span>
                   <span className="font-mono text-base">{formatBs(totalPago2)}</span>
                 </div>
-                <DateBadge date={pago2} isPast={isPago2Past} label={labelPago2} />
+                {pagoPago2 ? (
+                  <PaidBadge pago={pagoPago2} />
+                ) : (
+                  <>
+                    <DateBadge date={pago2} isPast={isPago2Past} label={labelPago2} />
+                    <PayButton tipo="pago2" montoEstimado={totalPago2} />
+                  </>
+                )}
               </div>
-              <div className="rounded-xl p-5 shadow-sm border border-rose-200 bg-rose-50">
+
+              {/* ── SUMAT ── */}
+              <div className={`rounded-xl p-5 shadow-sm border ${pagoSumat ? 'border-green-300 bg-green-50' : 'border-rose-200 bg-rose-50'}`}>
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <span className="text-xs font-semibold uppercase tracking-wide text-rose-700">Pago mensual</span>
-                    <p className="text-lg font-bold mt-0.5 text-rose-900">SUMAT / SENIAT mensual</p>
-                    <p className="text-[11px] mt-0.5 text-rose-600">Impuesto municipal + declaración IVA anual</p>
+                    <span className={`text-xs font-semibold uppercase tracking-wide ${pagoSumat ? 'text-green-700' : 'text-rose-700'}`}>Pago mensual</span>
+                    <p className={`text-lg font-bold mt-0.5 ${pagoSumat ? 'text-green-900' : 'text-rose-900'}`}>SUMAT / SENIAT mensual</p>
+                    <p className={`text-[11px] mt-0.5 ${pagoSumat ? 'text-green-600' : 'text-rose-600'}`}>Impuesto municipal + declaración IVA anual</p>
                   </div>
-                  <span className="text-xs px-2 py-1 rounded-full font-medium bg-rose-100 text-rose-700">SUMAT</span>
+                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${pagoSumat ? 'bg-green-100 text-green-700' : 'bg-rose-100 text-rose-700'}`}>SUMAT</span>
                 </div>
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-rose-800">SUMAT (2.5% ventas)</span>
-                    <span className="font-mono font-semibold text-rose-900">{formatBs(sumat)}</span>
+                    <span className={pagoSumat ? 'text-green-700' : 'text-rose-800'}>SUMAT (2.5% ventas)</span>
+                    <span className={`font-mono font-semibold ${pagoSumat ? 'text-green-800' : 'text-rose-900'}`}>{formatBs(sumat)}</span>
                   </div>
                 </div>
-                <div className="mt-3 pt-3 border-t border-rose-200 flex justify-between font-bold text-rose-900">
+                <div className={`mt-3 pt-3 border-t flex justify-between font-bold ${pagoSumat ? 'border-green-200 text-green-900' : 'border-rose-200 text-rose-900'}`}>
                   <span>Total mensual</span>
                   <span className="font-mono text-base">{formatBs(sumat)}</span>
                 </div>
-                <p className="text-[10px] text-rose-500 mt-2">
-                  Declaración IVA (firma personal) se hace 1 vez/mes
-                </p>
+                {pagoSumat ? (
+                  <PaidBadge pago={pagoSumat} />
+                ) : (
+                  <>
+                    <p className={`text-[10px] mt-2 ${pagoSumat ? 'text-green-500' : 'text-rose-500'}`}>
+                      Declaración IVA (firma personal) se hace 1 vez/mes
+                    </p>
+                    <PayButton tipo="sumat" montoEstimado={sumat} />
+                  </>
+                )}
               </div>
             </div>
             <p className="text-[11px] text-ocean-400 mt-2">
@@ -1893,6 +2048,153 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
           </div>
         );
       })()}
+
+      {/* ── Modal: Registrar Pago SENIAT ── */}
+      {showPagoForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowPagoForm(null)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-ocean-900">
+                  Registrar pago — {showPagoForm === 'pago1' ? '1er pago' : showPagoForm === 'pago2' ? '2do pago' : 'SUMAT'}
+                </h3>
+                <button onClick={() => setShowPagoForm(null)} className="text-ocean-400 hover:text-ocean-600 text-xl">&times;</button>
+              </div>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-ocean-700 mb-1">Fecha de pago</label>
+                    <input type="date" value={pagoForm.fechaPago}
+                      onChange={e => setPagoForm(f => ({ ...f, fechaPago: e.target.value }))}
+                      className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-1 focus:ring-ocean-500 outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-ocean-700 mb-1">Monto (Bs)</label>
+                    <input type="number" step="0.01" min="0" value={pagoForm.monto}
+                      onChange={e => setPagoForm(f => ({ ...f, monto: e.target.value }))}
+                      className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-1 focus:ring-ocean-500 outline-none font-mono" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-ocean-700 mb-1">Número de planilla</label>
+                  <input type="text" value={pagoForm.numeroPlanilla}
+                    onChange={e => setPagoForm(f => ({ ...f, numeroPlanilla: e.target.value }))}
+                    placeholder="Ej: 0590123456"
+                    className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-1 focus:ring-ocean-500 outline-none" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-ocean-700 mb-1">Referencia bancaria</label>
+                    <input type="text" value={pagoForm.referenciaBancaria}
+                      onChange={e => setPagoForm(f => ({ ...f, referenciaBancaria: e.target.value }))}
+                      className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-1 focus:ring-ocean-500 outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-ocean-700 mb-1">Banco</label>
+                    <input type="text" value={pagoForm.banco}
+                      onChange={e => setPagoForm(f => ({ ...f, banco: e.target.value }))}
+                      placeholder="Ej: Banesco, Provincial..."
+                      className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-1 focus:ring-ocean-500 outline-none" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-ocean-700 mb-1">Nota (opcional)</label>
+                  <input type="text" value={pagoForm.notes}
+                    onChange={e => setPagoForm(f => ({ ...f, notes: e.target.value }))}
+                    className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-1 focus:ring-ocean-500 outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-ocean-700 mb-1">Comprobante (imagen)</label>
+                  <input
+                    ref={pagoFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={e => setPagoImage(e.target.files?.[0] || null)}
+                    className="w-full text-sm text-ocean-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-ocean-100 file:text-ocean-700 hover:file:bg-ocean-200"
+                  />
+                  {pagoImage && (
+                    <p className="text-xs text-ocean-500 mt-1">{pagoImage.name} ({(pagoImage.size / 1024).toFixed(0)} KB)</p>
+                  )}
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button onClick={() => setShowPagoForm(null)} className="flex-1 py-2 px-4 rounded-lg border border-ocean-200 text-ocean-700 text-sm hover:bg-ocean-50">
+                    Cancelar
+                  </button>
+                  <button onClick={handleSavePago} disabled={savingPago || !pagoForm.monto}
+                    className="flex-1 py-2 px-4 rounded-lg bg-ocean-600 text-white text-sm font-semibold hover:bg-ocean-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    {savingPago ? 'Guardando...' : 'Guardar pago'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Ver detalle de pago ── */}
+      {viewingPago && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setViewingPago(null)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-ocean-900">
+                  Detalle de pago — {viewingPago.tipoPago === 'pago1' ? '1er pago' : viewingPago.tipoPago === 'pago2' ? '2do pago' : 'SUMAT'}
+                </h3>
+                <button onClick={() => setViewingPago(null)} className="text-ocean-400 hover:text-ocean-600 text-xl">&times;</button>
+              </div>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between py-2 border-b border-ocean-100">
+                  <span className="text-ocean-600">Monto</span>
+                  <span className="font-mono font-bold text-ocean-900">{formatBs(viewingPago.monto)}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-ocean-100">
+                  <span className="text-ocean-600">Fecha de pago</span>
+                  <span className="text-ocean-900">{formatDateDMY(viewingPago.fechaPago)}</span>
+                </div>
+                {viewingPago.numeroPlanilla && (
+                  <div className="flex justify-between py-2 border-b border-ocean-100">
+                    <span className="text-ocean-600">N° Planilla</span>
+                    <span className="font-mono text-ocean-900">{viewingPago.numeroPlanilla}</span>
+                  </div>
+                )}
+                {viewingPago.referenciaBancaria && (
+                  <div className="flex justify-between py-2 border-b border-ocean-100">
+                    <span className="text-ocean-600">Ref. bancaria</span>
+                    <span className="font-mono text-ocean-900">{viewingPago.referenciaBancaria}</span>
+                  </div>
+                )}
+                {viewingPago.banco && (
+                  <div className="flex justify-between py-2 border-b border-ocean-100">
+                    <span className="text-ocean-600">Banco</span>
+                    <span className="text-ocean-900">{viewingPago.banco}</span>
+                  </div>
+                )}
+                {viewingPago.notes && (
+                  <div className="flex justify-between py-2 border-b border-ocean-100">
+                    <span className="text-ocean-600">Nota</span>
+                    <span className="text-ocean-900">{viewingPago.notes}</span>
+                  </div>
+                )}
+                {viewingPago.imageUrl && (
+                  <div className="pt-2">
+                    <p className="text-xs font-medium text-ocean-700 mb-2">Comprobante:</p>
+                    <img src={viewingPago.imageUrl} alt="Comprobante de pago" className="w-full rounded-lg border border-ocean-200" />
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-3 mt-5 pt-3 border-t border-ocean-100">
+                <button onClick={() => setViewingPago(null)} className="flex-1 py-2 px-4 rounded-lg border border-ocean-200 text-ocean-700 text-sm hover:bg-ocean-50">
+                  Cerrar
+                </button>
+                <button onClick={() => handleDeletePago(viewingPago.id)}
+                  className="py-2 px-4 rounded-lg bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100 border border-red-200">
+                  Eliminar pago
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {!dashboardData && (
         <div className="text-center py-12 text-ocean-600">
