@@ -644,14 +644,42 @@ export default function AdminSupplierPayments() {
     }
   };
 
-  // ── Toggle pagada manual ──────────────────────────────
+  // ── Pagada manual ────────────────────────────────────
 
-  const handleTogglePagadaManual = async (compra: CompraProveedor) => {
+  const [showPagadaModal, setShowPagadaModal] = useState(false);
+  const [pagadaTargetCompra, setPagadaTargetCompra] = useState<CompraProveedor | null>(null);
+  const [pagadaNotaInput, setPagadaNotaInput] = useState('');
+
+  const openPagadaModal = (compra: CompraProveedor) => {
+    setPagadaTargetCompra(compra);
+    setPagadaNotaInput('');
+    setShowPagadaModal(true);
+  };
+
+  const handleMarcarPagada = async () => {
+    if (!pagadaTargetCompra) return;
+    try {
+      const res = await fetch(`/api/pagos-proveedores/compras/${pagadaTargetCompra.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pagadaManual: true, notaPagada: pagadaNotaInput.trim() || null }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowPagadaModal(false);
+        await Promise.all([loadCompras(), loadResumen()]);
+      }
+    } catch {
+      alert('Error de conexion');
+    }
+  };
+
+  const handleDesmarcarPagada = async (compra: CompraProveedor) => {
     try {
       const res = await fetch(`/api/pagos-proveedores/compras/${compra.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pagadaManual: !compra.pagadaManual }),
+        body: JSON.stringify({ pagadaManual: false, notaPagada: null }),
       });
       const data = await res.json();
       if (data.success) {
@@ -1080,9 +1108,14 @@ export default function AdminSupplierPayments() {
                         <span className="text-xs text-ocean-400">{formatBs(compra.montoTotalBs)}</span>
                       )}
                       {isPagada ? (
-                        <span className="text-xs text-emerald-600 font-medium">
-                          Pagada{compra.pagadaManual && compra.saldoPendiente > 0 ? ' (manual)' : ''}
-                        </span>
+                        <>
+                          <span className="text-xs text-emerald-600 font-medium">
+                            Pagada{compra.pagadaManual && compra.saldoPendiente > 0 ? ' (manual)' : ''}
+                          </span>
+                          {compra.pagadaManual && compra.notaPagada && (
+                            <span className="block text-[10px] text-ocean-400 mt-0.5">{compra.notaPagada}</span>
+                          )}
+                        </>
                       ) : (
                         <span className="text-xs text-amber-600 font-medium">
                           Pendiente: {formatUSD(compra.saldoPendiente)}
@@ -1213,16 +1246,20 @@ export default function AdminSupplierPayments() {
                       )}
 
                       {/* Marcar como pagada */}
-                      {compra.saldoPendiente > 0 && (
+                      {compra.saldoPendiente > 0 && !compra.pagadaManual && (
                         <button
-                          onClick={() => handleTogglePagadaManual(compra)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
-                            compra.pagadaManual
-                              ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                              : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
-                          }`}
+                          onClick={() => openPagadaModal(compra)}
+                          className="px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-xs font-medium hover:bg-amber-100"
                         >
-                          {compra.pagadaManual ? 'Desmarcar pagada' : 'Marcar como pagada'}
+                          Marcar como pagada
+                        </button>
+                      )}
+                      {compra.pagadaManual && (
+                        <button
+                          onClick={() => handleDesmarcarPagada(compra)}
+                          className="px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-medium hover:bg-emerald-200"
+                        >
+                          Desmarcar pagada
                         </button>
                       )}
 
@@ -2022,6 +2059,50 @@ export default function AdminSupplierPayments() {
                 className="w-full px-4 py-2 bg-ocean-600 text-white rounded-lg text-sm font-medium hover:bg-ocean-700"
               >
                 + Nuevo Proveedor
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Marcar como pagada ────────────────────── */}
+      {showPagadaModal && pagadaTargetCompra && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-sm shadow-xl">
+            <div className="px-6 py-4 border-b border-ocean-100">
+              <h3 className="text-lg font-semibold text-ocean-900">Marcar como pagada</h3>
+              <p className="text-sm text-ocean-500 mt-1">
+                {pagadaTargetCompra.proveedorNombre} — {formatUSD(pagadaTargetCompra.montoTotal)}
+              </p>
+              <p className="text-xs text-amber-600 mt-0.5">
+                Diferencia: {formatUSD(pagadaTargetCompra.saldoPendiente)}
+              </p>
+            </div>
+            <div className="p-6">
+              <label className="block text-sm font-medium text-ocean-700 mb-1">
+                Nota explicativa (opcional)
+              </label>
+              <textarea
+                value={pagadaNotaInput}
+                onChange={e => setPagadaNotaInput(e.target.value)}
+                rows={2}
+                className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm resize-none"
+                placeholder="Ej: Retención ISLR 2%, diferencia de centavos..."
+                autoFocus
+              />
+            </div>
+            <div className="px-6 py-4 border-t border-ocean-100 flex gap-3 justify-end">
+              <button
+                onClick={() => setShowPagadaModal(false)}
+                className="px-4 py-2 text-sm text-ocean-600 hover:bg-ocean-50 rounded-lg"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleMarcarPagada}
+                className="px-6 py-2 text-sm bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700"
+              >
+                Marcar pagada
               </button>
             </div>
           </div>

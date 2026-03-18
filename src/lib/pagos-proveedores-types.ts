@@ -27,6 +27,7 @@ export interface D1CompraProveedor {
   fecha: string;
   tiene_factura: number;
   pagada_manual: number;
+  nota_pagada: string | null;
   nota_entrega_key: string | null;
   notas: string | null;
   is_active: number;
@@ -125,6 +126,7 @@ export interface CompraProveedor {
   totalAbonado: number;
   saldoPendiente: number;
   pagadaManual: boolean;
+  notaPagada: string | null;
   fecha: string;
   tieneFactura: boolean;
   notaEntregaUrl: string | null;
@@ -269,6 +271,7 @@ export function transformCompraProveedor(
     totalAbonado,
     saldoPendiente: row.monto_total - totalAbonado,
     pagadaManual: row.pagada_manual === 1,
+    notaPagada: row.nota_pagada,
     fecha: row.fecha,
     tieneFactura: row.tiene_factura === 1,
     notaEntregaUrl: row.nota_entrega_key ? `/api/pagos-proveedores/nota-entrega/${row.nota_entrega_key}` : null,

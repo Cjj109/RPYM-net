@@ -138,11 +138,11 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
   try {
     const id = params.id;
     const body = await request.json();
-    const { pagadaManual } = body;
+    const { pagadaManual, notaPagada } = body;
 
     await db.prepare(
-      "UPDATE compras_proveedores SET pagada_manual = ?, updated_at = datetime('now') WHERE id = ?"
-    ).bind(pagadaManual ? 1 : 0, id).run();
+      "UPDATE compras_proveedores SET pagada_manual = ?, nota_pagada = ?, updated_at = datetime('now') WHERE id = ?"
+    ).bind(pagadaManual ? 1 : 0, notaPagada ?? null, id).run();
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200, headers: { 'Content-Type': 'application/json' },
