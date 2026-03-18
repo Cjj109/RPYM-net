@@ -2010,8 +2010,8 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
         const { pago1, pago2, labelPago1, labelPago2 } = getSeniatDueDates(dashboardPeriod);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const isPago1Past = pago1 < today;
-        const isPago2Past = pago2 < today;
+        const isPago1Past = pago1 <= today;
+        const isPago2Past = pago2 <= today;
 
         // Fecha del próximo mes para mostrar "Próximo vencimiento"
         const [yrStr, moStr] = dashboardPeriod.split('-');
