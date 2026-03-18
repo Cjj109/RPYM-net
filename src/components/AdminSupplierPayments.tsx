@@ -600,7 +600,11 @@ export default function AdminSupplierPayments() {
         setMergeMode(false);
         setSelectedCompraIds(new Set());
         setMergeTargetId(null);
+        setExpandedCompraId(null);
+        // Force full reload to update all totals
+        setIsLoading(true);
         await Promise.all([loadCompras(), loadResumen()]);
+        setIsLoading(false);
       } else {
         alert(data.error || 'Error al fusionar');
       }
