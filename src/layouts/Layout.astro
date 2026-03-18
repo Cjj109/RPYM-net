@@ -30,7 +30,7 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
       (function() {
         try {
           var cached = localStorage.getItem('rpym_theme');
-          if (cached && ['ocean', 'carnival', 'christmas', 'easter', 'valentine', 'mundial', 'halloween'].includes(cached)) {
+          if (cached && ['ocean', 'carnival', 'christmas', 'easter', 'valentine', 'mundial', 'halloween', 'campeones'].includes(cached)) {
             document.documentElement.setAttribute('data-theme', cached);
           }
         } catch (e) {}
