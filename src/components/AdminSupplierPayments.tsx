@@ -366,6 +366,8 @@ export default function AdminSupplierPayments() {
       }
     } else {
       setEditingAbono(null);
+      // Para compras paralelo, default a modo Bs
+      const defaultBsMode = compra.modoPrecio === 'paralelo';
       setAbonoForm({
         montoUsd: compra.saldoPendiente > 0 ? String(compra.saldoPendiente.toFixed(2)) : '',
         fecha: new Date().toISOString().split('T')[0],
@@ -374,7 +376,7 @@ export default function AdminSupplierPayments() {
         notas: '',
       });
       setImagenPreview(null);
-      setMontoMode('usd');
+      setMontoMode(defaultBsMode ? 'bs' : 'usd');
       setMontoBsInput('');
       setTasaBcvInput(tasaBcv ? String(tasaBcv) : '');
       setTasaParalela('');
@@ -387,6 +389,12 @@ export default function AdminSupplierPayments() {
   const handleSaveAbono = async () => {
     if (!abonoTargetCompra || !abonoForm.montoUsd || !abonoForm.fecha) {
       alert('Completa monto y fecha');
+      return;
+    }
+
+    // Validar tasa paralela requerida para compras paralelo con abono en Bs
+    if (abonoTargetCompra.modoPrecio === 'paralelo' && montoMode === 'bs' && !tasaParalela) {
+      alert('La tasa paralela es requerida para compras a tasa paralelo');
       return;
     }
 
@@ -1772,6 +1780,12 @@ export default function AdminSupplierPayments() {
                   />
                 ) : (
                   <div className="space-y-3">
+                    {/* Indicador de modo paralelo */}
+                    {abonoTargetCompra.modoPrecio === 'paralelo' && (
+                      <div className="bg-violet-50 border border-violet-200 rounded-lg px-3 py-2 text-xs text-violet-700">
+                        Compra a tasa paralelo — la conversión principal usa tasa paralela
+                      </div>
+                    )}
                     <input
                       type="number"
                       step="0.01"
@@ -1779,7 +1793,9 @@ export default function AdminSupplierPayments() {
                       onChange={e => {
                         const bs = e.target.value;
                         setMontoBsInput(bs);
-                        const tasa = Number(tasaBcvInput);
+                        // Usar tasa paralela como principal si la compra es paralelo
+                        const isParalelo = abonoTargetCompra.modoPrecio === 'paralelo';
+                        const tasa = isParalelo ? Number(tasaParalela) : Number(tasaBcvInput);
                         if (tasa && Number(bs)) {
                           setAbonoForm(prev => ({ ...prev, montoUsd: (Number(bs) / tasa).toFixed(2) }));
                         } else {
@@ -1793,7 +1809,7 @@ export default function AdminSupplierPayments() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs text-ocean-500 mb-1">
-                          Tasa BCV
+                          Tasa BCV{abonoTargetCompra.modoPrecio === 'paralelo' ? ' (ref.)' : ''}
                         </label>
                         <input
                           type="number"
@@ -1802,7 +1818,8 @@ export default function AdminSupplierPayments() {
                           onChange={e => {
                             const tasa = e.target.value;
                             setTasaBcvInput(tasa);
-                            if (Number(tasa) && Number(montoBsInput)) {
+                            // Solo recalcular montoUsd si NO es compra paralelo
+                            if (abonoTargetCompra.modoPrecio !== 'paralelo' && Number(tasa) && Number(montoBsInput)) {
                               setAbonoForm(prev => ({ ...prev, montoUsd: (Number(montoBsInput) / Number(tasa)).toFixed(2) }));
                             }
                           }}
@@ -1812,14 +1829,21 @@ export default function AdminSupplierPayments() {
                       </div>
                       <div>
                         <label className="block text-xs text-ocean-500 mb-1">
-                          Tasa Paralelo (ref.)
+                          Tasa Paralelo{abonoTargetCompra.modoPrecio === 'paralelo' ? '' : ' (ref.)'}
                         </label>
                         <input
                           type="number"
                           step="0.01"
                           value={tasaParalela}
-                          onChange={e => setTasaParalela(e.target.value)}
-                          placeholder="Opcional"
+                          onChange={e => {
+                            const tasa = e.target.value;
+                            setTasaParalela(tasa);
+                            // Recalcular montoUsd si ES compra paralelo
+                            if (abonoTargetCompra.modoPrecio === 'paralelo' && Number(tasa) && Number(montoBsInput)) {
+                              setAbonoForm(prev => ({ ...prev, montoUsd: (Number(montoBsInput) / Number(tasa)).toFixed(2) }));
+                            }
+                          }}
+                          placeholder={abonoTargetCompra.modoPrecio === 'paralelo' ? 'Requerido' : 'Opcional'}
                           className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
                         />
                       </div>
@@ -1827,21 +1851,45 @@ export default function AdminSupplierPayments() {
 
                     {montoBsInput && Number(montoBsInput) > 0 && (tasaBcvInput || tasaParalela) && (
                       <div className="bg-ocean-50 rounded-lg p-3 text-sm space-y-1">
-                        {tasaBcvInput && Number(tasaBcvInput) > 0 && (
-                          <div className="flex justify-between text-ocean-700 font-medium">
-                            <span>BCV ({Number(tasaBcvInput).toFixed(2)})</span>
-                            <span className="text-ocean-900">
-                              {formatUSD(Number(montoBsInput) / Number(tasaBcvInput))}
-                            </span>
-                          </div>
-                        )}
-                        {tasaParalela && Number(tasaParalela) > 0 && (
-                          <div className="flex justify-between text-ocean-500">
-                            <span>Paralelo ({Number(tasaParalela).toFixed(2)})</span>
-                            <span>
-                              {formatUSD(Number(montoBsInput) / Number(tasaParalela))}
-                            </span>
-                          </div>
+                        {/* Para compras paralelo, mostrar paralelo primero y con énfasis */}
+                        {abonoTargetCompra.modoPrecio === 'paralelo' ? (
+                          <>
+                            {tasaParalela && Number(tasaParalela) > 0 && (
+                              <div className="flex justify-between text-ocean-700 font-medium">
+                                <span>Paralelo ({Number(tasaParalela).toFixed(2)})</span>
+                                <span className="text-ocean-900">
+                                  {formatUSD(Number(montoBsInput) / Number(tasaParalela))}
+                                </span>
+                              </div>
+                            )}
+                            {tasaBcvInput && Number(tasaBcvInput) > 0 && (
+                              <div className="flex justify-between text-ocean-500">
+                                <span>BCV ({Number(tasaBcvInput).toFixed(2)})</span>
+                                <span>
+                                  {formatUSD(Number(montoBsInput) / Number(tasaBcvInput))}
+                                </span>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {tasaBcvInput && Number(tasaBcvInput) > 0 && (
+                              <div className="flex justify-between text-ocean-700 font-medium">
+                                <span>BCV ({Number(tasaBcvInput).toFixed(2)})</span>
+                                <span className="text-ocean-900">
+                                  {formatUSD(Number(montoBsInput) / Number(tasaBcvInput))}
+                                </span>
+                              </div>
+                            )}
+                            {tasaParalela && Number(tasaParalela) > 0 && (
+                              <div className="flex justify-between text-ocean-500">
+                                <span>Paralelo ({Number(tasaParalela).toFixed(2)})</span>
+                                <span>
+                                  {formatUSD(Number(montoBsInput) / Number(tasaParalela))}
+                                </span>
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     )}

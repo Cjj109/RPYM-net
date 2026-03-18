@@ -17,7 +17,12 @@ export const GET: APIRoute = async ({ params, request, locals }) => {
 
     const compra = await db.prepare(`
       SELECT c.*, pi.nombre as proveedor_nombre,
-        COALESCE((SELECT SUM(a.monto_usd) FROM abonos_proveedores a WHERE a.compra_id = c.id AND a.is_active = 1), 0) as total_abonado
+        COALESCE((SELECT SUM(
+          CASE WHEN c.modo_precio = 'paralelo' AND a.monto_bs IS NOT NULL AND a.tasa_paralela IS NOT NULL AND a.tasa_paralela > 0
+            THEN a.monto_bs / a.tasa_paralela
+            ELSE a.monto_usd
+          END
+        ) FROM abonos_proveedores a WHERE a.compra_id = c.id AND a.is_active = 1), 0) as total_abonado
       FROM compras_proveedores c
       JOIN proveedores_informales pi ON c.proveedor_id = pi.id
       WHERE c.id = ? AND c.is_active = 1

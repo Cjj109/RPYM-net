@@ -261,7 +261,16 @@ export function transformCompraProveedor(
   abonosRows: D1AbonoProveedor[]
 ): CompraProveedor {
   const abonos = abonosRows.map(transformAbonoProveedor);
-  const totalAbonado = row.total_abonado || 0;
+  // Para compras 'paralelo', recalcular total abonado usando tasa paralela
+  let totalAbonado = row.total_abonado || 0;
+  if (row.modo_precio === 'paralelo' && abonosRows.length > 0) {
+    totalAbonado = abonosRows.reduce((sum, a) => {
+      if (a.monto_bs && a.tasa_paralela && a.tasa_paralela > 0) {
+        return sum + (a.monto_bs / a.tasa_paralela);
+      }
+      return sum + a.monto_usd;
+    }, 0);
+  }
   return {
     id: row.id,
     proveedorId: row.proveedor_id,

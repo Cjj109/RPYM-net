@@ -21,9 +21,17 @@ export const GET: APIRoute = async ({ request, locals }) => {
     const estado = url.searchParams.get('estado'); // pendiente | pagada
     const modoPrecio = url.searchParams.get('modo_precio');
 
+    // Para compras 'paralelo', calcular total abonado usando tasa paralela cuando existe
+    const totalAbonadoExpr = `COALESCE((SELECT SUM(
+      CASE WHEN c.modo_precio = 'paralelo' AND a.monto_bs IS NOT NULL AND a.tasa_paralela IS NOT NULL AND a.tasa_paralela > 0
+        THEN a.monto_bs / a.tasa_paralela
+        ELSE a.monto_usd
+      END
+    ) FROM abonos_proveedores a WHERE a.compra_id = c.id AND a.is_active = 1), 0)`;
+
     let query = `
       SELECT c.*, pi.nombre as proveedor_nombre,
-        COALESCE((SELECT SUM(a.monto_usd) FROM abonos_proveedores a WHERE a.compra_id = c.id AND a.is_active = 1), 0) as total_abonado
+        ${totalAbonadoExpr} as total_abonado
       FROM compras_proveedores c
       JOIN proveedores_informales pi ON c.proveedor_id = pi.id
       WHERE c.is_active = 1
@@ -61,9 +69,9 @@ export const GET: APIRoute = async ({ request, locals }) => {
     }
 
     if (estado === 'pendiente') {
-      query += ` AND c.pagada_manual = 0 AND COALESCE((SELECT SUM(a.monto_usd) FROM abonos_proveedores a WHERE a.compra_id = c.id AND a.is_active = 1), 0) < c.monto_total`;
+      query += ` AND c.pagada_manual = 0 AND ${totalAbonadoExpr} < c.monto_total`;
     } else if (estado === 'pagada') {
-      query += ` AND (c.pagada_manual = 1 OR COALESCE((SELECT SUM(a.monto_usd) FROM abonos_proveedores a WHERE a.compra_id = c.id AND a.is_active = 1), 0) >= c.monto_total)`;
+      query += ` AND (c.pagada_manual = 1 OR ${totalAbonadoExpr} >= c.monto_total)`;
     }
 
     query += ` ORDER BY c.fecha DESC, c.created_at DESC`;
