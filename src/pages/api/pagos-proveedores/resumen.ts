@@ -4,7 +4,7 @@ import type { ResumenMensual, ResumenMensualProveedor } from '../../../lib/pagos
 
 export const prerender = false;
 
-// GET /api/pagos-proveedores/resumen?mes=YYYY-MM - Monthly summary by supplier
+// GET /api/pagos-proveedores/resumen?mes=YYYY-MM - Monthly summary
 export const GET: APIRoute = async ({ request, locals }) => {
   const auth = await requireAuth(request, locals);
   if (auth instanceof Response) return auth;
@@ -16,16 +16,18 @@ export const GET: APIRoute = async ({ request, locals }) => {
     const mes = url.searchParams.get('mes') ||
       `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
+    // Per-supplier breakdown (based on abono dates in this month)
     const results = await db.prepare(`
       SELECT
-        p.proveedor_id,
+        c.proveedor_id,
         pi.nombre as proveedor_nombre,
-        SUM(p.monto_usd) as total_usd,
+        SUM(a.monto_usd) as total_usd,
         COUNT(*) as cantidad_pagos
-      FROM pagos_proveedores p
-      JOIN proveedores_informales pi ON p.proveedor_id = pi.id
-      WHERE p.fecha LIKE ? AND p.is_active = 1
-      GROUP BY p.proveedor_id
+      FROM abonos_proveedores a
+      JOIN compras_proveedores c ON a.compra_id = c.id
+      JOIN proveedores_informales pi ON c.proveedor_id = pi.id
+      WHERE a.fecha LIKE ? AND a.is_active = 1 AND c.is_active = 1
+      GROUP BY c.proveedor_id
       ORDER BY total_usd DESC
     `).bind(`${mes}%`).all<{
       proveedor_id: number;
@@ -34,19 +36,20 @@ export const GET: APIRoute = async ({ request, locals }) => {
       cantidad_pagos: number;
     }>();
 
-    // Desglose por factura y cuenta
+    // Breakdown by factura (from compra) and cuenta (from abono)
     const breakdown = await db.prepare(`
       SELECT
-        COALESCE(SUM(CASE WHEN tiene_factura = 1 THEN monto_usd ELSE 0 END), 0) as total_con_factura,
-        COALESCE(SUM(CASE WHEN tiene_factura = 0 THEN monto_usd ELSE 0 END), 0) as total_sin_factura,
-        COALESCE(SUM(CASE WHEN cuenta = 'pa' THEN monto_usd ELSE 0 END), 0) as total_cuenta_pa,
-        COALESCE(SUM(CASE WHEN cuenta = 'carlos' THEN monto_usd ELSE 0 END), 0) as total_cuenta_carlos,
-        COALESCE(SUM(CASE WHEN cuenta = 'venezuela' THEN monto_usd ELSE 0 END), 0) as total_cuenta_venezuela,
+        COALESCE(SUM(CASE WHEN c.tiene_factura = 1 THEN a.monto_usd ELSE 0 END), 0) as total_con_factura,
+        COALESCE(SUM(CASE WHEN c.tiene_factura = 0 THEN a.monto_usd ELSE 0 END), 0) as total_sin_factura,
+        COALESCE(SUM(CASE WHEN a.cuenta = 'pa' THEN a.monto_usd ELSE 0 END), 0) as total_cuenta_pa,
+        COALESCE(SUM(CASE WHEN a.cuenta = 'carlos' THEN a.monto_usd ELSE 0 END), 0) as total_cuenta_carlos,
+        COALESCE(SUM(CASE WHEN a.cuenta = 'venezuela' THEN a.monto_usd ELSE 0 END), 0) as total_cuenta_venezuela,
         COUNT(*) as cantidad_total,
-        COALESCE(SUM(CASE WHEN tiene_factura = 1 THEN 1 ELSE 0 END), 0) as cantidad_con_factura,
-        COALESCE(SUM(CASE WHEN tiene_factura = 0 THEN 1 ELSE 0 END), 0) as cantidad_sin_factura
-      FROM pagos_proveedores
-      WHERE fecha LIKE ? AND is_active = 1
+        COALESCE(SUM(CASE WHEN c.tiene_factura = 1 THEN 1 ELSE 0 END), 0) as cantidad_con_factura,
+        COALESCE(SUM(CASE WHEN c.tiene_factura = 0 THEN 1 ELSE 0 END), 0) as cantidad_sin_factura
+      FROM abonos_proveedores a
+      JOIN compras_proveedores c ON a.compra_id = c.id
+      WHERE a.fecha LIKE ? AND a.is_active = 1 AND c.is_active = 1
     `).bind(`${mes}%`).first<{
       total_con_factura: number;
       total_sin_factura: number;

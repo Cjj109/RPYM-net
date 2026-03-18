@@ -7,6 +7,7 @@ export const prerender = false;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 
 // POST /api/pagos-proveedores/upload-imagen - Upload payment proof image to R2
+// Now works with abonos_proveedores table
 export const POST: APIRoute = async ({ request, locals }) => {
   const auth = await requireAuth(request, locals);
   if (auth instanceof Response) return auth;
@@ -22,10 +23,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
   try {
     const formData = await request.formData();
     const imageFile = formData.get('image') as File | null;
-    const pagoId = formData.get('pagoId') as string | null;
+    const abonoId = formData.get('abonoId') as string | null;
 
-    if (!imageFile || !pagoId) {
-      return new Response(JSON.stringify({ success: false, error: 'Imagen y pagoId son requeridos' }), {
+    if (!imageFile || !abonoId) {
+      return new Response(JSON.stringify({ success: false, error: 'Imagen y abonoId son requeridos' }), {
         status: 400, headers: { 'Content-Type': 'application/json' }
       });
     }
@@ -36,21 +37,24 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    // Get payment to find proveedor_id and existing image
-    const pago = await db.prepare(
-      'SELECT proveedor_id, imagen_key FROM pagos_proveedores WHERE id = ?'
-    ).bind(pagoId).first<{ proveedor_id: number; imagen_key: string | null }>();
+    // Get abono + compra to find proveedor_id and existing image
+    const abono = await db.prepare(`
+      SELECT a.imagen_key, c.proveedor_id
+      FROM abonos_proveedores a
+      JOIN compras_proveedores c ON a.compra_id = c.id
+      WHERE a.id = ?
+    `).bind(abonoId).first<{ imagen_key: string | null; proveedor_id: number }>();
 
-    if (!pago) {
-      return new Response(JSON.stringify({ success: false, error: 'Pago no encontrado' }), {
+    if (!abono) {
+      return new Response(JSON.stringify({ success: false, error: 'Abono no encontrado' }), {
         status: 404, headers: { 'Content-Type': 'application/json' }
       });
     }
 
     // Delete old image if exists
-    if (pago.imagen_key) {
+    if (abono.imagen_key) {
       try {
-        await r2.delete(pago.imagen_key);
+        await r2.delete(abono.imagen_key);
       } catch (e) {
         console.error('Error deleting old R2 image:', e);
       }
@@ -62,7 +66,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // Generate R2 key
     const timestamp = Date.now();
-    const r2Key = `pagos-proveedores/${pago.proveedor_id}/${pagoId}-${timestamp}.${ext}`;
+    const r2Key = `pagos-proveedores/${abono.proveedor_id}/${abonoId}-${timestamp}.${ext}`;
 
     // Upload to R2
     const arrayBuffer = await imageFile.arrayBuffer();
@@ -70,10 +74,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
       httpMetadata: { contentType }
     });
 
-    // Update payment with image key
+    // Update abono with image key
     await db.prepare(
-      "UPDATE pagos_proveedores SET imagen_key = ?, updated_at = datetime('now') WHERE id = ?"
-    ).bind(r2Key, pagoId).run();
+      "UPDATE abonos_proveedores SET imagen_key = ?, updated_at = datetime('now') WHERE id = ?"
+    ).bind(r2Key, abonoId).run();
 
     return new Response(JSON.stringify({
       success: true,

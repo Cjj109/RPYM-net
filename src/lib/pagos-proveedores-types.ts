@@ -1,6 +1,6 @@
 /**
  * RPYM - Tipos para módulo de pagos a proveedores informales
- * Pagos sin factura con comprobante de pago móvil/transferencia
+ * Modelo compra/abonos: cada compra puede tener múltiples pagos parciales
  */
 
 // =====================
@@ -16,6 +16,43 @@ export interface D1ProveedorInformal {
   updated_at: string;
 }
 
+export interface D1CompraProveedor {
+  id: number;
+  proveedor_id: number;
+  producto: string;
+  monto_total: number;
+  fecha: string;
+  tiene_factura: number;
+  nota_entrega_key: string | null;
+  notas: string | null;
+  is_active: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface D1CompraProveedorWithNombre extends D1CompraProveedor {
+  proveedor_nombre: string;
+  total_abonado: number;
+}
+
+export interface D1AbonoProveedor {
+  id: number;
+  compra_id: number;
+  monto_usd: number;
+  monto_bs: number | null;
+  tasa_cambio: number | null;
+  tasa_paralela: number | null;
+  fecha: string;
+  metodo_pago: string;
+  cuenta: string;
+  imagen_key: string | null;
+  notas: string | null;
+  is_active: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// Legacy types (kept for backward compat during transition)
 export interface D1PagoProveedor {
   id: number;
   proveedor_id: number;
@@ -55,6 +92,39 @@ export interface ProveedorInformal {
 export type MetodoPago = 'pago_movil' | 'transferencia' | 'efectivo';
 export type CuentaPago = 'pa' | 'carlos' | 'venezuela';
 
+export interface AbonoProveedor {
+  id: number;
+  compraId: number;
+  montoUsd: number;
+  montoBs: number | null;
+  tasaCambio: number | null;
+  tasaParalela: number | null;
+  montoUsdParalelo: number | null;
+  fecha: string;
+  metodoPago: MetodoPago;
+  cuenta: CuentaPago;
+  imagenUrl: string | null;
+  notas: string | null;
+  createdAt: string;
+}
+
+export interface CompraProveedor {
+  id: number;
+  proveedorId: number;
+  proveedorNombre: string;
+  producto: string;
+  montoTotal: number;
+  totalAbonado: number;
+  saldoPendiente: number;
+  fecha: string;
+  tieneFactura: boolean;
+  notaEntregaUrl: string | null;
+  notas: string | null;
+  abonos: AbonoProveedor[];
+  createdAt: string;
+}
+
+// Legacy type
 export interface PagoProveedor {
   id: number;
   proveedorId: number;
@@ -138,6 +208,50 @@ export function transformProveedorInformal(row: D1ProveedorInformal): ProveedorI
   };
 }
 
+export function transformAbonoProveedor(row: D1AbonoProveedor): AbonoProveedor {
+  return {
+    id: row.id,
+    compraId: row.compra_id,
+    montoUsd: row.monto_usd,
+    montoBs: row.monto_bs,
+    tasaCambio: row.tasa_cambio,
+    tasaParalela: row.tasa_paralela,
+    montoUsdParalelo: row.tasa_paralela && row.monto_bs
+      ? row.monto_bs / row.tasa_paralela
+      : null,
+    fecha: row.fecha,
+    metodoPago: row.metodo_pago as MetodoPago,
+    cuenta: row.cuenta as CuentaPago,
+    imagenUrl: row.imagen_key ? `/api/pagos-proveedores/imagen/${row.imagen_key}` : null,
+    notas: row.notas,
+    createdAt: row.created_at,
+  };
+}
+
+export function transformCompraProveedor(
+  row: D1CompraProveedorWithNombre,
+  abonosRows: D1AbonoProveedor[]
+): CompraProveedor {
+  const abonos = abonosRows.map(transformAbonoProveedor);
+  const totalAbonado = row.total_abonado || 0;
+  return {
+    id: row.id,
+    proveedorId: row.proveedor_id,
+    proveedorNombre: row.proveedor_nombre,
+    producto: row.producto,
+    montoTotal: row.monto_total,
+    totalAbonado,
+    saldoPendiente: row.monto_total - totalAbonado,
+    fecha: row.fecha,
+    tieneFactura: row.tiene_factura === 1,
+    notaEntregaUrl: row.nota_entrega_key ? `/api/pagos-proveedores/nota-entrega/${row.nota_entrega_key}` : null,
+    notas: row.notas,
+    abonos,
+    createdAt: row.created_at,
+  };
+}
+
+// Legacy transform
 export function transformPagoProveedor(row: D1PagoProveedorWithNombre): PagoProveedor {
   return {
     id: row.id,

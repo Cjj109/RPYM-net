@@ -1,10 +1,10 @@
 /**
- * RPYM - Registro de pagos a proveedores informales (sin factura)
- * Pagos móviles, transferencias y efectivo con comprobante
+ * RPYM - Registro de compras a proveedores informales
+ * Modelo compra/abonos: cada compra puede tener múltiples pagos parciales
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { formatUSD, formatBs, formatDateShort, formatDateDMY } from '../lib/format';
-import type { ProveedorInformal, PagoProveedor, ResumenMensual, MetodoPago, CuentaPago } from '../lib/pagos-proveedores-types';
+import { formatUSD, formatBs, formatDateShort } from '../lib/format';
+import type { ProveedorInformal, CompraProveedor, AbonoProveedor, ResumenMensual, MetodoPago, CuentaPago } from '../lib/pagos-proveedores-types';
 import { METODO_PAGO_LABELS, METODO_PAGO_SHORT, CUENTA_LABELS, CUENTA_SHORT } from '../lib/pagos-proveedores-types';
 
 const MONTHS_FULL_CAP = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -28,7 +28,7 @@ function shiftMonth(mes: string, delta: number): string {
 
 export default function AdminSupplierPayments() {
   // Data
-  const [pagos, setPagos] = useState<PagoProveedor[]>([]);
+  const [compras, setCompras] = useState<CompraProveedor[]>([]);
   const [proveedores, setProveedores] = useState<ProveedorInformal[]>([]);
   const [resumen, setResumen] = useState<ResumenMensual | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,35 +39,52 @@ export default function AdminSupplierPayments() {
   const [proveedorFilter, setProveedorFilter] = useState<number | null>(null);
   const [cuentaFilter, setCuentaFilter] = useState<CuentaPago | ''>('');
   const [facturaFilter, setFacturaFilter] = useState<'' | '1' | '0'>('');
+  const [estadoFilter, setEstadoFilter] = useState<'' | 'pendiente' | 'pagada'>('');
   const [searchTerm, setSearchTerm] = useState('');
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Payment modal
-  const [showPagoModal, setShowPagoModal] = useState(false);
-  const [editingPago, setEditingPago] = useState<PagoProveedor | null>(null);
-  const [pagoForm, setPagoForm] = useState({
+  // Expanded compra (to show abonos)
+  const [expandedCompraId, setExpandedCompraId] = useState<number | null>(null);
+
+  // Compra modal
+  const [showCompraModal, setShowCompraModal] = useState(false);
+  const [editingCompra, setEditingCompra] = useState<CompraProveedor | null>(null);
+  const [compraForm, setCompraForm] = useState({
     proveedorId: '' as string,
-    montoUsd: '',
     producto: '',
+    montoTotal: '',
+    fecha: new Date().toISOString().split('T')[0],
+    tieneFactura: false,
+    notas: '',
+  });
+  const [notaEntregaFile, setNotaEntregaFile] = useState<File | null>(null);
+  const [notaEntregaPreview, setNotaEntregaPreview] = useState<string | null>(null);
+  const [removeNotaEntrega, setRemoveNotaEntrega] = useState(false);
+  const [isSavingCompra, setIsSavingCompra] = useState(false);
+
+  // Abono modal
+  const [showAbonoModal, setShowAbonoModal] = useState(false);
+  const [abonoTargetCompra, setAbonoTargetCompra] = useState<CompraProveedor | null>(null);
+  const [editingAbono, setEditingAbono] = useState<AbonoProveedor | null>(null);
+  const [abonoForm, setAbonoForm] = useState({
+    montoUsd: '',
     fecha: new Date().toISOString().split('T')[0],
     metodoPago: 'pago_movil' as MetodoPago,
     cuenta: 'pa' as CuentaPago,
-    tieneFactura: false,
     notas: '',
   });
   const [imagenFile, setImagenFile] = useState<File | null>(null);
   const [imagenPreview, setImagenPreview] = useState<string | null>(null);
-  const [isSavingPago, setIsSavingPago] = useState(false);
+  const [removeExistingImage, setRemoveExistingImage] = useState(false);
+  const [isSavingAbono, setIsSavingAbono] = useState(false);
 
-  // Bs conversion mode
+  // Bs conversion mode for abono
   const [montoMode, setMontoMode] = useState<'usd' | 'bs'>('usd');
   const [montoBsInput, setMontoBsInput] = useState('');
   const [tasaBcv, setTasaBcv] = useState<number | null>(null);
   const [tasaParalela, setTasaParalela] = useState('');
 
-  const [removeExistingImage, setRemoveExistingImage] = useState(false);
-
-  // Supplier search within payment modal
+  // Supplier search within compra modal
   const [proveedorSearchTerm, setProveedorSearchTerm] = useState('');
   const [showProveedorDropdown, setShowProveedorDropdown] = useState(false);
   const proveedorInputRef = useRef<HTMLInputElement>(null);
@@ -83,7 +100,8 @@ export default function AdminSupplierPayments() {
   const [imagenAmpliada, setImagenAmpliada] = useState<string | null>(null);
 
   // Confirm delete
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [confirmDeleteCompraId, setConfirmDeleteCompraId] = useState<number | null>(null);
+  const [confirmDeleteAbonoId, setConfirmDeleteAbonoId] = useState<number | null>(null);
 
   // Proveedores list panel
   const [showProveedoresList, setShowProveedoresList] = useState(false);
@@ -112,21 +130,22 @@ export default function AdminSupplierPayments() {
     }
   }, []);
 
-  const loadPagos = useCallback(async () => {
+  const loadCompras = useCallback(async () => {
     try {
       const params = new URLSearchParams({ mes: mesSeleccionado });
       if (proveedorFilter) params.set('proveedor_id', String(proveedorFilter));
       if (cuentaFilter) params.set('cuenta', cuentaFilter);
       if (facturaFilter) params.set('factura', facturaFilter);
       if (searchTerm) params.set('search', searchTerm);
+      if (estadoFilter) params.set('estado', estadoFilter);
 
-      const res = await fetch(`/api/pagos-proveedores?${params}`);
+      const res = await fetch(`/api/pagos-proveedores/compras?${params}`);
       const data = await res.json();
-      if (data.success) setPagos(data.pagos);
+      if (data.success) setCompras(data.compras);
     } catch {
-      console.error('Error loading pagos');
+      console.error('Error loading compras');
     }
-  }, [mesSeleccionado, proveedorFilter, cuentaFilter, facturaFilter, searchTerm]);
+  }, [mesSeleccionado, proveedorFilter, cuentaFilter, facturaFilter, searchTerm, estadoFilter]);
 
   const loadResumen = useCallback(async () => {
     try {
@@ -142,20 +161,20 @@ export default function AdminSupplierPayments() {
     setIsLoading(true);
     setError(null);
     try {
-      await Promise.all([loadProveedores(), loadPagos(), loadResumen(), loadBcvRate()]);
+      await Promise.all([loadProveedores(), loadCompras(), loadResumen(), loadBcvRate()]);
     } catch {
       setError('Error al cargar datos');
     } finally {
       setIsLoading(false);
     }
-  }, [loadProveedores, loadPagos, loadResumen, loadBcvRate]);
+  }, [loadProveedores, loadCompras, loadResumen, loadBcvRate]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
   // Debounce search
   useEffect(() => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    searchTimeoutRef.current = setTimeout(() => { loadPagos(); }, 300);
+    searchTimeoutRef.current = setTimeout(() => { loadCompras(); }, 300);
     return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
   }, [searchTerm]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -170,74 +189,162 @@ export default function AdminSupplierPayments() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  // ── Payment CRUD ──────────────────────────────────────
+  // ── Compra CRUD ──────────────────────────────────────
 
-  const openPagoModal = (pago?: PagoProveedor) => {
-    if (pago) {
-      setEditingPago(pago);
-      setPagoForm({
-        proveedorId: String(pago.proveedorId),
-        montoUsd: String(pago.montoUsd),
-        producto: pago.producto,
-        fecha: pago.fecha,
-        metodoPago: pago.metodoPago,
-        cuenta: pago.cuenta,
-        tieneFactura: pago.tieneFactura,
-        notas: pago.notas || '',
+  const openCompraModal = (compra?: CompraProveedor) => {
+    if (compra) {
+      setEditingCompra(compra);
+      setCompraForm({
+        proveedorId: String(compra.proveedorId),
+        producto: compra.producto,
+        montoTotal: String(compra.montoTotal),
+        fecha: compra.fecha,
+        tieneFactura: compra.tieneFactura,
+        notas: compra.notas || '',
       });
-      setProveedorSearchTerm(pago.proveedorNombre);
-      setImagenPreview(pago.imagenUrl);
-      // Restore Bs mode if pago had montoBs
-      if (pago.montoBs) {
+      setProveedorSearchTerm(compra.proveedorNombre);
+      setNotaEntregaPreview(compra.notaEntregaUrl);
+    } else {
+      setEditingCompra(null);
+      setCompraForm({
+        proveedorId: '',
+        producto: '',
+        montoTotal: '',
+        fecha: new Date().toISOString().split('T')[0],
+        tieneFactura: false,
+        notas: '',
+      });
+      setProveedorSearchTerm('');
+      setNotaEntregaPreview(null);
+    }
+    setNotaEntregaFile(null);
+    setRemoveNotaEntrega(false);
+    setShowCompraModal(true);
+  };
+
+  const handleSaveCompra = async () => {
+    if (!compraForm.proveedorId || !compraForm.montoTotal || !compraForm.producto.trim() || !compraForm.fecha) {
+      alert('Completa proveedor, monto total, producto y fecha');
+      return;
+    }
+
+    setIsSavingCompra(true);
+    try {
+      const method = editingCompra ? 'PUT' : 'POST';
+      const url = editingCompra
+        ? `/api/pagos-proveedores/compras/${editingCompra.id}`
+        : '/api/pagos-proveedores/compras';
+
+      const payload = {
+        ...compraForm,
+        removeNotaEntrega,
+      };
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+
+      if (!data.success) {
+        alert(data.error || 'Error al guardar');
+        return;
+      }
+
+      const compraId = editingCompra ? editingCompra.id : data.id;
+
+      // Upload nota de entrega if selected
+      if (notaEntregaFile && compraId) {
+        const formData = new FormData();
+        formData.append('file', notaEntregaFile);
+        formData.append('compraId', String(compraId));
+        await fetch('/api/pagos-proveedores/upload-nota-entrega', {
+          method: 'POST',
+          body: formData,
+        });
+      }
+
+      setShowCompraModal(false);
+      await Promise.all([loadCompras(), loadResumen()]);
+    } catch {
+      alert('Error de conexion');
+    } finally {
+      setIsSavingCompra(false);
+    }
+  };
+
+  const handleDeleteCompra = async (id: number) => {
+    try {
+      const res = await fetch(`/api/pagos-proveedores/compras/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setConfirmDeleteCompraId(null);
+        if (expandedCompraId === id) setExpandedCompraId(null);
+        await Promise.all([loadCompras(), loadResumen()]);
+      }
+    } catch {
+      alert('Error al eliminar');
+    }
+  };
+
+  // ── Abono CRUD ──────────────────────────────────────
+
+  const openAbonoModal = (compra: CompraProveedor, abono?: AbonoProveedor) => {
+    setAbonoTargetCompra(compra);
+    if (abono) {
+      setEditingAbono(abono);
+      setAbonoForm({
+        montoUsd: String(abono.montoUsd),
+        fecha: abono.fecha,
+        metodoPago: abono.metodoPago,
+        cuenta: abono.cuenta,
+        notas: abono.notas || '',
+      });
+      setImagenPreview(abono.imagenUrl);
+      if (abono.montoBs) {
         setMontoMode('bs');
-        setMontoBsInput(String(pago.montoBs));
-        setTasaParalela(pago.tasaParalela ? String(pago.tasaParalela) : '');
+        setMontoBsInput(String(abono.montoBs));
+        setTasaParalela(abono.tasaParalela ? String(abono.tasaParalela) : '');
       } else {
         setMontoMode('usd');
         setMontoBsInput('');
         setTasaParalela('');
       }
     } else {
-      setEditingPago(null);
-      setPagoForm({
-        proveedorId: '',
-        montoUsd: '',
-        producto: '',
+      setEditingAbono(null);
+      setAbonoForm({
+        montoUsd: compra.saldoPendiente > 0 ? String(compra.saldoPendiente.toFixed(2)) : '',
         fecha: new Date().toISOString().split('T')[0],
         metodoPago: 'pago_movil',
         cuenta: 'pa',
-        tieneFactura: false,
         notas: '',
       });
-      setProveedorSearchTerm('');
       setImagenPreview(null);
-    }
-    setImagenFile(null);
-    setRemoveExistingImage(false);
-    if (!pago) {
       setMontoMode('usd');
       setMontoBsInput('');
       setTasaParalela('');
     }
-    setShowPagoModal(true);
+    setImagenFile(null);
+    setRemoveExistingImage(false);
+    setShowAbonoModal(true);
   };
 
-  const handleSavePago = async () => {
-    if (!pagoForm.proveedorId || !pagoForm.montoUsd || !pagoForm.producto.trim() || !pagoForm.fecha) {
-      alert('Completa proveedor, monto, producto y fecha');
+  const handleSaveAbono = async () => {
+    if (!abonoTargetCompra || !abonoForm.montoUsd || !abonoForm.fecha) {
+      alert('Completa monto y fecha');
       return;
     }
 
-    setIsSavingPago(true);
+    setIsSavingAbono(true);
     try {
-      const method = editingPago ? 'PUT' : 'POST';
-      const url = editingPago
-        ? `/api/pagos-proveedores/${editingPago.id}`
-        : '/api/pagos-proveedores';
+      const method = editingAbono ? 'PUT' : 'POST';
+      const url = editingAbono
+        ? `/api/pagos-proveedores/compras/${abonoTargetCompra.id}/abonos/${editingAbono.id}`
+        : `/api/pagos-proveedores/compras/${abonoTargetCompra.id}/abonos`;
 
       const payload = {
-        ...pagoForm,
-        tieneFactura: pagoForm.tieneFactura,
+        ...abonoForm,
         removeImage: removeExistingImage,
         montoBs: montoMode === 'bs' ? Number(montoBsInput) || null : null,
         tasaCambio: montoMode === 'bs' && tasaBcv ? tasaBcv : null,
@@ -256,35 +363,35 @@ export default function AdminSupplierPayments() {
         return;
       }
 
-      const pagoId = editingPago ? editingPago.id : data.id;
+      const abonoId = editingAbono ? editingAbono.id : data.id;
 
       // Upload image if selected
-      if (imagenFile && pagoId) {
+      if (imagenFile && abonoId) {
         const formData = new FormData();
         formData.append('image', imagenFile);
-        formData.append('pagoId', String(pagoId));
+        formData.append('abonoId', String(abonoId));
         await fetch('/api/pagos-proveedores/upload-imagen', {
           method: 'POST',
           body: formData,
         });
       }
 
-      setShowPagoModal(false);
-      await Promise.all([loadPagos(), loadResumen()]);
+      setShowAbonoModal(false);
+      await Promise.all([loadCompras(), loadResumen()]);
     } catch {
       alert('Error de conexion');
     } finally {
-      setIsSavingPago(false);
+      setIsSavingAbono(false);
     }
   };
 
-  const handleDeletePago = async (id: number) => {
+  const handleDeleteAbono = async (compraId: number, abonoId: number) => {
     try {
-      const res = await fetch(`/api/pagos-proveedores/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/pagos-proveedores/compras/${compraId}/abonos/${abonoId}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
-        setConfirmDeleteId(null);
-        await Promise.all([loadPagos(), loadResumen()]);
+        setConfirmDeleteAbonoId(null);
+        await Promise.all([loadCompras(), loadResumen()]);
       }
     } catch {
       alert('Error al eliminar');
@@ -313,7 +420,7 @@ export default function AdminSupplierPayments() {
       const data = await res.json();
       if (data.success) {
         await loadProveedores();
-        setPagoForm(prev => ({ ...prev, proveedorId: String(data.id) }));
+        setCompraForm(prev => ({ ...prev, proveedorId: String(data.id) }));
         setShowProveedorDropdown(false);
       }
     } catch {
@@ -324,7 +431,7 @@ export default function AdminSupplierPayments() {
   };
 
   const selectProveedor = (p: ProveedorInformal) => {
-    setPagoForm(prev => ({ ...prev, proveedorId: String(p.id) }));
+    setCompraForm(prev => ({ ...prev, proveedorId: String(p.id) }));
     setProveedorSearchTerm(p.nombre);
     setShowProveedorDropdown(false);
   };
@@ -380,7 +487,7 @@ export default function AdminSupplierPayments() {
       const data = await res.json();
       if (data.success) {
         setConfirmDeleteProveedorId(null);
-        await Promise.all([loadProveedores(), loadPagos(), loadResumen()]);
+        await Promise.all([loadProveedores(), loadCompras(), loadResumen()]);
       } else {
         alert(data.error || 'Error al eliminar');
       }
@@ -404,6 +511,30 @@ export default function AdminSupplierPayments() {
     const reader = new FileReader();
     reader.onloadend = () => setImagenPreview(reader.result as string);
     reader.readAsDataURL(file);
+  };
+
+  const handleNotaEntregaSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      alert('El archivo es demasiado grande. Maximo 10MB.');
+      return;
+    }
+    setNotaEntregaFile(file);
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onloadend = () => setNotaEntregaPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      setNotaEntregaPreview(null); // PDF — no preview
+    }
+  };
+
+  // ── Helper: progress bar percentage ───────────────────
+
+  const progressPercent = (compra: CompraProveedor) => {
+    if (compra.montoTotal <= 0) return 100;
+    return Math.min(100, (compra.totalAbonado / compra.montoTotal) * 100);
   };
 
   // ── Render ────────────────────────────────────────────
@@ -441,21 +572,24 @@ export default function AdminSupplierPayments() {
           </button>
         </div>
 
-        {/* Total principal — refleja filtros activos */}
+        {/* Total principal */}
         {(() => {
-          const hasFilters = facturaFilter || cuentaFilter || proveedorFilter || searchTerm;
+          const hasFilters = facturaFilter || cuentaFilter || proveedorFilter || searchTerm || estadoFilter;
           const filteredTotal = hasFilters
-            ? pagos.reduce((sum, p) => sum + p.montoUsd, 0)
+            ? compras.reduce((sum, c) => sum + c.totalAbonado, 0)
             : resumen?.totalUsd || 0;
-          const filteredCount = hasFilters ? pagos.length : resumen?.cantidadTotal || 0;
+          const filteredCount = hasFilters
+            ? compras.reduce((sum, c) => sum + c.abonos.length, 0)
+            : resumen?.cantidadTotal || 0;
 
-          // Build filter description
           const filterParts: string[] = [];
           if (facturaFilter === '0') filterParts.push('sin factura');
           if (facturaFilter === '1') filterParts.push('con factura');
           if (cuentaFilter === 'pa') filterParts.push('Cuenta PA');
           if (cuentaFilter === 'carlos') filterParts.push('Cuenta Carlos');
           if (cuentaFilter === 'venezuela') filterParts.push('Cuenta Venezuela');
+          if (estadoFilter === 'pendiente') filterParts.push('pendientes');
+          if (estadoFilter === 'pagada') filterParts.push('pagadas');
           if (proveedorFilter) {
             const prov = resumen?.porProveedor.find(p => p.proveedorId === proveedorFilter);
             if (prov) filterParts.push(prov.proveedorNombre);
@@ -470,7 +604,7 @@ export default function AdminSupplierPayments() {
               <span className="text-sm text-ocean-500 ml-2">
                 {hasFilters ? (
                   <>
-                    de {filteredCount} pago{filteredCount !== 1 ? 's' : ''}
+                    de {filteredCount} abono{filteredCount !== 1 ? 's' : ''} en {compras.length} compra{compras.length !== 1 ? 's' : ''}
                     {filterParts.length > 0 && (
                       <span className="block text-xs text-ocean-400 mt-0.5">
                         Filtro: {filterParts.join(' + ')}
@@ -478,17 +612,16 @@ export default function AdminSupplierPayments() {
                     )}
                   </>
                 ) : (
-                  `total del mes (${filteredCount} pagos)`
+                  `total del mes (${filteredCount} abonos)`
                 )}
               </span>
             </div>
           );
         })()}
 
-        {/* Desglose fiscal — visible siempre para contable/SENIAT */}
-        {resumen && resumen.totalUsd > 0 && !facturaFilter && !cuentaFilter && !proveedorFilter && !searchTerm && (
+        {/* Desglose fiscal */}
+        {resumen && resumen.totalUsd > 0 && !facturaFilter && !cuentaFilter && !proveedorFilter && !searchTerm && !estadoFilter && (
           <div className="mb-3 mx-auto max-w-sm">
-            {/* Barra visual factura */}
             <div className="flex rounded-full overflow-hidden h-2 mb-2">
               {resumen.totalConFactura > 0 && (
                 <div
@@ -513,7 +646,6 @@ export default function AdminSupplierPayments() {
                 Sin factura: {formatUSD(resumen.totalSinFactura)} ({resumen.cantidadSinFactura})
               </span>
             </div>
-            {/* Desglose por cuenta */}
             <div className="flex justify-between text-xs mt-1.5 text-ocean-500">
               <span>Cuenta PA: {formatUSD(resumen.totalCuentaPa)}</span>
               <span>Cuenta Carlos: {formatUSD(resumen.totalCuentaCarlos)}</span>
@@ -540,7 +672,6 @@ export default function AdminSupplierPayments() {
 
       {/* ── Buscador y Filtros ────────────────────────────── */}
       <div className="bg-white rounded-xl shadow-sm border border-ocean-100 p-4 space-y-3">
-        {/* Search bar */}
         <div className="relative">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-ocean-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -590,6 +721,29 @@ export default function AdminSupplierPayments() {
           <span className="w-px bg-ocean-200 mx-1" />
 
           <button
+            onClick={() => setEstadoFilter(e => e === 'pendiente' ? '' : 'pendiente')}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              estadoFilter === 'pendiente'
+                ? 'bg-amber-500 text-white'
+                : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+            }`}
+          >
+            Pendientes
+          </button>
+          <button
+            onClick={() => setEstadoFilter(e => e === 'pagada' ? '' : 'pagada')}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              estadoFilter === 'pagada'
+                ? 'bg-emerald-600 text-white'
+                : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+            }`}
+          >
+            Pagadas
+          </button>
+
+          <span className="w-px bg-ocean-200 mx-1" />
+
+          <button
             onClick={() => setCuentaFilter(c => c === 'pa' ? '' : 'pa')}
             className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
               cuentaFilter === 'pa'
@@ -620,13 +774,14 @@ export default function AdminSupplierPayments() {
             Cuenta Venezuela
           </button>
 
-          {(facturaFilter || cuentaFilter || searchTerm || proveedorFilter) && (
+          {(facturaFilter || cuentaFilter || searchTerm || proveedorFilter || estadoFilter) && (
             <>
               <span className="w-px bg-ocean-200 mx-1" />
               <button
                 onClick={() => {
                   setFacturaFilter('');
                   setCuentaFilter('');
+                  setEstadoFilter('');
                   setSearchTerm('');
                   setProveedorFilter(null);
                 }}
@@ -641,10 +796,10 @@ export default function AdminSupplierPayments() {
         {/* Action buttons */}
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => openPagoModal()}
+            onClick={() => openCompraModal()}
             className="px-4 py-2 bg-ocean-600 text-white rounded-lg text-sm font-medium hover:bg-ocean-700"
           >
-            + Registrar Pago
+            + Nueva Compra
           </button>
           <button
             onClick={() => openProveedorModal()}
@@ -661,190 +816,196 @@ export default function AdminSupplierPayments() {
         </div>
       </div>
 
-      {/* ── Lista de Pagos ─────────────────────────────── */}
-      {pagos.length === 0 ? (
+      {/* ── Lista de Compras ─────────────────────────────── */}
+      {compras.length === 0 ? (
         <div className="text-center py-12 text-ocean-400">
-          No hay pagos registrados{mesSeleccionado ? ` en ${formatMonthLabel(mesSeleccionado)}` : ''}
+          No hay compras registradas{mesSeleccionado ? ` en ${formatMonthLabel(mesSeleccionado)}` : ''}
         </div>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-ocean-100 overflow-hidden">
-          {/* Mobile: cards; Desktop: table */}
-          <div className="hidden sm:block">
-            <table className="w-full text-sm">
-              <thead className="bg-ocean-50 text-ocean-600">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium">Fecha</th>
-                  <th className="px-4 py-3 text-left font-medium">Proveedor</th>
-                  <th className="px-4 py-3 text-left font-medium">Producto</th>
-                  <th className="px-4 py-3 text-right font-medium">Monto</th>
-                  <th className="px-4 py-3 text-center font-medium">Pago</th>
-                  <th className="px-4 py-3 text-center font-medium">Fact.</th>
-                  <th className="px-4 py-3 text-center font-medium">Img</th>
-                  <th className="px-4 py-3 text-center font-medium"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ocean-50">
-                {pagos.map(pago => (
-                  <tr key={pago.id} className="hover:bg-ocean-50/50">
-                    <td className="px-4 py-3 text-ocean-600">{formatDateShort(pago.fecha)}</td>
-                    <td className="px-4 py-3 font-medium text-ocean-900">{pago.proveedorNombre}</td>
-                    <td className="px-4 py-3 text-ocean-700">{pago.producto}</td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="font-semibold text-ocean-900">{formatUSD(pago.montoUsd)}</span>
-                      {pago.montoUsdParalelo != null && (
-                        <span className="block text-xs text-ocean-400" title="USD a tasa paralela">
-                          ~{formatUSD(pago.montoUsdParalelo)} paral.
-                        </span>
-                      )}
-                      {pago.montoBs && (
-                        <span className="block text-xs text-ocean-400">{formatBs(pago.montoBs)}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-ocean-50 text-ocean-600">
-                        {METODO_PAGO_SHORT[pago.metodoPago]}-{CUENTA_SHORT[pago.cuenta]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {pago.tieneFactura ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-green-100 text-green-700 font-medium">Si</span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-orange-100 text-orange-600">No</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {pago.imagenUrl ? (
-                        <button
-                          onClick={() => setImagenAmpliada(pago.imagenUrl)}
-                          className="text-ocean-500 hover:text-ocean-700"
-                          title="Ver comprobante"
-                        >
-                          <svg className="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                        </button>
-                      ) : (
-                        <span className="text-ocean-300">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex gap-1 justify-center">
-                        <button
-                          onClick={() => openPagoModal(pago)}
-                          className="p-1 text-ocean-400 hover:text-ocean-600"
-                          title="Editar"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                          </svg>
-                        </button>
-                        {confirmDeleteId === pago.id ? (
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => handleDeletePago(pago.id)}
-                              className="px-2 py-0.5 bg-red-500 text-white rounded text-xs"
-                            >
-                              Si
-                            </button>
-                            <button
-                              onClick={() => setConfirmDeleteId(null)}
-                              className="px-2 py-0.5 bg-ocean-200 text-ocean-700 rounded text-xs"
-                            >
-                              No
-                            </button>
-                          </div>
+        <div className="space-y-3">
+          {compras.map(compra => {
+            const isExpanded = expandedCompraId === compra.id;
+            const isPagada = compra.saldoPendiente <= 0;
+
+            return (
+              <div key={compra.id} className="bg-white rounded-xl shadow-sm border border-ocean-100 overflow-hidden">
+                {/* Compra header */}
+                <div
+                  className="p-4 cursor-pointer hover:bg-ocean-50/50"
+                  onClick={() => setExpandedCompraId(isExpanded ? null : compra.id)}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-semibold text-ocean-900">{compra.proveedorNombre}</span>
+                        <span className="text-ocean-400 text-xs">{formatDateShort(compra.fecha)}</span>
+                        {compra.tieneFactura ? (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] bg-green-100 text-green-700 font-medium">Fact.</span>
                         ) : (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] bg-orange-100 text-orange-600">S/F</span>
+                        )}
+                        {compra.notaEntregaUrl && (
                           <button
-                            onClick={() => setConfirmDeleteId(pago.id)}
-                            className="p-1 text-ocean-400 hover:text-red-500"
-                            title="Eliminar"
+                            onClick={e => { e.stopPropagation(); setImagenAmpliada(compra.notaEntregaUrl); }}
+                            className="text-ocean-400 hover:text-ocean-600"
+                            title="Ver nota de entrega"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
                           </button>
                         )}
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile cards */}
-          <div className="sm:hidden divide-y divide-ocean-50">
-            {pagos.map(pago => (
-              <div key={pago.id} className="p-4">
-                <div className="flex items-start justify-between mb-1">
-                  <div>
-                    <span className="font-semibold text-ocean-900">{pago.proveedorNombre}</span>
-                    <span className="text-ocean-500 text-xs ml-2">{formatDateShort(pago.fecha)}</span>
+                      <span className="text-sm text-ocean-600">{compra.producto}</span>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="font-bold text-ocean-900">{formatUSD(compra.montoTotal)}</div>
+                      {isPagada ? (
+                        <span className="text-xs text-emerald-600 font-medium">Pagada</span>
+                      ) : (
+                        <span className="text-xs text-amber-600 font-medium">
+                          Pendiente: {formatUSD(compra.saldoPendiente)}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="font-bold text-ocean-900">{formatUSD(pago.montoUsd)}</span>
-                    {pago.montoUsdParalelo != null && (
-                      <span className="block text-xs text-ocean-400">~{formatUSD(pago.montoUsdParalelo)} paral.</span>
-                    )}
-                    {pago.montoBs && (
-                      <span className="block text-xs text-ocean-400">{formatBs(pago.montoBs)}</span>
-                    )}
+
+                  {/* Progress bar */}
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="flex-1 bg-ocean-100 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${isPagada ? 'bg-emerald-500' : 'bg-amber-400'}`}
+                        style={{ width: `${progressPercent(compra)}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-ocean-400 shrink-0">
+                      {compra.abonos.length} abono{compra.abonos.length !== 1 ? 's' : ''}
+                    </span>
+                    <svg className={`w-4 h-4 text-ocean-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
                   </div>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-ocean-600">{pago.producto}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded text-xs bg-ocean-50 text-ocean-600">
-                      {METODO_PAGO_SHORT[pago.metodoPago]}-{CUENTA_SHORT[pago.cuenta]}
-                    </span>
-                    {pago.tieneFactura ? (
-                      <span className="px-2 py-0.5 rounded text-xs bg-green-100 text-green-700 font-medium">Fact.</span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded text-xs bg-orange-100 text-orange-600">S/F</span>
-                    )}
-                    {pago.imagenUrl && (
-                      <button
-                        onClick={() => setImagenAmpliada(pago.imagenUrl)}
-                        className="text-ocean-500"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                      </button>
-                    )}
-                    <button onClick={() => openPagoModal(pago)} className="text-ocean-400 hover:text-ocean-600">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                      </svg>
-                    </button>
-                    {confirmDeleteId === pago.id ? (
-                      <div className="flex gap-1">
-                        <button onClick={() => handleDeletePago(pago.id)} className="px-2 py-0.5 bg-red-500 text-white rounded text-xs">Si</button>
-                        <button onClick={() => setConfirmDeleteId(null)} className="px-2 py-0.5 bg-ocean-200 text-ocean-700 rounded text-xs">No</button>
+
+                {/* Expanded: abonos list */}
+                {isExpanded && (
+                  <div className="border-t border-ocean-100">
+                    {/* Abonos */}
+                    {compra.abonos.length > 0 ? (
+                      <div className="divide-y divide-ocean-50">
+                        {compra.abonos.map(abono => (
+                          <div key={abono.id} className="px-4 py-3 bg-ocean-50/30">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium text-ocean-900">{formatUSD(abono.montoUsd)}</span>
+                                  {abono.montoUsdParalelo != null && (
+                                    <span className="text-xs text-ocean-400">~{formatUSD(abono.montoUsdParalelo)} paral.</span>
+                                  )}
+                                  {abono.montoBs && (
+                                    <span className="text-xs text-ocean-400">{formatBs(abono.montoBs)}</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-xs text-ocean-500">{formatDateShort(abono.fecha)}</span>
+                                  <span className="px-2 py-0.5 rounded text-xs bg-ocean-100 text-ocean-600">
+                                    {METODO_PAGO_SHORT[abono.metodoPago]}-{CUENTA_SHORT[abono.cuenta]}
+                                  </span>
+                                  {abono.notas && <span className="text-xs text-ocean-400 truncate">{abono.notas}</span>}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                {abono.imagenUrl && (
+                                  <button
+                                    onClick={() => setImagenAmpliada(abono.imagenUrl)}
+                                    className="p-1 text-ocean-400 hover:text-ocean-600"
+                                    title="Ver comprobante"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => openAbonoModal(compra, abono)}
+                                  className="p-1 text-ocean-400 hover:text-ocean-600"
+                                  title="Editar abono"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                  </svg>
+                                </button>
+                                {confirmDeleteAbonoId === abono.id ? (
+                                  <div className="flex gap-1">
+                                    <button onClick={() => handleDeleteAbono(compra.id, abono.id)} className="px-2 py-0.5 bg-red-500 text-white rounded text-xs">Si</button>
+                                    <button onClick={() => setConfirmDeleteAbonoId(null)} className="px-2 py-0.5 bg-ocean-200 text-ocean-700 rounded text-xs">No</button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => setConfirmDeleteAbonoId(abono.id)}
+                                    className="p-1 text-ocean-400 hover:text-red-500"
+                                    title="Eliminar abono"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     ) : (
-                      <button onClick={() => setConfirmDeleteId(pago.id)} className="text-ocean-400 hover:text-red-500">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                      <div className="px-4 py-3 text-sm text-ocean-400">Sin abonos registrados</div>
                     )}
+
+                    {/* Actions row */}
+                    <div className="px-4 py-3 bg-ocean-50/50 flex gap-2 flex-wrap">
+                      {!isPagada && (
+                        <button
+                          onClick={() => openAbonoModal(compra)}
+                          className="px-3 py-1.5 bg-ocean-600 text-white rounded-lg text-xs font-medium hover:bg-ocean-700"
+                        >
+                          + Agregar Abono
+                        </button>
+                      )}
+                      <button
+                        onClick={() => openCompraModal(compra)}
+                        className="px-3 py-1.5 bg-ocean-100 text-ocean-700 rounded-lg text-xs font-medium hover:bg-ocean-200"
+                      >
+                        Editar Compra
+                      </button>
+                      {confirmDeleteCompraId === compra.id ? (
+                        <div className="flex gap-1 items-center">
+                          <span className="text-xs text-red-600">Eliminar compra y abonos?</span>
+                          <button onClick={() => handleDeleteCompra(compra.id)} className="px-2 py-1 bg-red-500 text-white rounded text-xs">Si</button>
+                          <button onClick={() => setConfirmDeleteCompraId(null)} className="px-2 py-1 bg-ocean-200 text-ocean-700 rounded text-xs">No</button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteCompraId(compra.id)}
+                          className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100"
+                        >
+                          Eliminar
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-                {pago.notas && <p className="text-xs text-ocean-400 mt-1">{pago.notas}</p>}
+                )}
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
       )}
 
-      {/* ── Modal: Registrar/Editar Pago ───────────────── */}
-      {showPagoModal && (
+      {/* ── Modal: Nueva/Editar Compra ───────────────────── */}
+      {showCompraModal && (
         <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-xl w-full max-w-lg my-8 shadow-xl">
             <div className="px-6 py-4 border-b border-ocean-100">
               <h3 className="text-lg font-semibold text-ocean-900">
-                {editingPago ? 'Editar Pago' : 'Registrar Pago'}
+                {editingCompra ? 'Editar Compra' : 'Nueva Compra'}
               </h3>
             </div>
 
@@ -859,16 +1020,15 @@ export default function AdminSupplierPayments() {
                   onChange={e => {
                     const value = e.target.value;
                     setProveedorSearchTerm(value);
-                    // Auto-seleccionar si hay match exacto
                     const match = proveedores.find(p => p.nombre.toLowerCase() === value.trim().toLowerCase());
-                    setPagoForm(prev => ({ ...prev, proveedorId: match ? String(match.id) : '' }));
+                    setCompraForm(prev => ({ ...prev, proveedorId: match ? String(match.id) : '' }));
                     setShowProveedorDropdown(true);
                   }}
                   onFocus={() => setShowProveedorDropdown(true)}
                   placeholder="Buscar o crear proveedor..."
                   className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-2 focus:ring-ocean-300 focus:border-ocean-400"
                 />
-                {pagoForm.proveedorId && (
+                {compraForm.proveedorId && (
                   <span className="absolute right-3 top-8 text-green-500">
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -903,6 +1063,163 @@ export default function AdminSupplierPayments() {
                 )}
               </div>
 
+              {/* Producto */}
+              <div>
+                <label className="block text-sm font-medium text-ocean-700 mb-1">Producto</label>
+                <input
+                  type="text"
+                  value={compraForm.producto}
+                  onChange={e => setCompraForm(prev => ({ ...prev, producto: e.target.value }))}
+                  placeholder="Ej: Pescado, Camarones, Pulpo..."
+                  className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
+                />
+              </div>
+
+              {/* Monto total */}
+              <div>
+                <label className="block text-sm font-medium text-ocean-700 mb-1">Monto Total (USD)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={compraForm.montoTotal}
+                  onChange={e => setCompraForm(prev => ({ ...prev, montoTotal: e.target.value }))}
+                  placeholder="0.00"
+                  className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
+                />
+              </div>
+
+              {/* Fecha */}
+              <div>
+                <label className="block text-sm font-medium text-ocean-700 mb-1">Fecha</label>
+                <input
+                  type="date"
+                  value={compraForm.fecha}
+                  onChange={e => setCompraForm(prev => ({ ...prev, fecha: e.target.value }))}
+                  className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
+                />
+              </div>
+
+              {/* Factura */}
+              <div className="flex items-center gap-3">
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={compraForm.tieneFactura}
+                    onChange={e => setCompraForm(prev => ({ ...prev, tieneFactura: e.target.checked }))}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-ocean-200 peer-focus:ring-2 peer-focus:ring-ocean-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:border-ocean-300 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500" />
+                </label>
+                <span className="text-sm font-medium text-ocean-700">
+                  {compraForm.tieneFactura ? 'Con factura' : 'Sin factura'}
+                </span>
+              </div>
+
+              {/* Nota de entrega */}
+              <div>
+                <label className="block text-sm font-medium text-ocean-700 mb-1">Nota de entrega / Factura proveedor</label>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={handleNotaEntregaSelect}
+                  className="w-full text-sm text-ocean-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-ocean-50 file:text-ocean-700 hover:file:bg-ocean-100"
+                />
+                {notaEntregaPreview && !removeNotaEntrega && (
+                  <div className="mt-2 relative inline-block">
+                    <img
+                      src={notaEntregaPreview}
+                      alt="Nota de entrega"
+                      className="max-h-40 rounded-lg border border-ocean-200 cursor-pointer"
+                      onClick={() => setImagenAmpliada(notaEntregaPreview)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (notaEntregaFile) {
+                          setNotaEntregaFile(null);
+                          setNotaEntregaPreview(editingCompra?.notaEntregaUrl || null);
+                        } else {
+                          setRemoveNotaEntrega(true);
+                          setNotaEntregaPreview(null);
+                        }
+                      }}
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow text-xs hover:bg-red-600"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                )}
+                {removeNotaEntrega && (
+                  <p className="mt-2 text-sm text-orange-600">
+                    La nota sera eliminada al guardar.{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRemoveNotaEntrega(false);
+                        setNotaEntregaPreview(editingCompra?.notaEntregaUrl || null);
+                      }}
+                      className="underline hover:text-orange-800"
+                    >
+                      Deshacer
+                    </button>
+                  </p>
+                )}
+              </div>
+
+              {/* Notas */}
+              <div>
+                <label className="block text-sm font-medium text-ocean-700 mb-1">Notas (opcional)</label>
+                <textarea
+                  value={compraForm.notas}
+                  onChange={e => setCompraForm(prev => ({ ...prev, notas: e.target.value }))}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm resize-none"
+                  placeholder="Detalle adicional..."
+                />
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-ocean-100 flex gap-3 justify-end">
+              <button
+                onClick={() => setShowCompraModal(false)}
+                className="px-4 py-2 text-sm text-ocean-600 hover:bg-ocean-50 rounded-lg"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveCompra}
+                disabled={isSavingCompra || !compraForm.proveedorId}
+                className="px-6 py-2 text-sm bg-ocean-600 text-white rounded-lg font-medium hover:bg-ocean-700 disabled:opacity-50"
+              >
+                {isSavingCompra ? 'Guardando...' : editingCompra ? 'Actualizar' : 'Registrar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Agregar/Editar Abono ──────────────────── */}
+      {showAbonoModal && abonoTargetCompra && (
+        <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl w-full max-w-lg my-8 shadow-xl">
+            <div className="px-6 py-4 border-b border-ocean-100">
+              <h3 className="text-lg font-semibold text-ocean-900">
+                {editingAbono ? 'Editar Abono' : 'Agregar Abono'}
+              </h3>
+              <div className="mt-1 text-sm text-ocean-500">
+                {abonoTargetCompra.proveedorNombre} — {abonoTargetCompra.producto}
+                <span className="ml-2 font-medium text-ocean-700">
+                  Total: {formatUSD(abonoTargetCompra.montoTotal)}
+                </span>
+                {abonoTargetCompra.saldoPendiente > 0 && (
+                  <span className="ml-2 text-amber-600">
+                    Pendiente: {formatUSD(abonoTargetCompra.saldoPendiente)}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
               {/* Monto — toggle USD / Bs */}
               <div>
                 <div className="flex items-center justify-between mb-1">
@@ -933,8 +1250,8 @@ export default function AdminSupplierPayments() {
                   <input
                     type="number"
                     step="0.01"
-                    value={pagoForm.montoUsd}
-                    onChange={e => setPagoForm(prev => ({ ...prev, montoUsd: e.target.value }))}
+                    value={abonoForm.montoUsd}
+                    onChange={e => setAbonoForm(prev => ({ ...prev, montoUsd: e.target.value }))}
                     placeholder="0.00"
                     className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
                   />
@@ -947,11 +1264,10 @@ export default function AdminSupplierPayments() {
                       onChange={e => {
                         const bs = e.target.value;
                         setMontoBsInput(bs);
-                        // Siempre usar BCV para monto_usd principal
                         if (tasaBcv && Number(bs)) {
-                          setPagoForm(prev => ({ ...prev, montoUsd: (Number(bs) / tasaBcv).toFixed(2) }));
+                          setAbonoForm(prev => ({ ...prev, montoUsd: (Number(bs) / tasaBcv).toFixed(2) }));
                         } else {
-                          setPagoForm(prev => ({ ...prev, montoUsd: '' }));
+                          setAbonoForm(prev => ({ ...prev, montoUsd: '' }));
                         }
                       }}
                       placeholder="Monto en Bs"
@@ -972,7 +1288,6 @@ export default function AdminSupplierPayments() {
                       />
                     </div>
 
-                    {/* Conversion preview */}
                     {montoBsInput && Number(montoBsInput) > 0 && (
                       <div className="bg-ocean-50 rounded-lg p-3 text-sm space-y-1">
                         {tasaBcv && (
@@ -997,25 +1312,13 @@ export default function AdminSupplierPayments() {
                 )}
               </div>
 
-              {/* Producto */}
-              <div>
-                <label className="block text-sm font-medium text-ocean-700 mb-1">Producto</label>
-                <input
-                  type="text"
-                  value={pagoForm.producto}
-                  onChange={e => setPagoForm(prev => ({ ...prev, producto: e.target.value }))}
-                  placeholder="Ej: Pescado, Camarones, Pulpo..."
-                  className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
-                />
-              </div>
-
               {/* Fecha */}
               <div>
                 <label className="block text-sm font-medium text-ocean-700 mb-1">Fecha</label>
                 <input
                   type="date"
-                  value={pagoForm.fecha}
-                  onChange={e => setPagoForm(prev => ({ ...prev, fecha: e.target.value }))}
+                  value={abonoForm.fecha}
+                  onChange={e => setAbonoForm(prev => ({ ...prev, fecha: e.target.value }))}
                   className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
                 />
               </div>
@@ -1025,8 +1328,8 @@ export default function AdminSupplierPayments() {
                 <div>
                   <label className="block text-sm font-medium text-ocean-700 mb-1">Metodo de pago</label>
                   <select
-                    value={pagoForm.metodoPago}
-                    onChange={e => setPagoForm(prev => ({ ...prev, metodoPago: e.target.value as MetodoPago }))}
+                    value={abonoForm.metodoPago}
+                    onChange={e => setAbonoForm(prev => ({ ...prev, metodoPago: e.target.value as MetodoPago }))}
                     className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
                   >
                     {(Object.entries(METODO_PAGO_LABELS) as [MetodoPago, string][]).map(([val, label]) => (
@@ -1037,8 +1340,8 @@ export default function AdminSupplierPayments() {
                 <div>
                   <label className="block text-sm font-medium text-ocean-700 mb-1">Cuenta</label>
                   <select
-                    value={pagoForm.cuenta}
-                    onChange={e => setPagoForm(prev => ({ ...prev, cuenta: e.target.value as CuentaPago }))}
+                    value={abonoForm.cuenta}
+                    onChange={e => setAbonoForm(prev => ({ ...prev, cuenta: e.target.value as CuentaPago }))}
                     className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
                   >
                     {(Object.entries(CUENTA_LABELS) as [CuentaPago, string][]).map(([val, label]) => (
@@ -1048,35 +1351,19 @@ export default function AdminSupplierPayments() {
                 </div>
               </div>
 
-              {/* Factura */}
-              <div className="flex items-center gap-3">
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={pagoForm.tieneFactura}
-                    onChange={e => setPagoForm(prev => ({ ...prev, tieneFactura: e.target.checked }))}
-                    className="sr-only peer"
-                  />
-                  <div className="w-9 h-5 bg-ocean-200 peer-focus:ring-2 peer-focus:ring-ocean-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:border-ocean-300 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500" />
-                </label>
-                <span className="text-sm font-medium text-ocean-700">
-                  {pagoForm.tieneFactura ? 'Con factura' : 'Sin factura'}
-                </span>
-              </div>
-
               {/* Notas */}
               <div>
                 <label className="block text-sm font-medium text-ocean-700 mb-1">Notas (opcional)</label>
                 <textarea
-                  value={pagoForm.notas}
-                  onChange={e => setPagoForm(prev => ({ ...prev, notas: e.target.value }))}
+                  value={abonoForm.notas}
+                  onChange={e => setAbonoForm(prev => ({ ...prev, notas: e.target.value }))}
                   rows={2}
                   className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm resize-none"
                   placeholder="Detalle adicional..."
                 />
               </div>
 
-              {/* Imagen */}
+              {/* Comprobante */}
               <div>
                 <label className="block text-sm font-medium text-ocean-700 mb-1">Comprobante (imagen)</label>
                 <input
@@ -1098,14 +1385,13 @@ export default function AdminSupplierPayments() {
                       onClick={() => {
                         if (imagenFile) {
                           setImagenFile(null);
-                          setImagenPreview(editingPago?.imagenUrl || null);
+                          setImagenPreview(editingAbono?.imagenUrl || null);
                         } else {
                           setRemoveExistingImage(true);
                           setImagenPreview(null);
                         }
                       }}
                       className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow text-xs hover:bg-red-600"
-                      title="Quitar imagen"
                     >
                       &times;
                     </button>
@@ -1118,7 +1404,7 @@ export default function AdminSupplierPayments() {
                       type="button"
                       onClick={() => {
                         setRemoveExistingImage(false);
-                        setImagenPreview(editingPago?.imagenUrl || null);
+                        setImagenPreview(editingAbono?.imagenUrl || null);
                       }}
                       className="underline hover:text-orange-800"
                     >
@@ -1131,17 +1417,17 @@ export default function AdminSupplierPayments() {
 
             <div className="px-6 py-4 border-t border-ocean-100 flex gap-3 justify-end">
               <button
-                onClick={() => setShowPagoModal(false)}
+                onClick={() => setShowAbonoModal(false)}
                 className="px-4 py-2 text-sm text-ocean-600 hover:bg-ocean-50 rounded-lg"
               >
                 Cancelar
               </button>
               <button
-                onClick={handleSavePago}
-                disabled={isSavingPago || !pagoForm.proveedorId}
+                onClick={handleSaveAbono}
+                disabled={isSavingAbono || !abonoForm.montoUsd}
                 className="px-6 py-2 text-sm bg-ocean-600 text-white rounded-lg font-medium hover:bg-ocean-700 disabled:opacity-50"
               >
-                {isSavingPago ? 'Guardando...' : editingPago ? 'Actualizar' : 'Registrar'}
+                {isSavingAbono ? 'Guardando...' : editingAbono ? 'Actualizar' : 'Registrar Abono'}
               </button>
             </div>
           </div>
@@ -1316,11 +1602,15 @@ export default function AdminSupplierPayments() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            <img
-              src={imagenAmpliada}
-              alt="Comprobante de pago"
-              className="max-h-[85vh] rounded-lg"
-            />
+            {imagenAmpliada.endsWith('.pdf') ? (
+              <iframe src={imagenAmpliada} className="w-[90vw] h-[85vh] rounded-lg" title="Nota de entrega" />
+            ) : (
+              <img
+                src={imagenAmpliada}
+                alt="Comprobante"
+                className="max-h-[85vh] rounded-lg"
+              />
+            )}
           </div>
         </div>
       )}
