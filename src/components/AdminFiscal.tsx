@@ -19,6 +19,7 @@ import type {
   MarginSimulatorInput,
   MarginSimulatorResult,
   TipoPagoSeniat,
+  ConceptoPago,
 } from '../lib/fiscal-types';
 import {
   FISCAL_CONSTANTS,
@@ -179,7 +180,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
   });
 
   // Pagos SENIAT state
-  const [showPagoForm, setShowPagoForm] = useState<TipoPagoSeniat | null>(null);
+  const [showPagoForm, setShowPagoForm] = useState<{ tipoPago: TipoPagoSeniat; concepto: ConceptoPago; quincena: number | null; label: string } | null>(null);
   const [pagoForm, setPagoForm] = useState({
     fechaPago: new Date().toISOString().split('T')[0],
     monto: '',
@@ -254,8 +255,8 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
   // Pagos SENIAT Functions
   // =====================
 
-  const openPagoForm = (tipo: TipoPagoSeniat, montoEstimado: number) => {
-    setShowPagoForm(tipo);
+  const openPagoForm = (tipoPago: TipoPagoSeniat, concepto: ConceptoPago, quincena: number | null, label: string, montoEstimado: number) => {
+    setShowPagoForm({ tipoPago, concepto, quincena, label });
     setPagoForm({
       fechaPago: new Date().toISOString().split('T')[0],
       monto: montoEstimado > 0 ? montoEstimado.toFixed(2) : '',
@@ -273,7 +274,9 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
     try {
       const formData = new FormData();
       formData.append('periodo', dashboardPeriod);
-      formData.append('tipoPago', showPagoForm);
+      formData.append('tipoPago', showPagoForm.tipoPago);
+      formData.append('concepto', showPagoForm.concepto);
+      if (showPagoForm.quincena != null) formData.append('quincena', String(showPagoForm.quincena));
       formData.append('fechaPago', pagoForm.fechaPago);
       formData.append('monto', pagoForm.monto);
       if (pagoForm.numeroPlanilla) formData.append('numeroPlanilla', pagoForm.numeroPlanilla);
@@ -324,8 +327,10 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
     }
   };
 
-  const getPagoForTipo = (tipo: TipoPagoSeniat): FiscalPagoSeniat | undefined => {
-    return dashboardData?.pagosSeniat?.find(p => p.tipoPago === tipo);
+  const getPago = (tipoPago: TipoPagoSeniat, concepto: ConceptoPago, quincena?: number | null): FiscalPagoSeniat | undefined => {
+    return dashboardData?.pagosSeniat?.find(p =>
+      p.tipoPago === tipoPago && p.concepto === concepto && (quincena == null ? true : p.quincena === quincena)
+    );
   };
 
   // =====================
@@ -1897,14 +1902,6 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
         const ivaNet  = dashboardData?.ivaBalance ?? 0;
         const sumat   = dashboardData?.sumatPendiente ?? 0;
 
-        const totalRet   = retIva + retIslr + igtf;
-        const totalPago1 = totalRet + ivaNet;  // ret. 16-fin prev + IVA
-        const totalPago2 = totalRet;            // ret. 1-15 actual solo
-
-        const pagoPago1 = getPagoForTipo('pago1');
-        const pagoPago2 = getPagoForTipo('pago2');
-        const pagoSumat = getPagoForTipo('sumat');
-
         const fmtDate = (d: Date) => d.toLocaleDateString('es-VE', { day: 'numeric', month: 'long', year: 'numeric' });
 
         const DateBadge = ({ date, isPast, label }: { date: Date; isPast: boolean; label: string }) => (
@@ -1917,39 +1914,57 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
           </div>
         );
 
-        const PaidBadge = ({ pago }: { pago: FiscalPagoSeniat }) => (
-          <div className="mt-3 pt-3 border-t border-green-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">PAGADO</span>
-              <button onClick={() => setViewingPago(pago)} className="text-[10px] text-green-600 underline hover:text-green-800">ver detalle</button>
-            </div>
-            <div className="text-sm space-y-1">
-              <div className="flex justify-between">
-                <span className="text-green-700">Monto pagado</span>
-                <span className="font-mono font-bold text-green-800">{formatBs(pago.monto)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-green-600 text-xs">Fecha</span>
-                <span className="text-green-700 text-xs">{formatDateDMY(pago.fechaPago)}</span>
-              </div>
-              {pago.banco && (
-                <div className="flex justify-between">
-                  <span className="text-green-600 text-xs">Banco</span>
-                  <span className="text-green-700 text-xs">{pago.banco}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        );
+        type LineItem = { label: string; concepto: ConceptoPago; monto: number; tipoPago: TipoPagoSeniat; quincena: number | null };
 
-        const PayButton = ({ tipo, montoEstimado }: { tipo: TipoPagoSeniat; montoEstimado: number }) => (
-          <button
-            onClick={() => openPagoForm(tipo, montoEstimado)}
-            className="mt-3 w-full py-2 px-3 rounded-lg text-sm font-semibold text-white bg-ocean-600 hover:bg-ocean-700 transition-colors"
-          >
-            Registrar pago
-          </button>
-        );
+        const pago1Items: LineItem[] = [
+          { label: 'Ret. IVA', concepto: 'retencion_iva', monto: retIva, tipoPago: 'pago1', quincena: 2 },
+          { label: 'Ret. ISLR', concepto: 'retencion_islr', monto: retIslr, tipoPago: 'pago1', quincena: 2 },
+          { label: 'IGTF', concepto: 'igtf', monto: igtf, tipoPago: 'pago1', quincena: 2 },
+          { label: 'IVA neto mensual', concepto: 'iva_neto', monto: ivaNet, tipoPago: 'pago1', quincena: null },
+        ];
+        const pago2Items: LineItem[] = [
+          { label: 'Ret. IVA', concepto: 'retencion_iva', monto: retIva, tipoPago: 'pago2', quincena: 1 },
+          { label: 'Ret. ISLR', concepto: 'retencion_islr', monto: retIslr, tipoPago: 'pago2', quincena: 1 },
+          { label: 'IGTF', concepto: 'igtf', monto: igtf, tipoPago: 'pago2', quincena: 1 },
+        ];
+        const sumatItems: LineItem[] = [
+          { label: 'SUMAT (2.5% ventas)', concepto: 'sumat', monto: sumat, tipoPago: 'sumat', quincena: null },
+        ];
+
+        const ObligationLine = ({ item, colorClass }: { item: LineItem; colorClass: string }) => {
+          const pago = getPago(item.tipoPago, item.concepto, item.quincena);
+          return (
+            <div className="flex items-center justify-between py-1">
+              <span className={`text-sm ${pago ? 'text-green-700' : colorClass}`}>{item.label}</span>
+              <div className="flex items-center gap-2">
+                <span className={`font-mono text-sm font-semibold ${pago ? 'text-green-800' : colorClass.replace('text-', 'text-').replace('800', '900').replace('700', '900')}`}>
+                  {formatBs(pago ? pago.monto : item.monto)}
+                </span>
+                {pago ? (
+                  <button
+                    onClick={() => setViewingPago(pago)}
+                    className="text-green-600 hover:text-green-800 text-xs font-bold bg-green-100 px-1.5 py-0.5 rounded"
+                    title={`Pagado ${formatDateDMY(pago.fechaPago)}${pago.banco ? ' — ' + pago.banco : ''}`}
+                  >
+                    ✓
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => openPagoForm(item.tipoPago, item.concepto, item.quincena, item.label, item.monto)}
+                    className="text-ocean-500 hover:text-ocean-700 text-[10px] font-medium bg-ocean-50 hover:bg-ocean-100 px-1.5 py-0.5 rounded transition-colors"
+                  >
+                    Pagar
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        };
+
+        const cardPaidCount = (items: LineItem[]) => items.filter(i => getPago(i.tipoPago, i.concepto, i.quincena)).length;
+        const allPago1Paid = cardPaidCount(pago1Items) === pago1Items.length;
+        const allPago2Paid = cardPaidCount(pago2Items) === pago2Items.length;
+        const allSumatPaid = cardPaidCount(sumatItems) === sumatItems.length;
 
         return (
           <div className="mt-6">
@@ -1959,119 +1974,64 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* ── 1er pago: ret. 16-fin mes anterior + IVA mensual (contable) ── */}
-              <div className={`rounded-xl p-5 shadow-sm border ${pagoPago1 ? 'border-green-300 bg-green-50' : 'border-sky-200 bg-sky-50'}`}>
+              <div className={`rounded-xl p-5 shadow-sm border ${allPago1Paid ? 'border-green-300 bg-green-50' : 'border-sky-200 bg-sky-50'}`}>
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className={`text-xs font-semibold uppercase tracking-wide ${pagoPago1 ? 'text-green-700' : 'text-sky-700'}`}>
-                    1er pago del mes
+                  <h4 className={`text-xs font-semibold uppercase tracking-wide ${allPago1Paid ? 'text-green-700' : 'text-sky-700'}`}>
+                    1er pago — Q2 (16-fin)
                   </h4>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${pagoPago1 ? 'bg-green-100 text-green-600' : 'bg-sky-100 text-sky-600'}`}>contable</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${allPago1Paid ? 'bg-green-100 text-green-600' : 'bg-sky-100 text-sky-600'}`}>
+                    {cardPaidCount(pago1Items)}/{pago1Items.length}
+                  </span>
                 </div>
-                <div className="space-y-1.5 text-sm mb-3">
-                  <div className="flex justify-between">
-                    <span className={pagoPago1 ? 'text-green-700' : 'text-sky-800'}>Ret. IVA</span>
-                    <span className={`font-mono font-semibold ${pagoPago1 ? 'text-green-800' : 'text-sky-900'}`}>{formatBs(retIva)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className={pagoPago1 ? 'text-green-700' : 'text-sky-800'}>Ret. ISLR</span>
-                    <span className={`font-mono font-semibold ${pagoPago1 ? 'text-green-800' : 'text-sky-900'}`}>{formatBs(retIslr)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className={pagoPago1 ? 'text-green-700' : 'text-sky-800'}>IGTF</span>
-                    <span className={`font-mono font-semibold ${pagoPago1 ? 'text-green-800' : 'text-sky-900'}`}>{formatBs(igtf)}</span>
-                  </div>
-                  <div className={`flex justify-between border-t pt-1.5 mt-1.5 ${pagoPago1 ? 'border-green-200' : 'border-sky-200'}`}>
-                    <span className={pagoPago1 ? 'text-green-700' : 'text-sky-800'}>IVA neto mensual</span>
-                    <span className={`font-mono font-semibold ${pagoPago1 ? 'text-green-800' : 'text-sky-900'}`}>{formatBs(ivaNet)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className={`text-xs ${pagoPago1 ? 'text-green-500' : 'text-sky-500'}`}>Anticipo IVA</span>
-                    <span className={`font-mono text-xs ${pagoPago1 ? 'text-green-400' : 'text-sky-400'}`}>confirmar c/ contadora</span>
+                <div className="space-y-0.5 mb-3">
+                  {pago1Items.slice(0, 3).map(item => (
+                    <ObligationLine key={item.concepto} item={item} colorClass="text-sky-800" />
+                  ))}
+                  <div className={`border-t mt-1.5 pt-1.5 ${allPago1Paid ? 'border-green-200' : 'border-sky-200'}`}>
+                    <ObligationLine item={pago1Items[3]} colorClass="text-sky-800" />
                   </div>
                 </div>
-                <div className={`pt-3 border-t flex justify-between font-bold mb-3 ${pagoPago1 ? 'border-green-200 text-green-900' : 'border-sky-200 text-sky-900'}`}>
-                  <span>Total estimado</span>
-                  <span className="font-mono text-base">{formatBs(totalPago1)}</span>
-                </div>
-                {pagoPago1 ? (
-                  <PaidBadge pago={pagoPago1} />
-                ) : (
-                  <>
-                    <DateBadge date={pago1} isPast={isPago1Past} label={labelPago1} />
-                    <PayButton tipo="pago1" montoEstimado={totalPago1} />
-                  </>
-                )}
+                <DateBadge date={pago1} isPast={isPago1Past} label={labelPago1} />
               </div>
 
-              {/* ── 2do pago: ret. 1-15 mes actual solo ── */}
-              <div className={`rounded-xl p-5 shadow-sm border ${pagoPago2 ? 'border-green-300 bg-green-50' : 'border-indigo-200 bg-indigo-50'}`}>
+              {/* ── 2do pago: ret. 1-15 mes actual ── */}
+              <div className={`rounded-xl p-5 shadow-sm border ${allPago2Paid ? 'border-green-300 bg-green-50' : 'border-indigo-200 bg-indigo-50'}`}>
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className={`text-xs font-semibold uppercase tracking-wide ${pagoPago2 ? 'text-green-700' : 'text-indigo-700'}`}>
-                    2do pago del mes
+                  <h4 className={`text-xs font-semibold uppercase tracking-wide ${allPago2Paid ? 'text-green-700' : 'text-indigo-700'}`}>
+                    2do pago — Q1 (1-15)
                   </h4>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${pagoPago2 ? 'bg-green-100 text-green-600' : 'bg-indigo-100 text-indigo-600'}`}>retenciones</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${allPago2Paid ? 'bg-green-100 text-green-600' : 'bg-indigo-100 text-indigo-600'}`}>
+                    {cardPaidCount(pago2Items)}/{pago2Items.length}
+                  </span>
                 </div>
-                <div className="space-y-1.5 text-sm mb-3">
-                  <div className="flex justify-between">
-                    <span className={pagoPago2 ? 'text-green-700' : 'text-indigo-800'}>Ret. IVA</span>
-                    <span className={`font-mono font-semibold ${pagoPago2 ? 'text-green-800' : 'text-indigo-900'}`}>{formatBs(retIva)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className={pagoPago2 ? 'text-green-700' : 'text-indigo-800'}>Ret. ISLR</span>
-                    <span className={`font-mono font-semibold ${pagoPago2 ? 'text-green-800' : 'text-indigo-900'}`}>{formatBs(retIslr)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className={pagoPago2 ? 'text-green-700' : 'text-indigo-800'}>IGTF</span>
-                    <span className={`font-mono font-semibold ${pagoPago2 ? 'text-green-800' : 'text-indigo-900'}`}>{formatBs(igtf)}</span>
-                  </div>
+                <div className="space-y-0.5 mb-3">
+                  {pago2Items.map(item => (
+                    <ObligationLine key={item.concepto} item={item} colorClass="text-indigo-800" />
+                  ))}
                 </div>
-                <div className={`pt-3 border-t flex justify-between font-bold mb-3 ${pagoPago2 ? 'border-green-200 text-green-900' : 'border-indigo-200 text-indigo-900'}`}>
-                  <span>Total</span>
-                  <span className="font-mono text-base">{formatBs(totalPago2)}</span>
-                </div>
-                {pagoPago2 ? (
-                  <PaidBadge pago={pagoPago2} />
-                ) : (
-                  <>
-                    <DateBadge date={pago2} isPast={isPago2Past} label={labelPago2} />
-                    <PayButton tipo="pago2" montoEstimado={totalPago2} />
-                  </>
-                )}
+                <DateBadge date={pago2} isPast={isPago2Past} label={labelPago2} />
               </div>
 
               {/* ── SUMAT ── */}
-              <div className={`rounded-xl p-5 shadow-sm border ${pagoSumat ? 'border-green-300 bg-green-50' : 'border-rose-200 bg-rose-50'}`}>
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <span className={`text-xs font-semibold uppercase tracking-wide ${pagoSumat ? 'text-green-700' : 'text-rose-700'}`}>Pago mensual</span>
-                    <p className={`text-lg font-bold mt-0.5 ${pagoSumat ? 'text-green-900' : 'text-rose-900'}`}>SUMAT / SENIAT mensual</p>
-                    <p className={`text-[11px] mt-0.5 ${pagoSumat ? 'text-green-600' : 'text-rose-600'}`}>Impuesto municipal + declaración IVA anual</p>
-                  </div>
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${pagoSumat ? 'bg-green-100 text-green-700' : 'bg-rose-100 text-rose-700'}`}>SUMAT</span>
+              <div className={`rounded-xl p-5 shadow-sm border ${allSumatPaid ? 'border-green-300 bg-green-50' : 'border-rose-200 bg-rose-50'}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className={`text-xs font-semibold uppercase tracking-wide ${allSumatPaid ? 'text-green-700' : 'text-rose-700'}`}>
+                    Mensual
+                  </h4>
+                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${allSumatPaid ? 'bg-green-100 text-green-700' : 'bg-rose-100 text-rose-700'}`}>SUMAT</span>
                 </div>
-                <div className="space-y-1.5 text-sm">
-                  <div className="flex justify-between">
-                    <span className={pagoSumat ? 'text-green-700' : 'text-rose-800'}>SUMAT (2.5% ventas)</span>
-                    <span className={`font-mono font-semibold ${pagoSumat ? 'text-green-800' : 'text-rose-900'}`}>{formatBs(sumat)}</span>
-                  </div>
+                <div className="space-y-0.5 mb-3">
+                  {sumatItems.map(item => (
+                    <ObligationLine key={item.concepto} item={item} colorClass="text-rose-800" />
+                  ))}
                 </div>
-                <div className={`mt-3 pt-3 border-t flex justify-between font-bold ${pagoSumat ? 'border-green-200 text-green-900' : 'border-rose-200 text-rose-900'}`}>
-                  <span>Total mensual</span>
-                  <span className="font-mono text-base">{formatBs(sumat)}</span>
-                </div>
-                {pagoSumat ? (
-                  <PaidBadge pago={pagoSumat} />
-                ) : (
-                  <>
-                    <p className={`text-[10px] mt-2 ${pagoSumat ? 'text-green-500' : 'text-rose-500'}`}>
-                      Declaración IVA (firma personal) se hace 1 vez/mes
-                    </p>
-                    <PayButton tipo="sumat" montoEstimado={sumat} />
-                  </>
-                )}
+                <p className="text-[10px] text-rose-500 mt-1">
+                  Declaración IVA (firma personal) se hace 1 vez/mes
+                </p>
               </div>
             </div>
             <p className="text-[11px] text-ocean-400 mt-2">
-              * Los montos de retenciones son estimados (½ del total mensual por quincena). Los importes reales dependen de las retenciones de cada período quincenal.
+              * Montos estimados del período. El monto real se registra al pagar cada concepto.
             </p>
           </div>
         );
@@ -2083,9 +2043,13 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-ocean-900">
-                  Registrar pago — {showPagoForm === 'pago1' ? '1er pago' : showPagoForm === 'pago2' ? '2do pago' : 'SUMAT'}
-                </h3>
+                <div>
+                  <h3 className="text-lg font-bold text-ocean-900">Registrar pago</h3>
+                  <p className="text-sm text-ocean-600">
+                    {showPagoForm.label}
+                    {showPagoForm.quincena ? ` — Q${showPagoForm.quincena} (${showPagoForm.quincena === 1 ? '1-15' : '16-fin'})` : ' — mensual'}
+                  </p>
+                </div>
                 <button onClick={() => setShowPagoForm(null)} className="text-ocean-400 hover:text-ocean-600 text-xl">&times;</button>
               </div>
               <div className="space-y-4">
@@ -2166,7 +2130,8 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-ocean-900">
-                  Detalle de pago — {viewingPago.tipoPago === 'pago1' ? '1er pago' : viewingPago.tipoPago === 'pago2' ? '2do pago' : 'SUMAT'}
+                  Detalle — {viewingPago.concepto === 'retencion_iva' ? 'Ret. IVA' : viewingPago.concepto === 'retencion_islr' ? 'Ret. ISLR' : viewingPago.concepto === 'igtf' ? 'IGTF' : viewingPago.concepto === 'iva_neto' ? 'IVA neto' : 'SUMAT'}
+                  {viewingPago.quincena ? ` Q${viewingPago.quincena}` : ''}
                 </h3>
                 <button onClick={() => setViewingPago(null)} className="text-ocean-400 hover:text-ocean-600 text-xl">&times;</button>
               </div>

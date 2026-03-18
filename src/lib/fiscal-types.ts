@@ -99,11 +99,14 @@ export interface D1FiscalRetencionIvaWithDetails extends D1FiscalRetencionIva {
 }
 
 export type TipoPagoSeniat = 'pago1' | 'pago2' | 'sumat';
+export type ConceptoPago = 'retencion_iva' | 'retencion_islr' | 'igtf' | 'iva_neto' | 'sumat';
 
 export interface D1FiscalPagoSeniat {
   id: number;
   periodo: string;
   tipo_pago: TipoPagoSeniat;
+  concepto: ConceptoPago | null;
+  quincena: number | null;  // 1 = 1-15, 2 = 16-31, null = mensual
   fecha_pago: string;
   monto: number;
   numero_planilla: string | null;
@@ -202,6 +205,8 @@ export interface FiscalPagoSeniat {
   id: number;
   periodo: string;
   tipoPago: TipoPagoSeniat;
+  concepto: ConceptoPago | null;
+  quincena: number | null;
   fechaPago: string;
   monto: number;
   numeroPlanilla: string | null;
@@ -441,6 +446,8 @@ export function transformPagoSeniat(row: D1FiscalPagoSeniat): FiscalPagoSeniat {
     id: row.id,
     periodo: row.periodo,
     tipoPago: row.tipo_pago,
+    concepto: row.concepto ?? null,
+    quincena: row.quincena ?? null,
     fechaPago: row.fecha_pago,
     monto: row.monto,
     numeroPlanilla: row.numero_planilla,

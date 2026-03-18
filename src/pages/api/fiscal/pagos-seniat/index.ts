@@ -52,6 +52,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
   try {
     let periodo: string;
     let tipoPago: string;
+    let concepto: string | null = null;
+    let quincena: number | null = null;
     let fechaPago: string;
     let monto: number;
     let numeroPlanilla: string | null = null;
@@ -66,6 +68,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       const formData = await request.formData();
       periodo = formData.get('periodo') as string;
       tipoPago = formData.get('tipoPago') as string;
+      concepto = (formData.get('concepto') as string) || null;
+      quincena = formData.get('quincena') ? parseInt(formData.get('quincena') as string) : null;
       fechaPago = formData.get('fechaPago') as string;
       monto = parseFloat(formData.get('monto') as string);
       numeroPlanilla = (formData.get('numeroPlanilla') as string) || null;
@@ -93,6 +97,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       const body = await request.json();
       periodo = body.periodo;
       tipoPago = body.tipoPago;
+      concepto = body.concepto || null;
+      quincena = body.quincena ?? null;
       fechaPago = body.fechaPago;
       monto = body.monto;
       numeroPlanilla = body.numeroPlanilla || null;
@@ -119,11 +125,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     const result = await db.prepare(`
       INSERT INTO fiscal_pagos_seniat (
-        periodo, tipo_pago, fecha_pago, monto,
+        periodo, tipo_pago, concepto, quincena, fecha_pago, monto,
         numero_planilla, referencia_bancaria, banco, image_key, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
-      periodo, tipoPago, fechaPago, monto,
+      periodo, tipoPago, concepto, quincena, fechaPago, monto,
       numeroPlanilla, referenciaBancaria, banco, imageKey, notes
     ).run();
 
