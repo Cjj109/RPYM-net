@@ -2139,7 +2139,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
         const pendPago1 = cardPendiente(pago1Items);
         const pendPago2 = cardPendiente(pago2Items);
         const pendSumat = cardPendiente(sumatItems);
-        const rate = dashboardData?.bcvRate ?? 0;
+        const rate = bcvRate?.rate ?? dashboardData?.bcvRate ?? 0;
 
         const PendienteBadge = ({ pendiente, borderClass }: { pendiente: number; borderClass: string }) => (
           pendiente > 0 ? (
