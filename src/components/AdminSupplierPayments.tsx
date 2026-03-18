@@ -86,6 +86,7 @@ export default function AdminSupplierPayments() {
   const [montoMode, setMontoMode] = useState<'usd' | 'bs'>('usd');
   const [montoBsInput, setMontoBsInput] = useState('');
   const [tasaBcv, setTasaBcv] = useState<number | null>(null);
+  const [tasaBcvInput, setTasaBcvInput] = useState('');
   const [tasaParalela, setTasaParalela] = useState('');
 
   // Supplier search within compra modal
@@ -142,7 +143,10 @@ export default function AdminSupplierPayments() {
     try {
       const res = await fetch('/api/config/bcv-rate');
       const data = await res.json();
-      if (data.rate) setTasaBcv(data.rate);
+      if (data.rate) {
+        setTasaBcv(data.rate);
+        setTasaBcvInput(String(data.rate));
+      }
     } catch {
       console.error('Error loading BCV rate');
     }
@@ -352,10 +356,12 @@ export default function AdminSupplierPayments() {
       if (abono.montoBs) {
         setMontoMode('bs');
         setMontoBsInput(String(abono.montoBs));
+        setTasaBcvInput(abono.tasaCambio ? String(abono.tasaCambio) : (tasaBcv ? String(tasaBcv) : ''));
         setTasaParalela(abono.tasaParalela ? String(abono.tasaParalela) : '');
       } else {
         setMontoMode('usd');
         setMontoBsInput('');
+        setTasaBcvInput(tasaBcv ? String(tasaBcv) : '');
         setTasaParalela('');
       }
     } else {
@@ -370,6 +376,7 @@ export default function AdminSupplierPayments() {
       setImagenPreview(null);
       setMontoMode('usd');
       setMontoBsInput('');
+      setTasaBcvInput(tasaBcv ? String(tasaBcv) : '');
       setTasaParalela('');
     }
     setImagenFile(null);
@@ -394,7 +401,7 @@ export default function AdminSupplierPayments() {
         ...abonoForm,
         removeImage: removeExistingImage,
         montoBs: montoMode === 'bs' ? Number(montoBsInput) || null : null,
-        tasaCambio: montoMode === 'bs' && tasaBcv ? tasaBcv : null,
+        tasaCambio: montoMode === 'bs' && tasaBcvInput ? Number(tasaBcvInput) : null,
         tasaParalela: montoMode === 'bs' && tasaParalela ? Number(tasaParalela) : null,
       };
 
@@ -1772,8 +1779,9 @@ export default function AdminSupplierPayments() {
                       onChange={e => {
                         const bs = e.target.value;
                         setMontoBsInput(bs);
-                        if (tasaBcv && Number(bs)) {
-                          setAbonoForm(prev => ({ ...prev, montoUsd: (Number(bs) / tasaBcv).toFixed(2) }));
+                        const tasa = Number(tasaBcvInput);
+                        if (tasa && Number(bs)) {
+                          setAbonoForm(prev => ({ ...prev, montoUsd: (Number(bs) / tasa).toFixed(2) }));
                         } else {
                           setAbonoForm(prev => ({ ...prev, montoUsd: '' }));
                         }
@@ -1782,27 +1790,48 @@ export default function AdminSupplierPayments() {
                       className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
                     />
 
-                    <div>
-                      <label className="block text-xs text-ocean-500 mb-1">
-                        Tasa paralela (opcional — solo referencia)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={tasaParalela}
-                        onChange={e => setTasaParalela(e.target.value)}
-                        placeholder="Ej: 85.00"
-                        className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
-                      />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-ocean-500 mb-1">
+                          Tasa BCV
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={tasaBcvInput}
+                          onChange={e => {
+                            const tasa = e.target.value;
+                            setTasaBcvInput(tasa);
+                            if (Number(tasa) && Number(montoBsInput)) {
+                              setAbonoForm(prev => ({ ...prev, montoUsd: (Number(montoBsInput) / Number(tasa)).toFixed(2) }));
+                            }
+                          }}
+                          placeholder={tasaBcv ? `Auto: ${tasaBcv.toFixed(2)}` : 'Ej: 80.00'}
+                          className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-ocean-500 mb-1">
+                          Tasa Paralelo (ref.)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={tasaParalela}
+                          onChange={e => setTasaParalela(e.target.value)}
+                          placeholder="Opcional"
+                          className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
+                        />
+                      </div>
                     </div>
 
-                    {montoBsInput && Number(montoBsInput) > 0 && (
+                    {montoBsInput && Number(montoBsInput) > 0 && (tasaBcvInput || tasaParalela) && (
                       <div className="bg-ocean-50 rounded-lg p-3 text-sm space-y-1">
-                        {tasaBcv && (
+                        {tasaBcvInput && Number(tasaBcvInput) > 0 && (
                           <div className="flex justify-between text-ocean-700 font-medium">
-                            <span>BCV ({tasaBcv.toFixed(2)})</span>
+                            <span>BCV ({Number(tasaBcvInput).toFixed(2)})</span>
                             <span className="text-ocean-900">
-                              {formatUSD(Number(montoBsInput) / tasaBcv)}
+                              {formatUSD(Number(montoBsInput) / Number(tasaBcvInput))}
                             </span>
                           </div>
                         )}
