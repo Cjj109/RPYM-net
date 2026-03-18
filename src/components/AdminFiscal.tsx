@@ -379,6 +379,35 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
     }
   };
 
+  const handleTrasladar = async (tipoPago: TipoPagoSeniat, concepto: ConceptoPago, quincena: number | null, label: string) => {
+    if (!confirm(`¿Trasladar "${label}" a la siguiente quincena?`)) return;
+    try {
+      const response = await fetch('/api/fiscal/pagos-seniat', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          periodo: dashboardPeriod,
+          tipoPago,
+          concepto,
+          quincena,
+          fechaPago: new Date().toISOString().split('T')[0],
+          monto: 0,
+          notes: 'Trasladado',
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSuccess(`${label} trasladado a siguiente quincena`);
+        loadDashboard();
+      } else {
+        setError(data.error || 'Error al trasladar');
+      }
+    } catch {
+      setError('Error de conexión');
+    }
+  };
+
   const getPago = (tipoPago: TipoPagoSeniat, concepto: ConceptoPago, quincena?: number | null): FiscalPagoSeniat | undefined => {
     return dashboardData?.pagosSeniat?.find(p =>
       p.tipoPago === tipoPago && p.concepto === concepto && (quincena == null ? true : p.quincena === quincena)
@@ -2010,8 +2039,8 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
         const { pago1, pago2, labelPago1, labelPago2 } = getSeniatDueDates(dashboardPeriod);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const isPago1Past = pago1 <= today;
-        const isPago2Past = pago2 <= today;
+        const isPago1Past = pago1 < today;
+        const isPago2Past = pago2 < today;
 
         // Fecha del próximo mes para mostrar "Próximo vencimiento"
         const [yrStr, moStr] = dashboardPeriod.split('-');
@@ -2053,10 +2082,12 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
 
         type LineItem = { label: string; concepto: ConceptoPago; monto: number; tipoPago: TipoPagoSeniat; quincena: number | null };
 
-        // Detectar ISLR acumulado: si el 2do pago (Q1) ya venció y ISLR Q1 no fue pagado ni N/A, se acumula al 1er pago
-        const islrQ1Pago = getPago('pago2', 'retencion_islr', 1);
-        const islrQ1Unpaid = isPago2Past && !islrQ1Pago && (estQ1?.retencionIslr ?? 0) > 0;
-        const islrQ1Acumulado = islrQ1Unpaid ? (estQ1?.retencionIslr ?? 0) : 0;
+        // Detectar items trasladados de Q1 → se acumulan al 1er pago
+        const isTrasladado = (tipoPago: TipoPagoSeniat, concepto: ConceptoPago, quincena: number | null) => {
+          const p = getPago(tipoPago, concepto, quincena);
+          return p && p.monto === 0 && p.notes === 'Trasladado';
+        };
+        const islrQ1Acumulado = isTrasladado('pago2', 'retencion_islr', 1) ? (estQ1?.retencionIslr ?? 0) : 0;
 
         // Pago 1: retenciones Q2 (16-fin mes anterior) + IVA mensual + ISLR acumulado
         const pago1Items: LineItem[] = [
@@ -2078,12 +2109,15 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
         const ObligationLine = ({ item, colorClass }: { item: LineItem; colorClass: string }) => {
           const pago = getPago(item.tipoPago, item.concepto, item.quincena);
           const isNA = pago && pago.monto === 0 && pago.notes === 'No aplica';
+          const isTras = pago && pago.monto === 0 && pago.notes === 'Trasladado';
           return (
             <div className="flex items-center justify-between py-1">
-              <span className={`text-sm ${isNA ? 'text-gray-400 line-through' : pago ? 'text-green-700' : colorClass}`}>{item.label}</span>
+              <span className={`text-sm ${isNA || isTras ? 'text-gray-400 line-through' : pago ? 'text-green-700' : colorClass}`}>{item.label}</span>
               <div className="flex items-center gap-2">
                 {isNA ? (
                   <span className="text-[10px] text-gray-400 font-medium">N/A</span>
+                ) : isTras ? (
+                  <span className="text-[10px] text-amber-500 font-medium">→ Sig.</span>
                 ) : (
                   <span className={`font-mono text-sm font-semibold ${pago ? 'text-green-800' : colorClass.replace('text-', 'text-').replace('800', '900').replace('700', '900')}`}>
                     {formatBs(pago ? pago.monto : item.monto)}
@@ -2092,10 +2126,10 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
                 {pago ? (
                   <button
                     onClick={() => setViewingPago(pago)}
-                    className={`text-xs font-bold px-1.5 py-0.5 rounded ${isNA ? 'text-gray-400 hover:text-gray-600 bg-gray-100' : 'text-green-600 hover:text-green-800 bg-green-100'}`}
-                    title={isNA ? 'No aplica — click para ver/eliminar' : `Pagado ${formatDateDMY(pago.fechaPago)}${pago.banco ? ' — ' + pago.banco : ''}`}
+                    className={`text-xs font-bold px-1.5 py-0.5 rounded ${isNA ? 'text-gray-400 hover:text-gray-600 bg-gray-100' : isTras ? 'text-amber-500 hover:text-amber-700 bg-amber-50' : 'text-green-600 hover:text-green-800 bg-green-100'}`}
+                    title={isNA ? 'No aplica — click para ver/eliminar' : isTras ? 'Trasladado — click para ver/eliminar' : `Pagado ${formatDateDMY(pago.fechaPago)}${pago.banco ? ' — ' + pago.banco : ''}`}
                   >
-                    {isNA ? '—' : '✓'}
+                    {isNA ? '—' : isTras ? '→' : '✓'}
                   </button>
                 ) : (
                   <div className="flex items-center gap-1">
@@ -2108,9 +2142,16 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
                     <button
                       onClick={() => handleMarkNA(item.tipoPago, item.concepto, item.quincena, item.label)}
                       className="text-gray-400 hover:text-gray-600 text-[10px] font-medium bg-gray-50 hover:bg-gray-100 px-1 py-0.5 rounded transition-colors"
-                      title="Marcar como No Aplica"
+                      title="No aplica esta quincena"
                     >
                       N/A
+                    </button>
+                    <button
+                      onClick={() => handleTrasladar(item.tipoPago, item.concepto, item.quincena, item.label)}
+                      className="text-amber-500 hover:text-amber-700 text-[10px] font-medium bg-amber-50 hover:bg-amber-100 px-1 py-0.5 rounded transition-colors"
+                      title="Trasladar a siguiente quincena"
+                    >
+                      →
                     </button>
                   </div>
                 )}
@@ -2124,15 +2165,15 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
         const allPago2Paid = cardPaidCount(pago2Items) === pago2Items.length;
         const allSumatPaid = cardPaidCount(sumatItems) === sumatItems.length;
 
-        // Calcular pendiente por tarjeta (estimado - pagado, excluyendo N/A)
+        // Calcular pendiente por tarjeta (estimado - pagado, excluyendo N/A y trasladados)
         const cardPendiente = (items: LineItem[]) => {
           let total = 0;
           for (const item of items) {
             const pago = getPago(item.tipoPago, item.concepto, item.quincena);
             const isItemNA = pago && pago.monto === 0 && pago.notes === 'No aplica';
-            if (isItemNA) continue;
+            const isItemTras = pago && pago.monto === 0 && pago.notes === 'Trasladado';
+            if (isItemNA || isItemTras) continue;
             if (pago) {
-              // Ya pagó: la diferencia si pagó menos del estimado
               total += Math.max(item.monto - pago.monto, 0);
             } else {
               total += item.monto;
