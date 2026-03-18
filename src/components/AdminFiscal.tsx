@@ -2053,10 +2053,15 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
 
         type LineItem = { label: string; concepto: ConceptoPago; monto: number; tipoPago: TipoPagoSeniat; quincena: number | null };
 
-        // Pago 1: retenciones Q2 (16-fin mes anterior) + IVA mensual
+        // Detectar ISLR acumulado: si el 2do pago (Q1) ya venció y ISLR Q1 no fue pagado ni N/A, se acumula al 1er pago
+        const islrQ1Pago = getPago('pago2', 'retencion_islr', 1);
+        const islrQ1Unpaid = isPago2Past && !islrQ1Pago && (estQ1?.retencionIslr ?? 0) > 0;
+        const islrQ1Acumulado = islrQ1Unpaid ? (estQ1?.retencionIslr ?? 0) : 0;
+
+        // Pago 1: retenciones Q2 (16-fin mes anterior) + IVA mensual + ISLR acumulado
         const pago1Items: LineItem[] = [
           { label: 'Ret. IVA (Q2)', concepto: 'retencion_iva', monto: estQ2?.retencionIva ?? 0, tipoPago: 'pago1', quincena: 2 },
-          { label: 'Ret. ISLR (Q2)', concepto: 'retencion_islr', monto: estQ2?.retencionIslr ?? 0, tipoPago: 'pago1', quincena: 2 },
+          { label: 'Ret. ISLR (Q2)', concepto: 'retencion_islr', monto: (estQ2?.retencionIslr ?? 0) + islrQ1Acumulado, tipoPago: 'pago1', quincena: 2 },
           { label: 'IGTF (Q2)', concepto: 'igtf', monto: (estQ2?.igtfCompras ?? 0) + (estQ2?.igtfVentas ?? 0), tipoPago: 'pago1', quincena: 2 },
           { label: 'IVA neto mensual', concepto: 'iva_neto', monto: ivaNet > 0 ? ivaNet : 0, tipoPago: 'pago1', quincena: null },
         ];
@@ -2176,6 +2181,9 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
                   {pago1Items.slice(0, 3).map(item => (
                     <ObligationLine key={item.concepto} item={item} colorClass="text-sky-800" />
                   ))}
+                  {islrQ1Acumulado > 0 && (
+                    <p className="text-[10px] text-amber-600 ml-1">Incluye {formatBs(islrQ1Acumulado)} ISLR acumulado de Q1</p>
+                  )}
                   <div className={`border-t mt-1.5 pt-1.5 ${allPago1Paid ? 'border-green-200' : 'border-sky-200'}`}>
                     <ObligationLine item={pago1Items[3]} colorClass="text-sky-800" />
                   </div>
