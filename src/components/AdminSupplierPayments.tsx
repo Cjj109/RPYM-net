@@ -644,6 +644,24 @@ export default function AdminSupplierPayments() {
     }
   };
 
+  // ── Toggle pagada manual ──────────────────────────────
+
+  const handleTogglePagadaManual = async (compra: CompraProveedor) => {
+    try {
+      const res = await fetch(`/api/pagos-proveedores/compras/${compra.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pagadaManual: !compra.pagadaManual }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await Promise.all([loadCompras(), loadResumen()]);
+      }
+    } catch {
+      alert('Error de conexion');
+    }
+  };
+
   // ── Helper: progress bar percentage ───────────────────
 
   const progressPercent = (compra: CompraProveedor) => {
@@ -1001,7 +1019,7 @@ export default function AdminSupplierPayments() {
         <div className="space-y-3">
           {compras.map(compra => {
             const isExpanded = expandedCompraId === compra.id;
-            const isPagada = compra.saldoPendiente <= 0;
+            const isPagada = compra.pagadaManual || compra.saldoPendiente <= 0;
 
             return (
               <div key={compra.id} className="bg-white rounded-xl shadow-sm border border-ocean-100 overflow-hidden">
@@ -1062,7 +1080,9 @@ export default function AdminSupplierPayments() {
                         <span className="text-xs text-ocean-400">{formatBs(compra.montoTotalBs)}</span>
                       )}
                       {isPagada ? (
-                        <span className="text-xs text-emerald-600 font-medium">Pagada</span>
+                        <span className="text-xs text-emerald-600 font-medium">
+                          Pagada{compra.pagadaManual && compra.saldoPendiente > 0 ? ' (manual)' : ''}
+                        </span>
                       ) : (
                         <span className="text-xs text-amber-600 font-medium">
                           Pendiente: {formatUSD(compra.saldoPendiente)}
@@ -1189,6 +1209,20 @@ export default function AdminSupplierPayments() {
                           className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100"
                         >
                           Eliminar
+                        </button>
+                      )}
+
+                      {/* Marcar como pagada */}
+                      {compra.saldoPendiente > 0 && (
+                        <button
+                          onClick={() => handleTogglePagadaManual(compra)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
+                            compra.pagadaManual
+                              ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                              : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                          }`}
+                        >
+                          {compra.pagadaManual ? 'Desmarcar pagada' : 'Marcar como pagada'}
                         </button>
                       )}
 

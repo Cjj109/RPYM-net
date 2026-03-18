@@ -61,9 +61,9 @@ export const GET: APIRoute = async ({ request, locals }) => {
     }
 
     if (estado === 'pendiente') {
-      query += ` AND COALESCE((SELECT SUM(a.monto_usd) FROM abonos_proveedores a WHERE a.compra_id = c.id AND a.is_active = 1), 0) < c.monto_total`;
+      query += ` AND c.pagada_manual = 0 AND COALESCE((SELECT SUM(a.monto_usd) FROM abonos_proveedores a WHERE a.compra_id = c.id AND a.is_active = 1), 0) < c.monto_total`;
     } else if (estado === 'pagada') {
-      query += ` AND COALESCE((SELECT SUM(a.monto_usd) FROM abonos_proveedores a WHERE a.compra_id = c.id AND a.is_active = 1), 0) >= c.monto_total`;
+      query += ` AND (c.pagada_manual = 1 OR COALESCE((SELECT SUM(a.monto_usd) FROM abonos_proveedores a WHERE a.compra_id = c.id AND a.is_active = 1), 0) >= c.monto_total)`;
     }
 
     query += ` ORDER BY c.fecha DESC, c.created_at DESC`;

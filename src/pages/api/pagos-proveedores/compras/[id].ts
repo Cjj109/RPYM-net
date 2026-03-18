@@ -129,6 +129,32 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
   }
 };
 
+// PATCH /api/pagos-proveedores/compras/:id - Toggle pagada_manual
+export const PATCH: APIRoute = async ({ params, request, locals }) => {
+  const auth = await requireAuth(request, locals);
+  if (auth instanceof Response) return auth;
+  const { db } = auth;
+
+  try {
+    const id = params.id;
+    const body = await request.json();
+    const { pagadaManual } = body;
+
+    await db.prepare(
+      "UPDATE compras_proveedores SET pagada_manual = ?, updated_at = datetime('now') WHERE id = ?"
+    ).bind(pagadaManual ? 1 : 0, id).run();
+
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200, headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error toggling pagada_manual:', error);
+    return new Response(JSON.stringify({ success: false, error: 'Error al actualizar estado' }), {
+      status: 500, headers: { 'Content-Type': 'application/json' },
+    });
+  }
+};
+
 // DELETE /api/pagos-proveedores/compras/:id - Soft delete purchase + abonos
 export const DELETE: APIRoute = async ({ params, request, locals }) => {
   const auth = await requireAuth(request, locals);
