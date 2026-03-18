@@ -348,6 +348,35 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
     }
   };
 
+  const handleMarkNA = async (tipoPago: TipoPagoSeniat, concepto: ConceptoPago, quincena: number | null, label: string) => {
+    if (!confirm(`¿Marcar "${label}" como No Aplica para este período?`)) return;
+    try {
+      const response = await fetch('/api/fiscal/pagos-seniat', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          periodo: dashboardPeriod,
+          tipoPago,
+          concepto,
+          quincena,
+          fechaPago: new Date().toISOString().split('T')[0],
+          monto: 0,
+          notes: 'No aplica',
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSuccess(`${label} marcado como N/A`);
+        loadDashboard();
+      } else {
+        setError(data.error || 'Error al marcar N/A');
+      }
+    } catch {
+      setError('Error de conexión');
+    }
+  };
+
   const getPago = (tipoPago: TipoPagoSeniat, concepto: ConceptoPago, quincena?: number | null): FiscalPagoSeniat | undefined => {
     return dashboardData?.pagosSeniat?.find(p =>
       p.tipoPago === tipoPago && p.concepto === concepto && (quincena == null ? true : p.quincena === quincena)
@@ -2017,28 +2046,42 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
 
         const ObligationLine = ({ item, colorClass }: { item: LineItem; colorClass: string }) => {
           const pago = getPago(item.tipoPago, item.concepto, item.quincena);
+          const isNA = pago && pago.monto === 0 && pago.notes === 'No aplica';
           return (
             <div className="flex items-center justify-between py-1">
-              <span className={`text-sm ${pago ? 'text-green-700' : colorClass}`}>{item.label}</span>
+              <span className={`text-sm ${isNA ? 'text-gray-400 line-through' : pago ? 'text-green-700' : colorClass}`}>{item.label}</span>
               <div className="flex items-center gap-2">
-                <span className={`font-mono text-sm font-semibold ${pago ? 'text-green-800' : colorClass.replace('text-', 'text-').replace('800', '900').replace('700', '900')}`}>
-                  {formatBs(pago ? pago.monto : item.monto)}
-                </span>
+                {isNA ? (
+                  <span className="text-[10px] text-gray-400 font-medium">N/A</span>
+                ) : (
+                  <span className={`font-mono text-sm font-semibold ${pago ? 'text-green-800' : colorClass.replace('text-', 'text-').replace('800', '900').replace('700', '900')}`}>
+                    {formatBs(pago ? pago.monto : item.monto)}
+                  </span>
+                )}
                 {pago ? (
                   <button
                     onClick={() => setViewingPago(pago)}
-                    className="text-green-600 hover:text-green-800 text-xs font-bold bg-green-100 px-1.5 py-0.5 rounded"
-                    title={`Pagado ${formatDateDMY(pago.fechaPago)}${pago.banco ? ' — ' + pago.banco : ''}`}
+                    className={`text-xs font-bold px-1.5 py-0.5 rounded ${isNA ? 'text-gray-400 hover:text-gray-600 bg-gray-100' : 'text-green-600 hover:text-green-800 bg-green-100'}`}
+                    title={isNA ? 'No aplica — click para ver/eliminar' : `Pagado ${formatDateDMY(pago.fechaPago)}${pago.banco ? ' — ' + pago.banco : ''}`}
                   >
-                    ✓
+                    {isNA ? '—' : '✓'}
                   </button>
                 ) : (
-                  <button
-                    onClick={() => openPagoForm(item.tipoPago, item.concepto, item.quincena, item.label, item.monto)}
-                    className="text-ocean-500 hover:text-ocean-700 text-[10px] font-medium bg-ocean-50 hover:bg-ocean-100 px-1.5 py-0.5 rounded transition-colors"
-                  >
-                    Pagar
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => openPagoForm(item.tipoPago, item.concepto, item.quincena, item.label, item.monto)}
+                      className="text-ocean-500 hover:text-ocean-700 text-[10px] font-medium bg-ocean-50 hover:bg-ocean-100 px-1.5 py-0.5 rounded transition-colors"
+                    >
+                      Pagar
+                    </button>
+                    <button
+                      onClick={() => handleMarkNA(item.tipoPago, item.concepto, item.quincena, item.label)}
+                      className="text-gray-400 hover:text-gray-600 text-[10px] font-medium bg-gray-50 hover:bg-gray-100 px-1 py-0.5 rounded transition-colors"
+                      title="Marcar como No Aplica"
+                    >
+                      N/A
+                    </button>
+                  </div>
                 )}
               </div>
             </div>

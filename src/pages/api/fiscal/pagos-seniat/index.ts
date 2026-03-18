@@ -113,7 +113,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     // Validaciones
-    if (!periodo || !tipoPago || !fechaPago || !monto) {
+    if (!periodo || !tipoPago || !fechaPago || (monto == null || isNaN(monto))) {
       return new Response(JSON.stringify({ success: false, error: 'Campos requeridos: periodo, tipoPago, fechaPago, monto' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
