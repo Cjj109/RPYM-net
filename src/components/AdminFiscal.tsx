@@ -100,6 +100,8 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
   const [reportesZLoading, setReportesZLoading] = useState(false);
   const [showZModal, setShowZModal] = useState(false);
   const [editingReporteZ, setEditingReporteZ] = useState<FiscalReporteZ | null>(null);
+  const [editingRateId, setEditingRateId] = useState<number | null>(null);
+  const [editingRateValue, setEditingRateValue] = useState('');
   const [zFormData, setZFormData] = useState<ReporteZFormData>({
     fecha: new Date().toISOString().split('T')[0],
     subtotalExento: 0,
@@ -430,6 +432,32 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
   // =====================
   // Reportes Z Functions
   // =====================
+
+  const handleSaveRateOverride = async (reporteId: number) => {
+    const val = editingRateValue.trim();
+    const override = val ? parseFloat(val) : null;
+    if (val && (isNaN(override!) || override! <= 0)) {
+      setError('Tasa inválida');
+      return;
+    }
+    try {
+      const res = await fetch(`/api/fiscal/reportes-z/${reporteId}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bcvRateOverride: override }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setEditingRateId(null);
+        loadReportesZ();
+      } else {
+        setError(data.error || 'Error al guardar tasa');
+      }
+    } catch {
+      setError('Error de conexión');
+    }
+  };
 
   const loadReportesZ = useCallback(async () => {
     setReportesZLoading(true);
@@ -2342,8 +2370,38 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
                     <td className="px-3 py-3 text-sm font-medium text-ocean-900">{formatDateReadable(r.fecha)}</td>
                     <td className="px-3 py-3 text-xs text-ocean-500 capitalize">{r.diaSemana || '—'}</td>
                     <td className="px-3 py-3 text-sm text-right text-ocean-900 font-semibold">{formatBs(r.totalVentas)}</td>
-                    <td className="px-3 py-3 text-xs text-right text-ocean-400">
-                      {r.bcvRate ? r.bcvRate.toFixed(2) : '—'}
+                    <td className="px-3 py-3 text-xs text-right">
+                      {editingRateId === r.id ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={editingRateValue}
+                            onChange={e => setEditingRateValue(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') handleSaveRateOverride(r.id);
+                              if (e.key === 'Escape') setEditingRateId(null);
+                            }}
+                            autoFocus
+                            className="w-20 px-1.5 py-0.5 border border-ocean-300 rounded text-xs font-mono text-right focus:ring-1 focus:ring-ocean-500 outline-none"
+                          />
+                          <button onClick={() => handleSaveRateOverride(r.id)} className="text-green-600 hover:text-green-800 text-sm" title="Guardar">✓</button>
+                          <button onClick={() => setEditingRateId(null)} className="text-red-500 hover:text-red-700 text-sm" title="Cancelar">✕</button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setEditingRateId(r.id);
+                            setEditingRateValue(r.bcvRate ? r.bcvRate.toFixed(2) : '');
+                          }}
+                          className={`hover:underline cursor-pointer ${r.bcvRateOverride ? 'text-amber-600 font-semibold' : 'text-ocean-400'}`}
+                          title={r.bcvRateOverride ? 'Tasa manual — click para editar' : 'Click para editar tasa'}
+                        >
+                          {r.bcvRate ? r.bcvRate.toFixed(2) : '—'}
+                          {r.bcvRateOverride ? ' *' : ''}
+                        </button>
+                      )}
                     </td>
                     <td className="px-3 py-3 text-sm text-right text-green-700 font-bold">
                       {r.totalVentasUsd != null ? formatUSD(r.totalVentasUsd) : '—'}

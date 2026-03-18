@@ -66,8 +66,10 @@ export const GET: APIRoute = async ({ request, locals }) => {
     const reportes: FiscalReporteZ[] = results.results.map(transformReporteZ);
 
     // Calcular USD y día de semana para cada reporte
+    // Si hay bcvRateOverride, se usa esa tasa en vez de la del sistema
     for (const r of reportes) {
-      const rate = bcvRatesMap[r.fecha] || null;
+      const systemRate = bcvRatesMap[r.fecha] || null;
+      const rate = r.bcvRateOverride ?? systemRate;
       r.bcvRate = rate;
       r.totalVentasUsd = rate ? r.totalVentas / rate : null;
       r.diaSemana = DIAS_SEMANA[getDayOfWeek(r.fecha)];

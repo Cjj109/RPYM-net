@@ -57,6 +57,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
       igtfVentas,
       totalVentas,
       numeracionFacturas,
+      bcvRateOverride,
       notes,
     } = body;
 
@@ -83,7 +84,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
       UPDATE fiscal_reportes_z
       SET fecha = ?, subtotal_exento = ?, subtotal_gravable = ?, iva_cobrado = ?,
           base_imponible_igtf = ?, igtf_ventas = ?,
-          total_ventas = ?, numeracion_facturas = ?, notes = ?, updated_at = datetime('now')
+          total_ventas = ?, numeracion_facturas = ?, bcv_rate_override = ?, notes = ?, updated_at = datetime('now')
       WHERE id = ?
     `).bind(
       fecha,
@@ -94,6 +95,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
       igtfVentas || 0,
       totalVentas || 0,
       numeracionFacturas || null,
+      bcvRateOverride != null ? bcvRateOverride : null,
       notes || null,
       id
     ).run();
@@ -104,6 +106,36 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
     });
   } catch (error) {
     console.error('Error updating reporte Z:', error);
+    return new Response(JSON.stringify({ success: false, error: 'Error al actualizar reporte Z' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+};
+
+// PATCH /api/fiscal/reportes-z/:id - Partial update (e.g. bcv_rate_override)
+export const PATCH: APIRoute = async ({ params, request, locals }) => {
+  const auth = await requireAuth(request, locals);
+  if (auth instanceof Response) return auth;
+  const { db } = auth;
+
+  try {
+    const id = params.id;
+    const body = await request.json();
+
+    if ('bcvRateOverride' in body) {
+      const val = body.bcvRateOverride != null ? body.bcvRateOverride : null;
+      await db.prepare(
+        'UPDATE fiscal_reportes_z SET bcv_rate_override = ?, updated_at = datetime(\'now\') WHERE id = ?'
+      ).bind(val, id).run();
+    }
+
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error patching reporte Z:', error);
     return new Response(JSON.stringify({ success: false, error: 'Error al actualizar reporte Z' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },

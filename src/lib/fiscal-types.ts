@@ -74,6 +74,7 @@ export interface D1FiscalReporteZ {
   image_key: string | null;
   ocr_verified: number;
   ocr_raw_data: string | null;
+  bcv_rate_override: number | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -169,11 +170,12 @@ export interface FiscalReporteZ {
   imageUrl: string | null;
   ocrVerified: boolean;
   ocrRawData: OcrZReportData | null;
+  bcvRateOverride: number | null;  // Tasa manual (sobreescribe la del sistema)
   notes: string | null;
   createdAt: string;
   updatedAt: string;
   // Campos calculados (enriquecidos por el API)
-  bcvRate?: number | null;        // Tasa BCV del día del reporte
+  bcvRate?: number | null;        // Tasa BCV usada (override o sistema)
   totalVentasUsd?: number | null; // total_ventas / bcvRate
   diaSemana?: string | null;      // Día de la semana (lunes, martes, etc.)
   variacionSemana?: number | null; // % variación vs mismo día semana anterior
@@ -410,6 +412,7 @@ export function transformReporteZ(row: D1FiscalReporteZ): FiscalReporteZ {
     imageUrl: row.image_key ? `/api/fiscal/z-image/${row.image_key}` : null,
     ocrVerified: row.ocr_verified === 1,
     ocrRawData: ocrData,
+    bcvRateOverride: row.bcv_rate_override ?? null,
     notes: row.notes,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
