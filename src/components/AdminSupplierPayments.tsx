@@ -455,6 +455,7 @@ export default function AdminSupplierPayments() {
           if (facturaFilter === '1') filterParts.push('con factura');
           if (cuentaFilter === 'pa') filterParts.push('Cuenta PA');
           if (cuentaFilter === 'carlos') filterParts.push('Cuenta Carlos');
+          if (cuentaFilter === 'venezuela') filterParts.push('Cuenta Venezuela');
           if (proveedorFilter) {
             const prov = resumen?.porProveedor.find(p => p.proveedorId === proveedorFilter);
             if (prov) filterParts.push(prov.proveedorNombre);
@@ -516,6 +517,7 @@ export default function AdminSupplierPayments() {
             <div className="flex justify-between text-xs mt-1.5 text-ocean-500">
               <span>Cuenta PA: {formatUSD(resumen.totalCuentaPa)}</span>
               <span>Cuenta Carlos: {formatUSD(resumen.totalCuentaCarlos)}</span>
+              <span>Cuenta Vzla: {formatUSD(resumen.totalCuentaVenezuela)}</span>
             </div>
           </div>
         )}
@@ -606,6 +608,16 @@ export default function AdminSupplierPayments() {
             }`}
           >
             Cuenta Carlos
+          </button>
+          <button
+            onClick={() => setCuentaFilter(c => c === 'venezuela' ? '' : 'venezuela')}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              cuentaFilter === 'venezuela'
+                ? 'bg-ocean-600 text-white'
+                : 'bg-ocean-50 text-ocean-700 hover:bg-ocean-100'
+            }`}
+          >
+            Cuenta Venezuela
           </button>
 
           {(facturaFilter || cuentaFilter || searchTerm || proveedorFilter) && (

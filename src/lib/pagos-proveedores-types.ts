@@ -53,7 +53,7 @@ export interface ProveedorInformal {
 }
 
 export type MetodoPago = 'pago_movil' | 'transferencia' | 'efectivo';
-export type CuentaPago = 'pa' | 'carlos';
+export type CuentaPago = 'pa' | 'carlos' | 'venezuela';
 
 export interface PagoProveedor {
   id: number;
@@ -88,6 +88,7 @@ export interface ResumenMensual {
   totalSinFactura: number;
   totalCuentaPa: number;
   totalCuentaCarlos: number;
+  totalCuentaVenezuela: number;
   cantidadTotal: number;
   cantidadConFactura: number;
   cantidadSinFactura: number;
@@ -113,11 +114,13 @@ export const METODO_PAGO_SHORT: Record<MetodoPago, string> = {
 export const CUENTA_LABELS: Record<CuentaPago, string> = {
   pa: 'Cuenta PA',
   carlos: 'Cuenta Carlos',
+  venezuela: 'Cuenta Venezuela',
 };
 
 export const CUENTA_SHORT: Record<CuentaPago, string> = {
   pa: 'PA',
   carlos: 'Carlos',
+  venezuela: 'Vzla',
 };
 
 // =====================
