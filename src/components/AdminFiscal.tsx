@@ -2013,21 +2013,21 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
         const currentDay = today.getDate();
         const isCurrentMonth = today.getFullYear() === parseInt(yStr) && (today.getMonth() + 1) === parseInt(mStr);
 
-        const q1 = dashboardData.estimacionQ1;
-        const q2 = dashboardData.estimacionQ2;
+        const q1 = dashboardData.estimacionQ1 ?? { retencionIva: 0, retencionIslr: 0, igtfCompras: 0, igtfVentas: 0, ventasBs: 0, ivaDebito: 0, ivaCredito: 0, facturasCount: 0, reportesZCount: 0 };
+        const q2 = dashboardData.estimacionQ2 ?? { retencionIva: 0, retencionIslr: 0, igtfCompras: 0, igtfVentas: 0, ventasBs: 0, ivaDebito: 0, ivaCredito: 0, facturasCount: 0, reportesZCount: 0 };
 
         // IVA neto mensual = total débito - total crédito
         const ivaNeto = dashboardData.ivaBalance;
 
         // Helper: check if a payment was made (and is not N/A)
         const pagadoReal = (tipoPago: TipoPagoSeniat, concepto: ConceptoPago, quincena: number | null): number => {
-          const p = dashboardData.pagosSeniat.find(
+          const p = (dashboardData.pagosSeniat ?? []).find(
             pg => pg.tipoPago === tipoPago && pg.concepto === concepto && (quincena == null ? true : pg.quincena === quincena)
           );
           return p ? p.monto : 0;
         };
         const isNA = (tipoPago: TipoPagoSeniat, concepto: ConceptoPago, quincena: number | null): boolean => {
-          const p = dashboardData.pagosSeniat.find(
+          const p = (dashboardData.pagosSeniat ?? []).find(
             pg => pg.tipoPago === tipoPago && pg.concepto === concepto && (quincena == null ? true : pg.quincena === quincena)
           );
           return !!p && p.monto === 0 && p.notes === 'No aplica';
@@ -2089,17 +2089,17 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
           );
         };
 
-        const EstCard = ({ title, subtitle, lines, totalEstimado, totalPagado, allPaid, isPast, accentColor }: {
+        const EstCard = ({ title, subtitle, lines, totalEstimado, totalPagado, allPaid, isPast, borderColor, bgColor, textColor }: {
           title: string; subtitle: string; lines: typeof pago1Lines;
           totalEstimado: number; totalPagado: number; allPaid: boolean; isPast: boolean;
-          accentColor: string;
+          borderColor: string; bgColor: string; textColor: string;
         }) => {
           const pendienteTotal = Math.max(totalEstimado - totalPagado, 0);
           const isAccumulating = isCurrentMonth && !isPast;
           return (
-            <div className={`rounded-xl p-5 shadow-sm border ${allPaid ? 'border-green-200 bg-green-50/50' : `border-${accentColor}-200 bg-gradient-to-br from-white to-${accentColor}-50`}`}>
+            <div className={`rounded-xl p-5 shadow-sm border ${allPaid ? 'border-green-200 bg-green-50/50' : `${borderColor} ${bgColor}`}`}>
               <div className="flex items-center justify-between mb-1">
-                <h4 className={`text-xs font-semibold uppercase tracking-wide ${allPaid ? 'text-green-700' : `text-${accentColor}-700`}`}>
+                <h4 className={`text-xs font-semibold uppercase tracking-wide ${allPaid ? 'text-green-700' : textColor}`}>
                   {title}
                 </h4>
                 {isAccumulating && (
@@ -2145,23 +2145,27 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <EstCard
                 title="1er Pago"
-                subtitle={`Ret. Q2 (16-fin) + IVA mensual — ${q2.facturasCount} fact., ${q2.reportesZCount + q1.reportesZCount} rep. Z`}
+                subtitle={`Ret. Q2 (16-fin) + IVA mensual — ${q2?.facturasCount ?? 0} fact., ${(q2?.reportesZCount ?? 0) + (q1?.reportesZCount ?? 0)} rep. Z`}
                 lines={pago1Lines}
                 totalEstimado={totalEstimadoPago1}
                 totalPagado={totalPagadoPago1}
                 allPaid={isPago1Paid}
                 isPast={isPago1Past}
-                accentColor="sky"
+                borderColor="border-sky-200"
+                bgColor="bg-gradient-to-br from-white to-sky-50"
+                textColor="text-sky-700"
               />
               <EstCard
                 title="2do Pago"
-                subtitle={`Ret. Q1 (1-15) — ${q1.facturasCount} fact., ${q1.reportesZCount} rep. Z`}
+                subtitle={`Ret. Q1 (1-15) — ${q1?.facturasCount ?? 0} fact., ${q1?.reportesZCount ?? 0} rep. Z`}
                 lines={pago2Lines}
                 totalEstimado={totalEstimadoPago2}
                 totalPagado={totalPagadoPago2}
                 allPaid={isPago2Paid}
                 isPast={isPago2Past}
-                accentColor="indigo"
+                borderColor="border-indigo-200"
+                bgColor="bg-gradient-to-br from-white to-indigo-50"
+                textColor="text-indigo-700"
               />
               <div className={`rounded-xl p-5 shadow-sm border ${sumatPagado > 0 || sumatNA ? 'border-green-200 bg-green-50/50' : 'border-rose-200 bg-gradient-to-br from-white to-rose-50'}`}>
                 <h4 className={`text-xs font-semibold uppercase tracking-wide mb-1 ${sumatPagado > 0 || sumatNA ? 'text-green-700' : 'text-rose-700'}`}>
