@@ -131,7 +131,7 @@ export function ClientHeader({
       {showWhatsApp && (
         <WhatsAppModal
           entries={entries}
-          clientName={`${dispatcher.dispatcher} — ${client.name}`}
+          clientName={client.name}
           totalUSD={totalUSD}
           totalBs={totalBs}
           activeRate={activeRate}
