@@ -36,6 +36,14 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
     { usd: 0, bs: 0 }
   );
 
+  // Fix #2: al cambiar de despachador, resetear entradas y monto para cuenta nueva
+  const handleDispatcherChange = useCallback((name: string) => {
+    setSelectedDispatcher(name);
+    setCurrentEntries([]);
+    setInputAmount('');
+    inputRef.current?.focus();
+  }, []);
+
   const addAmount = useCallback(() => {
     const parsed = evalMathExpr(inputAmount);
     if (parsed === 0 || !activeRate) return;
@@ -118,16 +126,18 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
     <div className="space-y-3">
       {/* Selector de repartidor */}
       <div className="flex flex-wrap gap-1.5">
-        {DISPATCHERS.map(d => (
+        {DISPATCHERS.map((d, idx) => (
           <button
             key={d.name}
-            onClick={() => setSelectedDispatcher(d.name)}
+            onClick={() => handleDispatcherChange(d.name)}
             className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
               selectedDispatcher === d.name
                 ? `${d.bg} ${d.text} ring-2 ${d.ring} shadow-sm`
                 : 'bg-ocean-50 text-ocean-400 hover:bg-ocean-100'
             }`}
           >
+            {/* Fix #3: mostrar número de tecla rápida */}
+            <span className="text-[10px] opacity-50 mr-1">{idx + 1}</span>
             {d.name}
           </button>
         ))}
@@ -158,6 +168,23 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
               else if (e.key === ' ') { e.preventDefault(); setInputAmount(prev => prev + '+'); }
               else if (e.key === '[') { e.preventDefault(); setInputAmount(prev => prev + '*'); }
               else if (e.key === 'Escape') { setInputAmount(''); }
+              // Fix #3: Tab cicla entre despachadores (Shift+Tab hacia atrás)
+              else if (e.key === 'Tab') {
+                e.preventDefault();
+                const currentIdx = DISPATCHERS.findIndex(d => d.name === selectedDispatcher);
+                const nextIdx = e.shiftKey
+                  ? (currentIdx - 1 + DISPATCHERS.length) % DISPATCHERS.length
+                  : (currentIdx + 1) % DISPATCHERS.length;
+                handleDispatcherChange(DISPATCHERS[nextIdx].name);
+              }
+              // Fix #3: teclas 1-5 seleccionan despachador cuando el input está vacío
+              else if (inputAmount === '' && /^[1-5]$/.test(e.key)) {
+                const idx = parseInt(e.key) - 1;
+                if (DISPATCHERS[idx]) {
+                  e.preventDefault();
+                  handleDispatcherChange(DISPATCHERS[idx].name);
+                }
+              }
             }}
             placeholder="0.00"
             className="flex-1 bg-white rounded-lg px-3 py-2.5 text-xl font-semibold border border-ocean-100 focus:border-ocean-300 focus:outline-none font-mono text-ocean-900"
@@ -193,15 +220,16 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
               <div key={entry.id} className="flex items-center gap-2 bg-white/70 rounded-lg px-2 py-1.5">
                 <span className="text-xs text-ocean-300 font-mono w-4 shrink-0">{i + 1}</span>
                 <div className="flex-1 min-w-0">
+                  {/* Fix #1: Bs como monto principal */}
                   <span className={`text-sm font-semibold font-mono ${dispatcherInfo?.text ?? 'text-ocean-700'}`}>
-                    {entry.currency === 'USD' ? formatUSD(entry.amountUSD) : formatBs(entry.amountBs)}
+                    {formatBs(entry.amountBs)}
                   </span>
                   {entry.expression && (
                     <span className="text-[10px] text-ocean-300 ml-1">({entry.expression})</span>
                   )}
                 </div>
                 <span className="text-[11px] text-ocean-400 font-mono shrink-0">
-                  {entry.currency === 'USD' ? formatBs(entry.amountBs) : formatUSD(entry.amountUSD)}
+                  {formatUSD(entry.amountUSD)}
                 </span>
                 <button
                   onClick={() => setCurrentEntries(prev => prev.filter(e => e.id !== entry.id))}
@@ -218,10 +246,11 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
         {currentEntries.length > 0 && (
           <div className="mt-2 flex items-center justify-between bg-white/90 rounded-xl px-3 py-2.5 shadow-sm">
             <div>
+              {/* Fix #1: Bs como total principal */}
               <div className={`text-xl font-bold font-mono ${dispatcherInfo?.text ?? 'text-ocean-800'}`}>
-                {formatUSD(currentTotal.usd)}
+                {formatBs(currentTotal.bs)}
               </div>
-              <div className="text-xs text-ocean-400 font-mono">{formatBs(currentTotal.bs)}</div>
+              <div className="text-xs text-ocean-400 font-mono">{formatUSD(currentTotal.usd)}</div>
             </div>
             <button
               onClick={addToQueue}
@@ -274,16 +303,18 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                         key={e.id}
                         className={`text-xs font-mono px-2 py-0.5 rounded-lg ${disp?.bg ?? 'bg-ocean-50'} ${disp?.text ?? 'text-ocean-600'}`}
                       >
-                        {e.currency === 'USD' ? formatUSD(e.amountUSD) : formatBs(e.amountBs)}
+                        {/* Fix #1: siempre mostrar Bs en los chips de la cola */}
+                        {formatBs(e.amountBs)}
                       </span>
                     ))}
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <div>
+                      {/* Fix #1: Bs como total principal en la cola */}
                       <div className={`text-lg font-bold font-mono ${disp?.text ?? 'text-ocean-800'}`}>
-                        {formatUSD(item.totalUSD)}
+                        {formatBs(item.totalBs)}
                       </div>
-                      <div className="text-xs text-ocean-400 font-mono">{formatBs(item.totalBs)}</div>
+                      <div className="text-xs text-ocean-400 font-mono">{formatUSD(item.totalUSD)}</div>
                     </div>
                     <button
                       onClick={() => markAsPaid(item.id)}
@@ -304,7 +335,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
         <div className="text-center py-10 text-ocean-300">
           <div className="text-3xl mb-2">⚡</div>
           <div className="text-sm">Selecciona repartidor e ingresa los montos</div>
-          <div className="text-xs mt-1 text-ocean-200">Enter o espacio para agregar cada monto</div>
+          <div className="text-xs mt-1 text-ocean-200">Enter o espacio para agregar · Tab o 1-5 para cambiar repartidor</div>
         </div>
       )}
     </div>
