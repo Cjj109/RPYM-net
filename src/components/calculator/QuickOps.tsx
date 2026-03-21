@@ -378,7 +378,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                 if (editingQueueId) { cancelEditingQueue(); }
                 else { setInputAmount(''); }
               }
-              else if (e.key === ',') { e.preventDefault(); setInputCurrency(prev => prev === 'USD' ? 'Bs' : 'USD'); }
+              else if (e.key === "'" || e.key === '"') { e.preventDefault(); setInputCurrency(prev => prev === 'USD' ? 'Bs' : 'USD'); }
               else if (e.key === '/') { e.preventDefault(); if (queue.length > 0) markAsPaid(queue[0].id); }
               // Fix #3: Tab cicla entre despachadores (Shift+Tab hacia atrás)
               else if (e.key === 'Tab') {
@@ -688,7 +688,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
         <div className="text-center py-10 text-ocean-300">
           <div className="text-3xl mb-2">⚡</div>
           <div className="text-sm">Selecciona repartidor e ingresa los montos</div>
-          <div className="text-xs mt-1 text-ocean-200">Enter o espacio para agregar · Tab o ← → para cambiar · , para USD/Bs · / para Ya pasé</div>
+          <div className="text-xs mt-1 text-ocean-200">Enter o espacio para agregar · Tab o ← → para cambiar · ' para USD/Bs · / para Ya pasé</div>
         </div>
       )}
     </div>
