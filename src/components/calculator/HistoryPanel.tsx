@@ -14,14 +14,29 @@ function formatTime(ts: number) {
   return d.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
 }
 
-function formatHistoryDate(ts: number) {
+/** Devuelve clave YYYY-MM-DD para agrupar por día */
+function dateKey(ts: number) {
   const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function formatDayLabel(key: string) {
+  const [y, m, d] = key.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
   const today = new Date();
-  if (d.toDateString() === today.toDateString()) return 'Hoy';
+  if (date.toDateString() === today.toDateString()) return 'Hoy';
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
-  if (d.toDateString() === yesterday.toDateString()) return 'Ayer';
-  return d.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit' });
+  if (date.toDateString() === yesterday.toDateString()) return 'Ayer';
+  return date.toLocaleDateString('es-VE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+}
+
+interface DayGroup {
+  key: string;
+  sessions: SavedSession[];
+  totalUSD: number;
+  totalBs: number;
+  clientCount: number;
 }
 
 interface DispatcherStats {
@@ -30,15 +45,39 @@ interface DispatcherStats {
   totalBs: number;
   clients: Set<string>;
   sessionCount: number;
+  days: DayGroup[];
+}
+
+function groupByDay(sessions: SavedSession[]): DayGroup[] {
+  const map = new Map<string, SavedSession[]>();
+  for (const s of sessions) {
+    const k = dateKey(s.timestamp);
+    if (!map.has(k)) map.set(k, []);
+    map.get(k)!.push(s);
+  }
+  // Ordenar días de más reciente a más antiguo
+  return [...map.entries()]
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([key, daySessions]) => {
+      const clients = new Set(daySessions.map(s => s.clientName));
+      return {
+        key,
+        sessions: daySessions.sort((a, b) => b.timestamp - a.timestamp),
+        totalUSD: daySessions.reduce((sum, s) => sum + s.totalUSD, 0),
+        totalBs: daySessions.reduce((sum, s) => sum + s.totalBs, 0),
+        clientCount: clients.size,
+      };
+    });
 }
 
 export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: HistoryPanelProps) {
   const [view, setView] = useState<'summary' | 'detail'>('summary');
   const [expandedDispatcher, setExpandedDispatcher] = useState<string | null>(null);
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
 
   const stats = useMemo(() => {
-    const byDispatcher = new Map<string, DispatcherStats>();
+    const byDispatcher = new Map<string, { totalUSD: number; totalBs: number; clients: Set<string>; sessionCount: number; sessions: SavedSession[] }>();
     let grandTotalUSD = 0;
     let grandTotalBs = 0;
     const allClients = new Set<string>();
@@ -46,13 +85,14 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
     for (const session of sessions) {
       const dispName = session.dispatcher || 'Sin asignar';
       if (!byDispatcher.has(dispName)) {
-        byDispatcher.set(dispName, { name: dispName, totalUSD: 0, totalBs: 0, clients: new Set(), sessionCount: 0 });
+        byDispatcher.set(dispName, { totalUSD: 0, totalBs: 0, clients: new Set(), sessionCount: 0, sessions: [] });
       }
       const stat = byDispatcher.get(dispName)!;
       stat.totalUSD += session.totalUSD;
       stat.totalBs += session.totalBs;
       stat.clients.add(session.clientName);
       stat.sessionCount += 1;
+      stat.sessions.push(session);
       grandTotalUSD += session.totalUSD;
       grandTotalBs += session.totalBs;
       allClients.add(`${dispName}:${session.clientName}`);
@@ -60,14 +100,26 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
 
     // Sort by DISPATCHERS order
     const dispOrder = DISPATCHERS.map(d => d.name);
-    const sorted = [...byDispatcher.values()].sort((a, b) => {
-      const ia = dispOrder.indexOf(a.name);
-      const ib = dispOrder.indexOf(b.name);
-      return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
-    });
+    const sorted: DispatcherStats[] = [...byDispatcher.entries()]
+      .sort(([a], [b]) => {
+        const ia = dispOrder.indexOf(a);
+        const ib = dispOrder.indexOf(b);
+        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+      })
+      .map(([name, data]) => ({
+        name,
+        totalUSD: data.totalUSD,
+        totalBs: data.totalBs,
+        clients: data.clients,
+        sessionCount: data.sessionCount,
+        days: groupByDay(data.sessions),
+      }));
 
     return { byDispatcher: sorted, grandTotalUSD, grandTotalBs, totalClients: allClients.size, totalSessions: sessions.length };
   }, [sessions]);
+
+  /** Días globales para la vista detalle */
+  const globalDays = useMemo(() => groupByDay(sessions), [sessions]);
 
   return (
     <div className="mb-3 bg-white rounded-lg border border-ocean-100 overflow-hidden">
@@ -109,7 +161,6 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
             {stats.byDispatcher.map(stat => {
               const disp = DISPATCHERS.find(d => d.name === stat.name);
               const isExpanded = expandedDispatcher === stat.name;
-              const dispSessions = isExpanded ? sessions.filter(s => (s.dispatcher || 'Sin asignar') === stat.name) : [];
               return (
                 <div key={stat.name}>
                   <button
@@ -131,54 +182,83 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
                       </p>
                     </div>
                   </button>
+
+                  {/* Días del despachador */}
                   {isExpanded && (
                     <div className="mt-1 ml-2 space-y-1">
-                      {dispSessions.map(session => (
-                        <div key={session.id} className="bg-white rounded border border-ocean-100 overflow-hidden">
-                          <button
-                            onClick={() => setExpandedSession(prev => prev === session.id ? null : session.id)}
-                            className="w-full px-3 py-1.5 flex items-center justify-between hover:bg-ocean-50/50 transition-colors text-left"
-                          >
-                            <div className="min-w-0">
-                              <span className="text-xs font-medium text-ocean-700">{session.clientName}</span>
-                              <span className="text-[10px] text-ocean-400 ml-1.5">({session.entries.length})</span>
-                              <div className="text-[10px] text-ocean-400">
-                                {formatHistoryDate(session.timestamp)} {formatTime(session.timestamp)}
+                      {stat.days.map(day => {
+                        const dayId = `${stat.name}:${day.key}`;
+                        const isDayExpanded = expandedDay === dayId;
+                        return (
+                          <div key={day.key}>
+                            <button
+                              onClick={() => setExpandedDay(prev => prev === dayId ? null : dayId)}
+                              className="w-full flex items-center justify-between rounded-md px-3 py-1.5 bg-ocean-50/70 hover:bg-ocean-100/60 transition-colors"
+                            >
+                              <div className="text-left">
+                                <span className="text-xs font-semibold text-ocean-700">{formatDayLabel(day.key)}</span>
+                                <span className="text-[10px] text-ocean-400 ml-1.5">
+                                  {day.sessions.length} op. · {day.clientCount} cl.
+                                </span>
                               </div>
-                            </div>
-                            <div className="text-right shrink-0 ml-2">
-                              <div className="text-xs font-mono font-bold text-ocean-500">{formatUSD(Math.abs(session.totalUSD))}</div>
-                              <div className="text-sm font-bold font-mono text-green-700">{formatBs(Math.abs(session.totalBs))}</div>
-                            </div>
-                          </button>
-                          {expandedSession === session.id && (
-                            <div className="px-3 pb-2 space-y-0.5 bg-ocean-50/30">
-                              {session.entries.map(entry => (
-                                <div key={entry.id} className="flex items-center justify-between text-[11px] py-0.5">
-                                  <span className="text-ocean-500 truncate mr-2">{entry.description || '—'}</span>
-                                  <div className="text-right shrink-0">
-                                    <span className={`font-mono ${entry.isNegative ? 'text-red-400' : 'text-ocean-400'}`}>
-                                      {entry.isNegative ? '-' : ''}{formatUSD(entry.amountUSD)}
-                                    </span>
-                                    <span className={`font-mono ml-1.5 font-medium ${entry.isNegative ? 'text-red-600' : 'text-green-700'}`}>
-                                      {entry.isNegative ? '-' : ''}{formatBs(entry.amountBs)}
-                                    </span>
+                              <div className="text-right">
+                                <span className="text-xs font-bold font-mono text-green-700">{formatBs(Math.abs(day.totalBs))}</span>
+                                <span className="text-[10px] font-mono font-bold text-ocean-500 ml-1.5">{formatUSD(Math.abs(day.totalUSD))}</span>
+                              </div>
+                            </button>
+
+                            {/* Sesiones del día */}
+                            {isDayExpanded && (
+                              <div className="mt-0.5 ml-2 space-y-0.5">
+                                {day.sessions.map(session => (
+                                  <div key={session.id} className="bg-white rounded border border-ocean-100 overflow-hidden">
+                                    <button
+                                      onClick={() => setExpandedSession(prev => prev === session.id ? null : session.id)}
+                                      className="w-full px-3 py-1.5 flex items-center justify-between hover:bg-ocean-50/50 transition-colors text-left"
+                                    >
+                                      <div className="min-w-0">
+                                        <span className="text-xs font-medium text-ocean-700">{session.clientName}</span>
+                                        <span className="text-[10px] text-ocean-400 ml-1.5">({session.entries.length})</span>
+                                        <div className="text-[10px] text-ocean-400">{formatTime(session.timestamp)}</div>
+                                      </div>
+                                      <div className="text-right shrink-0 ml-2">
+                                        <div className="text-xs font-mono font-bold text-ocean-500">{formatUSD(Math.abs(session.totalUSD))}</div>
+                                        <div className="text-sm font-bold font-mono text-green-700">{formatBs(Math.abs(session.totalBs))}</div>
+                                      </div>
+                                    </button>
+                                    {expandedSession === session.id && (
+                                      <div className="px-3 pb-2 space-y-0.5 bg-ocean-50/30">
+                                        {session.entries.map(entry => (
+                                          <div key={entry.id} className="flex items-center justify-between text-[11px] py-0.5">
+                                            <span className="text-ocean-500 truncate mr-2">{entry.description || '—'}</span>
+                                            <div className="text-right shrink-0">
+                                              <span className={`font-mono ${entry.isNegative ? 'text-red-400' : 'text-ocean-400'}`}>
+                                                {entry.isNegative ? '-' : ''}{formatUSD(entry.amountUSD)}
+                                              </span>
+                                              <span className={`font-mono ml-1.5 font-medium ${entry.isNegative ? 'text-red-600' : 'text-green-700'}`}>
+                                                {entry.isNegative ? '-' : ''}{formatBs(entry.amountBs)}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        ))}
+                                        <div className="flex items-center justify-between pt-1">
+                                          <span className="text-[9px] text-ocean-300">Tasa: Bs. {session.rate.toFixed(2)}</span>
+                                          <button
+                                            onClick={() => onRemoveSession(session.id)}
+                                            className="text-[9px] text-red-400 hover:text-red-600 transition-colors"
+                                          >
+                                            Eliminar
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
-                                </div>
-                              ))}
-                              <div className="flex items-center justify-between pt-1">
-                                <span className="text-[9px] text-ocean-300">Tasa: Bs. {session.rate.toFixed(2)}</span>
-                                <button
-                                  onClick={() => onRemoveSession(session.id)}
-                                  className="text-[9px] text-red-400 hover:text-red-600 transition-colors"
-                                >
-                                  Eliminar
-                                </button>
+                                ))}
                               </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -187,57 +267,73 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
           </div>
         </div>
       ) : (
-        <div className="max-h-48 sm:max-h-64 overflow-y-auto divide-y divide-ocean-50">
-          {sessions.map(session => (
-            <div key={session.id}>
-              <button
-                onClick={() => setExpandedSession(prev => prev === session.id ? null : session.id)}
-                className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-ocean-50 transition-colors text-left"
-              >
-                <div className="min-w-0">
-                  <span className="text-sm font-medium text-ocean-700">{session.clientName}</span>
-                  {session.dispatcher && (() => {
-                    const disp = DISPATCHERS.find(d => d.name === session.dispatcher);
-                    return (
-                      <span className={`text-[9px] font-semibold rounded-full px-1.5 py-0.5 ml-1.5 ${disp ? disp.badge : 'bg-gray-50 text-gray-500'}`}>{session.dispatcher}</span>
-                    );
-                  })()}
-                  <span className="text-xs text-ocean-400 ml-2">({session.entries.length} items)</span>
-                  <div className="text-xs text-ocean-400">
-                    {formatHistoryDate(session.timestamp)} {formatTime(session.timestamp)}
-                  </div>
+        /* Vista Detalle — agrupada por día */
+        <div className="max-h-64 sm:max-h-80 overflow-y-auto">
+          {globalDays.map(day => (
+            <div key={day.key}>
+              {/* Cabecera del día */}
+              <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-1.5 bg-ocean-50 border-b border-ocean-100">
+                <span className="text-xs font-semibold text-ocean-700">{formatDayLabel(day.key)}</span>
+                <div className="flex items-center gap-3 text-[10px] text-ocean-400">
+                  <span>{day.sessions.length} op.</span>
+                  <span className="font-mono font-bold text-green-700">{formatBs(Math.abs(day.totalBs))}</span>
+                  <span className="font-mono font-bold text-ocean-500">{formatUSD(Math.abs(day.totalUSD))}</span>
                 </div>
-                <div className="text-right shrink-0 ml-3">
-                  <div className="text-sm font-mono text-ocean-500">{formatUSD(Math.abs(session.totalUSD))}</div>
-                  <div className="text-base font-bold font-mono text-green-700">{formatBs(Math.abs(session.totalBs))}</div>
-                </div>
-              </button>
-              {expandedSession === session.id && (
-                <div className="px-4 pb-3 space-y-1 bg-ocean-50/50">
-                  {session.entries.map(entry => (
-                    <div key={entry.id} className="flex items-center justify-between text-xs py-1">
-                      <span className="text-ocean-500 truncate mr-2">{entry.description || '—'}</span>
-                      <div className="text-right shrink-0">
-                        <span className={`font-mono ${entry.isNegative ? 'text-red-400' : 'text-ocean-400'}`}>
-                          {entry.isNegative ? '-' : ''}{formatUSD(entry.amountUSD)}
-                        </span>
-                        <span className={`font-mono ml-2 font-medium ${entry.isNegative ? 'text-red-600' : 'text-green-700'}`}>
-                          {entry.isNegative ? '-' : ''}{formatBs(entry.amountBs)}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-[10px] text-ocean-300">Tasa: Bs. {session.rate.toFixed(2)}</span>
+              </div>
+
+              {/* Sesiones del día */}
+              <div className="divide-y divide-ocean-50">
+                {day.sessions.map(session => (
+                  <div key={session.id}>
                     <button
-                      onClick={() => onRemoveSession(session.id)}
-                      className="text-[10px] text-red-400 hover:text-red-600 transition-colors"
+                      onClick={() => setExpandedSession(prev => prev === session.id ? null : session.id)}
+                      className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-ocean-50 transition-colors text-left"
                     >
-                      Eliminar
+                      <div className="min-w-0">
+                        <span className="text-sm font-medium text-ocean-700">{session.clientName}</span>
+                        {session.dispatcher && (() => {
+                          const disp = DISPATCHERS.find(d => d.name === session.dispatcher);
+                          return (
+                            <span className={`text-[9px] font-semibold rounded-full px-1.5 py-0.5 ml-1.5 ${disp ? disp.badge : 'bg-gray-50 text-gray-500'}`}>{session.dispatcher}</span>
+                          );
+                        })()}
+                        <span className="text-xs text-ocean-400 ml-2">({session.entries.length} items)</span>
+                        <div className="text-xs text-ocean-400">{formatTime(session.timestamp)}</div>
+                      </div>
+                      <div className="text-right shrink-0 ml-3">
+                        <div className="text-sm font-mono text-ocean-500">{formatUSD(Math.abs(session.totalUSD))}</div>
+                        <div className="text-base font-bold font-mono text-green-700">{formatBs(Math.abs(session.totalBs))}</div>
+                      </div>
                     </button>
+                    {expandedSession === session.id && (
+                      <div className="px-4 pb-3 space-y-1 bg-ocean-50/50">
+                        {session.entries.map(entry => (
+                          <div key={entry.id} className="flex items-center justify-between text-xs py-1">
+                            <span className="text-ocean-500 truncate mr-2">{entry.description || '—'}</span>
+                            <div className="text-right shrink-0">
+                              <span className={`font-mono ${entry.isNegative ? 'text-red-400' : 'text-ocean-400'}`}>
+                                {entry.isNegative ? '-' : ''}{formatUSD(entry.amountUSD)}
+                              </span>
+                              <span className={`font-mono ml-2 font-medium ${entry.isNegative ? 'text-red-600' : 'text-green-700'}`}>
+                                {entry.isNegative ? '-' : ''}{formatBs(entry.amountBs)}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[10px] text-ocean-300">Tasa: Bs. {session.rate.toFixed(2)}</span>
+                          <button
+                            onClick={() => onRemoveSession(session.id)}
+                            className="text-[10px] text-red-400 hover:text-red-600 transition-colors"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
+                ))}
+              </div>
             </div>
           ))}
         </div>
