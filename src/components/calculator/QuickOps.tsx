@@ -27,6 +27,8 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
   const [inputAmount, setInputAmount] = useState('');
   const [inputCurrency, setInputCurrency] = useState<'USD' | 'Bs'>('USD');
   const [currentEntries, setCurrentEntries] = useState<QuickOpEntry[]>([]);
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   const dispatcherInfo = DISPATCHERS.find(d => d.name === selectedDispatcher);
@@ -43,6 +45,34 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
     setInputAmount('');
     inputRef.current?.focus();
   }, []);
+
+  const startEditingEntry = useCallback((entry: QuickOpEntry) => {
+    setEditingEntryId(entry.id);
+    setEditingValue(entry.amountInput);
+  }, []);
+
+  const confirmEditEntry = useCallback((entryId: string) => {
+    const parsed = evalMathExpr(editingValue);
+    setEditingEntryId(null);
+    if (parsed === 0 || !activeRate) return;
+    setCurrentEntries(prev => prev.map(e => {
+      if (e.id !== entryId) return e;
+      let usd: number, bs: number;
+      if (e.currency === 'USD') {
+        usd = parsed; bs = parsed * activeRate;
+      } else {
+        bs = parsed; usd = parsed / activeRate;
+      }
+      const hasExpression = /[+\-*/]/.test(editingValue.replace(/^-/, ''));
+      return {
+        ...e,
+        amountInput: editingValue.trim(),
+        amountUSD: usd,
+        amountBs: bs,
+        expression: hasExpression ? editingValue.trim() : undefined,
+      };
+    }));
+  }, [editingValue, activeRate]);
 
   const addAmount = useCallback(() => {
     const parsed = evalMathExpr(inputAmount);
@@ -223,18 +253,40 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
             {currentEntries.map((entry, i) => (
               <div key={entry.id} className="flex items-center gap-2 bg-white/70 rounded-lg px-2 py-1.5">
                 <span className="text-xs text-ocean-300 font-mono w-4 shrink-0">{i + 1}</span>
-                <div className="flex-1 min-w-0">
-                  {/* Fix #1: Bs como monto principal */}
-                  <span className={`text-sm font-semibold font-mono ${dispatcherInfo?.text ?? 'text-ocean-700'}`}>
-                    {formatBs(entry.amountBs)}
+                {editingEntryId === entry.id ? (
+                  <input
+                    autoFocus
+                    type="text"
+                    inputMode="decimal"
+                    value={editingValue}
+                    onChange={e => setEditingValue(e.target.value)}
+                    onBlur={() => confirmEditEntry(entry.id)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') { e.preventDefault(); confirmEditEntry(entry.id); }
+                      if (e.key === 'Escape') { e.preventDefault(); setEditingEntryId(null); }
+                    }}
+                    className="flex-1 min-w-0 text-sm font-semibold font-mono bg-white border border-ocean-300 rounded px-2 py-0.5 focus:outline-none focus:border-ocean-500"
+                  />
+                ) : (
+                  <div
+                    className="flex-1 min-w-0 cursor-pointer"
+                    onClick={() => startEditingEntry(entry)}
+                    title="Tocar para editar"
+                  >
+                    {/* Fix #1: Bs como monto principal */}
+                    <span className={`text-sm font-semibold font-mono ${dispatcherInfo?.text ?? 'text-ocean-700'} hover:underline`}>
+                      {formatBs(entry.amountBs)}
+                    </span>
+                    {entry.expression && (
+                      <span className="text-[10px] text-ocean-300 ml-1">({entry.expression})</span>
+                    )}
+                  </div>
+                )}
+                {editingEntryId !== entry.id && (
+                  <span className="text-[11px] text-ocean-400 font-mono shrink-0">
+                    {formatUSD(entry.amountUSD)}
                   </span>
-                  {entry.expression && (
-                    <span className="text-[10px] text-ocean-300 ml-1">({entry.expression})</span>
-                  )}
-                </div>
-                <span className="text-[11px] text-ocean-400 font-mono shrink-0">
-                  {formatUSD(entry.amountUSD)}
-                </span>
+                )}
                 <button
                   onClick={() => setCurrentEntries(prev => prev.filter(e => e.id !== entry.id))}
                   className="text-ocean-200 hover:text-red-400 transition-colors shrink-0 p-0.5"
