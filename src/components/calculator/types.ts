@@ -77,4 +77,5 @@ export interface QuickQueueItem {
   totalBs: number;
   rate: number;
   timestamp: number;
+  note?: string;
 }

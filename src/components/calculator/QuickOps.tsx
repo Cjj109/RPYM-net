@@ -29,6 +29,8 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
   const [currentEntries, setCurrentEntries] = useState<QuickOpEntry[]>([]);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState('');
+  const [editingCurrency, setEditingCurrency] = useState<'USD' | 'Bs'>('Bs');
+  const [noteInput, setNoteInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   const dispatcherInfo = DISPATCHERS.find(d => d.name === selectedDispatcher);
@@ -46,9 +48,10 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
     inputRef.current?.focus();
   }, []);
 
-  const startEditingEntry = useCallback((entry: QuickOpEntry) => {
+  const startEditingEntry = useCallback((entry: QuickOpEntry, forCurrency: 'USD' | 'Bs') => {
     setEditingEntryId(entry.id);
-    setEditingValue(entry.amountInput);
+    setEditingCurrency(forCurrency);
+    setEditingValue(forCurrency === 'USD' ? String(entry.amountUSD) : entry.amountInput);
   }, []);
 
   const confirmEditEntry = useCallback((entryId: string) => {
@@ -58,7 +61,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
     setCurrentEntries(prev => prev.map(e => {
       if (e.id !== entryId) return e;
       let usd: number, bs: number;
-      if (e.currency === 'USD') {
+      if (editingCurrency === 'USD') {
         usd = parsed; bs = parsed * activeRate;
       } else {
         bs = parsed; usd = parsed / activeRate;
@@ -67,12 +70,13 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
       return {
         ...e,
         amountInput: editingValue.trim(),
+        currency: editingCurrency,
         amountUSD: usd,
         amountBs: bs,
         expression: hasExpression ? editingValue.trim() : undefined,
       };
     }));
-  }, [editingValue, activeRate]);
+  }, [editingValue, editingCurrency, activeRate]);
 
   const addAmount = useCallback(() => {
     const parsed = evalMathExpr(inputAmount);
@@ -109,12 +113,14 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
       totalBs: currentTotal.bs,
       rate: activeRate,
       timestamp: Date.now(),
+      note: noteInput.trim() || undefined,
     };
     onQueueChange(prev => [...prev, item]);
     setCurrentEntries([]);
     setInputAmount('');
+    setNoteInput('');
     inputRef.current?.focus();
-  }, [currentEntries, selectedDispatcher, currentTotal, activeRate, onQueueChange]);
+  }, [currentEntries, selectedDispatcher, currentTotal, activeRate, onQueueChange, noteInput]);
 
   const markAsPaid = useCallback((itemId: string) => {
     const item = queue.find(q => q.id === itemId);
@@ -200,6 +206,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
               else if (e.key === ' ') { e.preventDefault(); setInputAmount(prev => prev + '+'); }
               else if (e.key === '[') { e.preventDefault(); setInputAmount(prev => prev + '*'); }
               else if (e.key === 'Escape') { setInputAmount(''); }
+              else if (e.key === '/' && queue.length > 0) { e.preventDefault(); markAsPaid(queue[0].id); }
               // Fix #3: Tab cicla entre despachadores (Shift+Tab hacia atrás)
               else if (e.key === 'Tab') {
                 e.preventDefault();
@@ -267,52 +274,63 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                     className="flex-1 min-w-0 text-sm font-semibold font-mono bg-white border border-ocean-300 rounded px-2 py-0.5 focus:outline-none focus:border-ocean-500"
                   />
                 ) : (
-                  <div
-                    className="flex-1 min-w-0 cursor-pointer"
-                    onClick={() => startEditingEntry(entry)}
-                    title="Tocar para editar"
-                  >
-                    {/* Fix #1: Bs como monto principal */}
-                    <span className={`text-sm font-semibold font-mono ${dispatcherInfo?.text ?? 'text-ocean-700'} hover:underline`}>
+                  <div className="flex-1 min-w-0 flex items-center gap-2">
+                    <span
+                      className={`text-sm font-semibold font-mono ${dispatcherInfo?.text ?? 'text-ocean-700'} hover:underline cursor-pointer`}
+                      onClick={() => startEditingEntry(entry, 'Bs')}
+                      title="Editar en Bs"
+                    >
                       {formatBs(entry.amountBs)}
                     </span>
                     {entry.expression && (
-                      <span className="text-[10px] text-ocean-300 ml-1">({entry.expression})</span>
+                      <span className="text-[10px] text-ocean-300">({entry.expression})</span>
                     )}
+                    <span
+                      className="text-[11px] text-ocean-400 font-mono hover:underline cursor-pointer ml-auto shrink-0"
+                      onClick={() => startEditingEntry(entry, 'USD')}
+                      title="Editar en USD"
+                    >
+                      {formatUSD(entry.amountUSD)}
+                    </span>
                   </div>
                 )}
                 {editingEntryId !== entry.id && (
-                  <span className="text-[11px] text-ocean-400 font-mono shrink-0">
-                    {formatUSD(entry.amountUSD)}
-                  </span>
+                  <button
+                    onClick={() => setCurrentEntries(prev => prev.filter(e => e.id !== entry.id))}
+                    className="text-ocean-200 hover:text-red-400 transition-colors shrink-0 p-0.5"
+                  >
+                    <CloseIcon className="w-3.5 h-3.5" />
+                  </button>
                 )}
-                <button
-                  onClick={() => setCurrentEntries(prev => prev.filter(e => e.id !== entry.id))}
-                  className="text-ocean-200 hover:text-red-400 transition-colors shrink-0 p-0.5"
-                >
-                  <CloseIcon className="w-3.5 h-3.5" />
-                </button>
               </div>
             ))}
           </div>
         )}
 
-        {/* Total acumulado + botón agregar a cola */}
+        {/* Total acumulado + nota + botón agregar a cola */}
         {currentEntries.length > 0 && (
-          <div className="mt-2 flex items-center justify-between bg-white/90 rounded-xl px-3 py-2.5 shadow-sm">
-            <div>
-              {/* Fix #1: Bs como total principal */}
-              <div className={`text-xl font-bold font-mono ${dispatcherInfo?.text ?? 'text-ocean-800'}`}>
-                {formatBs(currentTotal.bs)}
+          <div className="mt-2 space-y-1.5">
+            <input
+              type="text"
+              value={noteInput}
+              onChange={e => setNoteInput(e.target.value)}
+              placeholder="Nota opcional..."
+              className="w-full bg-white/70 rounded-lg px-2.5 py-1.5 text-xs border border-ocean-100 focus:border-ocean-300 focus:outline-none text-ocean-600 placeholder-ocean-300"
+            />
+            <div className="flex items-center justify-between bg-white/90 rounded-xl px-3 py-2.5 shadow-sm">
+              <div>
+                <div className={`text-xl font-bold font-mono ${dispatcherInfo?.text ?? 'text-ocean-800'}`}>
+                  {formatBs(currentTotal.bs)}
+                </div>
+                <div className="text-xs text-ocean-400 font-mono">{formatUSD(currentTotal.usd)}</div>
               </div>
-              <div className="text-xs text-ocean-400 font-mono">{formatUSD(currentTotal.usd)}</div>
+              <button
+                onClick={addToQueue}
+                className="px-5 py-2.5 rounded-xl text-sm font-bold text-white shadow-sm transition-all active:scale-95 bg-ocean-600 hover:bg-ocean-500"
+              >
+                Agregar a cola
+              </button>
             </div>
-            <button
-              onClick={addToQueue}
-              className="px-5 py-2.5 rounded-xl text-sm font-bold text-white shadow-sm transition-all active:scale-95 bg-ocean-600 hover:bg-ocean-500"
-            >
-              Agregar a cola
-            </button>
           </div>
         )}
       </div>
@@ -333,12 +351,12 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
             return (
               <div key={item.id} className="rounded-xl border border-ocean-100 overflow-hidden shadow-sm bg-white">
                 {/* Encabezado del item */}
-                <div className={`flex items-center gap-2 px-3 py-2 ${disp?.bg ?? 'bg-ocean-50'}`}>
-                  <span className="text-xs font-bold text-ocean-400 font-mono">#{idx + 1}</span>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${disp?.badge ?? 'bg-ocean-100 text-ocean-600'}`}>
+                <div className={`flex items-center gap-1.5 px-2 py-1 ${disp?.bg ?? 'bg-ocean-50'}`}>
+                  <span className="text-[10px] font-bold text-ocean-400 font-mono">#{idx + 1}</span>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${disp?.badge ?? 'bg-ocean-100 text-ocean-600'}`}>
                     {item.dispatcher}
                   </span>
-                  <span className="text-[10px] text-ocean-400 ml-auto">
+                  <span className="text-[9px] text-ocean-400 ml-auto">
                     {formatTimeAgo(item.timestamp)}
                   </span>
                   <button
@@ -346,34 +364,35 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                     className="text-ocean-300 hover:text-red-400 transition-colors p-0.5"
                     title="Eliminar de la cola"
                   >
-                    <TrashIcon className="w-3.5 h-3.5" />
+                    <TrashIcon className="w-3 h-3" />
                   </button>
                 </div>
 
-                {/* Montos + total + botón Ya pasé */}
-                <div className="px-3 py-2.5">
-                  <div className="flex flex-wrap gap-1 mb-2.5">
+                {/* Montos + nota + total + botón Ya pasé */}
+                <div className="px-2 py-1.5">
+                  <div className="flex flex-wrap gap-1 mb-1">
                     {item.entries.map(e => (
                       <span
                         key={e.id}
-                        className={`text-xs font-mono px-2 py-0.5 rounded-lg ${disp?.bg ?? 'bg-ocean-50'} ${disp?.text ?? 'text-ocean-600'}`}
+                        className={`text-[11px] font-mono px-1.5 py-0.5 rounded-md ${disp?.bg ?? 'bg-ocean-50'} ${disp?.text ?? 'text-ocean-600'}`}
                       >
-                        {/* Fix #1: siempre mostrar Bs en los chips de la cola */}
                         {formatBs(e.amountBs)}
                       </span>
                     ))}
                   </div>
-                  <div className="flex items-center justify-between gap-3">
+                  {item.note && (
+                    <div className="text-[10px] text-ocean-400 italic mb-1 truncate">{item.note}</div>
+                  )}
+                  <div className="flex items-center justify-between gap-2">
                     <div>
-                      {/* Fix #1: Bs como total principal en la cola */}
-                      <div className={`text-lg font-bold font-mono ${disp?.text ?? 'text-ocean-800'}`}>
+                      <div className={`text-base font-bold font-mono ${disp?.text ?? 'text-ocean-800'}`}>
                         {formatBs(item.totalBs)}
                       </div>
-                      <div className="text-xs text-ocean-400 font-mono">{formatUSD(item.totalUSD)}</div>
+                      <div className="text-[10px] text-ocean-400 font-mono">{formatUSD(item.totalUSD)}</div>
                     </div>
                     <button
                       onClick={() => markAsPaid(item.id)}
-                      className="flex-shrink-0 px-5 py-3 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow transition-all active:scale-95"
+                      className="flex-shrink-0 px-4 py-1.5 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow transition-all active:scale-95"
                     >
                       Ya pasé ✓
                     </button>
@@ -390,7 +409,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
         <div className="text-center py-10 text-ocean-300">
           <div className="text-3xl mb-2">⚡</div>
           <div className="text-sm">Selecciona repartidor e ingresa los montos</div>
-          <div className="text-xs mt-1 text-ocean-200">Enter o espacio para agregar · Tab o ← → para cambiar repartidor</div>
+          <div className="text-xs mt-1 text-ocean-200">Enter o espacio para agregar · Tab o ← → para cambiar · / para Ya pasé</div>
         </div>
       )}
     </div>
