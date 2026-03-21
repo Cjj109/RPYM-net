@@ -69,10 +69,6 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
 
   const handleDispatcherChange = useCallback((name: string, isEditing = false) => {
     setSelectedDispatcher(name);
-    if (!isEditing) {
-      setCurrentEntries([]);
-      setInputAmount('');
-    }
     inputRef.current?.focus();
   }, []);
 
