@@ -164,7 +164,11 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
             value={inputAmount}
             onChange={e => setInputAmount(e.target.value)}
             onKeyDown={e => {
-              if (e.key === 'Enter') { e.preventDefault(); addAmount(); }
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                if (inputAmount.trim() !== '') { addAmount(); }
+                else if (currentEntries.length > 0) { addToQueue(); }
+              }
               else if (e.key === ' ') { e.preventDefault(); setInputAmount(prev => prev + '+'); }
               else if (e.key === '[') { e.preventDefault(); setInputAmount(prev => prev + '*'); }
               else if (e.key === 'Escape') { setInputAmount(''); }
