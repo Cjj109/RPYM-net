@@ -49,6 +49,11 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const touchDragIndex = useRef<number | null>(null);
 
+  // Discard toast state
+  const [lastDiscarded, setLastDiscarded] = useState<QuickQueueItem | null>(null);
+  const discardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastDiscardedRef = useRef<QuickQueueItem | null>(null);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const inputAreaRef = useRef<HTMLDivElement>(null);
   const queueAreaRef = useRef<HTMLDivElement>(null);
@@ -246,6 +251,38 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
     onQueueChange(prev => prev.filter(q => q.id !== itemId));
   }, [queue, onAddSession, onQueueChange]);
 
+  // --- Discard (tecla \) con toast de deshacer ---
+  const dismissDiscard = useCallback(() => {
+    if (discardTimerRef.current) clearTimeout(discardTimerRef.current);
+    setLastDiscarded(null);
+    lastDiscardedRef.current = null;
+  }, []);
+
+  const undoDiscard = useCallback(() => {
+    if (discardTimerRef.current) clearTimeout(discardTimerRef.current);
+    const item = lastDiscardedRef.current;
+    if (!item) return;
+    onQueueChangeRef.current(prev => [item, ...prev]);
+    setLastDiscarded(null);
+    lastDiscardedRef.current = null;
+  }, []);
+
+  const discardFirstInQueue = useCallback(() => {
+    const q = queueRef.current;
+    if (q.length === 0) return;
+    const item = q[0];
+    onQueueChangeRef.current(prev => prev.slice(1));
+    lastDiscardedRef.current = item;
+    setLastDiscarded(item);
+    if (discardTimerRef.current) clearTimeout(discardTimerRef.current);
+    discardTimerRef.current = setTimeout(() => {
+      setLastDiscarded(null);
+      lastDiscardedRef.current = null;
+    }, 5000);
+  }, []);
+
+  const discardFirstInQueueRef = useRef(discardFirstInQueue);
+
   // --- Drag & drop (desktop) ---
   const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
     setDragIndex(index);
@@ -318,6 +355,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
   useEffect(() => { markAsPaidRef.current = markAsPaid; }, [markAsPaid]);
   useEffect(() => { handleDispatcherChangeRef.current = handleDispatcherChange; }, [handleDispatcherChange]);
   useEffect(() => { onQueueChangeRef.current = onQueueChange; }, [onQueueChange]);
+  useEffect(() => { discardFirstInQueueRef.current = discardFirstInQueue; }, [discardFirstInQueue]);
 
   // Handler global de teclado — funciona sin importar qué elemento tenga el foco
   useEffect(() => {
@@ -343,7 +381,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
         setCurrentEntries(prev => prev.slice(0, -1));
       } else if (e.key === '\\') {
         e.preventDefault();
-        onQueueChangeRef.current(prev => prev.slice(1));
+        discardFirstInQueueRef.current();
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
         queueAreaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -434,7 +472,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
               else if (e.key === "'" || e.key === '"') { e.preventDefault(); setInputCurrency(prev => prev === 'USD' ? 'Bs' : 'USD'); }
               else if (e.key === '/') { e.preventDefault(); if (queue.length > 0) markAsPaid(queue[0].id); }
               else if (e.key === '|') { e.preventDefault(); setCurrentEntries(prev => prev.slice(0, -1)); }
-              else if (e.key === '\\') { e.preventDefault(); onQueueChange(prev => prev.slice(1)); }
+              else if (e.key === '\\') { e.preventDefault(); discardFirstInQueue(); }
               // Fix #3: Tab cicla entre despachadores (Shift+Tab hacia atrás)
               else if (e.key === 'Tab') {
                 e.preventDefault();
@@ -769,6 +807,30 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
           <div className="text-xs mt-1 text-ocean-200">Enter o espacio para agregar · Tab o ← → para cambiar · ' para USD/Bs · / para Ya pasé</div>
         </div>
       )}
+
+      {/* Toast de cuenta descartada */}
+      {lastDiscarded && (() => {
+        const disp = DISPATCHERS.find(d => d.name === lastDiscarded.dispatcher);
+        return (
+          <div className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-3 animate-slide-up ${disp?.bg ?? 'bg-ocean-100'} ${disp?.text ?? 'text-ocean-800'}`}>
+            <span className="text-sm font-medium">Cuenta de {lastDiscarded.dispatcher} descartada</span>
+            <button
+              onClick={undoDiscard}
+              className="flex items-center gap-1 text-sm font-bold underline underline-offset-2 hover:opacity-70 transition-opacity"
+            >
+              Deshacer
+            </button>
+            <button
+              onClick={dismissDiscard}
+              className="opacity-50 hover:opacity-100 transition-opacity ml-1"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        );
+      })()}
     </div>
   );
 }
