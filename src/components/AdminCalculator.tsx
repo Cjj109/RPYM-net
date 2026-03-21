@@ -66,7 +66,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   const [inputCurrency, setInputCurrency] = useState<'USD' | 'Bs'>('USD');
   const [description, setDescription] = useState('');
   const [showHistory, setShowHistory] = useState(false);
-  const [activeTab, setActiveTab] = useState<'calculator' | 'quickops'>('calculator');
+  const [activeTab, setActiveTab] = useState<'calculator' | 'quickops'>('quickops');
   const [showQueue, setShowQueue] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [navLevel, setNavLevel] = useState<'input' | 'dispatcher' | 'subclient'>('input');
