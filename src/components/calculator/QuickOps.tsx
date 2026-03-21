@@ -51,7 +51,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
   const startEditingEntry = useCallback((entry: QuickOpEntry, forCurrency: 'USD' | 'Bs') => {
     setEditingEntryId(entry.id);
     setEditingCurrency(forCurrency);
-    setEditingValue(forCurrency === 'USD' ? String(entry.amountUSD) : entry.amountInput);
+    setEditingValue(forCurrency === 'USD' ? String(Math.round(entry.amountUSD * 100) / 100) : entry.amountInput);
   }, []);
 
   const confirmEditEntry = useCallback((entryId: string) => {
@@ -206,7 +206,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
               else if (e.key === ' ') { e.preventDefault(); setInputAmount(prev => prev + '+'); }
               else if (e.key === '[') { e.preventDefault(); setInputAmount(prev => prev + '*'); }
               else if (e.key === 'Escape') { setInputAmount(''); }
-              else if (e.key === '/' && queue.length > 0) { e.preventDefault(); markAsPaid(queue[0].id); }
+              else if (e.key === '/') { e.preventDefault(); if (queue.length > 0) markAsPaid(queue[0].id); }
               // Fix #3: Tab cicla entre despachadores (Shift+Tab hacia atrás)
               else if (e.key === 'Tab') {
                 e.preventDefault();
@@ -285,13 +285,14 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                     {entry.expression && (
                       <span className="text-[10px] text-ocean-300">({entry.expression})</span>
                     )}
-                    <span
-                      className="text-[11px] text-ocean-400 font-mono hover:underline cursor-pointer ml-auto shrink-0"
+                    <button
+                      type="button"
+                      className="text-[11px] text-ocean-400 font-mono hover:underline cursor-pointer ml-auto shrink-0 px-1 py-0.5"
                       onClick={() => startEditingEntry(entry, 'USD')}
                       title="Editar en USD"
                     >
                       {formatUSD(entry.amountUSD)}
-                    </span>
+                    </button>
                   </div>
                 )}
                 {editingEntryId !== entry.id && (
@@ -307,16 +308,20 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
           </div>
         )}
 
-        {/* Total acumulado + nota + botón agregar a cola */}
+        {/* Nota - siempre visible */}
+        <div className="mt-2">
+          <input
+            type="text"
+            value={noteInput}
+            onChange={e => setNoteInput(e.target.value)}
+            placeholder="Nota opcional..."
+            className="w-full bg-white/70 rounded-lg px-2.5 py-1.5 text-xs border border-ocean-100 focus:border-ocean-300 focus:outline-none text-ocean-600 placeholder-ocean-300"
+          />
+        </div>
+
+        {/* Total acumulado + botón agregar a cola */}
         {currentEntries.length > 0 && (
-          <div className="mt-2 space-y-1.5">
-            <input
-              type="text"
-              value={noteInput}
-              onChange={e => setNoteInput(e.target.value)}
-              placeholder="Nota opcional..."
-              className="w-full bg-white/70 rounded-lg px-2.5 py-1.5 text-xs border border-ocean-100 focus:border-ocean-300 focus:outline-none text-ocean-600 placeholder-ocean-300"
-            />
+          <div className="mt-1.5">
             <div className="flex items-center justify-between bg-white/90 rounded-xl px-3 py-2.5 shadow-sm">
               <div>
                 <div className={`text-xl font-bold font-mono ${dispatcherInfo?.text ?? 'text-ocean-800'}`}>
