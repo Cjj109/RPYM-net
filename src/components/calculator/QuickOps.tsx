@@ -277,10 +277,10 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                   <div className="flex-1 min-w-0 flex items-center gap-2">
                     <span
                       className={`text-sm font-semibold font-mono ${dispatcherInfo?.text ?? 'text-ocean-700'} hover:underline cursor-pointer`}
-                      onClick={() => startEditingEntry(entry, 'Bs')}
-                      title="Editar en Bs"
+                      onClick={() => startEditingEntry(entry, 'USD')}
+                      title="Editar en USD"
                     >
-                      {formatBs(entry.amountBs)}
+                      {formatUSD(entry.amountUSD)}
                     </span>
                     {entry.expression && (
                       <span className="text-[10px] text-ocean-300">({entry.expression})</span>
@@ -288,10 +288,10 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                     <button
                       type="button"
                       className="text-[11px] text-ocean-400 font-mono hover:underline cursor-pointer ml-auto shrink-0 px-1 py-0.5"
-                      onClick={() => startEditingEntry(entry, 'USD')}
-                      title="Editar en USD"
+                      onClick={() => startEditingEntry(entry, 'Bs')}
+                      title="Editar en Bs"
                     >
-                      {formatUSD(entry.amountUSD)}
+                      {formatBs(entry.amountBs)}
                     </button>
                   </div>
                 )}
@@ -381,7 +381,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                         key={e.id}
                         className={`text-[11px] font-mono px-1.5 py-0.5 rounded-md ${disp?.bg ?? 'bg-ocean-50'} ${disp?.text ?? 'text-ocean-600'}`}
                       >
-                        {formatBs(e.amountBs)}
+                        {formatUSD(e.amountUSD)}
                       </span>
                     ))}
                   </div>
@@ -390,10 +390,10 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                   )}
                   <div className="flex items-center justify-between gap-2">
                     <div>
-                      <div className={`text-base font-bold font-mono ${disp?.text ?? 'text-ocean-800'}`}>
+                      <div className={`text-3xl font-bold font-mono leading-tight ${disp?.text ?? 'text-ocean-800'}`}>
                         {formatBs(item.totalBs)}
                       </div>
-                      <div className="text-[10px] text-ocean-400 font-mono">{formatUSD(item.totalUSD)}</div>
+                      <div className="text-xs text-ocean-400 font-mono">{formatUSD(item.totalUSD)}</div>
                     </div>
                     <button
                       onClick={() => markAsPaid(item.id)}
