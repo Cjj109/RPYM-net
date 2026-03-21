@@ -15,6 +15,7 @@ export const LS_KEYS = {
   ACTIVE_SUBCLIENT_MAP: 'rpym_calc_active_subclient_map',
   SESSIONS: 'rpym_calc_sessions',
   RATE_CONFIG: 'rpym_calc_rate_config',
+  QUICK_QUEUE: 'rpym_calc_quick_queue',
   // Claves del formato anterior (para migración)
   CLIENTS: 'rpym_calc_clients',
   ACTIVE_CLIENT: 'rpym_calc_active_client',

@@ -59,3 +59,22 @@ export interface ClientTotals {
   usd: number;
   bs: number;
 }
+
+export interface QuickOpEntry {
+  id: string;
+  amountInput: string;
+  currency: 'USD' | 'Bs';
+  amountUSD: number;
+  amountBs: number;
+  expression?: string;
+}
+
+export interface QuickQueueItem {
+  id: string;
+  dispatcher: string;
+  entries: QuickOpEntry[];
+  totalUSD: number;
+  totalBs: number;
+  rate: number;
+  timestamp: number;
+}

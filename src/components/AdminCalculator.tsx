@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { evalMathExpr } from '../lib/safe-math';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { migrateToDispatchers } from './calculator/migration';
-import type { DispatcherTab, SubClient, CalcEntry, SavedSession, UndoAction, RateConfig, ClientTotals } from './calculator/types';
+import type { DispatcherTab, SubClient, CalcEntry, SavedSession, UndoAction, RateConfig, ClientTotals, QuickQueueItem } from './calculator/types';
 import { LS_KEYS, DEFAULT_SUBCLIENT_NAME, DEFAULT_SUBCLIENT_COUNT, DISPATCHERS } from './calculator/constants';
 import { ClockIcon, GearIcon, QueueIcon } from './calculator/icons';
 import { CalcInput } from './calculator/CalcInput';
@@ -15,6 +15,7 @@ import { RateSettings } from './calculator/RateSettings';
 import { ClientHeader } from './calculator/ClientHeader';
 import { KeyboardHelp } from './calculator/KeyboardHelp';
 import { UndoToast } from './calculator/UndoToast';
+import { QuickOps } from './calculator/QuickOps';
 
 interface AdminCalculatorProps {
   bcvRate?: { rate: number; date: string; source: string };
@@ -55,6 +56,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     return map;
   });
   const [sessions, setSessions] = useLocalStorage<SavedSession[]>(LS_KEYS.SESSIONS, []);
+  const [quickQueue, setQuickQueue] = useLocalStorage<QuickQueueItem[]>(LS_KEYS.QUICK_QUEUE, []);
   const [rateConfig, setRateConfig] = useLocalStorage<RateConfig>(LS_KEYS.RATE_CONFIG, { useManualRate: false, manualRate: '' });
 
   // === Estado no persistido ===
@@ -64,6 +66,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   const [inputCurrency, setInputCurrency] = useState<'USD' | 'Bs'>('USD');
   const [description, setDescription] = useState('');
   const [showHistory, setShowHistory] = useState(false);
+  const [activeTab, setActiveTab] = useState<'calculator' | 'quickops'>('calculator');
   const [showQueue, setShowQueue] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [navLevel, setNavLevel] = useState<'input' | 'dispatcher' | 'subclient'>('input');
@@ -402,8 +405,8 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
             )}
           </div>
           <div className="flex items-center gap-2">
-            <KeyboardHelp />
-            {(() => {
+            {activeTab === 'calculator' && <KeyboardHelp />}
+            {activeTab === 'calculator' && (() => {
               const todayStr = new Date().toDateString();
               const todayCount = sessions.filter(s => new Date(s.timestamp).toDateString() === todayStr).length;
               return todayCount > 0 ? (
@@ -419,7 +422,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                 </button>
               ) : null;
             })()}
-            {sessions.length > 0 && (
+            {activeTab === 'calculator' && sessions.length > 0 && (
               <button
                 onClick={() => { setShowHistory(prev => !prev); setShowQueue(false); }}
                 className={`p-1.5 rounded-lg transition-colors ${showHistory ? 'bg-ocean-100 text-ocean-700' : 'text-ocean-400 hover:text-ocean-600 hover:bg-ocean-50'}`}
@@ -438,6 +441,35 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
           </div>
         </div>
 
+        {/* Pestañas: Calculadora / Rápido */}
+        <div className="flex gap-1 bg-ocean-50 rounded-xl p-1 mb-2">
+          <button
+            onClick={() => setActiveTab('calculator')}
+            className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              activeTab === 'calculator'
+                ? 'bg-white text-ocean-700 shadow-sm'
+                : 'text-ocean-400 hover:text-ocean-600'
+            }`}
+          >
+            Calculadora
+          </button>
+          <button
+            onClick={() => setActiveTab('quickops')}
+            className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-all relative ${
+              activeTab === 'quickops'
+                ? 'bg-white text-ocean-700 shadow-sm'
+                : 'text-ocean-400 hover:text-ocean-600'
+            }`}
+          >
+            ⚡ Rápido
+            {quickQueue.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-emerald-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                {quickQueue.length}
+              </span>
+            )}
+          </button>
+        </div>
+
         {showSettings && (
           <RateSettings
             autoRate={autoRate}
@@ -446,81 +478,96 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
           />
         )}
 
-        {showQueue && (
-          <QueuePanel
-            sessions={sessions}
-            onRemoveSession={(id) => setSessions(prev => prev.filter(s => s.id !== id))}
-          />
+        {activeTab === 'calculator' && (
+          <>
+            {showQueue && (
+              <QueuePanel
+                sessions={sessions}
+                onRemoveSession={(id) => setSessions(prev => prev.filter(s => s.id !== id))}
+              />
+            )}
+
+            {showHistory && sessions.length > 0 && (
+              <HistoryPanel
+                sessions={sessions}
+                onRemoveSession={(id) => setSessions(prev => prev.filter(s => s.id !== id))}
+                onClearHistory={() => setSessions([])}
+              />
+            )}
+
+            <CalcInput
+              inputAmount={inputAmount}
+              inputCurrency={inputCurrency}
+              description={description}
+              activeRate={activeRate}
+              dispatcherBg={dispatcherInfo?.bg}
+              dispatcherText={dispatcherInfo?.text}
+              onInputAmountChange={setInputAmount}
+              onCurrencyToggle={() => setInputCurrency(prev => prev === 'USD' ? 'Bs' : 'USD')}
+              onDescriptionChange={setDescription}
+              onAddEntry={addEntry}
+              amountRef={amountRef}
+            />
+
+            {/* Tabs de repartidores */}
+            <ClientTabs
+              dispatchers={dispatchers}
+              activeDispatcherId={activeDispatcherId}
+              activeClientMap={activeClientMap}
+              navFocused={navLevel === 'dispatcher'}
+              onSelectDispatcher={(id) => { setActiveDispatcherId(id); setNavLevel('dispatcher'); }}
+            />
+
+            {/* Cards de sub-clientes */}
+            {activeDispatcher && (
+              <SubClientCards
+                clients={activeDispatcher.clients}
+                activeClientId={activeClientId}
+                subClientTotals={subClientTotals}
+                dispatcher={activeDispatcher.dispatcher}
+                navFocused={navLevel === 'subclient'}
+                onSelectClient={(id) => { setActiveClientId(id); setNavLevel('subclient'); }}
+                onRenameClient={renameSubClient}
+                onAddClient={addSubClient}
+                onRemoveClient={removeSubClient}
+                clientCount={activeDispatcher.clients.length}
+              />
+            )}
+
+            {/* Total del sub-cliente + acciones */}
+            {activeDispatcher && activeClient && (
+              <ClientHeader
+                dispatcher={activeDispatcher}
+                client={activeClient}
+                totalUSD={currentTotals.usd}
+                totalBs={currentTotals.bs}
+                activeRate={activeRate}
+                onClearAll={clearAll}
+                onAdjustTotal={adjustTotal}
+                amountRef={amountRef}
+              />
+            )}
+          </>
         )}
 
-        {showHistory && sessions.length > 0 && (
-          <HistoryPanel
-            sessions={sessions}
-            onRemoveSession={(id) => setSessions(prev => prev.filter(s => s.id !== id))}
-            onClearHistory={() => setSessions([])}
-          />
-        )}
-
-        <CalcInput
-          inputAmount={inputAmount}
-          inputCurrency={inputCurrency}
-          description={description}
-          activeRate={activeRate}
-          dispatcherBg={dispatcherInfo?.bg}
-          dispatcherText={dispatcherInfo?.text}
-          onInputAmountChange={setInputAmount}
-          onCurrencyToggle={() => setInputCurrency(prev => prev === 'USD' ? 'Bs' : 'USD')}
-          onDescriptionChange={setDescription}
-          onAddEntry={addEntry}
-          amountRef={amountRef}
-        />
-
-        {/* Tabs de repartidores */}
-        <ClientTabs
-          dispatchers={dispatchers}
-          activeDispatcherId={activeDispatcherId}
-          activeClientMap={activeClientMap}
-          navFocused={navLevel === 'dispatcher'}
-          onSelectDispatcher={(id) => { setActiveDispatcherId(id); setNavLevel('dispatcher'); }}
-        />
-
-        {/* Cards de sub-clientes */}
-        {activeDispatcher && (
-          <SubClientCards
-            clients={activeDispatcher.clients}
-            activeClientId={activeClientId}
-            subClientTotals={subClientTotals}
-            dispatcher={activeDispatcher.dispatcher}
-            navFocused={navLevel === 'subclient'}
-            onSelectClient={(id) => { setActiveClientId(id); setNavLevel('subclient'); }}
-            onRenameClient={renameSubClient}
-            onAddClient={addSubClient}
-            onRemoveClient={removeSubClient}
-            clientCount={activeDispatcher.clients.length}
-          />
-        )}
-
-        {/* Total del sub-cliente + acciones */}
-        {activeDispatcher && activeClient && (
-          <ClientHeader
-            dispatcher={activeDispatcher}
-            client={activeClient}
-            totalUSD={currentTotals.usd}
-            totalBs={currentTotals.bs}
+        {activeTab === 'quickops' && (
+          <QuickOps
             activeRate={activeRate}
-            onClearAll={clearAll}
-            onAdjustTotal={adjustTotal}
-            amountRef={amountRef}
+            queue={quickQueue}
+            onQueueChange={setQuickQueue}
+            onAddSession={(session) => setSessions(prev => [session, ...prev].slice(0, 100))}
           />
         )}
       </div>
 
-      <EntryList
-        entries={entries}
-        onRemoveEntry={removeEntry}
-        onUpdateAmount={updateEntryAmount}
-        onUpdateDescription={updateEntryDescription}
-      />
+      {activeTab === 'calculator' && (
+        <EntryList
+          entries={entries}
+          onRemoveEntry={removeEntry}
+          onUpdateAmount={updateEntryAmount}
+          onUpdateDescription={updateEntryDescription}
+        />
+      )}
 
       {undoAction && (
         <UndoToast
