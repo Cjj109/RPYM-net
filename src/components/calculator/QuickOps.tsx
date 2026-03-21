@@ -50,6 +50,15 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
   const touchDragIndex = useRef<number | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const inputAreaRef = useRef<HTMLDivElement>(null);
+  const queueAreaRef = useRef<HTMLDivElement>(null);
+
+  // Refs para evitar closures obsoletos en el handler global
+  const queueRef = useRef(queue);
+  const selectedDispatcherRef = useRef(selectedDispatcher);
+  const editingQueueIdRef = useRef(editingQueueId);
+  const markAsPaidRef = useRef<(id: string) => void>(() => {});
+  const handleDispatcherChangeRef = useRef<(name: string, isEditing?: boolean) => void>(() => {});
 
   const dispatcherInfo = DISPATCHERS.find(d => d.name === selectedDispatcher);
 
@@ -305,6 +314,46 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
     setDragOverIndex(null);
   }, [dragOverIndex, onQueueChange]);
 
+  // Sincronizar refs con estado/callbacks actuales
+  useEffect(() => { queueRef.current = queue; }, [queue]);
+  useEffect(() => { selectedDispatcherRef.current = selectedDispatcher; }, [selectedDispatcher]);
+  useEffect(() => { editingQueueIdRef.current = editingQueueId; }, [editingQueueId]);
+  useEffect(() => { markAsPaidRef.current = markAsPaid; }, [markAsPaid]);
+  useEffect(() => { handleDispatcherChangeRef.current = handleDispatcherChange; }, [handleDispatcherChange]);
+
+  // Handler global de teclado — funciona sin importar qué elemento tenga el foco
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const tagName = target.tagName;
+      // Si el foco está en cualquier input/textarea, el handler del input se encarga
+      if (tagName === 'INPUT' || tagName === 'TEXTAREA') return;
+
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        const currentIdx = DISPATCHERS.findIndex(d => d.name === selectedDispatcherRef.current);
+        const nextIdx = e.key === 'ArrowRight'
+          ? (currentIdx + 1) % DISPATCHERS.length
+          : (currentIdx - 1 + DISPATCHERS.length) % DISPATCHERS.length;
+        handleDispatcherChangeRef.current(DISPATCHERS[nextIdx].name, !!editingQueueIdRef.current);
+      } else if (e.key === '/') {
+        e.preventDefault();
+        const q = queueRef.current;
+        if (q.length > 0) markAsPaidRef.current(q[0].id);
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        queueAreaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        inputAreaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        inputRef.current?.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleGlobalKeyDown);
+    return () => document.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
@@ -317,7 +366,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
   return (
     <div className="space-y-3">
       {/* Selector de repartidor */}
-      <div className="flex flex-wrap gap-1.5">
+      <div ref={inputAreaRef} className="flex flex-wrap gap-1.5">
         {DISPATCHERS.map((d) => (
           <button
             key={d.name}
@@ -519,7 +568,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
 
       {/* Cola de pendientes */}
       {queue.length > 0 && (
-        <div className="space-y-1.5">
+        <div ref={queueAreaRef} className="space-y-1.5">
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-ocean-500 uppercase tracking-wide">
               En cola
