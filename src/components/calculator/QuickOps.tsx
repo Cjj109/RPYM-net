@@ -3,7 +3,7 @@ import { evalMathExpr } from '../../lib/safe-math';
 import { formatUSD, formatBs } from '../../lib/format';
 import { DISPATCHERS } from './constants';
 import type { QuickOpEntry, QuickQueueItem, SavedSession } from './types';
-import { PlusIcon, CloseIcon, TrashIcon } from './icons';
+import { PlusIcon, CloseIcon, TrashIcon, PencilIcon, ChatBubbleIcon } from './icons';
 
 interface QuickOpsProps {
   activeRate: number;
@@ -34,6 +34,15 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
 
   // Queue item editing state
   const [editingQueueId, setEditingQueueId] = useState<string | null>(null);
+
+  // Queue item inline total editing
+  const [editingQueueTotalId, setEditingQueueTotalId] = useState<string | null>(null);
+  const [editingQueueTotalValue, setEditingQueueTotalValue] = useState('');
+  const [editingQueueTotalCurrency, setEditingQueueTotalCurrency] = useState<'USD' | 'Bs'>('Bs');
+
+  // Queue item inline note editing
+  const [editingQueueNoteId, setEditingQueueNoteId] = useState<string | null>(null);
+  const [editingQueueNoteValue, setEditingQueueNoteValue] = useState('');
 
   // Drag & drop state
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -105,6 +114,41 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
       };
     }));
   }, [editingValue, editingCurrency, activeRate]);
+
+  const startEditingQueueTotal = useCallback((item: QuickQueueItem, currency: 'USD' | 'Bs') => {
+    setEditingQueueTotalId(item.id);
+    setEditingQueueTotalCurrency(currency);
+    setEditingQueueTotalValue(
+      currency === 'Bs'
+        ? String(Math.round(item.totalBs * 100) / 100)
+        : String(Math.round(item.totalUSD * 100) / 100)
+    );
+  }, []);
+
+  const confirmQueueTotalEdit = useCallback((itemId: string) => {
+    const parsed = evalMathExpr(editingQueueTotalValue);
+    setEditingQueueTotalId(null);
+    if (parsed === 0 || !activeRate) return;
+    onQueueChange(prev => prev.map(item => {
+      if (item.id !== itemId) return item;
+      const newTotalBs = editingQueueTotalCurrency === 'Bs' ? parsed : parsed * activeRate;
+      const newTotalUSD = editingQueueTotalCurrency === 'Bs' ? parsed / activeRate : parsed;
+      return { ...item, totalBs: newTotalBs, totalUSD: newTotalUSD };
+    }));
+  }, [editingQueueTotalValue, editingQueueTotalCurrency, activeRate, onQueueChange]);
+
+  const startEditingQueueNote = useCallback((item: QuickQueueItem) => {
+    setEditingQueueNoteId(item.id);
+    setEditingQueueNoteValue(item.note ?? '');
+  }, []);
+
+  const confirmQueueNoteEdit = useCallback((itemId: string) => {
+    setEditingQueueNoteId(null);
+    onQueueChange(prev => prev.map(item => {
+      if (item.id !== itemId) return item;
+      return { ...item, note: editingQueueNoteValue.trim() || undefined };
+    }));
+  }, [editingQueueNoteValue, onQueueChange]);
 
   const addAmount = useCallback(() => {
     const parsed = evalMathExpr(inputAmount);
@@ -344,8 +388,8 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                   : (currentIdx + 1) % DISPATCHERS.length;
                 handleDispatcherChange(DISPATCHERS[nextIdx].name, !!editingQueueId);
               }
-              // Flechas izquierda/derecha ciclan despachadores solo cuando el input está vacío
-              else if (inputAmount === '' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+              // Flechas izquierda/derecha ciclan despachadores siempre
+              else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
                 e.preventDefault();
                 const currentIdx = DISPATCHERS.findIndex(d => d.name === selectedDispatcher);
                 const nextIdx = e.key === 'ArrowRight'
@@ -542,15 +586,87 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                       </span>
                     ))}
                   </div>
-                  {item.note && (
-                    <div className="text-[10px] text-ocean-400 italic mb-1 truncate">{item.note}</div>
+
+                  {/* Nota inline editable */}
+                  {editingQueueNoteId === item.id ? (
+                    <div className="mb-1.5 flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                      <input
+                        autoFocus
+                        type="text"
+                        value={editingQueueNoteValue}
+                        onChange={e => setEditingQueueNoteValue(e.target.value)}
+                        onBlur={() => confirmQueueNoteEdit(item.id)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') { e.preventDefault(); confirmQueueNoteEdit(item.id); }
+                          if (e.key === 'Escape') { e.preventDefault(); setEditingQueueNoteId(null); }
+                        }}
+                        placeholder="Agregar nota..."
+                        className="flex-1 text-[11px] bg-white border border-ocean-200 rounded px-2 py-0.5 focus:outline-none focus:border-ocean-400 text-ocean-700"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 mb-1">
+                      {item.note && (
+                        <span className="text-[10px] text-ocean-400 italic truncate flex-1">{item.note}</span>
+                      )}
+                      <button
+                        onClick={e => { e.stopPropagation(); startEditingQueueNote(item); }}
+                        className={`text-ocean-300 hover:text-ocean-500 transition-colors p-0.5 ${item.note ? '' : 'ml-auto'}`}
+                        title={item.note ? 'Editar nota' : 'Agregar nota'}
+                      >
+                        <ChatBubbleIcon className="w-3 h-3" />
+                      </button>
+                    </div>
                   )}
+
                   <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <div className={`text-3xl font-bold font-mono leading-tight ${disp?.text ?? 'text-ocean-800'}`}>
-                        {formatBs(item.totalBs)}
-                      </div>
-                      <div className="text-xs text-ocean-400 font-mono">{formatUSD(item.totalUSD)}</div>
+                    <div onClick={e => e.stopPropagation()}>
+                      {editingQueueTotalId === item.id && editingQueueTotalCurrency === 'Bs' ? (
+                        <input
+                          autoFocus
+                          type="text"
+                          inputMode="decimal"
+                          value={editingQueueTotalValue}
+                          onChange={e => setEditingQueueTotalValue(e.target.value)}
+                          onBlur={() => confirmQueueTotalEdit(item.id)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') { e.preventDefault(); confirmQueueTotalEdit(item.id); }
+                            if (e.key === 'Escape') { e.preventDefault(); setEditingQueueTotalId(null); }
+                          }}
+                          className="text-2xl font-bold font-mono w-36 border border-ocean-300 rounded-lg px-2 py-0.5 focus:outline-none focus:border-ocean-500 text-ocean-800"
+                        />
+                      ) : (
+                        <div
+                          className={`text-3xl font-bold font-mono leading-tight cursor-pointer hover:underline ${disp?.text ?? 'text-ocean-800'}`}
+                          onClick={() => startEditingQueueTotal(item, 'Bs')}
+                          title="Editar total en Bs"
+                        >
+                          {formatBs(item.totalBs)}
+                        </div>
+                      )}
+                      {editingQueueTotalId === item.id && editingQueueTotalCurrency === 'USD' ? (
+                        <input
+                          autoFocus
+                          type="text"
+                          inputMode="decimal"
+                          value={editingQueueTotalValue}
+                          onChange={e => setEditingQueueTotalValue(e.target.value)}
+                          onBlur={() => confirmQueueTotalEdit(item.id)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') { e.preventDefault(); confirmQueueTotalEdit(item.id); }
+                            if (e.key === 'Escape') { e.preventDefault(); setEditingQueueTotalId(null); }
+                          }}
+                          className="text-xs font-mono w-28 border border-ocean-300 rounded px-2 py-0.5 focus:outline-none focus:border-ocean-500 text-ocean-600"
+                        />
+                      ) : (
+                        <div
+                          className="text-xs text-ocean-400 font-mono cursor-pointer hover:underline"
+                          onClick={() => startEditingQueueTotal(item, 'USD')}
+                          title="Editar total en USD"
+                        >
+                          {formatUSD(item.totalUSD)}
+                        </div>
+                      )}
                     </div>
                     <button
                       onClick={e => { e.stopPropagation(); markAsPaid(item.id); }}
