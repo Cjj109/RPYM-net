@@ -700,12 +700,29 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                       ) : null}
 
                       {/* Ya pasé */}
-                      <button
-                        onClick={e => { e.stopPropagation(); markAsPaid(item.id); }}
-                        className="flex-shrink-0 px-2 py-0.5 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow transition-all active:scale-95"
-                      >
-                        Ya pasé ✓
-                      </button>
+                      {(() => {
+                        const dispColors: Record<string, string> = {
+                          Carlos: '#ef4444',
+                          Luis:   '#f59e0b',
+                          Pedro:  '#14b8a6',
+                          Johan:  '#8b5cf6',
+                          Pa:     '#3b82f6',
+                        };
+                        const btnColor = item.dispatcher ? (dispColors[item.dispatcher] ?? '#10b981') : '#10b981';
+                        return (
+                          <button
+                            onClick={e => { e.stopPropagation(); markAsPaid(item.id); }}
+                            className="flex-shrink-0 px-2 py-0.5 text-white text-xs font-bold rounded-lg shadow transition-all active:scale-95"
+                            style={{ backgroundColor: btnColor }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(0.88)'; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.filter = ''; }}
+                            onMouseDown={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(0.75)'; }}
+                            onMouseUp={e => { (e.currentTarget as HTMLButtonElement).style.filter = ''; }}
+                          >
+                            Ya pasé ✓
+                          </button>
+                        );
+                      })()}
 
                       {/* Trash */}
                       <button
