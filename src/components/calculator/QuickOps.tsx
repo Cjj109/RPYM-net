@@ -378,6 +378,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                 if (editingQueueId) { cancelEditingQueue(); }
                 else { setInputAmount(''); }
               }
+              else if (e.key === ',') { e.preventDefault(); setInputCurrency(prev => prev === 'USD' ? 'Bs' : 'USD'); }
               else if (e.key === '/') { e.preventDefault(); if (queue.length > 0) markAsPaid(queue[0].id); }
               // Fix #3: Tab cicla entre despachadores (Shift+Tab hacia atrás)
               else if (e.key === 'Tab') {
@@ -518,7 +519,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
 
       {/* Cola de pendientes */}
       {queue.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-ocean-500 uppercase tracking-wide">
               En cola
@@ -575,12 +576,12 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                 </div>
 
                 {/* Montos + nota + total + botón Ya pasé */}
-                <div className="px-2 py-1.5">
-                  <div className="flex flex-wrap gap-1 mb-1">
+                <div className="px-2 py-1">
+                  <div className="flex flex-wrap gap-0.5 mb-0.5">
                     {item.entries.map(e => (
                       <span
                         key={e.id}
-                        className={`text-[11px] font-mono px-1.5 py-0.5 rounded-md ${disp?.bg ?? 'bg-ocean-50'} ${disp?.text ?? 'text-ocean-600'}`}
+                        className={`text-[10px] font-mono px-1 py-0.5 rounded-md ${disp?.bg ?? 'bg-ocean-50'} ${disp?.text ?? 'text-ocean-600'}`}
                       >
                         {formatUSD(e.amountUSD)}
                       </span>
@@ -605,7 +606,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                       />
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1 mb-1">
+                    <div className="flex items-center gap-1 mb-0.5">
                       {item.note && (
                         <span className="text-[10px] text-ocean-400 italic truncate flex-1">{item.note}</span>
                       )}
@@ -637,7 +638,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                         />
                       ) : (
                         <div
-                          className={`text-3xl font-bold font-mono leading-tight cursor-pointer hover:underline ${disp?.text ?? 'text-ocean-800'}`}
+                          className={`text-2xl font-bold font-mono leading-tight cursor-pointer hover:underline ${disp?.text ?? 'text-ocean-800'}`}
                           onClick={() => startEditingQueueTotal(item, 'Bs')}
                           title="Editar total en Bs"
                         >
@@ -670,7 +671,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                     </div>
                     <button
                       onClick={e => { e.stopPropagation(); markAsPaid(item.id); }}
-                      className="flex-shrink-0 px-4 py-1.5 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow transition-all active:scale-95"
+                      className="flex-shrink-0 px-3 py-1 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow transition-all active:scale-95"
                     >
                       Ya pasé ✓
                     </button>
@@ -687,7 +688,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
         <div className="text-center py-10 text-ocean-300">
           <div className="text-3xl mb-2">⚡</div>
           <div className="text-sm">Selecciona repartidor e ingresa los montos</div>
-          <div className="text-xs mt-1 text-ocean-200">Enter o espacio para agregar · Tab o ← → para cambiar · / para Ya pasé</div>
+          <div className="text-xs mt-1 text-ocean-200">Enter o espacio para agregar · Tab o ← → para cambiar · , para USD/Bs · / para Ya pasé</div>
         </div>
       )}
     </div>
