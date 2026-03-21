@@ -422,7 +422,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                 </button>
               ) : null;
             })()}
-            {activeTab === 'calculator' && sessions.length > 0 && (
+            {sessions.length > 0 && (
               <button
                 onClick={() => { setShowHistory(prev => !prev); setShowQueue(false); }}
                 className={`p-1.5 rounded-lg transition-colors ${showHistory ? 'bg-ocean-100 text-ocean-700' : 'text-ocean-400 hover:text-ocean-600 hover:bg-ocean-50'}`}
@@ -551,12 +551,21 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
         )}
 
         {activeTab === 'quickops' && (
-          <QuickOps
-            activeRate={activeRate}
-            queue={quickQueue}
-            onQueueChange={setQuickQueue}
-            onAddSession={(session) => setSessions(prev => [session, ...prev].slice(0, 100))}
-          />
+          <>
+            {showHistory && sessions.length > 0 && (
+              <HistoryPanel
+                sessions={sessions}
+                onRemoveSession={(id) => setSessions(prev => prev.filter(s => s.id !== id))}
+                onClearHistory={() => setSessions([])}
+              />
+            )}
+            <QuickOps
+              activeRate={activeRate}
+              queue={quickQueue}
+              onQueueChange={setQuickQueue}
+              onAddSession={(session) => setSessions(prev => [session, ...prev].slice(0, 100))}
+            />
+          </>
         )}
       </div>
 
