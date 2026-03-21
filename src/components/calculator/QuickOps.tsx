@@ -596,134 +596,142 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
                 onDoubleClick={() => startEditingQueueItem(item)}
-                className={`rounded-xl border bg-white select-none cursor-grab active:cursor-grabbing transition-all duration-150 ${
+                className={`rounded-xl border overflow-hidden bg-white select-none cursor-grab active:cursor-grabbing transition-all duration-150 ${
                   isBeingEdited
                     ? 'border-amber-300 ring-2 ring-amber-200 shadow-amber-100 shadow-md'
                     : 'border-ocean-100 shadow-sm'
                 } ${isDragging ? 'opacity-40 scale-[0.97] shadow-lg' : ''} ${isDragOver ? 'border-ocean-400 shadow-md -translate-y-0.5' : ''}`}
               >
-                {/* Línea compacta única */}
-                <div className="flex items-center gap-1.5 px-2 py-1 min-h-[42px]">
-                  {/* Drag handle */}
-                  <span className="text-ocean-200 text-xs leading-none cursor-grab select-none shrink-0" title="Arrastrar">⠿</span>
+                <div className="flex">
+                  {/* Strip lateral del color del despachador */}
+                  <div className={`w-1.5 shrink-0 ${disp?.strip ?? 'bg-ocean-200'}`} />
 
-                  {/* Badge despachador */}
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${disp?.badge ?? 'bg-ocean-100 text-ocean-600'}`}>
-                    {item.dispatcher.length <= 4 ? item.dispatcher : item.dispatcher.slice(0, 3)}
-                  </span>
+                  {/* Contenido */}
+                  <div className="flex-1 min-w-0">
+                    {/* Línea compacta única */}
+                    <div className="flex items-center gap-1.5 px-2 py-1 min-h-[42px]">
+                      {/* Drag handle */}
+                      <span className="text-ocean-200 text-xs leading-none cursor-grab select-none shrink-0" title="Arrastrar">⠿</span>
 
-                  {isBeingEdited && (
-                    <span className="text-[9px] font-bold text-amber-600 bg-amber-100 px-1 py-0.5 rounded-full shrink-0">✎</span>
-                  )}
-
-                  {/* Totales */}
-                  <div className="flex items-baseline gap-1.5 flex-1 min-w-0" onClick={e => e.stopPropagation()}>
-                    {editingQueueTotalId === item.id && editingQueueTotalCurrency === 'Bs' ? (
-                      <input
-                        autoFocus
-                        type="text"
-                        inputMode="decimal"
-                        value={editingQueueTotalValue}
-                        onChange={e => setEditingQueueTotalValue(e.target.value)}
-                        onBlur={() => confirmQueueTotalEdit(item.id)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') { e.preventDefault(); confirmQueueTotalEdit(item.id); }
-                          if (e.key === 'Escape') { e.preventDefault(); setEditingQueueTotalId(null); }
-                        }}
-                        className="text-xl font-bold font-mono w-32 border border-ocean-300 rounded-lg px-2 py-0.5 focus:outline-none focus:border-ocean-500 text-ocean-800"
-                      />
-                    ) : (
-                      <span
-                        className={`text-xl font-bold font-mono leading-tight cursor-pointer hover:underline shrink-0 ${disp?.text ?? 'text-ocean-800'}`}
-                        onClick={() => startEditingQueueTotal(item, 'Bs')}
-                        title="Editar total en Bs"
-                      >
-                        {formatBs(item.totalBs)}
+                      {/* Badge despachador — círculo con inicial */}
+                      <span className={`text-[11px] font-bold w-6 h-6 flex items-center justify-center rounded-full shrink-0 ${disp?.badge ?? 'bg-ocean-100 text-ocean-600'}`}>
+                        {item.dispatcher.length <= 2 ? item.dispatcher : item.dispatcher[0]}
                       </span>
-                    )}
-                    {editingQueueTotalId === item.id && editingQueueTotalCurrency === 'USD' ? (
-                      <input
-                        autoFocus
-                        type="text"
-                        inputMode="decimal"
-                        value={editingQueueTotalValue}
-                        onChange={e => setEditingQueueTotalValue(e.target.value)}
-                        onBlur={() => confirmQueueTotalEdit(item.id)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') { e.preventDefault(); confirmQueueTotalEdit(item.id); }
-                          if (e.key === 'Escape') { e.preventDefault(); setEditingQueueTotalId(null); }
-                        }}
-                        className="text-xs font-mono w-24 border border-ocean-300 rounded px-1.5 py-0.5 focus:outline-none focus:border-ocean-500 text-ocean-600"
-                      />
-                    ) : (
-                      <span
-                        className="text-xs text-ocean-400 font-mono cursor-pointer hover:underline shrink-0"
-                        onClick={() => startEditingQueueTotal(item, 'USD')}
-                        title="Editar total en USD"
-                      >
-                        {formatUSD(item.totalUSD)}
-                      </span>
-                    )}
-                  </div>
 
-                  {/* Nota: ícono si existe, input si editando */}
-                  {editingQueueNoteId === item.id ? (
-                    <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
-                      <input
-                        autoFocus
-                        type="text"
-                        value={editingQueueNoteValue}
-                        onChange={e => setEditingQueueNoteValue(e.target.value)}
-                        onBlur={() => confirmQueueNoteEdit(item.id)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') { e.preventDefault(); confirmQueueNoteEdit(item.id); }
-                          if (e.key === 'Escape') { e.preventDefault(); setEditingQueueNoteId(null); }
-                        }}
-                        placeholder="Nota..."
-                        className="text-[11px] bg-white border border-ocean-200 rounded px-1.5 py-0.5 focus:outline-none focus:border-ocean-400 text-ocean-700 w-24"
-                      />
+                      {isBeingEdited && (
+                        <span className="text-[9px] font-bold text-amber-600 bg-amber-100 px-1 py-0.5 rounded-full shrink-0">✎</span>
+                      )}
+
+                      {/* Totales */}
+                      <div className="flex items-baseline gap-1.5 flex-1 min-w-0" onClick={e => e.stopPropagation()}>
+                        {editingQueueTotalId === item.id && editingQueueTotalCurrency === 'Bs' ? (
+                          <input
+                            autoFocus
+                            type="text"
+                            inputMode="decimal"
+                            value={editingQueueTotalValue}
+                            onChange={e => setEditingQueueTotalValue(e.target.value)}
+                            onBlur={() => confirmQueueTotalEdit(item.id)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') { e.preventDefault(); confirmQueueTotalEdit(item.id); }
+                              if (e.key === 'Escape') { e.preventDefault(); setEditingQueueTotalId(null); }
+                            }}
+                            className="text-xl font-bold font-mono w-32 border border-ocean-300 rounded-lg px-2 py-0.5 focus:outline-none focus:border-ocean-500 text-ocean-800"
+                          />
+                        ) : (
+                          <span
+                            className={`text-xl font-bold font-mono leading-tight cursor-pointer hover:underline shrink-0 ${disp?.text ?? 'text-ocean-800'}`}
+                            onClick={() => startEditingQueueTotal(item, 'Bs')}
+                            title="Editar total en Bs"
+                          >
+                            {formatBs(item.totalBs)}
+                          </span>
+                        )}
+                        {editingQueueTotalId === item.id && editingQueueTotalCurrency === 'USD' ? (
+                          <input
+                            autoFocus
+                            type="text"
+                            inputMode="decimal"
+                            value={editingQueueTotalValue}
+                            onChange={e => setEditingQueueTotalValue(e.target.value)}
+                            onBlur={() => confirmQueueTotalEdit(item.id)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') { e.preventDefault(); confirmQueueTotalEdit(item.id); }
+                              if (e.key === 'Escape') { e.preventDefault(); setEditingQueueTotalId(null); }
+                            }}
+                            className="text-xs font-mono w-24 border border-ocean-300 rounded px-1.5 py-0.5 focus:outline-none focus:border-ocean-500 text-ocean-600"
+                          />
+                        ) : (
+                          <span
+                            className="text-xs text-ocean-400 font-mono cursor-pointer hover:underline shrink-0"
+                            onClick={() => startEditingQueueTotal(item, 'USD')}
+                            title="Editar total en USD"
+                          >
+                            {formatUSD(item.totalUSD)}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Nota: ícono si existe, input si editando */}
+                      {editingQueueNoteId === item.id ? (
+                        <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                          <input
+                            autoFocus
+                            type="text"
+                            value={editingQueueNoteValue}
+                            onChange={e => setEditingQueueNoteValue(e.target.value)}
+                            onBlur={() => confirmQueueNoteEdit(item.id)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') { e.preventDefault(); confirmQueueNoteEdit(item.id); }
+                              if (e.key === 'Escape') { e.preventDefault(); setEditingQueueNoteId(null); }
+                            }}
+                            placeholder="Nota..."
+                            className="text-[11px] bg-white border border-ocean-200 rounded px-1.5 py-0.5 focus:outline-none focus:border-ocean-400 text-ocean-700 w-24"
+                          />
+                        </div>
+                      ) : item.note ? (
+                        <button
+                          onClick={e => { e.stopPropagation(); startEditingQueueNote(item); }}
+                          className="text-ocean-400 hover:text-ocean-600 transition-colors p-0.5 shrink-0"
+                          title={item.note}
+                        >
+                          <ChatBubbleIcon className="w-3 h-3" />
+                        </button>
+                      ) : null}
+
+                      {/* Ya pasé */}
+                      <button
+                        onClick={e => { e.stopPropagation(); markAsPaid(item.id); }}
+                        className="flex-shrink-0 px-2 py-0.5 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow transition-all active:scale-95"
+                      >
+                        Ya pasé ✓
+                      </button>
+
+                      {/* Trash */}
+                      <button
+                        onClick={e => { e.stopPropagation(); onQueueChange(prev => prev.filter(q => q.id !== item.id)); }}
+                        className="text-ocean-300 hover:text-red-400 transition-colors p-0.5 shrink-0"
+                        title="Eliminar"
+                      >
+                        <TrashIcon className="w-3 h-3" />
+                      </button>
                     </div>
-                  ) : item.note ? (
-                    <button
-                      onClick={e => { e.stopPropagation(); startEditingQueueNote(item); }}
-                      className="text-ocean-400 hover:text-ocean-600 transition-colors p-0.5 shrink-0"
-                      title={item.note}
-                    >
-                      <ChatBubbleIcon className="w-3 h-3" />
-                    </button>
-                  ) : null}
 
-                  {/* Ya pasé */}
-                  <button
-                    onClick={e => { e.stopPropagation(); markAsPaid(item.id); }}
-                    className="flex-shrink-0 px-2 py-0.5 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow transition-all active:scale-95"
-                  >
-                    Ya pasé ✓
-                  </button>
-
-                  {/* Trash */}
-                  <button
-                    onClick={e => { e.stopPropagation(); onQueueChange(prev => prev.filter(q => q.id !== item.id)); }}
-                    className="text-ocean-300 hover:text-red-400 transition-colors p-0.5 shrink-0"
-                    title="Eliminar"
-                  >
-                    <TrashIcon className="w-3 h-3" />
-                  </button>
-                </div>
-
-                {/* Chips de montos — solo visibles al editar (doble tap) */}
-                {isBeingEdited && item.entries.length > 0 && (
-                  <div className="px-2 pb-1 flex flex-wrap gap-0.5 border-t border-amber-100">
-                    {item.entries.map(e => (
-                      <span
-                        key={e.id}
-                        className={`text-[10px] font-mono px-1 py-0.5 rounded-md ${disp?.bg ?? 'bg-ocean-50'} ${disp?.text ?? 'text-ocean-600'}`}
-                      >
-                        {formatUSD(e.amountUSD)}
-                      </span>
-                    ))}
+                    {/* Chips de montos — solo visibles al editar (doble tap) */}
+                    {isBeingEdited && item.entries.length > 0 && (
+                      <div className="px-2 pb-1 flex flex-wrap gap-0.5 border-t border-amber-100">
+                        {item.entries.map(e => (
+                          <span
+                            key={e.id}
+                            className={`text-[10px] font-mono px-1 py-0.5 rounded-md ${disp?.bg ?? 'bg-ocean-50'} ${disp?.text ?? 'text-ocean-600'}`}
+                          >
+                            {formatUSD(e.amountUSD)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
             );
           })}

@@ -53,6 +53,7 @@ export interface Dispatcher {
   text: string;
   ring: string;
   badge: string;
+  strip: string;
 }
 
 export interface ClientTotals {
