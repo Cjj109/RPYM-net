@@ -59,6 +59,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
   const editingQueueIdRef = useRef(editingQueueId);
   const markAsPaidRef = useRef<(id: string) => void>(() => {});
   const handleDispatcherChangeRef = useRef<(name: string, isEditing?: boolean) => void>(() => {});
+  const onQueueChangeRef = useRef(onQueueChange);
 
   const dispatcherInfo = DISPATCHERS.find(d => d.name === selectedDispatcher);
 
@@ -316,6 +317,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
   useEffect(() => { editingQueueIdRef.current = editingQueueId; }, [editingQueueId]);
   useEffect(() => { markAsPaidRef.current = markAsPaid; }, [markAsPaid]);
   useEffect(() => { handleDispatcherChangeRef.current = handleDispatcherChange; }, [handleDispatcherChange]);
+  useEffect(() => { onQueueChangeRef.current = onQueueChange; }, [onQueueChange]);
 
   // Handler global de teclado — funciona sin importar qué elemento tenga el foco
   useEffect(() => {
@@ -339,6 +341,9 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
       } else if (e.key === '|') {
         e.preventDefault();
         setCurrentEntries(prev => prev.slice(0, -1));
+      } else if (e.key === '\\') {
+        e.preventDefault();
+        onQueueChangeRef.current(prev => prev.slice(1));
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
         queueAreaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -429,6 +434,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
               else if (e.key === "'" || e.key === '"') { e.preventDefault(); setInputCurrency(prev => prev === 'USD' ? 'Bs' : 'USD'); }
               else if (e.key === '/') { e.preventDefault(); if (queue.length > 0) markAsPaid(queue[0].id); }
               else if (e.key === '|') { e.preventDefault(); setCurrentEntries(prev => prev.slice(0, -1)); }
+              else if (e.key === '\\') { e.preventDefault(); onQueueChange(prev => prev.slice(1)); }
               // Fix #3: Tab cicla entre despachadores (Shift+Tab hacia atrás)
               else if (e.key === 'Tab') {
                 e.preventDefault();
