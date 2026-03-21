@@ -613,9 +613,9 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                       {/* Drag handle */}
                       <span className="text-ocean-200 text-xs leading-none cursor-grab select-none shrink-0" title="Arrastrar">⠿</span>
 
-                      {/* Badge despachador — círculo con inicial */}
-                      <span className={`text-[11px] font-bold w-6 h-6 flex items-center justify-center rounded-full shrink-0 ${disp?.badge ?? 'bg-ocean-100 text-ocean-600'}`}>
-                        {item.dispatcher.length <= 2 ? item.dispatcher : item.dispatcher[0]}
+                      {/* Badge despachador — pill con nombre completo */}
+                      <span className={`text-[11px] font-bold px-2 py-0.5 flex items-center justify-center rounded-full shrink-0 ${disp?.badge ?? 'bg-ocean-100 text-ocean-600'}`}>
+                        {item.dispatcher}
                       </span>
 
                       {isBeingEdited && (
