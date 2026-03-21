@@ -297,6 +297,18 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   }, [activeDispatcher, activeClient, setDispatchers, setActiveClientId]);
 
   // === Efectos ===
+  // Ocultar footer del sitio cuando está en QuickOps para maximizar espacio de cola
+  useEffect(() => {
+    const footer = document.querySelector('footer');
+    if (!footer) return;
+    if (activeTab === 'quickops') {
+      footer.style.display = 'none';
+    } else {
+      footer.style.display = '';
+    }
+    return () => { footer.style.display = ''; };
+  }, [activeTab]);
+
   // Fetch tasa BCV al montar
   useEffect(() => {
     if (initialBcv?.rate) {
