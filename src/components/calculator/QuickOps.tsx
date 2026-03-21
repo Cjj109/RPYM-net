@@ -336,6 +336,9 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
         e.preventDefault();
         const q = queueRef.current;
         if (q.length > 0) markAsPaidRef.current(q[0].id);
+      } else if (e.key === '|') {
+        e.preventDefault();
+        setCurrentEntries(prev => prev.slice(0, -1));
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
         queueAreaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -425,6 +428,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
               }
               else if (e.key === "'" || e.key === '"') { e.preventDefault(); setInputCurrency(prev => prev === 'USD' ? 'Bs' : 'USD'); }
               else if (e.key === '/') { e.preventDefault(); if (queue.length > 0) markAsPaid(queue[0].id); }
+              else if (e.key === '|') { e.preventDefault(); setCurrentEntries(prev => prev.slice(0, -1)); }
               // Fix #3: Tab cicla entre despachadores (Shift+Tab hacia atrás)
               else if (e.key === 'Tab') {
                 e.preventDefault();
