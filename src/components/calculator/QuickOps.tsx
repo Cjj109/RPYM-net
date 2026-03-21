@@ -10,7 +10,16 @@ interface QuickOpsProps {
   queue: QuickQueueItem[];
   onQueueChange: Dispatch<SetStateAction<QuickQueueItem[]>>;
   onAddSession: (session: SavedSession) => void;
+  displayMode?: 'carlos' | 'vero';
 }
+
+const DISP_HEX: Record<string, string> = {
+  Carlos: '#ef4444',
+  Luis:   '#f59e0b',
+  Pedro:  '#14b8a6',
+  Johan:  '#8b5cf6',
+  Pa:     '#3b82f6',
+};
 
 function formatTimeAgo(timestamp: number): string {
   const diff = Date.now() - timestamp;
@@ -22,7 +31,7 @@ function formatTimeAgo(timestamp: number): string {
   return `${Math.floor(hours / 24)}d`;
 }
 
-export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: QuickOpsProps) {
+export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, displayMode = 'carlos' }: QuickOpsProps) {
   const [selectedDispatcher, setSelectedDispatcher] = useState(DISPATCHERS[0].name);
   const [inputAmount, setInputAmount] = useState('');
   const [inputCurrency, setInputCurrency] = useState<'USD' | 'Bs'>('USD');
@@ -640,30 +649,38 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
                 onDoubleClick={() => startEditingQueueItem(item)}
-                className={`rounded-xl border overflow-hidden bg-white select-none cursor-grab active:cursor-grabbing transition-all duration-150 ${
+                className={`rounded-xl overflow-hidden select-none cursor-grab active:cursor-grabbing transition-all duration-150 ${
+                  displayMode === 'vero' ? 'shadow-md' : 'border bg-white'
+                } ${
                   isBeingEdited
-                    ? 'border-amber-300 ring-2 ring-amber-200 shadow-amber-100 shadow-md'
-                    : 'border-ocean-100 shadow-sm'
-                } ${isDragging ? 'opacity-40 scale-[0.97] shadow-lg' : ''} ${isDragOver ? 'border-ocean-400 shadow-md -translate-y-0.5' : ''}`}
+                    ? displayMode === 'vero' ? 'ring-2 ring-amber-300 shadow-amber-200 shadow-md' : 'border-amber-300 ring-2 ring-amber-200 shadow-amber-100 shadow-md'
+                    : displayMode === 'vero' ? '' : 'border-ocean-100 shadow-sm'
+                } ${isDragging ? 'opacity-40 scale-[0.97] shadow-lg' : ''} ${isDragOver ? displayMode === 'vero' ? 'shadow-lg -translate-y-0.5' : 'border-ocean-400 shadow-md -translate-y-0.5' : ''}`}
+                style={displayMode === 'vero' ? { backgroundColor: DISP_HEX[item.dispatcher] ?? '#10b981' } : undefined}
               >
                 <div className="flex">
-                  {/* Strip lateral del color del despachador */}
-                  <div className={`w-1.5 shrink-0 ${disp?.strip ?? 'bg-ocean-200'}`} />
+                  {/* Strip lateral del color del despachador (solo modo Carlos) */}
+                  {displayMode !== 'vero' && (
+                    <div className={`w-1.5 shrink-0 ${disp?.strip ?? 'bg-ocean-200'}`} />
+                  )}
 
                   {/* Contenido */}
                   <div className="flex-1 min-w-0">
                     {/* Línea compacta única */}
                     <div className="flex items-center gap-1.5 px-2 py-1 min-h-[42px]">
                       {/* Drag handle */}
-                      <span className="text-ocean-200 text-xs leading-none cursor-grab select-none shrink-0" title="Arrastrar">⠿</span>
+                      <span className={`text-xs leading-none cursor-grab select-none shrink-0 ${displayMode === 'vero' ? 'text-white/50' : 'text-ocean-200'}`} title="Arrastrar">⠿</span>
 
                       {/* Badge despachador — pill con nombre completo */}
-                      <span className={`text-[11px] font-bold px-2 py-0.5 flex items-center justify-center rounded-full shrink-0 ${disp?.badge ?? 'bg-ocean-100 text-ocean-600'}`}>
+                      <span
+                        className={`text-[11px] font-bold px-2 py-0.5 flex items-center justify-center rounded-full shrink-0 ${displayMode === 'vero' ? 'text-white' : (disp?.badge ?? 'bg-ocean-100 text-ocean-600')}`}
+                        style={displayMode === 'vero' ? { backgroundColor: 'rgba(255,255,255,0.25)' } : undefined}
+                      >
                         {item.dispatcher}
                       </span>
 
                       {isBeingEdited && (
-                        <span className="text-[9px] font-bold text-amber-600 bg-amber-100 px-1 py-0.5 rounded-full shrink-0">✎</span>
+                        <span className={`text-[9px] font-bold px-1 py-0.5 rounded-full shrink-0 ${displayMode === 'vero' ? 'text-white bg-white/20' : 'text-amber-600 bg-amber-100'}`}>✎</span>
                       )}
 
                       {/* Totales */}
@@ -684,7 +701,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                           />
                         ) : (
                           <span
-                            className={`text-xl font-bold font-mono leading-tight cursor-pointer hover:underline shrink-0 ${disp?.text ?? 'text-ocean-800'}`}
+                            className={`text-xl font-bold font-mono leading-tight cursor-pointer hover:underline shrink-0 ${displayMode === 'vero' ? 'text-white' : (disp?.text ?? 'text-ocean-800')}`}
                             onClick={() => startEditingQueueTotal(item, 'Bs')}
                             title="Editar total en Bs"
                           >
@@ -707,7 +724,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                           />
                         ) : (
                           <span
-                            className="text-xs text-ocean-400 font-mono cursor-pointer hover:underline shrink-0"
+                            className={`text-xs font-bold font-mono cursor-pointer hover:underline shrink-0 ${displayMode === 'vero' ? 'text-white/80' : (disp?.text ?? 'text-ocean-800')}`}
                             onClick={() => startEditingQueueTotal(item, 'USD')}
                             title="Editar total en USD"
                           >
@@ -736,7 +753,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                       ) : item.note ? (
                         <button
                           onClick={e => { e.stopPropagation(); startEditingQueueNote(item); }}
-                          className="text-ocean-400 hover:text-ocean-600 transition-colors p-0.5 shrink-0"
+                          className={`transition-colors p-0.5 shrink-0 ${displayMode === 'vero' ? 'text-white/70 hover:text-white' : 'text-ocean-400 hover:text-ocean-600'}`}
                           title={item.note}
                         >
                           <ChatBubbleIcon className="w-3 h-3" />
@@ -745,19 +762,15 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
 
                       {/* Ya pasé */}
                       {(() => {
-                        const dispColors: Record<string, string> = {
-                          Carlos: '#ef4444',
-                          Luis:   '#f59e0b',
-                          Pedro:  '#14b8a6',
-                          Johan:  '#8b5cf6',
-                          Pa:     '#3b82f6',
-                        };
-                        const btnColor = item.dispatcher ? (dispColors[item.dispatcher] ?? '#10b981') : '#10b981';
+                        const btnColor = DISP_HEX[item.dispatcher] ?? '#10b981';
                         return (
                           <button
                             onClick={e => { e.stopPropagation(); markAsPaid(item.id); }}
                             className="flex-shrink-0 px-2 py-0.5 text-white text-xs font-bold rounded-lg shadow transition-all active:scale-95"
-                            style={{ backgroundColor: btnColor }}
+                            style={displayMode === 'vero'
+                              ? { backgroundColor: 'rgba(255,255,255,0.25)' }
+                              : { backgroundColor: btnColor }
+                            }
                             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(0.88)'; }}
                             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.filter = ''; }}
                             onMouseDown={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(0.75)'; }}
@@ -771,7 +784,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                       {/* Trash */}
                       <button
                         onClick={e => { e.stopPropagation(); onQueueChange(prev => prev.filter(q => q.id !== item.id)); }}
-                        className="text-ocean-300 hover:text-red-400 transition-colors p-0.5 shrink-0"
+                        className={`transition-colors p-0.5 shrink-0 ${displayMode === 'vero' ? 'text-white/50 hover:text-white' : 'text-ocean-300 hover:text-red-400'}`}
                         title="Eliminar"
                       >
                         <TrashIcon className="w-3 h-3" />
@@ -780,11 +793,12 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
 
                     {/* Chips de montos — solo visibles al editar (doble tap) */}
                     {isBeingEdited && item.entries.length > 0 && (
-                      <div className="px-2 pb-1 flex flex-wrap gap-0.5 border-t border-amber-100">
+                      <div className={`px-2 pb-1 flex flex-wrap gap-0.5 border-t ${displayMode === 'vero' ? 'border-white/20' : 'border-amber-100'}`}>
                         {item.entries.map(e => (
                           <span
                             key={e.id}
-                            className={`text-[10px] font-mono px-1 py-0.5 rounded-md ${disp?.bg ?? 'bg-ocean-50'} ${disp?.text ?? 'text-ocean-600'}`}
+                            className={`text-[10px] font-mono px-1 py-0.5 rounded-md ${displayMode === 'vero' ? 'text-white' : `${disp?.bg ?? 'bg-ocean-50'} ${disp?.text ?? 'text-ocean-600'}`}`}
+                            style={displayMode === 'vero' ? { backgroundColor: 'rgba(255,255,255,0.2)' } : undefined}
                           >
                             {formatUSD(e.amountUSD)}
                           </span>

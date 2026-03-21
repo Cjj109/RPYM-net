@@ -16,6 +16,7 @@ export const LS_KEYS = {
   SESSIONS: 'rpym_calc_sessions',
   RATE_CONFIG: 'rpym_calc_rate_config',
   QUICK_QUEUE: 'rpym_calc_quick_queue',
+  QUEUE_DISPLAY_MODE: 'rpym_calc_queue_display_mode',
   // Claves del formato anterior (para migración)
   CLIENTS: 'rpym_calc_clients',
   ACTIVE_CLIENT: 'rpym_calc_active_client',

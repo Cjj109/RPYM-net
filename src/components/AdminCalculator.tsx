@@ -58,6 +58,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   const [sessions, setSessions] = useLocalStorage<SavedSession[]>(LS_KEYS.SESSIONS, []);
   const [quickQueue, setQuickQueue] = useLocalStorage<QuickQueueItem[]>(LS_KEYS.QUICK_QUEUE, []);
   const [rateConfig, setRateConfig] = useLocalStorage<RateConfig>(LS_KEYS.RATE_CONFIG, { useManualRate: false, manualRate: '' });
+  const [queueDisplayMode, setQueueDisplayMode] = useLocalStorage<'carlos' | 'vero'>(LS_KEYS.QUEUE_DISPLAY_MODE, 'carlos');
 
   // === Estado no persistido ===
   const [autoRate, setAutoRate] = useState(initialBcv?.rate ?? 0);
@@ -483,11 +484,34 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
         </div>
 
         {showSettings && (
-          <RateSettings
-            autoRate={autoRate}
-            rateConfig={rateConfig}
-            onRateConfigChange={setRateConfig}
-          />
+          <>
+            <RateSettings
+              autoRate={autoRate}
+              rateConfig={rateConfig}
+              onRateConfigChange={setRateConfig}
+            />
+            <div className="mb-3 p-3 bg-ocean-50 rounded-lg border border-ocean-100">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-ocean-500 font-medium">Cola:</span>
+                <button
+                  onClick={() => setQueueDisplayMode('carlos')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    queueDisplayMode === 'carlos' ? 'bg-ocean-600 text-white' : 'bg-white text-ocean-600 hover:bg-ocean-100'
+                  }`}
+                >
+                  Modo Carlos
+                </button>
+                <button
+                  onClick={() => setQueueDisplayMode('vero')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    queueDisplayMode === 'vero' ? 'bg-ocean-600 text-white' : 'bg-white text-ocean-600 hover:bg-ocean-100'
+                  }`}
+                >
+                  Modo Vero
+                </button>
+              </div>
+            </div>
+          </>
         )}
 
         {activeTab === 'calculator' && (
@@ -576,6 +600,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
               queue={quickQueue}
               onQueueChange={setQuickQueue}
               onAddSession={(session) => setSessions(prev => [session, ...prev].slice(0, 100))}
+              displayMode={queueDisplayMode}
             />
           </>
         )}
