@@ -31,6 +31,15 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
   const [editingValue, setEditingValue] = useState('');
   const [editingCurrency, setEditingCurrency] = useState<'USD' | 'Bs'>('Bs');
   const [noteInput, setNoteInput] = useState('');
+
+  // Queue item editing state
+  const [editingQueueId, setEditingQueueId] = useState<string | null>(null);
+
+  // Drag & drop state
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const touchDragIndex = useRef<number | null>(null);
+
   const inputRef = useRef<HTMLInputElement>(null);
 
   const dispatcherInfo = DISPATCHERS.find(d => d.name === selectedDispatcher);
@@ -40,11 +49,30 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
     { usd: 0, bs: 0 }
   );
 
-  // Fix #2: al cambiar de despachador, resetear entradas y monto para cuenta nueva
-  const handleDispatcherChange = useCallback((name: string) => {
+  const handleDispatcherChange = useCallback((name: string, isEditing = false) => {
     setSelectedDispatcher(name);
+    if (!isEditing) {
+      setCurrentEntries([]);
+      setInputAmount('');
+    }
+    inputRef.current?.focus();
+  }, []);
+
+  // Load a queue item into the edit area on double-tap/click
+  const startEditingQueueItem = useCallback((item: QuickQueueItem) => {
+    setEditingQueueId(item.id);
+    setSelectedDispatcher(item.dispatcher);
+    setCurrentEntries([...item.entries]);
+    setNoteInput(item.note ?? '');
+    setInputAmount('');
+    inputRef.current?.focus();
+  }, []);
+
+  const cancelEditingQueue = useCallback(() => {
+    setEditingQueueId(null);
     setCurrentEntries([]);
     setInputAmount('');
+    setNoteInput('');
     inputRef.current?.focus();
   }, []);
 
@@ -105,22 +133,41 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
 
   const addToQueue = useCallback(() => {
     if (currentEntries.length === 0) return;
-    const item: QuickQueueItem = {
-      id: crypto.randomUUID(),
-      dispatcher: selectedDispatcher,
-      entries: [...currentEntries],
-      totalUSD: currentTotal.usd,
-      totalBs: currentTotal.bs,
-      rate: activeRate,
-      timestamp: Date.now(),
-      note: noteInput.trim() || undefined,
-    };
-    onQueueChange(prev => [...prev, item]);
+
+    if (editingQueueId) {
+      // Update existing item in-place
+      onQueueChange(prev => prev.map(item => {
+        if (item.id !== editingQueueId) return item;
+        return {
+          ...item,
+          dispatcher: selectedDispatcher,
+          entries: [...currentEntries],
+          totalUSD: currentTotal.usd,
+          totalBs: currentTotal.bs,
+          rate: activeRate,
+          note: noteInput.trim() || undefined,
+        };
+      }));
+      setEditingQueueId(null);
+    } else {
+      const item: QuickQueueItem = {
+        id: crypto.randomUUID(),
+        dispatcher: selectedDispatcher,
+        entries: [...currentEntries],
+        totalUSD: currentTotal.usd,
+        totalBs: currentTotal.bs,
+        rate: activeRate,
+        timestamp: Date.now(),
+        note: noteInput.trim() || undefined,
+      };
+      onQueueChange(prev => [...prev, item]);
+    }
+
     setCurrentEntries([]);
     setInputAmount('');
     setNoteInput('');
     inputRef.current?.focus();
-  }, [currentEntries, selectedDispatcher, currentTotal, activeRate, onQueueChange, noteInput]);
+  }, [currentEntries, selectedDispatcher, currentTotal, activeRate, onQueueChange, noteInput, editingQueueId]);
 
   const markAsPaid = useCallback((itemId: string) => {
     const item = queue.find(q => q.id === itemId);
@@ -149,6 +196,71 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
     onQueueChange(prev => prev.filter(q => q.id !== itemId));
   }, [queue, onAddSession, onQueueChange]);
 
+  // --- Drag & drop (desktop) ---
+  const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
+    setDragIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(index);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (dragIndex === null || dragIndex === index) {
+      setDragIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+    onQueueChange(prev => {
+      const next = [...prev];
+      const [removed] = next.splice(dragIndex, 1);
+      next.splice(index, 0, removed);
+      return next;
+    });
+    setDragIndex(null);
+    setDragOverIndex(null);
+  }, [dragIndex, onQueueChange]);
+
+  const handleDragEnd = useCallback(() => {
+    setDragIndex(null);
+    setDragOverIndex(null);
+  }, []);
+
+  // --- Drag & drop (touch / mobile) ---
+  const handleTouchStart = useCallback((e: React.TouchEvent, index: number) => {
+    touchDragIndex.current = index;
+    setDragIndex(index);
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    const elements = document.elementsFromPoint(touch.clientX, touch.clientY);
+    const target = elements.find(el => el.hasAttribute('data-queue-index'));
+    if (target) {
+      const idx = parseInt(target.getAttribute('data-queue-index') ?? '-1', 10);
+      if (idx >= 0) setDragOverIndex(idx);
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (touchDragIndex.current !== null && dragOverIndex !== null && touchDragIndex.current !== dragOverIndex) {
+      const from = touchDragIndex.current;
+      onQueueChange(prev => {
+        const next = [...prev];
+        const [removed] = next.splice(from, 1);
+        next.splice(dragOverIndex, 0, removed);
+        return next;
+      });
+    }
+    touchDragIndex.current = null;
+    setDragIndex(null);
+    setDragOverIndex(null);
+  }, [dragOverIndex, onQueueChange]);
+
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
@@ -165,7 +277,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
         {DISPATCHERS.map((d) => (
           <button
             key={d.name}
-            onClick={() => handleDispatcherChange(d.name)}
+            onClick={() => handleDispatcherChange(d.name, !!editingQueueId)}
             className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
               selectedDispatcher === d.name
                 ? `${d.bg} ${d.text} ring-2 ${d.ring} shadow-sm`
@@ -177,8 +289,21 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
         ))}
       </div>
 
+      {/* Indicador visual de edición de cuenta en cola */}
+      {editingQueueId && (
+        <div className="flex items-center justify-between px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
+          <span className="text-xs font-semibold text-amber-700">Editando cuenta en cola</span>
+          <button
+            onClick={cancelEditingQueue}
+            className="text-xs text-amber-500 hover:text-amber-700 font-medium"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+
       {/* Área de entrada */}
-      <div className={`rounded-xl p-3 ${dispatcherInfo?.bg ?? 'bg-ocean-50'}`}>
+      <div className={`rounded-xl p-3 transition-all ${dispatcherInfo?.bg ?? 'bg-ocean-50'} ${editingQueueId ? 'ring-2 ring-amber-300' : ''}`}>
         {/* Input de monto */}
         <div className="flex items-stretch gap-2">
           <button
@@ -205,7 +330,10 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
               }
               else if (e.key === ' ') { e.preventDefault(); setInputAmount(prev => prev + '+'); }
               else if (e.key === '[') { e.preventDefault(); setInputAmount(prev => prev + '*'); }
-              else if (e.key === 'Escape') { setInputAmount(''); }
+              else if (e.key === 'Escape') {
+                if (editingQueueId) { cancelEditingQueue(); }
+                else { setInputAmount(''); }
+              }
               else if (e.key === '/') { e.preventDefault(); if (queue.length > 0) markAsPaid(queue[0].id); }
               // Fix #3: Tab cicla entre despachadores (Shift+Tab hacia atrás)
               else if (e.key === 'Tab') {
@@ -214,7 +342,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                 const nextIdx = e.shiftKey
                   ? (currentIdx - 1 + DISPATCHERS.length) % DISPATCHERS.length
                   : (currentIdx + 1) % DISPATCHERS.length;
-                handleDispatcherChange(DISPATCHERS[nextIdx].name);
+                handleDispatcherChange(DISPATCHERS[nextIdx].name, !!editingQueueId);
               }
               // Flechas izquierda/derecha ciclan despachadores solo cuando el input está vacío
               else if (inputAmount === '' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
@@ -223,7 +351,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                 const nextIdx = e.key === 'ArrowRight'
                   ? (currentIdx + 1) % DISPATCHERS.length
                   : (currentIdx - 1 + DISPATCHERS.length) % DISPATCHERS.length;
-                handleDispatcherChange(DISPATCHERS[nextIdx].name);
+                handleDispatcherChange(DISPATCHERS[nextIdx].name, !!editingQueueId);
               }
             }}
             placeholder="0.00"
@@ -319,7 +447,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
           />
         </div>
 
-        {/* Total acumulado + botón agregar a cola */}
+        {/* Total acumulado + botón agregar/actualizar */}
         {currentEntries.length > 0 && (
           <div className="mt-1.5">
             <div className="flex items-center justify-between bg-white/90 rounded-xl px-3 py-2.5 shadow-sm">
@@ -331,9 +459,13 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
               </div>
               <button
                 onClick={addToQueue}
-                className="px-5 py-2.5 rounded-xl text-sm font-bold text-white shadow-sm transition-all active:scale-95 bg-ocean-600 hover:bg-ocean-500"
+                className={`px-5 py-2.5 rounded-xl text-sm font-bold text-white shadow-sm transition-all active:scale-95 ${
+                  editingQueueId
+                    ? 'bg-amber-500 hover:bg-amber-400'
+                    : 'bg-ocean-600 hover:bg-ocean-500'
+                }`}
               >
-                Agregar a cola
+                {editingQueueId ? 'Actualizar' : 'Agregar a cola'}
               </button>
             </div>
           </div>
@@ -350,22 +482,47 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
             <span className="bg-ocean-100 text-ocean-600 text-[10px] font-bold rounded-full px-1.5 py-0.5">
               {queue.length}
             </span>
+            <span className="text-[9px] text-ocean-300 ml-1">doble tap para editar · arrastra para reordenar</span>
           </div>
           {queue.map((item, idx) => {
             const disp = DISPATCHERS.find(d => d.name === item.dispatcher);
+            const isDragging = dragIndex === idx;
+            const isDragOver = dragOverIndex === idx && dragIndex !== idx;
+            const isBeingEdited = editingQueueId === item.id;
             return (
-              <div key={item.id} className="rounded-xl border border-ocean-100 overflow-hidden shadow-sm bg-white">
+              <div
+                key={item.id}
+                data-queue-index={idx}
+                draggable
+                onDragStart={e => handleDragStart(e, idx)}
+                onDragOver={e => handleDragOver(e, idx)}
+                onDrop={e => handleDrop(e, idx)}
+                onDragEnd={handleDragEnd}
+                onTouchStart={e => handleTouchStart(e, idx)}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onDoubleClick={() => startEditingQueueItem(item)}
+                className={`rounded-xl border overflow-hidden bg-white select-none cursor-grab active:cursor-grabbing transition-all duration-150 ${
+                  isBeingEdited
+                    ? 'border-amber-300 ring-2 ring-amber-200 shadow-amber-100 shadow-md'
+                    : 'border-ocean-100 shadow-sm'
+                } ${isDragging ? 'opacity-40 scale-[0.97] shadow-lg' : ''} ${isDragOver ? 'border-ocean-400 shadow-md -translate-y-0.5' : ''}`}
+              >
                 {/* Encabezado del item */}
                 <div className={`flex items-center gap-1.5 px-2 py-1 ${disp?.bg ?? 'bg-ocean-50'}`}>
+                  <span className="text-ocean-300 text-sm leading-none cursor-grab select-none" title="Arrastrar para reordenar">⠿</span>
                   <span className="text-[10px] font-bold text-ocean-400 font-mono">#{idx + 1}</span>
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${disp?.badge ?? 'bg-ocean-100 text-ocean-600'}`}>
                     {item.dispatcher}
                   </span>
+                  {isBeingEdited && (
+                    <span className="text-[9px] font-bold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">editando</span>
+                  )}
                   <span className="text-[9px] text-ocean-400 ml-auto">
                     {formatTimeAgo(item.timestamp)}
                   </span>
                   <button
-                    onClick={() => onQueueChange(prev => prev.filter(q => q.id !== item.id))}
+                    onClick={e => { e.stopPropagation(); onQueueChange(prev => prev.filter(q => q.id !== item.id)); }}
                     className="text-ocean-300 hover:text-red-400 transition-colors p-0.5"
                     title="Eliminar de la cola"
                   >
@@ -396,7 +553,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                       <div className="text-xs text-ocean-400 font-mono">{formatUSD(item.totalUSD)}</div>
                     </div>
                     <button
-                      onClick={() => markAsPaid(item.id)}
+                      onClick={e => { e.stopPropagation(); markAsPaid(item.id); }}
                       className="flex-shrink-0 px-4 py-1.5 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow transition-all active:scale-95"
                     >
                       Ya pasé ✓
