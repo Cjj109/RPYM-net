@@ -156,7 +156,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
     <div className="space-y-3">
       {/* Selector de repartidor */}
       <div className="flex flex-wrap gap-1.5">
-        {DISPATCHERS.map((d, idx) => (
+        {DISPATCHERS.map((d) => (
           <button
             key={d.name}
             onClick={() => handleDispatcherChange(d.name)}
@@ -166,8 +166,6 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                 : 'bg-ocean-50 text-ocean-400 hover:bg-ocean-100'
             }`}
           >
-            {/* Fix #3: mostrar número de tecla rápida */}
-            <span className="text-[10px] opacity-50 mr-1">{idx + 1}</span>
             {d.name}
           </button>
         ))}
@@ -211,13 +209,14 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
                   : (currentIdx + 1) % DISPATCHERS.length;
                 handleDispatcherChange(DISPATCHERS[nextIdx].name);
               }
-              // Fix #3: teclas 1-5 seleccionan despachador cuando el input está vacío
-              else if (inputAmount === '' && /^[1-5]$/.test(e.key)) {
-                const idx = parseInt(e.key) - 1;
-                if (DISPATCHERS[idx]) {
-                  e.preventDefault();
-                  handleDispatcherChange(DISPATCHERS[idx].name);
-                }
+              // Flechas izquierda/derecha ciclan despachadores solo cuando el input está vacío
+              else if (inputAmount === '' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+                e.preventDefault();
+                const currentIdx = DISPATCHERS.findIndex(d => d.name === selectedDispatcher);
+                const nextIdx = e.key === 'ArrowRight'
+                  ? (currentIdx + 1) % DISPATCHERS.length
+                  : (currentIdx - 1 + DISPATCHERS.length) % DISPATCHERS.length;
+                handleDispatcherChange(DISPATCHERS[nextIdx].name);
               }
             }}
             placeholder="0.00"
@@ -391,7 +390,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession }: Qui
         <div className="text-center py-10 text-ocean-300">
           <div className="text-3xl mb-2">⚡</div>
           <div className="text-sm">Selecciona repartidor e ingresa los montos</div>
-          <div className="text-xs mt-1 text-ocean-200">Enter o espacio para agregar · Tab o 1-5 para cambiar repartidor</div>
+          <div className="text-xs mt-1 text-ocean-200">Enter o espacio para agregar · Tab o ← → para cambiar repartidor</div>
         </div>
       )}
     </div>
