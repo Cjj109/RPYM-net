@@ -560,7 +560,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
               </span>
             )}
             <span className={`text-xl font-bold ${dispatcherInfo?.text ?? 'text-ocean-400'}`}>
-              {formatBs(previewBs)}
+              {inputCurrency === 'USD' ? formatBs(previewBs) : formatUSD(previewUSD)}
             </span>
           </div>
         )}
@@ -828,6 +828,10 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                       <div
                         className={`px-2 pb-2 flex flex-wrap gap-1 border-t ${displayMode === 'vero' ? 'border-black/10' : 'border-amber-100'}`}
                         onClick={e => e.stopPropagation()}
+                        onDoubleClick={e => e.stopPropagation()}
+                        onTouchStart={e => e.stopPropagation()}
+                        onTouchMove={e => e.stopPropagation()}
+                        onTouchEnd={e => e.stopPropagation()}
                       >
                         {item.entries.map(e => {
                           const liveEntry = currentEntries.find(ce => ce.id === e.id) ?? e;
