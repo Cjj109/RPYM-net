@@ -428,6 +428,9 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
       } else if (e.key === '\\') {
         e.preventDefault();
         discardFirstInQueueRef.current();
+      } else if (e.key === "'" || e.key === '"') {
+        e.preventDefault();
+        setInputCurrency(prev => prev === 'USD' ? 'Bs' : 'USD');
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
         queueAreaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
