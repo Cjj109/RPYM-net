@@ -523,7 +523,10 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, displ
               </span>
             )}
             <span className={`text-xl font-bold ${dispatcherInfo?.text ?? 'text-ocean-400'}`}>
-              {inputCurrency === 'USD' ? formatBs(previewBs) : formatUSD(previewUSD)}
+              {formatBs(previewBs)}
+            </span>
+            <span className={`font-bold ${dispatcherInfo?.text ?? 'text-ocean-400'}`}>
+              {' · '}{formatUSD(previewUSD)}
             </span>
           </div>
         )}
