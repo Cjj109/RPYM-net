@@ -54,8 +54,8 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
   const [editingQueueNoteId, setEditingQueueNoteId] = useState<string | null>(null);
   const [editingQueueNoteValue, setEditingQueueNoteValue] = useState('');
 
-  // Dispatcher picker for queue items
-  const [dispatcherPickerItemId, setDispatcherPickerItemId] = useState<string | null>(null);
+  // Dispatcher change mode for queue items (badge tap → selecciona arriba)
+  const [changingDispatcherForItemId, setChangingDispatcherForItemId] = useState<string | null>(null);
 
   // Drag & drop state
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -464,9 +464,16 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
         {DISPATCHERS.map((d) => (
           <button
             key={d.name}
-            onClick={() => handleDispatcherChange(d.name, !!editingQueueId)}
+            onClick={() => {
+              if (changingDispatcherForItemId) {
+                onQueueChange(prev => prev.map(q => q.id === changingDispatcherForItemId ? { ...q, dispatcher: d.name } : q));
+                setChangingDispatcherForItemId(null);
+              } else {
+                handleDispatcherChange(d.name, !!editingQueueId);
+              }
+            }}
             className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-              selectedDispatcher === d.name
+              selectedDispatcher === d.name && !changingDispatcherForItemId
                 ? `${d.bg} ${d.text} ring-2 ${d.ring} shadow-sm`
                 : 'bg-ocean-50 text-ocean-400 hover:bg-ocean-100'
             }`}
@@ -488,6 +495,24 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
           </button>
         </div>
       )}
+
+      {/* Indicador: modo cambio de despachador */}
+      {changingDispatcherForItemId && (() => {
+        const idx = queue.findIndex(q => q.id === changingDispatcherForItemId);
+        return (
+          <div className="flex items-center justify-between px-3 py-1.5 bg-violet-50 border border-violet-300 rounded-lg">
+            <span className="text-xs font-semibold text-violet-700">
+              Cambiando despachador — cuenta #{idx + 1} · selecciona uno arriba
+            </span>
+            <button
+              onClick={() => setChangingDispatcherForItemId(null)}
+              className="text-xs text-violet-500 hover:text-violet-700 font-medium"
+            >
+              Cancelar
+            </button>
+          </div>
+        );
+      })()}
 
       {/* Área de entrada */}
       <div className={`rounded-xl p-3 transition-all ${dispatcherInfo?.bg ?? 'bg-ocean-50'} ${editingQueueId ? 'ring-2 ring-amber-300' : ''}`}>
@@ -713,12 +738,12 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                       {/* Drag handle */}
                       <span className={`text-xs leading-none cursor-grab select-none shrink-0 ${displayMode === 'vero' ? `${disp?.text ?? 'text-emerald-700'} opacity-40` : 'text-ocean-200'}`} title="Arrastrar">⠿</span>
 
-                      {/* Badge despachador — toca para cambiar despachador */}
+                      {/* Badge despachador — toca para activar modo cambio de despachador arriba */}
                       <button
-                        onClick={e => { e.stopPropagation(); setDispatcherPickerItemId(prev => prev === item.id ? null : item.id); }}
+                        onClick={e => { e.stopPropagation(); setChangingDispatcherForItemId(prev => prev === item.id ? null : item.id); }}
                         onDoubleClick={e => e.stopPropagation()}
                         title="Cambiar despachador"
-                        className={`text-[11px] font-bold px-2 py-0.5 flex items-center justify-center rounded-full shrink-0 active:scale-95 transition-transform ${displayMode === 'vero' ? `bg-black/10 ${disp?.text ?? 'text-emerald-700'}` : (disp?.badge ?? 'bg-ocean-100 text-ocean-600')}`}
+                        className={`text-[11px] font-bold px-2 py-0.5 flex items-center justify-center rounded-full shrink-0 active:scale-95 transition-transform ${changingDispatcherForItemId === item.id ? 'ring-2 ring-violet-400' : ''} ${displayMode === 'vero' ? `bg-black/10 ${disp?.text ?? 'text-emerald-700'}` : (disp?.badge ?? 'bg-ocean-100 text-ocean-600')}`}
                       >
                         {item.dispatcher}
                       </button>
@@ -839,35 +864,6 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                         <TrashIcon className="w-3 h-3" />
                       </button>
                     </div>
-
-                    {/* Selector de despachador inline — aparece al tocar el badge */}
-                    {dispatcherPickerItemId === item.id && (
-                      <div
-                        className={`px-2 pb-1.5 pt-1 flex flex-wrap gap-1 border-t ${displayMode === 'vero' ? 'border-black/10' : 'border-ocean-100'}`}
-                        onClick={e => e.stopPropagation()}
-                        onDoubleClick={e => e.stopPropagation()}
-                        onTouchStart={e => e.stopPropagation()}
-                        onTouchEnd={e => e.stopPropagation()}
-                      >
-                        {DISPATCHERS.map(d => (
-                          <button
-                            key={d.name}
-                            onClick={e => {
-                              e.stopPropagation();
-                              onQueueChange(prev => prev.map(q => q.id === item.id ? { ...q, dispatcher: d.name } : q));
-                              setDispatcherPickerItemId(null);
-                            }}
-                            className={`text-[11px] font-bold px-2 py-0.5 rounded-full transition-all active:scale-95 ${
-                              d.name === item.dispatcher
-                                ? `${d.bg} ${d.text} ring-1 ${d.ring}`
-                                : displayMode === 'vero' ? 'bg-black/10 opacity-50 hover:opacity-90' : 'bg-ocean-50 text-ocean-400 hover:bg-ocean-100'
-                            }`}
-                          >
-                            {d.name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
 
                     {/* Chips de montos — solo visibles al editar (doble tap) */}
                     {isBeingEdited && item.entries.length > 0 && (
