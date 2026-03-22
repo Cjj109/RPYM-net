@@ -517,16 +517,13 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, displ
         {parsedAmount !== 0 && activeRate > 0 && (
           <div className="mt-2 px-2 py-1.5 bg-white/70 rounded-lg flex items-center gap-1 text-xs font-mono">
             {hasExpression && (
-              <span className={dispatcherInfo?.text ?? 'text-ocean-500'}>
+              <span className={`font-bold ${dispatcherInfo?.text ?? 'text-ocean-400'}`}>
                 = {inputCurrency === 'USD' ? formatUSD(previewUSD) : formatBs(previewBs)}
                 {' · '}
               </span>
             )}
             <span className={`text-xl font-bold ${dispatcherInfo?.text ?? 'text-ocean-400'}`}>
               {formatBs(previewBs)}
-            </span>
-            <span className={`font-bold ${dispatcherInfo?.text ?? 'text-ocean-400'}`}>
-              {' · '}{formatUSD(previewUSD)}
             </span>
           </div>
         )}
