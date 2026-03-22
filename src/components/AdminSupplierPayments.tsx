@@ -1067,6 +1067,7 @@ export default function AdminSupplierPayments() {
           {compras.map(compra => {
             const isExpanded = expandedCompraId === compra.id;
             const isPagada = compra.pagadaManual || compra.saldoPendiente <= 0;
+            const isSaldoFavor = !compra.pagadaManual && compra.saldoPendiente < 0;
 
             return (
               <div key={compra.id} className="bg-white rounded-xl shadow-sm border border-ocean-100 overflow-hidden">
@@ -1129,7 +1130,11 @@ export default function AdminSupplierPayments() {
                       {compra.montoTotalUsdParalelo != null && (
                         <span className="text-xs text-ocean-400">~{formatUSD(compra.montoTotalUsdParalelo)} paral.</span>
                       )}
-                      {isPagada ? (
+                      {isSaldoFavor ? (
+                        <span className="text-xs text-blue-600 font-medium">
+                          A favor: {formatUSD(Math.abs(compra.saldoPendiente))}
+                        </span>
+                      ) : isPagada ? (
                         <>
                           <span className="text-xs text-emerald-600 font-medium">
                             Pagada{compra.pagadaManual && compra.saldoPendiente > 0 ? ' (manual)' : ''}
@@ -1150,7 +1155,7 @@ export default function AdminSupplierPayments() {
                   <div className="mt-2 flex items-center gap-2">
                     <div className="flex-1 bg-ocean-100 rounded-full h-1.5 overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all ${isPagada ? 'bg-emerald-500' : 'bg-amber-400'}`}
+                        className={`h-full rounded-full transition-all ${isSaldoFavor ? 'bg-blue-500' : isPagada ? 'bg-emerald-500' : 'bg-amber-400'}`}
                         style={{ width: `${progressPercent(compra)}%` }}
                       />
                     </div>
@@ -1238,7 +1243,7 @@ export default function AdminSupplierPayments() {
 
                     {/* Actions row */}
                     <div className="px-4 py-3 bg-ocean-50/50 flex gap-2 flex-wrap">
-                      {!isPagada && (
+                      {!compra.pagadaManual && (
                         <button
                           onClick={() => openAbonoModal(compra)}
                           className="px-3 py-1.5 bg-ocean-600 text-white rounded-lg text-xs font-medium hover:bg-ocean-700"
@@ -1737,6 +1742,11 @@ export default function AdminSupplierPayments() {
                 {abonoTargetCompra.saldoPendiente > 0 && (
                   <span className="ml-2 text-amber-600">
                     Pendiente: {formatUSD(abonoTargetCompra.saldoPendiente)}
+                  </span>
+                )}
+                {abonoTargetCompra.saldoPendiente < 0 && (
+                  <span className="ml-2 text-blue-600 font-medium">
+                    Saldo a favor: {formatUSD(Math.abs(abonoTargetCompra.saldoPendiente))}
                   </span>
                 )}
               </div>
