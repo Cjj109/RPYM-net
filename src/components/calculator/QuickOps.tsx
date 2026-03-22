@@ -115,7 +115,11 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
   const startEditingEntry = useCallback((entry: QuickOpEntry, forCurrency: 'USD' | 'Bs') => {
     setEditingEntryId(entry.id);
     setEditingCurrency(forCurrency);
-    setEditingValue(forCurrency === 'USD' ? String(Math.round(entry.amountUSD * 100) / 100) : entry.amountInput);
+    setEditingValue(
+      forCurrency === 'USD'
+        ? String(Math.round(entry.amountUSD * 100) / 100)
+        : (entry.currency === 'Bs' ? entry.amountInput : String(Math.round(entry.amountBs * 100) / 100))
+    );
   }, []);
 
   const confirmEditEntry = useCallback((entryId: string) => {
@@ -821,15 +825,50 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
 
                     {/* Chips de montos — solo visibles al editar (doble tap) */}
                     {isBeingEdited && item.entries.length > 0 && (
-                      <div className={`px-2 pb-1 flex flex-wrap gap-0.5 border-t ${displayMode === 'vero' ? 'border-black/10' : 'border-amber-100'}`}>
-                        {item.entries.map(e => (
-                          <span
-                            key={e.id}
-                            className={`text-[10px] font-mono px-1 py-0.5 rounded-md ${displayMode === 'vero' ? `bg-black/10 ${disp?.text ?? 'text-emerald-700'}` : `${disp?.bg ?? 'bg-ocean-50'} ${disp?.text ?? 'text-ocean-600'}`}`}
-                          >
-                            {formatUSD(e.amountUSD)}
-                          </span>
-                        ))}
+                      <div
+                        className={`px-2 pb-2 flex flex-wrap gap-1 border-t ${displayMode === 'vero' ? 'border-black/10' : 'border-amber-100'}`}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        {item.entries.map(e => {
+                          const liveEntry = currentEntries.find(ce => ce.id === e.id) ?? e;
+                          return editingEntryId === liveEntry.id ? (
+                            <input
+                              key={e.id}
+                              autoFocus
+                              type="text"
+                              inputMode="decimal"
+                              value={editingValue}
+                              onChange={ev => setEditingValue(ev.target.value)}
+                              onBlur={() => confirmEditEntry(liveEntry.id)}
+                              onKeyDown={ev => {
+                                if (ev.key === 'Enter') { ev.preventDefault(); confirmEditEntry(liveEntry.id); }
+                                if (ev.key === 'Escape') { ev.preventDefault(); setEditingEntryId(null); }
+                              }}
+                              className="text-[10px] font-mono w-24 border border-ocean-300 rounded px-1.5 py-0.5 focus:outline-none focus:border-ocean-500"
+                            />
+                          ) : (
+                            <div
+                              key={e.id}
+                              className={`flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded-md ${displayMode === 'vero' ? `bg-black/10 ${disp?.text ?? 'text-emerald-700'}` : `${disp?.bg ?? 'bg-ocean-50'} ${disp?.text ?? 'text-ocean-600'}`}`}
+                            >
+                              <span
+                                className="cursor-pointer hover:underline"
+                                onClick={() => startEditingEntry(liveEntry, 'USD')}
+                                title="Editar en USD"
+                              >
+                                {formatUSD(liveEntry.amountUSD)}
+                              </span>
+                              <span className="opacity-40">·</span>
+                              <span
+                                className="cursor-pointer hover:underline"
+                                onClick={() => startEditingEntry(liveEntry, 'Bs')}
+                                title="Editar en Bs"
+                              >
+                                {formatBs(liveEntry.amountBs)}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
