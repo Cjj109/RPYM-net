@@ -796,7 +796,15 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                         >
                           {item.note}
                         </span>
-                      ) : null}
+                      ) : (
+                        <button
+                          onClick={e => { e.stopPropagation(); startEditingQueueNote(item); }}
+                          className={`shrink-0 text-[10px] leading-none px-1 py-0.5 rounded opacity-30 hover:opacity-70 transition-opacity ${displayMode === 'vero' ? (disp?.text ?? 'text-emerald-700') : 'text-ocean-400'}`}
+                          title="Agregar nota"
+                        >
+                          +nota
+                        </button>
+                      )}
 
                       {/* Ya pasé */}
                       {(() => {
