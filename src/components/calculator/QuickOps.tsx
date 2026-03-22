@@ -10,6 +10,7 @@ interface QuickOpsProps {
   queue: QuickQueueItem[];
   onQueueChange: Dispatch<SetStateAction<QuickQueueItem[]>>;
   onAddSession: (session: SavedSession) => void;
+  onRemoveSession?: (sessionId: string) => void;
   displayMode?: 'carlos' | 'vero';
 }
 
@@ -31,7 +32,7 @@ function formatTimeAgo(timestamp: number): string {
   return `${Math.floor(hours / 24)}d`;
 }
 
-export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, displayMode = 'carlos' }: QuickOpsProps) {
+export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRemoveSession, displayMode = 'carlos' }: QuickOpsProps) {
   const [selectedDispatcher, setSelectedDispatcher] = useState(DISPATCHERS[0].name);
   const [inputAmount, setInputAmount] = useState('');
   const [inputCurrency, setInputCurrency] = useState<'USD' | 'Bs'>('USD');
@@ -63,6 +64,11 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, displ
   const discardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastDiscardedRef = useRef<QuickQueueItem | null>(null);
 
+  // Paid toast state
+  const [lastPaid, setLastPaid] = useState<{ queueItem: QuickQueueItem; sessionId: string } | null>(null);
+  const paidTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastPaidRef = useRef<{ queueItem: QuickQueueItem; sessionId: string } | null>(null);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const inputAreaRef = useRef<HTMLDivElement>(null);
   const queueAreaRef = useRef<HTMLDivElement>(null);
@@ -74,6 +80,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, displ
   const markAsPaidRef = useRef<(id: string) => void>(() => {});
   const handleDispatcherChangeRef = useRef<(name: string, isEditing?: boolean) => void>(() => {});
   const onQueueChangeRef = useRef(onQueueChange);
+  const onRemoveSessionRef = useRef(onRemoveSession);
 
   const dispatcherInfo = DISPATCHERS.find(d => d.name === selectedDispatcher);
 
@@ -246,8 +253,9 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, displ
       expression: e.expression,
     }));
 
+    const sessionId = crypto.randomUUID();
     const session: SavedSession = {
-      id: crypto.randomUUID(),
+      id: sessionId,
       clientName: 'Op. Rápida',
       dispatcher: item.dispatcher,
       entries: calcEntries,
@@ -258,6 +266,14 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, displ
     };
     onAddSession(session);
     onQueueChange(prev => prev.filter(q => q.id !== itemId));
+
+    lastPaidRef.current = { queueItem: item, sessionId };
+    setLastPaid({ queueItem: item, sessionId });
+    if (paidTimerRef.current) clearTimeout(paidTimerRef.current);
+    paidTimerRef.current = setTimeout(() => {
+      setLastPaid(null);
+      lastPaidRef.current = null;
+    }, 5000);
   }, [queue, onAddSession, onQueueChange]);
 
   // --- Discard (tecla \) con toast de deshacer ---
@@ -288,6 +304,22 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, displ
       setLastDiscarded(null);
       lastDiscardedRef.current = null;
     }, 5000);
+  }, []);
+
+  const dismissPaid = useCallback(() => {
+    if (paidTimerRef.current) clearTimeout(paidTimerRef.current);
+    setLastPaid(null);
+    lastPaidRef.current = null;
+  }, []);
+
+  const undoPaid = useCallback(() => {
+    if (paidTimerRef.current) clearTimeout(paidTimerRef.current);
+    const entry = lastPaidRef.current;
+    if (!entry) return;
+    onQueueChangeRef.current(prev => [entry.queueItem, ...prev]);
+    onRemoveSessionRef.current?.(entry.sessionId);
+    setLastPaid(null);
+    lastPaidRef.current = null;
   }, []);
 
   const discardFirstInQueueRef = useRef(discardFirstInQueue);
@@ -364,6 +396,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, displ
   useEffect(() => { markAsPaidRef.current = markAsPaid; }, [markAsPaid]);
   useEffect(() => { handleDispatcherChangeRef.current = handleDispatcherChange; }, [handleDispatcherChange]);
   useEffect(() => { onQueueChangeRef.current = onQueueChange; }, [onQueueChange]);
+  useEffect(() => { onRemoveSessionRef.current = onRemoveSession; }, [onRemoveSession]);
   useEffect(() => { discardFirstInQueueRef.current = discardFirstInQueue; }, [discardFirstInQueue]);
 
   // Handler global de teclado — funciona sin importar qué elemento tenga el foco
@@ -815,6 +848,30 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, displ
           <div className="text-xs mt-1 text-ocean-200">Enter o espacio para agregar · Tab o ← → para cambiar · ' para USD/Bs · / para Ya pasé</div>
         </div>
       )}
+
+      {/* Toast de cuenta pagada */}
+      {lastPaid && (() => {
+        const disp = DISPATCHERS.find(d => d.name === lastPaid.queueItem.dispatcher);
+        return (
+          <div className={`fixed bottom-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-3 animate-slide-up ${disp?.bg ?? 'bg-ocean-100'} ${disp?.text ?? 'text-ocean-800'}`}>
+            <span className="text-sm font-medium">Cuenta de {lastPaid.queueItem.dispatcher} pagada</span>
+            <button
+              onClick={undoPaid}
+              className="flex items-center gap-1 text-sm font-bold underline underline-offset-2 hover:opacity-70 transition-opacity"
+            >
+              Deshacer
+            </button>
+            <button
+              onClick={dismissPaid}
+              className="opacity-50 hover:opacity-100 transition-opacity ml-1"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        );
+      })()}
 
       {/* Toast de cuenta descartada */}
       {lastDiscarded && (() => {

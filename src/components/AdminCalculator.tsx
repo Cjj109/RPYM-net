@@ -600,6 +600,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
               queue={quickQueue}
               onQueueChange={setQuickQueue}
               onAddSession={(session) => setSessions(prev => [session, ...prev].slice(0, 100))}
+              onRemoveSession={(sessionId) => setSessions(prev => prev.filter(s => s.id !== sessionId))}
               displayMode={queueDisplayMode}
             />
           </>
