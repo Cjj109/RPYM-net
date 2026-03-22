@@ -771,9 +771,9 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                         )}
                       </div>
 
-                      {/* Input de nota — solo al editar */}
-                      {editingQueueNoteId === item.id && (
-                        <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                      {/* Nota inline — texto o input según estado */}
+                      {editingQueueNoteId === item.id ? (
+                        <div className="flex items-center gap-1 shrink min-w-0" onClick={e => e.stopPropagation()}>
                           <input
                             autoFocus
                             type="text"
@@ -788,7 +788,15 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                             className="text-[11px] bg-white border border-ocean-200 rounded px-1.5 py-0.5 focus:outline-none focus:border-ocean-400 text-ocean-700 w-24"
                           />
                         </div>
-                      )}
+                      ) : item.note ? (
+                        <span
+                          className={`shrink min-w-0 text-[11px] italic truncate cursor-pointer text-right ${displayMode === 'vero' ? `${disp?.text ?? 'text-emerald-700'} opacity-70` : 'text-ocean-400'}`}
+                          onClick={e => { e.stopPropagation(); startEditingQueueNote(item); }}
+                          title={item.note}
+                        >
+                          {item.note}
+                        </span>
+                      ) : null}
 
                       {/* Ya pasé */}
                       {(() => {
@@ -817,17 +825,6 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                         <TrashIcon className="w-3 h-3" />
                       </button>
                     </div>
-
-                    {/* Nota visible directamente — texto pequeño e itálico */}
-                    {item.note && editingQueueNoteId !== item.id && (
-                      <div
-                        className={`px-2 pb-1 text-[11px] italic truncate cursor-pointer ${displayMode === 'vero' ? `${disp?.text ?? 'text-emerald-700'} opacity-70` : 'text-ocean-500'}`}
-                        onClick={e => { e.stopPropagation(); startEditingQueueNote(item); }}
-                        title="Toca para editar nota"
-                      >
-                        {item.note}
-                      </div>
-                    )}
 
                     {/* Chips de montos — solo visibles al editar (doble tap) */}
                     {isBeingEdited && item.entries.length > 0 && (
