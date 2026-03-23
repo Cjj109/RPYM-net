@@ -30,7 +30,7 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
       (function() {
         try {
           var cached = localStorage.getItem('rpym_theme');
-          if (cached && ['ocean', 'carnival', 'christmas', 'easter', 'valentine', 'mundial', 'halloween', 'campeones'].includes(cached)) {
+          if (cached && ['ocean', 'carnival', 'christmas', 'easter', 'valentine', 'mundial', 'halloween', 'campeones', 'ramos', 'cuaresma', 'jueves-santo', 'viernes-santo', 'sabado-santo', 'resurreccion'].includes(cached)) {
             document.documentElement.setAttribute('data-theme', cached);
           }
         } catch (e) {}
@@ -151,7 +151,7 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
     <script is:inline>
       (function() {
         var POLL_INTERVAL = 30000; // 30 seconds
-        var VALID_THEMES = ['ocean', 'carnival', 'christmas', 'easter', 'valentine', 'mundial', 'halloween', 'campeones'];
+        var VALID_THEMES = ['ocean', 'carnival', 'christmas', 'easter', 'valentine', 'mundial', 'halloween', 'campeones', 'ramos', 'cuaresma', 'jueves-santo', 'viernes-santo', 'sabado-santo', 'resurreccion'];
 
         function applyTheme(theme) {
           if (!VALID_THEMES.includes(theme)) return;
@@ -166,7 +166,13 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
             valentine: '#e11d48',
             mundial: '#16a34a',
             halloween: '#f97316',
-            campeones: '#003DA5'
+            campeones: '#003DA5',
+            ramos: '#4d7c0f',
+            cuaresma: '#6b21a8',
+            'jueves-santo': '#b45309',
+            'viernes-santo': '#374151',
+            'sabado-santo': '#4b5563',
+            resurreccion: '#a16207'
           };
           var metaTheme = document.querySelector('meta[name="theme-color"]');
           if (metaTheme) metaTheme.setAttribute('content', themeColors[theme]);

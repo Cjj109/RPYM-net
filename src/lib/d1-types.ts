@@ -3,7 +3,7 @@
  */
 
 // Theme names
-export type ThemeName = 'ocean' | 'carnival' | 'christmas' | 'easter' | 'valentine' | 'mundial' | 'halloween' | 'campeones';
+export type ThemeName = 'ocean' | 'carnival' | 'christmas' | 'easter' | 'valentine' | 'mundial' | 'halloween' | 'campeones' | 'ramos' | 'cuaresma' | 'jueves-santo' | 'viernes-santo' | 'sabado-santo' | 'resurreccion';
 
 // D1 row types (snake_case as stored in database)
 export interface D1Presupuesto {

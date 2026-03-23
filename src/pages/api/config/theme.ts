@@ -3,7 +3,7 @@ import { getD1, type ThemeName } from '../../../lib/d1-types';
 
 export const prerender = false;
 
-const VALID_THEMES: ThemeName[] = ['ocean', 'carnival', 'christmas', 'easter', 'valentine', 'mundial', 'halloween', 'campeones'];
+const VALID_THEMES: ThemeName[] = ['ocean', 'carnival', 'christmas', 'easter', 'valentine', 'mundial', 'halloween', 'campeones', 'ramos', 'cuaresma', 'jueves-santo', 'viernes-santo', 'sabado-santo', 'resurreccion'];
 
 export const GET: APIRoute = async ({ locals }) => {
   try {

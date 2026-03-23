@@ -1,6 +1,51 @@
 import { useState, useEffect } from 'react';
 import type { ThemeName } from '../lib/d1-types';
 
+const SEMANA_SANTA_THEMES: ThemeConfig[] = [
+  {
+    id: 'ramos',
+    name: 'Domingo de Ramos',
+    description: '29 mar · Verdes y dorados',
+    colors: ['#4d7c0f', '#84cc16', '#eab308'],
+    icon: '🌿'
+  },
+  {
+    id: 'cuaresma',
+    name: 'Lun-Mié Santo',
+    description: '30 mar – 1 abr · Morado litúrgico',
+    colors: ['#6b21a8', '#a855f7', '#8b5cf6'],
+    icon: '🕯️'
+  },
+  {
+    id: 'jueves-santo',
+    name: 'Jueves Santo',
+    description: '2 abr · Blanco y dorado',
+    colors: ['#b45309', '#f59e0b', '#fde047'],
+    icon: '✨'
+  },
+  {
+    id: 'viernes-santo',
+    name: 'Viernes Santo',
+    description: '3 abr · Luto y respeto',
+    colors: ['#374151', '#6b7280', '#9ca3af'],
+    icon: '🕊️'
+  },
+  {
+    id: 'sabado-santo',
+    name: 'Sábado Santo',
+    description: '4 abr · Sobrio con esperanza',
+    colors: ['#3f3f46', '#71717a', '#eab308'],
+    icon: '🌅'
+  },
+  {
+    id: 'resurreccion',
+    name: 'Domingo de Resurrección',
+    description: '5 abr · Luz y alegría',
+    colors: ['#a16207', '#eab308', '#fde047'],
+    icon: '☀️'
+  },
+];
+
 interface BCVRateData {
   rate: number;
   date: string;
@@ -84,8 +129,11 @@ const THEMES: ThemeConfig[] = [
   },
 ];
 
+const SS_IDS: ThemeName[] = ['ramos', 'cuaresma', 'jueves-santo', 'viernes-santo', 'sabado-santo', 'resurreccion'];
+
 export default function AdminSettings({ currentBcvRate }: Props) {
   const [selectedTheme, setSelectedTheme] = useState<ThemeName>('ocean');
+  const [showSemanaSanta, setShowSemanaSanta] = useState(false);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
   const [isSavingTheme, setIsSavingTheme] = useState(false);
   const [themeMessage, setThemeMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -114,6 +162,7 @@ export default function AdminSettings({ currentBcvRate }: Props) {
         if (themeRes.ok) {
           const { theme } = await themeRes.json();
           setSelectedTheme(theme);
+          if (SS_IDS.includes(theme)) setShowSemanaSanta(true);
         }
 
         // Load BCV rate config
@@ -158,7 +207,13 @@ export default function AdminSettings({ currentBcvRate }: Props) {
           valentine: '#e11d48',
           mundial: '#16a34a',
           halloween: '#f97316',
-          campeones: '#003DA5'
+          campeones: '#003DA5',
+          ramos: '#4d7c0f',
+          cuaresma: '#6b21a8',
+          'jueves-santo': '#b45309',
+          'viernes-santo': '#374151',
+          'sabado-santo': '#4b5563',
+          resurreccion: '#a16207'
         };
         document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColors[selectedTheme]);
 
@@ -311,7 +366,72 @@ export default function AdminSettings({ currentBcvRate }: Props) {
               <p className="text-xs text-ocean-600">{theme.description}</p>
             </button>
           ))}
+
+          {/* Botón especial: Semana Santa (agrupa 6 sub-temas) */}
+          <button
+            onClick={() => setShowSemanaSanta(prev => !prev)}
+            className={`p-4 rounded-xl border-2 text-left transition-all ${
+              SS_IDS.includes(selectedTheme)
+                ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200'
+                : showSemanaSanta
+                  ? 'border-purple-300 bg-purple-50/60'
+                  : 'border-ocean-200 hover:border-purple-300 hover:bg-purple-50/30'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">✝️</span>
+                <div className="flex -space-x-1">
+                  {['#4d7c0f', '#6b21a8', '#374151', '#a16207'].map((color, i) => (
+                    <div key={i} className="w-5 h-5 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: color }} />
+                  ))}
+                </div>
+              </div>
+              <span className="text-ocean-500 text-xs font-medium">
+                {showSemanaSanta ? '▲' : '▼'}
+              </span>
+            </div>
+            <p className="font-medium text-ocean-900">Semana Santa 2026</p>
+            <p className="text-xs text-ocean-600">
+              {SS_IDS.includes(selectedTheme)
+                ? `Activo: ${SEMANA_SANTA_THEMES.find(t => t.id === selectedTheme)?.name}`
+                : '29 mar – 5 abr · Selecciona el día'}
+            </p>
+          </button>
         </div>
+
+        {/* Sub-panel de días de Semana Santa */}
+        {showSemanaSanta && (
+          <div className="mb-4 p-4 bg-gradient-to-br from-purple-50 to-amber-50 border border-purple-200 rounded-xl">
+            <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-3">
+              ✝️ Semana Santa 2026 — Selecciona el día
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {SEMANA_SANTA_THEMES.map((theme) => (
+                <button
+                  key={theme.id}
+                  onClick={() => setSelectedTheme(theme.id)}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    selectedTheme === theme.id
+                      ? 'border-purple-500 bg-white ring-2 ring-purple-200 shadow-sm'
+                      : 'border-purple-100 bg-white/70 hover:border-purple-300 hover:bg-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xl">{theme.icon}</span>
+                    <div className="flex -space-x-1">
+                      {theme.colors.map((color, i) => (
+                        <div key={i} className="w-4 h-4 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: color }} />
+                      ))}
+                    </div>
+                  </div>
+                  <p className="font-medium text-ocean-900 text-sm">{theme.name}</p>
+                  <p className="text-xs text-ocean-500">{theme.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {themeMessage && (
           <div className={`text-sm p-3 rounded-lg mb-4 ${

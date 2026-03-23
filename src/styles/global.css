@@ -194,6 +194,152 @@
   --theme-bg-to: #292524;
 }
 
+/* ========== SEMANA SANTA 2026 ========== */
+
+/* Domingo de Ramos (29 mar) - Verdes suaves y dorados, paz y bienvenida */
+[data-theme="ramos"] {
+  --theme-primary-50: #f7fee7;
+  --theme-primary-100: #ecfccb;
+  --theme-primary-200: #d9f99d;
+  --theme-primary-300: #bef264;
+  --theme-primary-400: #a3e635;
+  --theme-primary-500: #84cc16;
+  --theme-primary-600: #65a30d;
+  --theme-primary-700: #4d7c0f;
+  --theme-primary-800: #3f6212;
+  --theme-primary-900: #365314;
+  --theme-primary-950: #1a2e05;
+
+  --theme-accent-100: #fef9c3;
+  --theme-accent-300: #fde047;
+  --theme-accent-400: #facc15;
+  --theme-accent-500: #eab308;
+  --theme-accent-600: #ca8a04;
+
+  --theme-bg-from: #f7fee7;
+  --theme-bg-to: #fefce8;
+}
+
+/* Lunes-Miércoles Santo (30 mar - 1 abr) - Morado litúrgico de Cuaresma */
+[data-theme="cuaresma"] {
+  --theme-primary-50: #faf5ff;
+  --theme-primary-100: #f3e8ff;
+  --theme-primary-200: #e9d5ff;
+  --theme-primary-300: #d8b4fe;
+  --theme-primary-400: #c084fc;
+  --theme-primary-500: #a855f7;
+  --theme-primary-600: #9333ea;
+  --theme-primary-700: #7e22ce;
+  --theme-primary-800: #6b21a8;
+  --theme-primary-900: #581c87;
+  --theme-primary-950: #3b0764;
+
+  --theme-accent-100: #f5f3ff;
+  --theme-accent-300: #c4b5fd;
+  --theme-accent-400: #a78bfa;
+  --theme-accent-500: #8b5cf6;
+  --theme-accent-600: #7c3aed;
+
+  --theme-bg-from: #faf5ff;
+  --theme-bg-to: #ede9fe;
+}
+
+/* Jueves Santo (2 abr) - Blancos y dorados, Última Cena, elegancia sobria */
+[data-theme="jueves-santo"] {
+  --theme-primary-50: #fffbeb;
+  --theme-primary-100: #fef3c7;
+  --theme-primary-200: #fde68a;
+  --theme-primary-300: #fcd34d;
+  --theme-primary-400: #fbbf24;
+  --theme-primary-500: #f59e0b;
+  --theme-primary-600: #d97706;
+  --theme-primary-700: #b45309;
+  --theme-primary-800: #92400e;
+  --theme-primary-900: #78350f;
+  --theme-primary-950: #451a03;
+
+  --theme-accent-100: #fefce8;
+  --theme-accent-300: #fef08a;
+  --theme-accent-400: #fde047;
+  --theme-accent-500: #facc15;
+  --theme-accent-600: #eab308;
+
+  --theme-bg-from: #fffbeb;
+  --theme-bg-to: #fefce8;
+}
+
+/* Viernes Santo (3 abr) - Escala de grises completa, luto y respeto */
+[data-theme="viernes-santo"] {
+  --theme-primary-50: #f9fafb;
+  --theme-primary-100: #f3f4f6;
+  --theme-primary-200: #e5e7eb;
+  --theme-primary-300: #d1d5db;
+  --theme-primary-400: #9ca3af;
+  --theme-primary-500: #6b7280;
+  --theme-primary-600: #4b5563;
+  --theme-primary-700: #374151;
+  --theme-primary-800: #1f2937;
+  --theme-primary-900: #111827;
+  --theme-primary-950: #030712;
+
+  --theme-accent-100: #f3f4f6;
+  --theme-accent-300: #d1d5db;
+  --theme-accent-400: #9ca3af;
+  --theme-accent-500: #6b7280;
+  --theme-accent-600: #4b5563;
+
+  --theme-bg-from: #f9fafb;
+  --theme-bg-to: #f3f4f6;
+}
+
+/* Sábado Santo (4 abr) - Grises con leves acentos dorados, transición de esperanza */
+[data-theme="sabado-santo"] {
+  --theme-primary-50: #fafafa;
+  --theme-primary-100: #f4f4f5;
+  --theme-primary-200: #e4e4e7;
+  --theme-primary-300: #d4d4d8;
+  --theme-primary-400: #a1a1aa;
+  --theme-primary-500: #71717a;
+  --theme-primary-600: #52525b;
+  --theme-primary-700: #3f3f46;
+  --theme-primary-800: #27272a;
+  --theme-primary-900: #18181b;
+  --theme-primary-950: #09090b;
+
+  --theme-accent-100: #fef9c3;
+  --theme-accent-300: #fde047;
+  --theme-accent-400: #facc15;
+  --theme-accent-500: #eab308;
+  --theme-accent-600: #ca8a04;
+
+  --theme-bg-from: #f4f4f5;
+  --theme-bg-to: #fffbeb;
+}
+
+/* Domingo de Resurrección (5 abr) - Explosión de luz, blancos y dorados luminosos */
+[data-theme="resurreccion"] {
+  --theme-primary-50: #fefce8;
+  --theme-primary-100: #fef9c3;
+  --theme-primary-200: #fef08a;
+  --theme-primary-300: #fde047;
+  --theme-primary-400: #facc15;
+  --theme-primary-500: #eab308;
+  --theme-primary-600: #ca8a04;
+  --theme-primary-700: #a16207;
+  --theme-primary-800: #854d0e;
+  --theme-primary-900: #713f12;
+  --theme-primary-950: #422006;
+
+  --theme-accent-100: #fff7ed;
+  --theme-accent-300: #fdba74;
+  --theme-accent-400: #fb923c;
+  --theme-accent-500: #f97316;
+  --theme-accent-600: #ea580c;
+
+  --theme-bg-from: #fffbeb;
+  --theme-bg-to: #fefce8;
+}
+
 /* Variables CSS personalizadas - mapean a variables de tema */
 @theme {
   /* Ocean colors map to theme variables for dynamic theming */
@@ -2899,6 +3045,333 @@ h1, h2, h3, h4, h5, h6 {
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* ========== SEMANA SANTA - EFECTOS VISUALES ========== */
+
+/* === DOMINGO DE RAMOS - Fondo vegetal suave === */
+[data-theme="ramos"] body {
+  background:
+    radial-gradient(ellipse at 20% 10%, rgba(132, 204, 22, 0.12) 0%, transparent 45%),
+    radial-gradient(ellipse at 80% 15%, rgba(234, 179, 8, 0.1) 0%, transparent 40%),
+    radial-gradient(ellipse at 50% 90%, rgba(101, 163, 13, 0.08) 0%, transparent 50%),
+    linear-gradient(180deg, #f7fee7 0%, #ecfccb 30%, #fefce8 70%, #f7fee7 100%) !important;
+}
+
+[data-theme="ramos"] .themed-card,
+[data-theme="ramos"] .bg-white.rounded-2xl,
+[data-theme="ramos"] .bg-white.rounded-3xl {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(247, 254, 231, 0.95) 60%,
+    rgba(254, 252, 232, 0.95) 100%
+  ) !important;
+  border: 1px solid rgba(101, 163, 13, 0.2) !important;
+  box-shadow:
+    0 4px 20px rgba(84, 124, 15, 0.08),
+    0 0 30px rgba(234, 179, 8, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+}
+
+/* === LUNES-MIÉRCOLES SANTO (CUARESMA) - Morado litúrgico === */
+[data-theme="cuaresma"] body {
+  background:
+    radial-gradient(ellipse at 30% 10%, rgba(168, 85, 247, 0.1) 0%, transparent 45%),
+    radial-gradient(ellipse at 70% 20%, rgba(139, 92, 246, 0.08) 0%, transparent 40%),
+    linear-gradient(180deg, #faf5ff 0%, #ede9fe 50%, #faf5ff 100%) !important;
+}
+
+[data-theme="cuaresma"] .themed-card,
+[data-theme="cuaresma"] .bg-white.rounded-2xl,
+[data-theme="cuaresma"] .bg-white.rounded-3xl {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(250, 245, 255, 0.96) 100%
+  ) !important;
+  border: 1px solid rgba(139, 92, 246, 0.2) !important;
+  box-shadow:
+    0 4px 20px rgba(109, 40, 217, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Barra morada superior en cards */
+[data-theme="cuaresma"] .themed-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #7c3aed, #a855f7, #7c3aed);
+  border-radius: 6px 6px 0 0;
+  z-index: 5;
+}
+
+/* === JUEVES SANTO - Blanco y dorado, sobrio y elegante === */
+[data-theme="jueves-santo"] body {
+  background:
+    radial-gradient(ellipse at 50% 5%, rgba(253, 224, 71, 0.2) 0%, transparent 40%),
+    radial-gradient(ellipse at 15% 90%, rgba(234, 179, 8, 0.08) 0%, transparent 40%),
+    radial-gradient(ellipse at 85% 85%, rgba(245, 158, 11, 0.06) 0%, transparent 40%),
+    linear-gradient(180deg, #fffbeb 0%, #fefce8 50%, #fffbeb 100%) !important;
+}
+
+[data-theme="jueves-santo"] .themed-card,
+[data-theme="jueves-santo"] .bg-white.rounded-2xl,
+[data-theme="jueves-santo"] .bg-white.rounded-3xl {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.99) 0%,
+    rgba(255, 251, 235, 0.97) 100%
+  ) !important;
+  border: 1px solid rgba(234, 179, 8, 0.25) !important;
+  box-shadow:
+    0 4px 20px rgba(180, 83, 9, 0.08),
+    0 0 40px rgba(234, 179, 8, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+/* Borde dorado sutil en tarjetas */
+[data-theme="jueves-santo"] .themed-card::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 15%;
+  right: 15%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(234, 179, 8, 0.6), transparent);
+  z-index: 5;
+}
+
+/* === VIERNES SANTO - ESCALA DE GRISES COMPLETA === */
+[data-theme="viernes-santo"] body {
+  filter: grayscale(1);
+}
+
+[data-theme="viernes-santo"] .theme-decorations {
+  display: none;
+}
+
+[data-theme="viernes-santo"] #header-decorations {
+  display: none;
+}
+
+/* === SÁBADO SANTO - Grises con toque de esperanza dorado === */
+[data-theme="sabado-santo"] body {
+  background:
+    radial-gradient(ellipse at 50% 5%, rgba(234, 179, 8, 0.05) 0%, transparent 40%),
+    linear-gradient(180deg, #f4f4f5 0%, #fafafa 50%, #fffbeb 100%) !important;
+  filter: grayscale(0.4);
+}
+
+[data-theme="sabado-santo"] .themed-card,
+[data-theme="sabado-santo"] .bg-white.rounded-2xl,
+[data-theme="sabado-santo"] .bg-white.rounded-3xl {
+  background: rgba(255, 255, 255, 0.97) !important;
+  border: 1px solid rgba(161, 161, 170, 0.25) !important;
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+}
+
+/* === DOMINGO DE RESURRECCIÓN - Luz, alegría, amanecer === */
+[data-theme="resurreccion"] body {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(253, 224, 71, 0.35) 0%, transparent 55%),
+    radial-gradient(ellipse at 0% 100%, rgba(250, 204, 21, 0.12) 0%, transparent 45%),
+    radial-gradient(ellipse at 100% 100%, rgba(234, 179, 8, 0.1) 0%, transparent 45%),
+    radial-gradient(ellipse at 25% 50%, rgba(255, 255, 255, 0.5) 0%, transparent 40%),
+    linear-gradient(180deg, #fffbeb 0%, #fef9c3 30%, #fefce8 70%, #fffbeb 100%) !important;
+}
+
+[data-theme="resurreccion"] .themed-card,
+[data-theme="resurreccion"] .bg-white.rounded-2xl,
+[data-theme="resurreccion"] .bg-white.rounded-3xl {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.99) 0%,
+    rgba(254, 252, 232, 0.97) 60%,
+    rgba(255, 251, 235, 0.96) 100%
+  ) !important;
+  border: 1px solid rgba(234, 179, 8, 0.3) !important;
+  box-shadow:
+    0 4px 20px rgba(161, 98, 7, 0.1),
+    0 0 50px rgba(253, 224, 71, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+/* Rayos de luz en el hero */
+[data-theme="resurreccion"] section.hero-section {
+  position: relative;
+}
+
+[data-theme="resurreccion"] section.hero-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 400px;
+  height: 500px;
+  background: radial-gradient(ellipse at center, rgba(253, 224, 71, 0.18) 0%, transparent 70%);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+/* ========== SEMANA SANTA - DECORACIONES ANIMADAS ========== */
+
+/* === DOMINGO DE RAMOS - Hojas y destellos dorados === */
+@keyframes ramos-fall {
+  0% { transform: translateY(-100vh) rotate(0deg); opacity: 0.9; }
+  100% { transform: translateY(100vh) rotate(540deg); opacity: 0.4; }
+}
+
+@keyframes ramos-sway {
+  0%, 100% { margin-left: 0; }
+  50% { margin-left: 18px; }
+}
+
+.ramos-leaf {
+  --leaf-size: 12px;
+  --leaf-color: #84cc16;
+  position: fixed;
+  top: -20px;
+  z-index: 1;
+  pointer-events: none;
+  width: var(--leaf-size);
+  height: calc(var(--leaf-size) * 1.7);
+  background: var(--leaf-color);
+  border-radius: 50% 50% 50% 0;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.4);
+  will-change: transform;
+}
+
+.ramos-gold {
+  --dot-size: 5px;
+  position: fixed;
+  top: -10px;
+  z-index: 1;
+  pointer-events: none;
+  width: var(--dot-size);
+  height: var(--dot-size);
+  background: radial-gradient(circle at 30% 30%, #fef08a, #ca8a04);
+  border-radius: 50%;
+  box-shadow: 0 0 4px rgba(234, 179, 8, 0.5);
+  will-change: transform;
+}
+
+/* === LUNES-MIÉRCOLES SANTO - Pétalos morados lentos === */
+@keyframes cuaresma-fall {
+  0% { transform: translateY(-100vh) rotate(0deg); opacity: 0.7; }
+  100% { transform: translateY(100vh) rotate(270deg); opacity: 0.2; }
+}
+
+@keyframes cuaresma-sway {
+  0%, 100% { margin-left: 0; }
+  50% { margin-left: 12px; }
+}
+
+.cuaresma-petal {
+  --petal-size: 9px;
+  position: fixed;
+  top: -20px;
+  z-index: 1;
+  pointer-events: none;
+  width: var(--petal-size);
+  height: calc(var(--petal-size) * 1.5);
+  border-radius: 50% 50% 50% 0;
+  will-change: transform;
+}
+
+/* === JUEVES SANTO - Destellos dorados suaves === */
+@keyframes jueves-santo-fall {
+  0% { transform: translateY(-100vh) scale(1); opacity: 0.8; }
+  80% { opacity: 0.6; }
+  100% { transform: translateY(100vh) scale(0.7); opacity: 0; }
+}
+
+@keyframes jueves-santo-glow {
+  0%, 100% { box-shadow: 0 0 4px rgba(234, 179, 8, 0.5); }
+  50% { box-shadow: 0 0 10px rgba(234, 179, 8, 0.9); }
+}
+
+.jueves-santo-spark {
+  --spark-size: 6px;
+  position: fixed;
+  top: -10px;
+  z-index: 1;
+  pointer-events: none;
+  width: var(--spark-size);
+  height: var(--spark-size);
+  background: radial-gradient(circle at 35% 35%, #fef08a, #d97706);
+  border-radius: 50%;
+  will-change: transform;
+}
+
+/* === SÁBADO SANTO - Partículas tenues con destello === */
+@keyframes sabado-santo-fall {
+  0% { transform: translateY(-100vh); opacity: 0.35; }
+  100% { transform: translateY(100vh); opacity: 0.08; }
+}
+
+.sabado-santo-dust {
+  --dust-size: 5px;
+  position: fixed;
+  top: -10px;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: 50%;
+  will-change: transform;
+}
+
+/* === DOMINGO DE RESURRECCIÓN - Rayos de luz y círculos luminosos === */
+@keyframes resurreccion-fall {
+  0% { transform: translateY(-100vh) scale(1.2) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) scale(0.6) rotate(180deg); opacity: 0.5; }
+}
+
+@keyframes resurreccion-glow {
+  0%, 100% { box-shadow: 0 0 6px rgba(253, 224, 71, 0.6); transform: scale(1); }
+  50% { box-shadow: 0 0 16px rgba(253, 224, 71, 0.95); transform: scale(1.25); }
+}
+
+.resurreccion-ray {
+  --ray-w: 4px;
+  --ray-h: 16px;
+  position: fixed;
+  top: -20px;
+  z-index: 1;
+  pointer-events: none;
+  width: var(--ray-w);
+  height: var(--ray-h);
+  background: linear-gradient(to bottom, rgba(253, 224, 71, 0.9), transparent);
+  border-radius: 999px;
+  will-change: transform;
+}
+
+.resurreccion-glow {
+  --glow-size: 8px;
+  position: fixed;
+  top: -10px;
+  z-index: 1;
+  pointer-events: none;
+  width: var(--glow-size);
+  height: var(--glow-size);
+  background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.9), rgba(253, 224, 71, 0.6));
+  border-radius: 50%;
+  will-change: transform;
+}
+
+/* Reducir movimiento */
+@media (prefers-reduced-motion: reduce) {
+  .ramos-leaf, .ramos-gold,
+  .cuaresma-petal,
+  .jueves-santo-spark,
+  .sabado-santo-dust,
+  .resurreccion-ray, .resurreccion-glow {
+    animation: none !important;
   }
 }
 
