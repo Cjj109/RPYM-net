@@ -628,7 +628,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
       </header>
 
       {activeTab === 'calc' ? (
-        <main className="max-w-7xl mx-auto" style={{ minHeight: 'calc(100dvh - 52px)' }}>
+        <main className="max-w-7xl mx-auto calc-no-theme" style={{ minHeight: 'calc(100dvh - 52px)' }}>
           <Suspense fallback={<div className="text-center py-12 text-ocean-700">Cargando...</div>}>
             <AdminCalculator bcvRate={bcvRate} />
           </Suspense>

@@ -259,27 +259,27 @@
     // === SEMANA SANTA ===
 
     ramos: {
-      count: 20,
+      count: 36,
       create: (i) => {
-        const greenColors = ['#84cc16', '#65a30d', '#4d7c0f', '#a3e635', '#bef264'];
+        const greenColors = ['#10b981', '#059669', '#047857', '#34d399', '#6ee7b7', '#a7f3d0'];
         const element = document.createElement('div');
-        const delay = Math.random() * 8;
-        const duration = 9 + Math.random() * 7;
+        const delay = Math.random() * 10;
+        const duration = 8 + Math.random() * 8;
 
-        if (i % 4 < 3) {
-          // Hojas verdes
+        if (i % 5 < 4) {
+          // Hojas esmeralda
           element.className = 'ramos-leaf';
-          const size = 8 + Math.random() * 8;
+          const size = 9 + Math.random() * 10;
           element.style.setProperty('--leaf-size', `${size}px`);
           element.style.setProperty('--leaf-color', greenColors[i % greenColors.length]);
-          element.style.opacity = `${0.5 + Math.random() * 0.4}`;
-          element.style.animation = `ramos-fall ${duration}s linear ${delay}s infinite, ramos-sway 3s ease-in-out ${delay}s infinite`;
+          element.style.opacity = `${0.55 + Math.random() * 0.4}`;
+          element.style.animation = `ramos-fall ${duration}s linear ${delay}s infinite, ramos-sway ${3 + Math.random() * 2}s ease-in-out ${delay}s infinite`;
         } else {
-          // Destellos dorados
+          // Destellos dorados intensos
           element.className = 'ramos-gold';
-          const size = 4 + Math.random() * 5;
+          const size = 5 + Math.random() * 6;
           element.style.setProperty('--dot-size', `${size}px`);
-          element.style.opacity = `${0.6 + Math.random() * 0.3}`;
+          element.style.opacity = `${0.7 + Math.random() * 0.3}`;
           element.style.animation = `ramos-fall ${duration - 2}s linear ${delay}s infinite`;
         }
 
@@ -289,35 +289,35 @@
     },
 
     cuaresma: {
-      count: 14,
+      count: 24,
       create: (i) => {
-        const purpleColors = ['#c084fc', '#a855f7', '#7c3aed', '#8b5cf6', '#d8b4fe'];
+        const purpleColors = ['#6d28d9', '#7c3aed', '#5b21b6', '#8b5cf6', '#a78bfa', '#4c1d95'];
         const element = document.createElement('div');
         element.className = 'cuaresma-petal';
-        const size = 7 + Math.random() * 7;
+        const size = 8 + Math.random() * 9;
         element.style.setProperty('--petal-size', `${size}px`);
-        element.style.background = `linear-gradient(135deg, ${purpleColors[i % purpleColors.length]}cc, ${purpleColors[(i + 2) % purpleColors.length]}99)`;
+        element.style.background = `linear-gradient(135deg, ${purpleColors[i % purpleColors.length]}dd, ${purpleColors[(i + 2) % purpleColors.length]}aa)`;
         element.style.left = `${Math.random() * 100}%`;
-        element.style.opacity = `${0.35 + Math.random() * 0.3}`;
-        const duration = 12 + Math.random() * 8;
-        const delay = Math.random() * 10;
-        element.style.animation = `cuaresma-fall ${duration}s linear ${delay}s infinite, cuaresma-sway ${4 + Math.random() * 3}s ease-in-out ${delay}s infinite`;
+        element.style.opacity = `${0.45 + Math.random() * 0.35}`;
+        const duration = 11 + Math.random() * 9;
+        const delay = Math.random() * 11;
+        element.style.animation = `cuaresma-fall ${duration}s linear ${delay}s infinite, cuaresma-sway ${4 + Math.random() * 3.5}s ease-in-out ${delay}s infinite`;
         return element;
       }
     },
 
     'jueves-santo': {
-      count: 16,
+      count: 26,
       create: (i) => {
         const element = document.createElement('div');
         element.className = 'jueves-santo-spark';
-        const size = 4 + Math.random() * 6;
+        const size = 4 + Math.random() * 7;
         element.style.setProperty('--spark-size', `${size}px`);
         element.style.left = `${Math.random() * 100}%`;
-        element.style.opacity = `${0.4 + Math.random() * 0.45}`;
-        const duration = 10 + Math.random() * 8;
-        const delay = Math.random() * 9;
-        element.style.animation = `jueves-santo-fall ${duration}s linear ${delay}s infinite, jueves-santo-glow ${2 + Math.random() * 2}s ease-in-out ${delay}s infinite`;
+        element.style.opacity = `${0.5 + Math.random() * 0.45}`;
+        const duration = 9 + Math.random() * 8;
+        const delay = Math.random() * 10;
+        element.style.animation = `jueves-santo-fall ${duration}s linear ${delay}s infinite, jueves-santo-glow ${1.8 + Math.random() * 2}s ease-in-out ${delay}s infinite`;
         return element;
       }
     },
@@ -329,46 +329,62 @@
     },
 
     'sabado-santo': {
-      count: 8,
+      count: 18,
       create: (i) => {
         const element = document.createElement('div');
         element.className = 'sabado-santo-dust';
-        const size = 4 + Math.random() * 4;
+        const size = 4 + Math.random() * 5;
         element.style.width = `${size}px`;
         element.style.height = `${size}px`;
-        // Mezcla de grises y muy leve dorado
-        const isGold = i % 5 === 0;
-        element.style.background = isGold ? 'rgba(234, 179, 8, 0.4)' : 'rgba(113, 113, 122, 0.4)';
+        // Mezcla de grises + dorado visible + toque violeta
+        const type = i % 5;
+        if (type === 0) {
+          element.style.background = 'radial-gradient(circle, rgba(253, 224, 71, 0.9), rgba(234, 179, 8, 0.5))';
+          element.style.boxShadow = '0 0 4px rgba(234, 179, 8, 0.4)';
+        } else if (type === 4) {
+          element.style.background = 'radial-gradient(circle, rgba(139, 92, 246, 0.7), rgba(109, 40, 217, 0.3))';
+        } else {
+          element.style.background = `rgba(${100 + Math.random() * 50}, ${100 + Math.random() * 50}, ${110 + Math.random() * 50}, 0.5)`;
+        }
         element.style.left = `${Math.random() * 100}%`;
-        element.style.opacity = `${0.2 + Math.random() * 0.2}`;
-        const duration = 15 + Math.random() * 10;
+        element.style.opacity = `${0.3 + Math.random() * 0.3}`;
+        const duration = 14 + Math.random() * 10;
         const delay = Math.random() * 12;
-        element.style.animation = `sabado-santo-fall ${duration}s linear ${delay}s infinite`;
+        const anim = type === 0 ? `sabado-santo-fall ${duration}s linear ${delay}s infinite, sabado-santo-pulse ${2 + Math.random() * 2}s ease-in-out ${delay}s infinite` : `sabado-santo-fall ${duration}s linear ${delay}s infinite`;
+        element.style.animation = anim;
         return element;
       }
     },
 
     resurreccion: {
-      count: 25,
+      count: 50,
       create: (i) => {
         const element = document.createElement('div');
-        const delay = Math.random() * 7;
-        const duration = 7 + Math.random() * 6;
+        const delay = Math.random() * 8;
+        const duration = 6 + Math.random() * 7;
+        const type = i % 5;
 
-        if (i % 3 < 2) {
-          // Rayos de luz
+        if (type < 2) {
+          // Rayos de luz (blancos → dorados)
           element.className = 'resurreccion-ray';
-          element.style.setProperty('--ray-w', `${2 + Math.random() * 3}px`);
-          element.style.setProperty('--ray-h', `${12 + Math.random() * 14}px`);
-          element.style.opacity = `${0.5 + Math.random() * 0.4}`;
+          element.style.setProperty('--ray-w', `${2 + Math.random() * 4}px`);
+          element.style.setProperty('--ray-h', `${16 + Math.random() * 20}px`);
+          element.style.opacity = `${0.55 + Math.random() * 0.4}`;
           element.style.animation = `resurreccion-fall ${duration}s linear ${delay}s infinite`;
-        } else {
-          // Círculos luminosos
+        } else if (type < 4) {
+          // Círculos luminosos dorados/naranjas
           element.className = 'resurreccion-glow';
-          const size = 5 + Math.random() * 8;
+          const size = 6 + Math.random() * 9;
           element.style.setProperty('--glow-size', `${size}px`);
-          element.style.opacity = `${0.55 + Math.random() * 0.35}`;
-          element.style.animation = `resurreccion-fall ${duration + 2}s linear ${delay}s infinite, resurreccion-glow ${1.8 + Math.random() * 1.5}s ease-in-out ${delay}s infinite`;
+          element.style.opacity = `${0.6 + Math.random() * 0.35}`;
+          element.style.animation = `resurreccion-fall ${duration + 2}s linear ${delay}s infinite, resurreccion-glow ${1.6 + Math.random() * 1.5}s ease-in-out ${delay}s infinite`;
+        } else {
+          // Chispas blancas brillantes
+          element.className = 'resurreccion-spark';
+          const size = 3 + Math.random() * 4;
+          element.style.setProperty('--spark-size', `${size}px`);
+          element.style.opacity = `${0.7 + Math.random() * 0.3}`;
+          element.style.animation = `resurreccion-fall ${duration - 1}s linear ${delay}s infinite, resurreccion-glow ${1.2 + Math.random() * 1}s ease-in-out ${delay}s infinite`;
         }
 
         element.style.left = `${Math.random() * 100}%`;
