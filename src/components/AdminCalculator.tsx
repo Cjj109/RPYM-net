@@ -4,7 +4,7 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import { migrateToDispatchers } from './calculator/migration';
 import type { DispatcherTab, SubClient, CalcEntry, SavedSession, UndoAction, RateConfig, ClientTotals, QuickQueueItem } from './calculator/types';
 import { LS_KEYS, DEFAULT_SUBCLIENT_NAME, DEFAULT_SUBCLIENT_COUNT, DISPATCHERS } from './calculator/constants';
-import { ClockIcon, GearIcon, QueueIcon } from './calculator/icons';
+import { ClockIcon, GearIcon, QueueIcon, NoteIcon } from './calculator/icons';
 import { CalcInput } from './calculator/CalcInput';
 import { ClientTabs } from './calculator/ClientTabs';
 import { SubClientCards } from './calculator/SubClientCards';
@@ -16,6 +16,7 @@ import { ClientHeader } from './calculator/ClientHeader';
 import { KeyboardHelp } from './calculator/KeyboardHelp';
 import { UndoToast } from './calculator/UndoToast';
 import { QuickOps } from './calculator/QuickOps';
+import { NotesPanel } from './calculator/NotesPanel';
 
 interface AdminCalculatorProps {
   bcvRate?: { rate: number; date: string; source: string };
@@ -59,6 +60,8 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   const [quickQueue, setQuickQueue] = useLocalStorage<QuickQueueItem[]>(LS_KEYS.QUICK_QUEUE, []);
   const [rateConfig, setRateConfig] = useLocalStorage<RateConfig>(LS_KEYS.RATE_CONFIG, { useManualRate: false, manualRate: '' });
   const [queueDisplayMode, setQueueDisplayMode] = useLocalStorage<'carlos' | 'vero'>(LS_KEYS.QUEUE_DISPLAY_MODE, 'carlos');
+  const [notes, setNotes] = useLocalStorage<string>(LS_KEYS.NOTES, '');
+  const [notesLastEdited, setNotesLastEdited] = useLocalStorage<number | null>('rpym_calc_notes_ts', null);
 
   // === Estado no persistido ===
   const [autoRate, setAutoRate] = useState(initialBcv?.rate ?? 0);
@@ -70,6 +73,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   const [activeTab, setActiveTab] = useState<'calculator' | 'quickops'>('quickops');
   const [showQueue, setShowQueue] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
   const [navLevel, setNavLevel] = useState<'input' | 'dispatcher' | 'subclient'>('input');
   const [undoAction, setUndoAction] = useState<UndoAction | null>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -445,6 +449,16 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
               </button>
             )}
             <button
+              onClick={() => setShowNotes(prev => !prev)}
+              className={`relative p-1.5 rounded-lg transition-colors ${showNotes ? 'bg-ocean-100 text-ocean-700' : 'text-ocean-400 hover:text-ocean-600 hover:bg-ocean-50'}`}
+              title="Notas"
+            >
+              <NoteIcon />
+              {notes.trim() && !showNotes && (
+                <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-ocean-400 rounded-full" />
+              )}
+            </button>
+            <button
               onClick={() => setShowSettings(prev => !prev)}
               className={`p-1.5 rounded-lg transition-colors ${showSettings ? 'bg-ocean-100 text-ocean-700' : 'text-ocean-400 hover:text-ocean-600 hover:bg-ocean-50'}`}
               title="Configurar tasa"
@@ -512,6 +526,15 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
               </div>
             </div>
           </>
+        )}
+
+        {showNotes && (
+          <NotesPanel
+            notes={notes}
+            lastEdited={notesLastEdited}
+            onChange={(value) => { setNotes(value); setNotesLastEdited(Date.now()); }}
+            onClear={() => { setNotes(''); setNotesLastEdited(null); }}
+          />
         )}
 
         {activeTab === 'calculator' && (
