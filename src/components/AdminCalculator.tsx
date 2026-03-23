@@ -4,7 +4,8 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import { migrateToDispatchers } from './calculator/migration';
 import type { DispatcherTab, SubClient, CalcEntry, SavedSession, UndoAction, RateConfig, ClientTotals, QuickQueueItem } from './calculator/types';
 import { LS_KEYS, DEFAULT_SUBCLIENT_NAME, DEFAULT_SUBCLIENT_COUNT, DISPATCHERS } from './calculator/constants';
-import { ClockIcon, GearIcon, QueueIcon, NoteIcon } from './calculator/icons';
+import { ClockIcon, GearIcon, QueueIcon, NoteIcon, AIBoltIcon } from './calculator/icons';
+import { CustomerAIPanel } from './calculator/CustomerAIPanel';
 import { CalcInput } from './calculator/CalcInput';
 import { ClientTabs } from './calculator/ClientTabs';
 import { SubClientCards } from './calculator/SubClientCards';
@@ -74,6 +75,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   const [showQueue, setShowQueue] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
+  const [showAI, setShowAI] = useState(false);
   const [navLevel, setNavLevel] = useState<'input' | 'dispatcher' | 'subclient'>('input');
   const [undoAction, setUndoAction] = useState<UndoAction | null>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -459,6 +461,13 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
               )}
             </button>
             <button
+              onClick={() => setShowAI(prev => !prev)}
+              className={`p-1.5 rounded-lg transition-colors ${showAI ? 'bg-purple-100 text-purple-700' : 'text-ocean-400 hover:text-purple-600 hover:bg-purple-50'}`}
+              title="IA Clientes"
+            >
+              <AIBoltIcon />
+            </button>
+            <button
               onClick={() => setShowSettings(prev => !prev)}
               className={`p-1.5 rounded-lg transition-colors ${showSettings ? 'bg-ocean-100 text-ocean-700' : 'text-ocean-400 hover:text-ocean-600 hover:bg-ocean-50'}`}
               title="Configurar tasa"
@@ -535,6 +544,10 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
             onChange={(value) => { setNotes(value); setNotesLastEdited(Date.now()); }}
             onClear={() => { setNotes(''); setNotesLastEdited(null); }}
           />
+        )}
+
+        {showAI && (
+          <CustomerAIPanel bcvRate={activeRate > 0 ? activeRate : undefined} />
         )}
 
         {activeTab === 'calculator' && (
