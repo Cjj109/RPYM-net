@@ -210,7 +210,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
   }, [inputAmount, inputCurrency, activeRate]);
 
   const addToQueue = useCallback(() => {
-    if (currentEntries.length === 0) return;
+    if (currentEntries.length === 0 && !editingQueueId) return;
 
     if (editingQueueId) {
       // Update existing item in-place
@@ -553,7 +553,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
               if (e.key === 'Enter') {
                 e.preventDefault();
                 if (inputAmount.trim() !== '') { addAmount(); }
-                else if (currentEntries.length > 0) { addToQueue(); }
+                else if (editingQueueId || currentEntries.length > 0) { addToQueue(); }
               }
               else if (e.key === ' ') { e.preventDefault(); setInputAmount(prev => prev + '+'); }
               else if (e.key === '[') { e.preventDefault(); setInputAmount(prev => prev + '*'); }
