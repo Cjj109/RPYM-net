@@ -452,6 +452,19 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
     inputRef.current?.focus();
   }, []);
 
+  const insertAtCursor = useCallback((char: string) => {
+    const input = inputRef.current;
+    if (!input) { setInputAmount(prev => prev + char); return; }
+    const start = input.selectionStart ?? inputAmount.length;
+    const end = input.selectionEnd ?? inputAmount.length;
+    const newValue = inputAmount.slice(0, start) + char + inputAmount.slice(end);
+    setInputAmount(newValue);
+    requestAnimationFrame(() => {
+      input.focus();
+      input.setSelectionRange(start + char.length, start + char.length);
+    });
+  }, [inputAmount]);
+
   const parsedAmount = evalMathExpr(inputAmount);
   const hasExpression = /[+\-*/]/.test(inputAmount.replace(/^-/, ''));
   const previewUSD = inputCurrency === 'USD' ? parsedAmount : (activeRate ? parsedAmount / activeRate : 0);
@@ -579,6 +592,20 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
           >
             <PlusIcon className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* Botones de operación — solo en móvil/touch */}
+        <div className="hidden [@media(hover:none)_and_(pointer:coarse)]:flex gap-1 mt-2">
+          {([{ label: '×', char: '*' }, { label: '÷', char: '/' }, { label: '+', char: '+' }, { label: '−', char: '-' }] as const).map(({ label, char }) => (
+            <button
+              key={char}
+              type="button"
+              onPointerDown={e => { e.preventDefault(); insertAtCursor(char); }}
+              className={`flex-1 py-1.5 rounded-lg text-base font-bold font-mono bg-white/80 border border-ocean-200 ${dispatcherInfo?.text ?? 'text-ocean-600'} active:scale-95 transition-transform`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         {/* Preview de conversión */}
