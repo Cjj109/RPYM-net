@@ -12,26 +12,25 @@ const { class: className = '' } = Astro.props;
 
 <div class={`themed-mascot ${className}`}>
   <picture>
-    <source srcset="/jose-sm.webp" media="(max-width: 400px)" class="mascot-source" data-theme-src="jose" />
-    <source srcset="/jose-md.webp" media="(max-width: 768px)" class="mascot-source" data-theme-src="jose" />
+    <source srcset="/jose-sm.webp" media="(max-width: 400px)" />
+    <source srcset="/jose-md.webp" media="(max-width: 768px)" />
     <img
       id="themed-mascot-img"
       src="/jose-lg.webp"
       alt="Mascota de RPYM"
-      class="w-48 h-auto md:w-64 lg:w-80 drop-shadow-2xl animate-float"
+      class="w-48 h-auto md:w-64 lg:w-80 drop-shadow-2xl animate-float object-contain"
       width="500"
       height="750"
       loading="eager"
       fetchpriority="high"
       decoding="async"
-      data-theme-src="jose"
     />
   </picture>
 </div>
 
 <script is:inline>
 (function() {
-  // Mapeo de tema a mascota
+  // Mapeo de tema a mascota multi-tamaño (archivos en /public/)
   const themeMascots = {
     ocean: 'jose',
     carnival: 'carnaval',
@@ -43,36 +42,61 @@ const { class: className = '' } = Astro.props;
     campeones: 'campeones'
   };
 
+  // Temas de Semana Santa con imagen única en /mascots/
+  const semanaSantaMascots = {
+    'ramos': '/mascots/domingoderamos.webp',
+    'cuaresma': '/mascots/lunesamiercoles.webp',
+    'jueves-santo': '/mascots/juevessanto.webp',
+    'resurreccion': '/mascots/domingoderesureccion.webp'
+  };
+
+  // Temas donde se oculta la mascota
+  const hiddenThemes = ['viernes-santo', 'sabado-santo'];
+
   function updateMascot(theme) {
-    const mascot = themeMascots[theme] || 'jose';
+    const wrapper = document.querySelector('.themed-mascot');
     const img = document.getElementById('themed-mascot-img');
-    if (!img) return;
+    if (!img || !wrapper) return;
 
     const picture = img.parentElement;
     if (!picture) return;
 
-    // Update main image
-    img.src = `/${mascot}-lg.webp`;
+    // Ocultar mascota en Viernes y Sábado Santo
+    if (hiddenThemes.includes(theme)) {
+      wrapper.style.display = 'none';
+      return;
+    }
 
-    // Update picture sources
+    wrapper.style.display = '';
+
+    // Semana Santa: imagen única desde /mascots/
+    if (semanaSantaMascots[theme]) {
+      const src = semanaSantaMascots[theme];
+      img.src = src;
+      const sources = picture.querySelectorAll('source');
+      sources.forEach(source => { source.srcset = src; });
+      return;
+    }
+
+    // Mascota normal con variantes de tamaño
+    const mascot = themeMascots[theme] || 'jose';
+    img.src = `/${mascot}-lg.webp`;
     const sources = picture.querySelectorAll('source');
     sources.forEach(source => {
-      const srcset = source.getAttribute('srcset');
-      if (srcset && srcset.includes('-sm.webp')) {
+      const media = source.getAttribute('media') || '';
+      if (media.includes('400px')) {
         source.srcset = `/${mascot}-sm.webp`;
-      } else if (srcset && srcset.includes('-md.webp')) {
+      } else if (media.includes('768px')) {
         source.srcset = `/${mascot}-md.webp`;
       }
     });
   }
 
-  // Initial update
   function init() {
     const theme = document.documentElement.getAttribute('data-theme') || 'ocean';
     updateMascot(theme);
   }
 
-  // Observe theme changes
   const observer = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
       if (mutation.attributeName === 'data-theme') {
@@ -87,7 +111,6 @@ const { class: className = '' } = Astro.props;
     attributeFilter: ['data-theme']
   });
 
-  // Initialize
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
