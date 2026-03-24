@@ -399,6 +399,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
+      if (target.tagName === 'TEXTAREA') return;
       if (target.tagName === 'INPUT' && target !== amountRef.current) return;
 
       if (e.key === 'ArrowDown') {
