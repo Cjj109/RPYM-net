@@ -3601,11 +3601,11 @@ html[data-theme="resurreccion"]::after {
   z-index: 2;
 }
 
-/* ========== VIERNES/SÁBADO SANTO - MASCOTA DE LUTO ========== */
-[data-theme="viernes-santo"] .themed-mascot,
-[data-theme="sabado-santo"] .themed-mascot {
-  filter: grayscale(100%) !important;
-  opacity: 0.5 !important;
+/* ========== VIERNES/SÁBADO SANTO - MASCOTA OCULTA ========== */
+/* Se oculta el contenedor completo para que el flex-1 del hero se expanda sin huecos */
+[data-theme="viernes-santo"] .mascot-container,
+[data-theme="sabado-santo"] .mascot-container {
+  display: none !important;
 }
 
 /* ========== CALCULADORA - AISLAMIENTO DE TEMAS ESTACIONALES ========== */
