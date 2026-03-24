@@ -4077,6 +4077,85 @@ html[data-theme="resurreccion"]::after {
   display: none !important;
 }
 
+/* ========== SEMANA SANTA — LEGIBILIDAD GENERAL ========== */
+
+/* --- 1. Tarjeta del calculador de presupuesto ---
+   .themed-card sobreescribe el fondo a blanco/claro → h2 y p.text-ocean-100 quedan invisibles.
+   Forzar texto oscuro para los 5 temas con fondo claro (viernes-santo mantiene gradiente oscuro). */
+:is([data-theme="ramos"], [data-theme="cuaresma"], [data-theme="jueves-santo"],
+    [data-theme="sabado-santo"], [data-theme="resurreccion"])
+  .themed-card[class*="from-ocean-6"] h2,
+:is([data-theme="ramos"], [data-theme="cuaresma"], [data-theme="jueves-santo"],
+    [data-theme="sabado-santo"], [data-theme="resurreccion"])
+  .themed-card[class*="from-ocean-6"] p {
+  color: rgba(0, 0, 0, 0.72) !important;
+  text-shadow: none !important;
+}
+
+/* --- 2. Footer — forzar texto blanco en todos los temas de Semana Santa ---
+   El footer tiene fondo oscuro (from-ocean-800 to-ocean-950).
+   Los temas globales sobreescriben h3 a colores oscuros y los links a colores temáticos,
+   haciéndolos ilegibles sobre fondo oscuro. */
+
+:is([data-theme="ramos"], [data-theme="cuaresma"], [data-theme="jueves-santo"],
+    [data-theme="viernes-santo"], [data-theme="sabado-santo"], [data-theme="resurreccion"])
+  footer h2,
+:is([data-theme="ramos"], [data-theme="cuaresma"], [data-theme="jueves-santo"],
+    [data-theme="viernes-santo"], [data-theme="sabado-santo"], [data-theme="resurreccion"])
+  footer h3 {
+  color: #ffffff !important;
+  text-shadow: none !important;
+}
+
+:is([data-theme="ramos"], [data-theme="cuaresma"], [data-theme="jueves-santo"],
+    [data-theme="viernes-santo"], [data-theme="sabado-santo"], [data-theme="resurreccion"])
+  footer p {
+  color: rgba(255, 255, 255, 0.82) !important;
+}
+
+/* Links en footer: blancos (excepto botón WhatsApp que tiene bg-green propio) */
+:is([data-theme="ramos"], [data-theme="cuaresma"], [data-theme="jueves-santo"],
+    [data-theme="viernes-santo"], [data-theme="sabado-santo"], [data-theme="resurreccion"])
+  footer a:not([class*="bg-green"]) {
+  color: rgba(255, 255, 255, 0.82) !important;
+}
+
+:is([data-theme="ramos"], [data-theme="cuaresma"], [data-theme="jueves-santo"],
+    [data-theme="viernes-santo"], [data-theme="sabado-santo"], [data-theme="resurreccion"])
+  footer a[class*="bg-green"] {
+  color: #ffffff !important;
+}
+
+/* Textos de pie de página: copyright, peces decorativos */
+:is([data-theme="ramos"], [data-theme="cuaresma"], [data-theme="jueves-santo"],
+    [data-theme="viernes-santo"], [data-theme="sabado-santo"], [data-theme="resurreccion"])
+  footer .text-ocean-400,
+:is([data-theme="ramos"], [data-theme="cuaresma"], [data-theme="jueves-santo"],
+    [data-theme="viernes-santo"], [data-theme="sabado-santo"], [data-theme="resurreccion"])
+  footer .text-ocean-600 {
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+
+/* --- 3. Botón "Arma tu Pedido" — texto blanco + fondo visible ---
+   jueves-santo, viernes-santo, sabado-santo, resurreccion no tienen override de .themed-button.
+   El botón usa bg-white text-ocean-700 → blanco sobre blanco = invisible. */
+:is([data-theme="jueves-santo"], [data-theme="viernes-santo"],
+    [data-theme="sabado-santo"], [data-theme="resurreccion"]) .themed-button {
+  background: linear-gradient(135deg, #92400e 0%, #b45309 50%, #d97706 100%) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 6px 18px -5px rgba(146, 64, 14, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+:is([data-theme="jueves-santo"], [data-theme="viernes-santo"],
+    [data-theme="sabado-santo"], [data-theme="resurreccion"]) .themed-button:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow:
+    0 12px 24px -6px rgba(146, 64, 14, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+}
+
 /* ========== ESTILOS DE IMPRESIÓN ========== */
 @media print {
   /* Ocultar todo excepto el contenido de impresión */
