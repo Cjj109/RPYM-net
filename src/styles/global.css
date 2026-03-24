@@ -3298,6 +3298,203 @@ html[data-theme="ramos"]::after {
   z-index: 2;
 }
 
+/* === DOMINGO DE RAMOS - Contraste y legibilidad === */
+
+/* Headings: verde esmeralda oscuro sobre fondo claro */
+[data-theme="ramos"] h1,
+[data-theme="ramos"] h2,
+[data-theme="ramos"] h3 {
+  color: #065f46 !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+/* Header: ocean-900/800 ya mapea a esmeralda oscuro — restaurar texto blanco */
+[data-theme="ramos"] header h1,
+[data-theme="ramos"] header h2,
+[data-theme="ramos"] header h3 {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Texto oscuro sobre fondo claro */
+[data-theme="ramos"] .text-gray-900,
+[data-theme="ramos"] .text-gray-800,
+[data-theme="ramos"] .text-ocean-900,
+[data-theme="ramos"] .text-ocean-800 {
+  color: #064e3b !important;
+}
+
+[data-theme="ramos"] .text-gray-700,
+[data-theme="ramos"] .text-ocean-700 {
+  color: #065f46 !important;
+}
+
+[data-theme="ramos"] .text-gray-600,
+[data-theme="ramos"] .text-gray-500,
+[data-theme="ramos"] .text-ocean-600,
+[data-theme="ramos"] .text-ocean-500 {
+  color: #047857 !important;
+}
+
+/* text-ocean-400/300: esmeralda claro → invisible sobre fondo claro → oscurecer */
+[data-theme="ramos"] .text-ocean-400,
+[data-theme="ramos"] .text-ocean-300 {
+  color: #059669 !important;
+}
+
+/* Excepción: en header/footer sobre fondo oscuro, estos colores claros son legibles */
+[data-theme="ramos"] header .text-ocean-400,
+[data-theme="ramos"] header .text-ocean-300,
+[data-theme="ramos"] footer .text-ocean-300,
+[data-theme="ramos"] footer .text-ocean-400 {
+  color: inherit !important;
+}
+
+/* text-coral-300/400: #fde047/#facc15 (amarillo brillante) → invisible sobre fondo claro */
+[data-theme="ramos"] .text-coral-300,
+[data-theme="ramos"] .text-coral-400 {
+  color: #92400e !important;
+}
+
+/* text-coral-500/600: #eab308/#ca8a04 (ámbar) → contraste insuficiente en fondo claro */
+[data-theme="ramos"] .text-coral-500,
+[data-theme="ramos"] .text-coral-600 {
+  color: #a16207 !important;
+}
+
+/* Excepción: en footer sobre fondo oscuro, coral-300/400 amarillo es legible */
+[data-theme="ramos"] footer .text-coral-300,
+[data-theme="ramos"] footer .text-coral-400 {
+  color: inherit !important;
+}
+
+/* bg-coral-500 (#eab308 amarillo) con text-white → contraste ~1.9:1 → FALLA
+   Reemplazar con esmeralda oscuro */
+[data-theme="ramos"] .bg-coral-500,
+[data-theme="ramos"] a.bg-coral-500,
+[data-theme="ramos"] button.bg-coral-500 {
+  background-color: #065f46 !important;
+}
+
+[data-theme="ramos"] .hover\:bg-coral-600:hover,
+[data-theme="ramos"] a.bg-coral-500:hover,
+[data-theme="ramos"] button.bg-coral-500:hover {
+  background-color: #047857 !important;
+}
+
+/* Links */
+[data-theme="ramos"] a:not(.themed-button) {
+  color: #059669 !important;
+}
+
+[data-theme="ramos"] a:not(.themed-button):hover {
+  color: #047857 !important;
+}
+
+/* Botones temáticos: esmeralda profundo con destello dorado */
+[data-theme="ramos"] .themed-button,
+[data-theme="ramos"] a[href*="whatsapp"] {
+  background: linear-gradient(135deg, #065f46 0%, #059669 55%, #ca8a04 100%) !important;
+  box-shadow:
+    0 8px 20px -6px rgba(5, 150, 105, 0.45),
+    0 0 0 3px rgba(254, 252, 232, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  color: white !important;
+}
+
+[data-theme="ramos"] .themed-button:hover,
+[data-theme="ramos"] a[href*="whatsapp"]:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow:
+    0 14px 28px -6px rgba(5, 150, 105, 0.52),
+    0 0 0 4px rgba(254, 252, 232, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Sección de precios */
+[data-theme="ramos"] #precios h2,
+[data-theme="ramos"] #precios h3 {
+  color: #065f46 !important;
+}
+
+[data-theme="ramos"] #precios p,
+[data-theme="ramos"] #precios .text-ocean-700,
+[data-theme="ramos"] #precios .text-ocean-600 {
+  color: #047857 !important;
+}
+
+[data-theme="ramos"] #precios .product-description,
+[data-theme="ramos"] #precios .product-details,
+[data-theme="ramos"] #precios .product-unit {
+  color: #047857 !important;
+}
+
+[data-theme="ramos"] #precios .product-price-bs {
+  color: #065f46 !important;
+  font-weight: 700;
+}
+
+[data-theme="ramos"] #precios .product-price-usd {
+  color: #a16207 !important;
+  font-weight: 800;
+}
+
+/* Modal de producto con gradiente ocean-6xx: mantener blanco */
+[data-theme="ramos"] [class*="from-ocean-6"] h3 {
+  color: #ffffff !important;
+}
+
+[data-theme="ramos"] [class*="from-ocean-6"] [class*="text-ocean-2"] {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* ── Calculadora: restaurar colores originales (calc-no-theme no debe verse afectada) ── */
+[data-theme="ramos"] .calc-no-theme h1,
+[data-theme="ramos"] .calc-no-theme h2,
+[data-theme="ramos"] .calc-no-theme h3 {
+  color: unset !important;
+  text-shadow: none !important;
+}
+
+[data-theme="ramos"] .calc-no-theme .text-gray-900,
+[data-theme="ramos"] .calc-no-theme .text-gray-800,
+[data-theme="ramos"] .calc-no-theme .text-ocean-900,
+[data-theme="ramos"] .calc-no-theme .text-ocean-800,
+[data-theme="ramos"] .calc-no-theme .text-gray-700,
+[data-theme="ramos"] .calc-no-theme .text-ocean-700,
+[data-theme="ramos"] .calc-no-theme .text-gray-600,
+[data-theme="ramos"] .calc-no-theme .text-gray-500,
+[data-theme="ramos"] .calc-no-theme .text-ocean-600,
+[data-theme="ramos"] .calc-no-theme .text-ocean-500,
+[data-theme="ramos"] .calc-no-theme .text-ocean-400,
+[data-theme="ramos"] .calc-no-theme .text-ocean-300,
+[data-theme="ramos"] .calc-no-theme .text-coral-300,
+[data-theme="ramos"] .calc-no-theme .text-coral-400,
+[data-theme="ramos"] .calc-no-theme .text-coral-500,
+[data-theme="ramos"] .calc-no-theme .text-coral-600 {
+  color: revert !important;
+}
+
+[data-theme="ramos"] .calc-no-theme .bg-coral-500,
+[data-theme="ramos"] .calc-no-theme a.bg-coral-500,
+[data-theme="ramos"] .calc-no-theme button.bg-coral-500 {
+  background-color: var(--color-coral-500) !important;
+}
+
+[data-theme="ramos"] .calc-no-theme .hover\:bg-coral-600:hover {
+  background-color: var(--color-coral-600) !important;
+}
+
+[data-theme="ramos"] .calc-no-theme .themed-button {
+  background: linear-gradient(135deg, var(--color-ocean-600), var(--color-coral-500)) !important;
+  box-shadow: none !important;
+  color: white !important;
+}
+
+[data-theme="ramos"] .calc-no-theme a:not(.themed-button) {
+  color: var(--color-ocean-600) !important;
+}
+
 /* === LUNES-MIÉRCOLES SANTO (CUARESMA) - Franja violeta solemne + marco === */
 html[data-theme="cuaresma"]::before {
   content: '';
