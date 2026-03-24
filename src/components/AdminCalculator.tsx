@@ -81,6 +81,8 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearAllRef = useRef<() => void>(() => {});
   const amountRef = useRef<HTMLInputElement>(null);
+  const initialNotesTs = useRef(notesLastEdited);
+  const notesSyncRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // === Derivados ===
   const activeDispatcher = dispatchers.find(d => d.id === activeDispatcherId) ?? dispatchers[0];
@@ -127,6 +129,17 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     ));
   }, [setDispatchers]);
 
+  const syncNotesToAPI = useCallback((content: string) => {
+    if (notesSyncRef.current) clearTimeout(notesSyncRef.current);
+    notesSyncRef.current = setTimeout(() => {
+      fetch('/api/calc/notes', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+      }).catch(console.error);
+    }, 1500);
+  }, []);
+
   // === Undo ===
   const scheduleUndoDismiss = useCallback(() => {
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
@@ -151,6 +164,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
         }));
         if (undoAction.sessionId) {
           setSessions(prev => prev.filter(s => s.id !== undoAction.sessionId));
+          fetch(`/api/calc/sessions/${undoAction.sessionId}`, { method: 'DELETE' }).catch(console.error);
         }
         break;
     }
@@ -161,6 +175,34 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   useEffect(() => {
     return () => { if (undoTimerRef.current) clearTimeout(undoTimerRef.current); };
   }, []);
+
+  // Sync de notas y sesiones con la BD al montar (localStorage como caché local)
+  useEffect(() => {
+    fetch('/api/calc/notes')
+      .then(r => r.json())
+      .then((data: { success: boolean; content: string; updated_at: string | null }) => {
+        if (!data.success || !data.updated_at) return;
+        const apiTs = new Date(data.updated_at).getTime();
+        if (apiTs > (initialNotesTs.current ?? 0)) {
+          setNotes(data.content);
+          setNotesLastEdited(apiTs);
+        }
+      })
+      .catch(console.error);
+
+    fetch('/api/calc/sessions')
+      .then(r => r.json())
+      .then((data: { success: boolean; sessions: SavedSession[] }) => {
+        if (!data.success) return;
+        setSessions(prev => {
+          const map = new Map<string, SavedSession>();
+          for (const s of data.sessions) map.set(s.id, s);
+          for (const s of prev) if (!map.has(s.id)) map.set(s.id, s);
+          return Array.from(map.values()).sort((a, b) => b.timestamp - a.timestamp).slice(0, 100);
+        });
+      })
+      .catch(console.error);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // === Acciones ===
   const addEntry = useCallback(() => {
@@ -245,6 +287,11 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
         timestamp: Date.now(),
       };
       setSessions(prev => [session, ...prev].slice(0, 100));
+      fetch('/api/calc/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(session),
+      }).catch(console.error);
     }
 
     setUndoAction({
@@ -541,8 +588,8 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
           <NotesPanel
             notes={notes}
             lastEdited={notesLastEdited}
-            onChange={(value) => { setNotes(value); setNotesLastEdited(Date.now()); }}
-            onClear={() => { setNotes(''); setNotesLastEdited(null); }}
+            onChange={(value) => { setNotes(value); setNotesLastEdited(Date.now()); syncNotesToAPI(value); }}
+            onClear={() => { setNotes(''); setNotesLastEdited(null); syncNotesToAPI(''); }}
           />
         )}
 
@@ -555,15 +602,15 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
             {showQueue && (
               <QueuePanel
                 sessions={sessions}
-                onRemoveSession={(id) => setSessions(prev => prev.filter(s => s.id !== id))}
+                onRemoveSession={(id) => { setSessions(prev => prev.filter(s => s.id !== id)); fetch(`/api/calc/sessions/${id}`, { method: 'DELETE' }).catch(console.error); }}
               />
             )}
 
             {showHistory && sessions.length > 0 && (
               <HistoryPanel
                 sessions={sessions}
-                onRemoveSession={(id) => setSessions(prev => prev.filter(s => s.id !== id))}
-                onClearHistory={() => setSessions([])}
+                onRemoveSession={(id) => { setSessions(prev => prev.filter(s => s.id !== id)); fetch(`/api/calc/sessions/${id}`, { method: 'DELETE' }).catch(console.error); }}
+                onClearHistory={() => { setSessions([]); fetch('/api/calc/sessions', { method: 'DELETE' }).catch(console.error); }}
               />
             )}
 
@@ -627,16 +674,16 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
             {showHistory && sessions.length > 0 && (
               <HistoryPanel
                 sessions={sessions}
-                onRemoveSession={(id) => setSessions(prev => prev.filter(s => s.id !== id))}
-                onClearHistory={() => setSessions([])}
+                onRemoveSession={(id) => { setSessions(prev => prev.filter(s => s.id !== id)); fetch(`/api/calc/sessions/${id}`, { method: 'DELETE' }).catch(console.error); }}
+                onClearHistory={() => { setSessions([]); fetch('/api/calc/sessions', { method: 'DELETE' }).catch(console.error); }}
               />
             )}
             <QuickOps
               activeRate={activeRate}
               queue={quickQueue}
               onQueueChange={setQuickQueue}
-              onAddSession={(session) => setSessions(prev => [session, ...prev].slice(0, 100))}
-              onRemoveSession={(sessionId) => setSessions(prev => prev.filter(s => s.id !== sessionId))}
+              onAddSession={(session) => { setSessions(prev => [session, ...prev].slice(0, 100)); fetch('/api/calc/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(session) }).catch(console.error); }}
+              onRemoveSession={(sessionId) => { setSessions(prev => prev.filter(s => s.id !== sessionId)); fetch(`/api/calc/sessions/${sessionId}`, { method: 'DELETE' }).catch(console.error); }}
               displayMode={queueDisplayMode}
             />
           </>
