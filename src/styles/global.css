@@ -3382,6 +3382,28 @@ html[data-theme="ramos"]::after {
   color: inherit !important;
 }
 
+/* Header: forzar texto claro sobre fondo oscuro esmeralda */
+[data-theme="ramos"] header a:not(.themed-button):not([class*="bg-coral"]):not([class*="text-ocean-7"]) {
+  color: #d1fae5 !important;
+}
+[data-theme="ramos"] header a:not(.themed-button):not([class*="bg-coral"]):not([class*="text-ocean-7"]):hover {
+  color: #ffffff !important;
+}
+[data-theme="ramos"] header button:not([class*="bg-"]) {
+  color: #d1fae5 !important;
+}
+[data-theme="ramos"] header [class*="text-ocean-100"],
+[data-theme="ramos"] header [class*="text-ocean-200"] {
+  color: #d1fae5 !important;
+}
+[data-theme="ramos"] header .header-logo .font-display {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+[data-theme="ramos"] header .header-logo span:not(.font-display) {
+  color: #a7f3d0 !important;
+}
+
 /* text-coral-300/400: #fde047/#facc15 (amarillo brillante) → invisible sobre fondo claro */
 [data-theme="ramos"] .text-coral-300,
 [data-theme="ramos"] .text-coral-400 {
@@ -3602,6 +3624,28 @@ html[data-theme="cuaresma"]::after {
 [data-theme="cuaresma"] footer .text-ocean-300,
 [data-theme="cuaresma"] footer .text-ocean-400 {
   color: inherit !important;
+}
+
+/* Header: forzar texto claro sobre fondo oscuro violeta */
+[data-theme="cuaresma"] header a:not(.themed-button):not([class*="bg-coral"]):not([class*="text-ocean-7"]) {
+  color: #ede9fe !important;
+}
+[data-theme="cuaresma"] header a:not(.themed-button):not([class*="bg-coral"]):not([class*="text-ocean-7"]):hover {
+  color: #ffffff !important;
+}
+[data-theme="cuaresma"] header button:not([class*="bg-"]) {
+  color: #ede9fe !important;
+}
+[data-theme="cuaresma"] header [class*="text-ocean-100"],
+[data-theme="cuaresma"] header [class*="text-ocean-200"] {
+  color: #ede9fe !important;
+}
+[data-theme="cuaresma"] header .header-logo .font-display {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+[data-theme="cuaresma"] header .header-logo span:not(.font-display) {
+  color: #ddd6fe !important;
 }
 
 /* text-coral-300/400: lavanda claro → invisible sobre fondo claro */
@@ -3830,6 +3874,132 @@ html[data-theme="resurreccion"]::after {
   z-index: 2;
 }
 
+/* ========== SEMANA SANTA - HEADER CONTRASTE ========== */
+
+/* Jueves Santo: header sobre fondo oscuro dorado/ámbar */
+[data-theme="jueves-santo"] header h1,
+[data-theme="jueves-santo"] header h2,
+[data-theme="jueves-santo"] header h3 {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+[data-theme="jueves-santo"] header a:not(.themed-button):not([class*="bg-coral"]):not([class*="text-ocean-7"]) {
+  color: #fef3c7 !important;
+}
+[data-theme="jueves-santo"] header a:not(.themed-button):not([class*="bg-coral"]):not([class*="text-ocean-7"]):hover {
+  color: #ffffff !important;
+}
+[data-theme="jueves-santo"] header button:not([class*="bg-"]) {
+  color: #fef3c7 !important;
+}
+[data-theme="jueves-santo"] header [class*="text-ocean-100"],
+[data-theme="jueves-santo"] header [class*="text-ocean-200"] {
+  color: #fef3c7 !important;
+}
+[data-theme="jueves-santo"] header [class*="text-ocean-300"] {
+  color: #fde68a !important;
+}
+[data-theme="jueves-santo"] header .header-logo .font-display {
+  color: #fef3c7 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+[data-theme="jueves-santo"] header .header-logo span:not(.font-display) {
+  color: #fde68a !important;
+}
+
+/* Viernes Santo: header sobre fondo oscuro gris */
+[data-theme="viernes-santo"] header h1,
+[data-theme="viernes-santo"] header h2,
+[data-theme="viernes-santo"] header h3 {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+[data-theme="viernes-santo"] header a:not(.themed-button):not([class*="bg-coral"]):not([class*="text-ocean-7"]) {
+  color: #f3f4f6 !important;
+}
+[data-theme="viernes-santo"] header a:not(.themed-button):not([class*="bg-coral"]):not([class*="text-ocean-7"]):hover {
+  color: #ffffff !important;
+}
+[data-theme="viernes-santo"] header button:not([class*="bg-"]) {
+  color: #f3f4f6 !important;
+}
+[data-theme="viernes-santo"] header [class*="text-ocean-100"],
+[data-theme="viernes-santo"] header [class*="text-ocean-200"] {
+  color: #f3f4f6 !important;
+}
+[data-theme="viernes-santo"] header [class*="text-ocean-300"] {
+  color: #e5e7eb !important;
+}
+[data-theme="viernes-santo"] header .header-logo .font-display {
+  color: #f3f4f6 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+[data-theme="viernes-santo"] header .header-logo span:not(.font-display) {
+  color: #e5e7eb !important;
+}
+
+/* Sábado Santo: header sobre fondo casi negro */
+[data-theme="sabado-santo"] header h1,
+[data-theme="sabado-santo"] header h2,
+[data-theme="sabado-santo"] header h3 {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+[data-theme="sabado-santo"] header a:not(.themed-button):not([class*="bg-coral"]):not([class*="text-ocean-7"]) {
+  color: #f4f4f5 !important;
+}
+[data-theme="sabado-santo"] header a:not(.themed-button):not([class*="bg-coral"]):not([class*="text-ocean-7"]):hover {
+  color: #ffffff !important;
+}
+[data-theme="sabado-santo"] header button:not([class*="bg-"]) {
+  color: #f4f4f5 !important;
+}
+[data-theme="sabado-santo"] header [class*="text-ocean-100"],
+[data-theme="sabado-santo"] header [class*="text-ocean-200"] {
+  color: #f4f4f5 !important;
+}
+[data-theme="sabado-santo"] header [class*="text-ocean-300"] {
+  color: #e4e4e7 !important;
+}
+[data-theme="sabado-santo"] header .header-logo .font-display {
+  color: #f4f4f5 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+[data-theme="sabado-santo"] header .header-logo span:not(.font-display) {
+  color: #e4e4e7 !important;
+}
+
+/* Resurrección: header sobre fondo oscuro dorado */
+[data-theme="resurreccion"] header h1,
+[data-theme="resurreccion"] header h2,
+[data-theme="resurreccion"] header h3 {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+[data-theme="resurreccion"] header a:not(.themed-button):not([class*="bg-coral"]):not([class*="text-ocean-7"]) {
+  color: #fef9c3 !important;
+}
+[data-theme="resurreccion"] header a:not(.themed-button):not([class*="bg-coral"]):not([class*="text-ocean-7"]):hover {
+  color: #ffffff !important;
+}
+[data-theme="resurreccion"] header button:not([class*="bg-"]) {
+  color: #fef9c3 !important;
+}
+[data-theme="resurreccion"] header [class*="text-ocean-100"],
+[data-theme="resurreccion"] header [class*="text-ocean-200"] {
+  color: #fef9c3 !important;
+}
+[data-theme="resurreccion"] header [class*="text-ocean-300"] {
+  color: #fef08a !important;
+}
+[data-theme="resurreccion"] header .header-logo .font-display {
+  color: #fef9c3 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+[data-theme="resurreccion"] header .header-logo span:not(.font-display) {
+  color: #fef08a !important;
+}
+
 /* ========== VIERNES/SÁBADO SANTO - MASCOTA OCULTA ========== */
 /* Se oculta el contenedor completo y el contenido del hero se expande a full width */
 [data-theme="viernes-santo"] .mascot-container,
@@ -3842,6 +4012,10 @@ html[data-theme="resurreccion"]::after {
 [data-theme="sabado-santo"] .mascot-container ~ .flex-1 {
   width: 100% !important;
   max-width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
   text-align: center !important;
 }
 
@@ -3849,11 +4023,14 @@ html[data-theme="resurreccion"]::after {
 [data-theme="viernes-santo"] .mascot-container ~ .flex-1 .flex,
 [data-theme="sabado-santo"] .mascot-container ~ .flex-1 .flex {
   justify-content: center !important;
+  align-items: center !important;
 }
 
-/* Centrar el enlace secundario */
+/* Centrar el enlace secundario y cualquier texto con alineación izquierda */
 [data-theme="viernes-santo"] .mascot-container ~ .flex-1 .md\:text-left,
-[data-theme="sabado-santo"] .mascot-container ~ .flex-1 .md\:text-left {
+[data-theme="sabado-santo"] .mascot-container ~ .flex-1 .md\:text-left,
+[data-theme="viernes-santo"] .mascot-container ~ .flex-1 .text-left,
+[data-theme="sabado-santo"] .mascot-container ~ .flex-1 .text-left {
   text-align: center !important;
 }
 
