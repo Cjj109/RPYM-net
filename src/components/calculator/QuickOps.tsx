@@ -133,9 +133,11 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
       if (e.id !== entryId) return e;
       let usd: number, bs: number;
       if (editingCurrency === 'USD') {
-        usd = parsed; bs = parsed * activeRate;
+        usd = Math.round(parsed * 100) / 100;
+        bs = Math.round(parsed * activeRate * 100) / 100;
       } else {
-        bs = parsed; usd = parsed / activeRate;
+        bs = Math.round(parsed * 100) / 100;
+        usd = Math.round(parsed / activeRate * 100) / 100;
       }
       const hasExpression = /[+\-*/]/.test(editingValue.replace(/^-/, ''));
       return {
@@ -147,6 +149,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
         expression: hasExpression ? editingValue.trim() : undefined,
       };
     }));
+    inputRef.current?.focus();
   }, [editingValue, editingCurrency, activeRate]);
 
   const startEditingQueueTotal = useCallback((item: QuickQueueItem, currency: 'USD' | 'Bs') => {
@@ -165,8 +168,8 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
     if (parsed === 0 || !activeRate) return;
     onQueueChange(prev => prev.map(item => {
       if (item.id !== itemId) return item;
-      const newTotalBs = editingQueueTotalCurrency === 'Bs' ? parsed : parsed * activeRate;
-      const newTotalUSD = editingQueueTotalCurrency === 'Bs' ? parsed / activeRate : parsed;
+      const newTotalBs = editingQueueTotalCurrency === 'Bs' ? Math.round(parsed * 100) / 100 : Math.round(parsed * activeRate * 100) / 100;
+      const newTotalUSD = editingQueueTotalCurrency === 'Bs' ? Math.round(parsed / activeRate * 100) / 100 : Math.round(parsed * 100) / 100;
       return { ...item, totalBs: newTotalBs, totalUSD: newTotalUSD };
     }));
   }, [editingQueueTotalValue, editingQueueTotalCurrency, activeRate, onQueueChange]);
@@ -307,6 +310,13 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
     if (q.length === 0) return;
     const item = q[0];
     onQueueChangeRef.current(prev => prev.slice(1));
+    // Bug 1 fix: si el item descartado estaba siendo editado, limpiar estado de edición
+    if (editingQueueIdRef.current === item.id) {
+      setEditingQueueId(null);
+      setCurrentEntries([]);
+      setInputAmount('');
+      setNoteInput('');
+    }
     lastDiscardedRef.current = item;
     setLastDiscarded(item);
     if (discardTimerRef.current) clearTimeout(discardTimerRef.current);
@@ -893,7 +903,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
 
                       {/* Trash */}
                       <button
-                        onClick={e => { e.stopPropagation(); onQueueChange(prev => prev.filter(q => q.id !== item.id)); }}
+                        onClick={e => { e.stopPropagation(); onQueueChange(prev => prev.filter(q => q.id !== item.id)); if (editingQueueId === item.id) cancelEditingQueue(); }}
                         className={`transition-colors p-0.5 shrink-0 ${displayMode === 'vero' ? `${disp?.text ?? 'text-emerald-700'} opacity-40 hover:opacity-90` : 'text-ocean-300 hover:text-red-400'}`}
                         title="Eliminar"
                       >
