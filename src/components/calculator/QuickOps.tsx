@@ -210,42 +210,45 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
   }, [inputAmount, inputCurrency, activeRate]);
 
   const addToQueue = useCallback(() => {
-    if (currentEntries.length === 0 && !editingQueueId) return;
+    if (currentEntries.length === 0) return;
+    const item: QuickQueueItem = {
+      id: crypto.randomUUID(),
+      dispatcher: selectedDispatcher,
+      entries: [...currentEntries],
+      totalUSD: currentTotal.usd,
+      totalBs: currentTotal.bs,
+      rate: activeRate,
+      timestamp: Date.now(),
+      note: noteInput.trim() || undefined,
+    };
+    onQueueChange(prev => [...prev, item]);
+    setCurrentEntries([]);
+    setInputAmount('');
+    setNoteInput('');
+    inputRef.current?.focus();
+  }, [currentEntries, selectedDispatcher, currentTotal, activeRate, onQueueChange, noteInput]);
 
-    if (editingQueueId) {
-      // Update existing item in-place
-      onQueueChange(prev => prev.map(item => {
-        if (item.id !== editingQueueId) return item;
-        return {
-          ...item,
-          dispatcher: selectedDispatcher,
-          entries: [...currentEntries],
-          totalUSD: currentTotal.usd,
-          totalBs: currentTotal.bs,
-          rate: activeRate,
-          note: noteInput.trim() || undefined,
-        };
-      }));
-      setEditingQueueId(null);
-    } else {
-      const item: QuickQueueItem = {
-        id: crypto.randomUUID(),
+  const updateQueueItem = useCallback(() => {
+    const editId = editingQueueIdRef.current;
+    if (!editId) return;
+    onQueueChange(prev => prev.map(item => {
+      if (item.id !== editId) return item;
+      return {
+        ...item,
         dispatcher: selectedDispatcher,
         entries: [...currentEntries],
         totalUSD: currentTotal.usd,
         totalBs: currentTotal.bs,
         rate: activeRate,
-        timestamp: Date.now(),
         note: noteInput.trim() || undefined,
       };
-      onQueueChange(prev => [...prev, item]);
-    }
-
+    }));
+    setEditingQueueId(null);
     setCurrentEntries([]);
     setInputAmount('');
     setNoteInput('');
     inputRef.current?.focus();
-  }, [currentEntries, selectedDispatcher, currentTotal, activeRate, onQueueChange, noteInput, editingQueueId]);
+  }, [currentEntries, selectedDispatcher, currentTotal, activeRate, onQueueChange, noteInput]);
 
   const markAsPaid = useCallback((itemId: string) => {
     const item = queue.find(q => q.id === itemId);
@@ -553,7 +556,10 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
               if (e.key === 'Enter') {
                 e.preventDefault();
                 if (inputAmount.trim() !== '') { addAmount(); }
-                else if (editingQueueId || currentEntries.length > 0) { addToQueue(); }
+                else if (currentEntries.length > 0) {
+                  if (editingQueueId) { updateQueueItem(); }
+                  else { addToQueue(); }
+                }
               }
               else if (e.key === ' ') { e.preventDefault(); setInputAmount(prev => prev + '+'); }
               else if (e.key === '[') { e.preventDefault(); setInputAmount(prev => prev + '*'); }
@@ -703,7 +709,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                 <div className="text-xs text-ocean-400 font-mono">{formatUSD(currentTotal.usd)}</div>
               </div>
               <button
-                onClick={addToQueue}
+                onClick={editingQueueId ? updateQueueItem : addToQueue}
                 className={`px-5 py-2.5 rounded-xl text-sm font-bold text-white shadow-sm transition-all active:scale-95 ${
                   editingQueueId
                     ? 'bg-amber-500 hover:bg-amber-400'
