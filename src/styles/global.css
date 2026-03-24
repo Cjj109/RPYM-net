@@ -3601,10 +3601,11 @@ html[data-theme="resurreccion"]::after {
   z-index: 2;
 }
 
-/* ========== VIERNES/SÁBADO SANTO - OCULTAR MASCOTA ========== */
+/* ========== VIERNES/SÁBADO SANTO - MASCOTA DE LUTO ========== */
 [data-theme="viernes-santo"] .themed-mascot,
 [data-theme="sabado-santo"] .themed-mascot {
-  display: none !important;
+  filter: grayscale(100%) !important;
+  opacity: 0.5 !important;
 }
 
 /* ========== CALCULADORA - AISLAMIENTO DE TEMAS ESTACIONALES ========== */
