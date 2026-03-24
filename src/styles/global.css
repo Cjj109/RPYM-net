@@ -1220,7 +1220,7 @@
     0 10px 20px -5px rgba(225, 29, 72, 0.4),
     0 0 0 4px rgba(255, 228, 230, 0.5),
     inset 0 2px 0 rgba(255, 255, 255, 0.3) !important;
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
   position: relative;
   overflow: hidden;
   isolation: isolate;
@@ -3232,13 +3232,8 @@ h1, h2, h3, h4, h5, h6 {
   pointer-events: none;
 }
 
-/* El header (y el botón "Arma tu Pedido") se eleva sobre el overlay grayscale
-   para mantenerse vibrante en todos los temas de Semana Santa */
-[data-theme="viernes-santo"] header,
-[data-theme="sabado-santo"] header {
-  position: relative;
-  z-index: 9995;
-}
+/* El header solo escapa el overlay en los temas SS sin grayscale total.
+   viernes-santo y sabado-santo usan overlay grayscale → el header NO debe escaparlo. */
 
 [data-theme="sabado-santo"] .themed-card,
 [data-theme="sabado-santo"] .bg-white.rounded-2xl,
