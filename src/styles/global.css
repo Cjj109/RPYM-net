@@ -3552,6 +3552,203 @@ html[data-theme="cuaresma"]::after {
   z-index: 2;
 }
 
+/* === LUNES-MIÉRCOLES SANTO (CUARESMA) - Contraste y legibilidad === */
+
+/* Headings: violeta profundo sobre fondo claro */
+[data-theme="cuaresma"] h1,
+[data-theme="cuaresma"] h2,
+[data-theme="cuaresma"] h3 {
+  color: #3b0764 !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+/* Header: texto blanco sobre fondo oscuro violeta */
+[data-theme="cuaresma"] header h1,
+[data-theme="cuaresma"] header h2,
+[data-theme="cuaresma"] header h3 {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Texto oscuro sobre fondo claro */
+[data-theme="cuaresma"] .text-gray-900,
+[data-theme="cuaresma"] .text-gray-800,
+[data-theme="cuaresma"] .text-ocean-900,
+[data-theme="cuaresma"] .text-ocean-800 {
+  color: #2e1065 !important;
+}
+
+[data-theme="cuaresma"] .text-gray-700,
+[data-theme="cuaresma"] .text-ocean-700 {
+  color: #3b0764 !important;
+}
+
+[data-theme="cuaresma"] .text-gray-600,
+[data-theme="cuaresma"] .text-gray-500,
+[data-theme="cuaresma"] .text-ocean-600,
+[data-theme="cuaresma"] .text-ocean-500 {
+  color: #4c1d95 !important;
+}
+
+/* text-ocean-400/300: lavanda claro → invisible sobre fondo claro → oscurecer */
+[data-theme="cuaresma"] .text-ocean-400,
+[data-theme="cuaresma"] .text-ocean-300 {
+  color: #6d28d9 !important;
+}
+
+/* Excepción: en header/footer sobre fondo oscuro, estos colores claros son legibles */
+[data-theme="cuaresma"] header .text-ocean-400,
+[data-theme="cuaresma"] header .text-ocean-300,
+[data-theme="cuaresma"] footer .text-ocean-300,
+[data-theme="cuaresma"] footer .text-ocean-400 {
+  color: inherit !important;
+}
+
+/* text-coral-300/400: lavanda claro → invisible sobre fondo claro */
+[data-theme="cuaresma"] .text-coral-300,
+[data-theme="cuaresma"] .text-coral-400 {
+  color: #5b21b6 !important;
+}
+
+/* text-coral-500/600: violeta medio → contraste insuficiente en fondo claro */
+[data-theme="cuaresma"] .text-coral-500,
+[data-theme="cuaresma"] .text-coral-600 {
+  color: #4c1d95 !important;
+}
+
+/* Excepción: en footer sobre fondo oscuro, coral-300/400 es legible */
+[data-theme="cuaresma"] footer .text-coral-300,
+[data-theme="cuaresma"] footer .text-coral-400 {
+  color: inherit !important;
+}
+
+/* bg-coral-500 (#8b5cf6 violeta) con text-white → contraste ~3.9:1 → FALLA
+   Reemplazar con violeta profundo */
+[data-theme="cuaresma"] .bg-coral-500,
+[data-theme="cuaresma"] a.bg-coral-500,
+[data-theme="cuaresma"] button.bg-coral-500 {
+  background-color: #4c1d95 !important;
+}
+
+[data-theme="cuaresma"] .hover\:bg-coral-600:hover,
+[data-theme="cuaresma"] a.bg-coral-500:hover,
+[data-theme="cuaresma"] button.bg-coral-500:hover {
+  background-color: #3b0764 !important;
+}
+
+/* Links */
+[data-theme="cuaresma"] a:not(.themed-button) {
+  color: #6d28d9 !important;
+}
+
+[data-theme="cuaresma"] a:not(.themed-button):hover {
+  color: #5b21b6 !important;
+}
+
+/* Botones temáticos: violeta profundo y solemne */
+[data-theme="cuaresma"] .themed-button,
+[data-theme="cuaresma"] a[href*="whatsapp"] {
+  background: linear-gradient(135deg, #2e1065 0%, #4c1d95 55%, #7c3aed 100%) !important;
+  box-shadow:
+    0 8px 20px -6px rgba(76, 29, 149, 0.45),
+    0 0 0 3px rgba(237, 233, 254, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  color: white !important;
+}
+
+[data-theme="cuaresma"] .themed-button:hover,
+[data-theme="cuaresma"] a[href*="whatsapp"]:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow:
+    0 14px 28px -6px rgba(76, 29, 149, 0.52),
+    0 0 0 4px rgba(237, 233, 254, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Sección de precios */
+[data-theme="cuaresma"] #precios h2,
+[data-theme="cuaresma"] #precios h3 {
+  color: #3b0764 !important;
+}
+
+[data-theme="cuaresma"] #precios p,
+[data-theme="cuaresma"] #precios .text-ocean-700,
+[data-theme="cuaresma"] #precios .text-ocean-600 {
+  color: #4c1d95 !important;
+}
+
+[data-theme="cuaresma"] #precios .product-description,
+[data-theme="cuaresma"] #precios .product-details,
+[data-theme="cuaresma"] #precios .product-unit {
+  color: #5b21b6 !important;
+}
+
+[data-theme="cuaresma"] #precios .product-price-bs {
+  color: #3b0764 !important;
+  font-weight: 700;
+}
+
+[data-theme="cuaresma"] #precios .product-price-usd {
+  color: #6d28d9 !important;
+  font-weight: 800;
+}
+
+/* Modal de producto con gradiente ocean-6xx: mantener blanco */
+[data-theme="cuaresma"] [class*="from-ocean-6"] h3 {
+  color: #ffffff !important;
+}
+
+[data-theme="cuaresma"] [class*="from-ocean-6"] [class*="text-ocean-2"] {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* ── Calculadora: restaurar colores originales (calc-no-theme no debe verse afectada) ── */
+[data-theme="cuaresma"] .calc-no-theme h1,
+[data-theme="cuaresma"] .calc-no-theme h2,
+[data-theme="cuaresma"] .calc-no-theme h3 {
+  color: unset !important;
+  text-shadow: none !important;
+}
+
+[data-theme="cuaresma"] .calc-no-theme .text-gray-900,
+[data-theme="cuaresma"] .calc-no-theme .text-gray-800,
+[data-theme="cuaresma"] .calc-no-theme .text-ocean-900,
+[data-theme="cuaresma"] .calc-no-theme .text-ocean-800,
+[data-theme="cuaresma"] .calc-no-theme .text-gray-700,
+[data-theme="cuaresma"] .calc-no-theme .text-ocean-700,
+[data-theme="cuaresma"] .calc-no-theme .text-gray-600,
+[data-theme="cuaresma"] .calc-no-theme .text-gray-500,
+[data-theme="cuaresma"] .calc-no-theme .text-ocean-600,
+[data-theme="cuaresma"] .calc-no-theme .text-ocean-500,
+[data-theme="cuaresma"] .calc-no-theme .text-ocean-400,
+[data-theme="cuaresma"] .calc-no-theme .text-ocean-300,
+[data-theme="cuaresma"] .calc-no-theme .text-coral-300,
+[data-theme="cuaresma"] .calc-no-theme .text-coral-400,
+[data-theme="cuaresma"] .calc-no-theme .text-coral-500,
+[data-theme="cuaresma"] .calc-no-theme .text-coral-600 {
+  color: revert !important;
+}
+
+[data-theme="cuaresma"] .calc-no-theme .bg-coral-500,
+[data-theme="cuaresma"] .calc-no-theme a.bg-coral-500,
+[data-theme="cuaresma"] .calc-no-theme button.bg-coral-500 {
+  background-color: var(--color-coral-500) !important;
+}
+
+[data-theme="cuaresma"] .calc-no-theme .hover\:bg-coral-600:hover {
+  background-color: var(--color-coral-600) !important;
+}
+
+[data-theme="cuaresma"] .calc-no-theme .themed-button {
+  background: linear-gradient(135deg, var(--color-ocean-600), var(--color-coral-500)) !important;
+  box-shadow: none !important;
+  color: white !important;
+}
+
+[data-theme="cuaresma"] .calc-no-theme a:not(.themed-button) {
+  color: var(--color-ocean-600) !important;
+}
+
 /* === JUEVES SANTO - Franja dorada cálida + marco === */
 html[data-theme="jueves-santo"]::before {
   content: '';
