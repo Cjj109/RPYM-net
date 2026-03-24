@@ -455,12 +455,14 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
   const insertAtCursor = useCallback((char: string) => {
     const input = inputRef.current;
     if (!input) { setInputAmount(prev => prev + char); return; }
+    // focus() debe llamarse sincrónicamente dentro del handler del gesto del usuario
+    // para que iOS muestre/mantenga el teclado virtual
+    input.focus();
     const start = input.selectionStart ?? inputAmount.length;
     const end = input.selectionEnd ?? inputAmount.length;
     const newValue = inputAmount.slice(0, start) + char + inputAmount.slice(end);
     setInputAmount(newValue);
     requestAnimationFrame(() => {
-      input.focus();
       input.setSelectionRange(start + char.length, start + char.length);
     });
   }, [inputAmount]);
@@ -600,7 +602,8 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
             <button
               key={char}
               type="button"
-              onPointerDown={e => { e.preventDefault(); insertAtCursor(char); }}
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => insertAtCursor(char)}
               className={`flex-1 py-1.5 rounded-lg text-base font-bold font-mono bg-white/80 border border-ocean-200 ${dispatcherInfo?.text ?? 'text-ocean-600'} active:scale-95 transition-transform`}
             >
               {label}
