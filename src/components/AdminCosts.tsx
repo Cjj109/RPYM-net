@@ -73,7 +73,9 @@ interface PriceHistoryEntry {
   created_at: string;
 }
 
-type SubView = 'dashboard' | 'settings' | 'history' | 'simulator' | 'bags';
+type SubView = 'dashboard' | 'settings' | 'history' | 'simulator' | 'ganancia' | 'bags';
+
+type PayMethod = 'pm' | 'debito' | 'credito' | 'divisas';
 
 // ── Helpers ────────────────────────────────────────────
 
@@ -128,9 +130,14 @@ export default function AdminCosts() {
   const [showCostOnlyForm, setShowCostOnlyForm] = useState(false);
   const [costOnlyForm, setCostOnlyForm] = useState({ nombre: '', categoria: '', unidad: 'kg', costUsd: '', rateType: 'PARALELO', precioUsd: '', precioUsdDivisa: '' });
 
-  // Simulator
+  // Simulator de tasas
   const [simBcv, setSimBcv] = useState('');
   const [simParallel, setSimParallel] = useState('');
+
+  // Simulador de ganancia por producto
+  const [simGanProductId, setSimGanProductId] = useState<string>('');
+  const [simGanSalePrice, setSimGanSalePrice] = useState<string>('');
+  const [simGanPayMethod, setSimGanPayMethod] = useState<PayMethod>('pm');
 
   // ── Load data ──────────────────────────────────────
 
@@ -243,6 +250,80 @@ export default function AdminCosts() {
       return { ...p, simulated: { realCostUsd, costBcvEquiv, marginUsd, marginBsPm, marginBsIva } };
     });
   }, [products, settings, simBcv, simParallel]);
+
+  // ── Simulador de ganancia por producto ────────────
+
+  const profitSimResult = useMemo(() => {
+    if (!settings || !simGanProductId || !simGanSalePrice) return null;
+    const product = products.find(p => p.id === parseInt(simGanProductId));
+    if (!product || product.cost_usd == null) return null;
+    const salePrice = parseFloat(simGanSalePrice);
+    if (isNaN(salePrice) || salePrice <= 0) return null;
+
+    const { bcvRate, parallelRate, ivaRate, debitCommission, creditCommission } = settings;
+    const costUsd = product.cost_usd;
+    const rateType = product.purchase_rate_type ?? 'PARALELO';
+
+    // Costo en $ real (paralelo) para modo divisas
+    const realCostUsd = rateType === 'BCV' ? costUsd * (bcvRate / parallelRate) : costUsd;
+    // Costo en $ BCV equivalente para modos Bs
+    const costBcvEquiv = rateType === 'PARALELO' ? costUsd * (parallelRate / bcvRate) : costUsd;
+
+    let profitUsd: number;
+    let profitBs: number;
+    let effectiveCost: number;
+    let deductions: { label: string; amount: number }[] = [];
+
+    if (simGanPayMethod === 'pm') {
+      // Pago móvil: precio en $BCV, sin IVA, sin comisión
+      profitUsd = salePrice - costBcvEquiv;
+      profitBs = profitUsd * bcvRate;
+      effectiveCost = costBcvEquiv;
+    } else if (simGanPayMethod === 'debito') {
+      // Punto débito: IVA + comisión débito descontados del precio
+      const ivaAmt = salePrice * ivaRate;
+      const commAmt = salePrice * debitCommission;
+      deductions = [
+        { label: `IVA (${(ivaRate * 100).toFixed(0)}%)`, amount: ivaAmt },
+        { label: `Com. débito (${(debitCommission * 100).toFixed(1)}%)`, amount: commAmt },
+      ];
+      profitUsd = salePrice - ivaAmt - commAmt - costBcvEquiv;
+      profitBs = profitUsd * bcvRate;
+      effectiveCost = costBcvEquiv;
+    } else if (simGanPayMethod === 'credito') {
+      // Punto crédito: IVA + comisión crédito
+      const ivaAmt = salePrice * ivaRate;
+      const commAmt = salePrice * creditCommission;
+      deductions = [
+        { label: `IVA (${(ivaRate * 100).toFixed(0)}%)`, amount: ivaAmt },
+        { label: `Com. crédito (${(creditCommission * 100).toFixed(1)}%)`, amount: commAmt },
+      ];
+      profitUsd = salePrice - ivaAmt - commAmt - costBcvEquiv;
+      profitBs = profitUsd * bcvRate;
+      effectiveCost = costBcvEquiv;
+    } else {
+      // Divisas: precio en USD real, sin IVA, sin comisión
+      profitUsd = salePrice - realCostUsd;
+      profitBs = profitUsd * parallelRate;
+      effectiveCost = realCostUsd;
+    }
+
+    const profitPct = effectiveCost > 0 ? (profitUsd / effectiveCost) * 100 : 0;
+    const isDivisas = simGanPayMethod === 'divisas';
+
+    return {
+      product,
+      salePrice,
+      costDisplay: isDivisas ? realCostUsd : costBcvEquiv,
+      profitUsd,
+      profitBs,
+      profitPct,
+      deductions,
+      isDivisas,
+      bcvRate,
+      parallelRate,
+    };
+  }, [settings, products, simGanProductId, simGanSalePrice, simGanPayMethod]);
 
   // ── Handlers ───────────────────────────────────────
 
@@ -436,6 +517,7 @@ export default function AdminCosts() {
             ['settings', 'Tasas'],
             ['history', 'Historial'],
             ['simulator', 'Simulador'],
+            ['ganancia', 'Ganancia'],
             ['bags', 'Bolsas'],
           ] as [SubView, string][]).map(([key, label]) => (
             <button
@@ -1107,6 +1189,177 @@ export default function AdminCosts() {
               </table>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── GANANCIA POR PRODUCTO ─────────────────── */}
+      {subView === 'ganancia' && settings && (
+        <div className="space-y-4">
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-ocean-100">
+            <h2 className="text-lg font-bold text-ocean-900 mb-1">Simulador de Ganancia por Producto</h2>
+            <p className="text-sm text-ocean-500 mb-5">
+              Selecciona un producto, ingresa el precio de venta y la forma de pago para calcular la ganancia real.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Selector de producto */}
+              <div>
+                <label className="block text-sm font-medium text-ocean-700 mb-1">Producto</label>
+                <select
+                  value={simGanProductId}
+                  onChange={e => setSimGanProductId(e.target.value)}
+                  className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-1 focus:ring-ocean-500 outline-none"
+                >
+                  <option value="">— Selecciona un producto —</option>
+                  {products
+                    .filter(p => p.cost_usd != null)
+                    .sort((a, b) => a.nombre.localeCompare(b.nombre))
+                    .map(p => (
+                      <option key={p.id} value={String(p.id)}>
+                        {p.nombre} (costo: {formatUSD(p.cost_usd!)} {p.purchase_rate_type ?? ''})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Precio de venta */}
+              <div>
+                <label className="block text-sm font-medium text-ocean-700 mb-1">
+                  Precio de venta ($)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={simGanSalePrice}
+                  onChange={e => setSimGanSalePrice(e.target.value)}
+                  className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-1 focus:ring-ocean-500 outline-none"
+                />
+              </div>
+
+              {/* Forma de pago */}
+              <div>
+                <label className="block text-sm font-medium text-ocean-700 mb-1">Forma de pago</label>
+                <select
+                  value={simGanPayMethod}
+                  onChange={e => setSimGanPayMethod(e.target.value as PayMethod)}
+                  className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm focus:ring-1 focus:ring-ocean-500 outline-none"
+                >
+                  <option value="pm">Pago Móvil (BCV, sin IVA)</option>
+                  <option value="debito">Punto Débito (BCV + IVA + com. {(settings.debitCommission * 100).toFixed(1)}%)</option>
+                  <option value="credito">Punto Crédito (BCV + IVA + com. {(settings.creditCommission * 100).toFixed(1)}%)</option>
+                  <option value="divisas">Divisas / Efectivo USD</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Tasas activas */}
+            <div className="mt-4 flex flex-wrap gap-3 text-xs text-ocean-500">
+              <span>BCV: <span className="font-semibold text-ocean-700">Bs. {settings.bcvRate.toFixed(2)}</span></span>
+              <span>Paralela: <span className="font-semibold text-ocean-700">Bs. {settings.parallelRate.toFixed(2)}</span></span>
+              <span>IVA: <span className="font-semibold text-ocean-700">{(settings.ivaRate * 100).toFixed(0)}%</span></span>
+            </div>
+          </div>
+
+          {/* Resultado */}
+          {profitSimResult ? (
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-ocean-100">
+              <h3 className="text-base font-bold text-ocean-900 mb-4">
+                Resultado: <span className="text-ocean-600">{profitSimResult.product.nombre}</span>
+              </h3>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                {/* Costo */}
+                <div className="bg-ocean-50 rounded-xl p-4">
+                  <p className="text-xs text-ocean-500 mb-1">
+                    Costo ({profitSimResult.isDivisas ? '$ real' : '$ BCV equiv.'})
+                  </p>
+                  <p className="text-xl font-bold text-ocean-800">{formatUSD(profitSimResult.costDisplay)}</p>
+                  <p className="text-xs text-ocean-400 mt-0.5">
+                    {profitSimResult.isDivisas
+                      ? `Bs. ${(profitSimResult.costDisplay * profitSimResult.parallelRate).toFixed(2)}`
+                      : `Bs. ${(profitSimResult.costDisplay * profitSimResult.bcvRate).toFixed(2)}`}
+                  </p>
+                </div>
+
+                {/* Precio venta */}
+                <div className="bg-blue-50 rounded-xl p-4">
+                  <p className="text-xs text-blue-500 mb-1">Precio de venta</p>
+                  <p className="text-xl font-bold text-blue-800">{formatUSD(profitSimResult.salePrice)}</p>
+                  <p className="text-xs text-blue-400 mt-0.5">
+                    Bs. {(profitSimResult.salePrice * (profitSimResult.isDivisas ? profitSimResult.parallelRate : profitSimResult.bcvRate)).toFixed(2)}
+                  </p>
+                </div>
+
+                {/* Ganancia en $ */}
+                <div className={`rounded-xl p-4 ${profitSimResult.profitUsd >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
+                  <p className={`text-xs mb-1 ${profitSimResult.profitUsd >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    Ganancia ($)
+                  </p>
+                  <p className={`text-xl font-bold ${profitSimResult.profitUsd >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    {profitSimResult.profitUsd >= 0 ? '+' : ''}{formatUSD(profitSimResult.profitUsd)}
+                  </p>
+                  <p className={`text-xs mt-0.5 ${profitSimResult.profitUsd >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {profitSimResult.profitPct >= 0 ? '+' : ''}{profitSimResult.profitPct.toFixed(1)}% sobre costo
+                  </p>
+                </div>
+
+                {/* Ganancia en Bs */}
+                <div className={`rounded-xl p-4 ${profitSimResult.profitBs >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                  <p className={`text-xs mb-1 ${profitSimResult.profitBs >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                    Ganancia (Bs)
+                  </p>
+                  <p className={`text-xl font-bold ${profitSimResult.profitBs >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                    {profitSimResult.profitBs >= 0 ? '+' : ''}Bs. {profitSimResult.profitBs.toFixed(2)}
+                  </p>
+                  <p className={`text-xs mt-0.5 ${profitSimResult.profitBs >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    Tasa {profitSimResult.isDivisas ? 'paralela' : 'BCV'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Desglose de deducciones */}
+              {(profitSimResult.deductions.length > 0 || true) && (
+                <div className="mt-4 bg-ocean-50/50 rounded-xl p-4 text-sm">
+                  <p className="text-xs font-semibold text-ocean-600 uppercase tracking-wide mb-3">Desglose</p>
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-ocean-700">
+                      <span>Precio de venta</span>
+                      <span className="font-medium">{formatUSD(profitSimResult.salePrice)}</span>
+                    </div>
+                    {profitSimResult.deductions.map((d, i) => (
+                      <div key={i} className="flex justify-between text-red-600">
+                        <span>— {d.label}</span>
+                        <span className="font-medium">-{formatUSD(d.amount)}</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between text-red-600">
+                      <span>— Costo ({profitSimResult.isDivisas ? '$ real' : '$ BCV equiv.'})</span>
+                      <span className="font-medium">-{formatUSD(profitSimResult.costDisplay)}</span>
+                    </div>
+                    <div className={`flex justify-between font-bold pt-1.5 border-t border-ocean-200 ${profitSimResult.profitUsd >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                      <span>= Ganancia neta</span>
+                      <span>
+                        {profitSimResult.profitUsd >= 0 ? '+' : ''}{formatUSD(profitSimResult.profitUsd)}
+                        {' '}({profitSimResult.profitPct >= 0 ? '+' : ''}{profitSimResult.profitPct.toFixed(1)}%)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            simGanProductId && simGanSalePrice ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-700">
+                Verifica que el producto tenga costo registrado y el precio sea mayor a 0.
+              </div>
+            ) : (
+              <div className="bg-ocean-50 border border-ocean-100 rounded-xl p-6 text-center text-ocean-400 text-sm">
+                Selecciona un producto e ingresa el precio de venta para ver los resultados.
+              </div>
+            )
+          )}
         </div>
       )}
 
