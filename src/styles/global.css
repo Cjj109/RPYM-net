@@ -3232,6 +3232,14 @@ h1, h2, h3, h4, h5, h6 {
   pointer-events: none;
 }
 
+/* El header (y el botón "Arma tu Pedido") se eleva sobre el overlay grayscale
+   para mantenerse vibrante en todos los temas de Semana Santa */
+[data-theme="viernes-santo"] header,
+[data-theme="sabado-santo"] header {
+  position: relative;
+  z-index: 9995;
+}
+
 [data-theme="sabado-santo"] .themed-card,
 [data-theme="sabado-santo"] .bg-white.rounded-2xl,
 [data-theme="sabado-santo"] .bg-white.rounded-3xl {
