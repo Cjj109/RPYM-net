@@ -419,6 +419,10 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
           amountRef.current?.focus();
         }
       } else if (e.key === 'ArrowLeft') {
+        // Hacer blur de elementos que podrían robar las flechas (botones, selects, links)
+        if (target.tagName === 'BUTTON' || target.tagName === 'SELECT' || target.tagName === 'A') {
+          (document.activeElement as HTMLElement).blur();
+        }
         e.preventDefault();
         if (navLevel === 'dispatcher') {
           const idx = dispatchers.findIndex(d => d.id === activeDispatcherId);
@@ -431,6 +435,10 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
           setActiveClientId(clients[newIdx].id);
         }
       } else if (e.key === 'ArrowRight') {
+        // Hacer blur de elementos que podrían robar las flechas (botones, selects, links)
+        if (target.tagName === 'BUTTON' || target.tagName === 'SELECT' || target.tagName === 'A') {
+          (document.activeElement as HTMLElement).blur();
+        }
         e.preventDefault();
         if (navLevel === 'dispatcher') {
           const idx = dispatchers.findIndex(d => d.id === activeDispatcherId);

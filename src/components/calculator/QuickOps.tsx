@@ -425,9 +425,14 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
       const target = e.target as HTMLElement;
       const tagName = target.tagName;
       // Si el foco está en cualquier input/textarea, el handler del input se encarga
-      if (tagName === 'INPUT' || tagName === 'TEXTAREA') return;
+      if (tagName === 'TEXTAREA') return;
+      if (tagName === 'INPUT') return;
 
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        // Hacer blur de elementos que podrían robar las flechas (botones, selects, links)
+        if (tagName === 'BUTTON' || tagName === 'SELECT' || tagName === 'A') {
+          (document.activeElement as HTMLElement).blur();
+        }
         e.preventDefault();
         const currentIdx = DISPATCHERS.findIndex(d => d.name === selectedDispatcherRef.current);
         const nextIdx = e.key === 'ArrowRight'
