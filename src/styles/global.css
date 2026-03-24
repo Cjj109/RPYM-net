@@ -2328,6 +2328,38 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 50%;
 }
 
+/* === DOMINGO DE RAMOS - Palmas cayendo === */
+@keyframes palm-fall {
+  0% {
+    transform: translateY(-80px) rotate(var(--palm-rotation, -20deg));
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(110vh) rotate(calc(var(--palm-rotation, -20deg) + 45deg));
+    opacity: 0.5;
+  }
+}
+
+@keyframes palm-sway {
+  0%, 100% { margin-left: 0; }
+  33% { margin-left: 18px; }
+  66% { margin-left: -18px; }
+}
+
+.palm-frond {
+  position: fixed;
+  top: -80px;
+  z-index: 1;
+  pointer-events: none;
+  font-size: 26px;
+  line-height: 1;
+  user-select: none;
+}
+
+.palm-frond::before {
+  content: '🌿';
+}
+
 /* === SAN VALENTIN - Corazones cayendo === */
 @keyframes heart-fall {
   0% {
@@ -3602,10 +3634,30 @@ html[data-theme="resurreccion"]::after {
 }
 
 /* ========== VIERNES/SÁBADO SANTO - MASCOTA OCULTA ========== */
-/* Se oculta el contenedor completo para que el flex-1 del hero se expanda sin huecos */
+/* Se oculta el contenedor completo y el contenido del hero se expande a full width */
 [data-theme="viernes-santo"] .mascot-container,
 [data-theme="sabado-santo"] .mascot-container {
   display: none !important;
+}
+
+/* El contenido del hero ocupa todo el ancho y se centra al desaparecer la mascota */
+[data-theme="viernes-santo"] .mascot-container ~ .flex-1,
+[data-theme="sabado-santo"] .mascot-container ~ .flex-1 {
+  width: 100% !important;
+  max-width: 100% !important;
+  text-align: center !important;
+}
+
+/* Centrar los botones CTA en el hero */
+[data-theme="viernes-santo"] .mascot-container ~ .flex-1 .flex,
+[data-theme="sabado-santo"] .mascot-container ~ .flex-1 .flex {
+  justify-content: center !important;
+}
+
+/* Centrar el enlace secundario */
+[data-theme="viernes-santo"] .mascot-container ~ .flex-1 .md\:text-left,
+[data-theme="sabado-santo"] .mascot-container ~ .flex-1 .md\:text-left {
+  text-align: center !important;
 }
 
 /* ========== CALCULADORA - AISLAMIENTO DE TEMAS ESTACIONALES ========== */
