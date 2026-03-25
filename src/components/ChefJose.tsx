@@ -105,23 +105,28 @@ interface JoseProductRec {
 }
 
 function parseJoseRecommendations(text: string): { cleanText: string; recommendations: JoseProductRec[] } {
-  // Look for the JSON block: |||PRODUCTOS|||[...]|||FIN|||
-  const match = text.match(/\|\|\|PRODUCTOS\|\|\|(\[[\s\S]*?\])\|\|\|FIN\|\|\|/);
+  // Look for ALL JSON blocks: |||PRODUCTOS|||[...]|||FIN|||
+  const regex = /\|\|\|PRODUCTOS\|\|\|(\[[\s\S]*?\])\|\|\|FIN\|\|\|/g;
+  const matches = [...text.matchAll(regex)];
 
-  if (!match) {
+  if (matches.length === 0) {
     return { cleanText: text, recommendations: [] };
   }
 
-  // Remove the JSON block from visible text
-  const cleanText = text.replace(/\|\|\|PRODUCTOS\|\|\|[\s\S]*?\|\|\|FIN\|\|\|/, '').trim();
+  // Remove ALL JSON blocks from visible text
+  const cleanText = text.replace(/\|\|\|PRODUCTOS\|\|\|[\s\S]*?\|\|\|FIN\|\|\|/g, '').trim();
 
-  try {
-    const recommendations: JoseProductRec[] = JSON.parse(match[1]);
-    return { cleanText, recommendations };
-  } catch {
-    console.warn('Failed to parse José recommendations JSON:', match[1]);
-    return { cleanText, recommendations: [] };
+  const recommendations: JoseProductRec[] = [];
+  for (const match of matches) {
+    try {
+      const parsed: JoseProductRec[] = JSON.parse(match[1]);
+      recommendations.push(...parsed);
+    } catch {
+      console.warn('Failed to parse José recommendations JSON:', match[1]);
+    }
   }
+
+  return { cleanText, recommendations };
 }
 
 interface SelectedItem {
