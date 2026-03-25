@@ -314,7 +314,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
       totalUSD: presupuesto.totalUSD,
       totalBs: presupuesto.totalBs,
       totalUSDDivisa: presupuesto.totalUSDDivisa,
-      hideRate: presupuesto.hideRate,
+      hideRate: presupuesto.hideRate || hideBsMap[presupuesto.id] || false,
       delivery: presupuesto.delivery,
       modoPrecio: modo,
       estado: presupuesto.estado,
@@ -340,7 +340,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
       })),
       totalUSD: presupuesto.totalUSD,
       totalUSDDivisa: presupuesto.totalUSDDivisa,
-      hideRate: presupuesto.hideRate,
+      hideRate: presupuesto.hideRate || hideBsMap[presupuesto.id] || false,
       delivery: presupuesto.delivery,
       modoPrecio: modo,
       estado: presupuesto.estado,
@@ -1049,7 +1049,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                   <span className="text-xl font-bold text-coral-600">{formatUSD(currentTotalUSD)}</span>
                 </div>
                 {/* Mostrar Bs solo si no es modo divisas, tenemos tasa BCV y el toggle lo permite */}
-                {!hideBs && bcvRateValue > 0 && selectedPresupuesto.totalBs !== 0 && !selectedPresupuesto.hideRate && (
+                {!hideBsMap[selectedPresupuesto.id] && bcvRateValue > 0 && selectedPresupuesto.totalBs !== 0 && !selectedPresupuesto.hideRate && (
                   <div className="flex justify-between items-center mt-1">
                     <span className="text-ocean-700">Total Bs:</span>
                     <span className="font-semibold text-ocean-900">{formatBs(currentTotalBs)}</span>
