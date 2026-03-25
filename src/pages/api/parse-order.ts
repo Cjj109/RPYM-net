@@ -116,6 +116,7 @@ REGLAS DE INTERPRETACIÓN:
 - "2 cajas", "2cj" = 2 (unidad: caja)
 - Los números antes del producto indican cantidad (si no hay símbolo $)
 - IMPORTANTE: Usa la unidad del catálogo para cada producto (kg, caja, unidad, paquete, etc.). NO asumas siempre "kg". Si el producto en el catálogo dice "Unidad: caja", el unit debe ser "caja". Si dice "Unidad: unidad", el unit debe ser "unidad". Solo usa "kg" si el catálogo dice "kg" o si el producto no se encontró.
+- UNIDAD EXPLÍCITA "CAJA": Si el usuario dice "X caja de Y", "X cajas de Y", "X cj de Y": unit="caja" SIEMPRE, y preferir el producto del catálogo que se vende por caja si existe.
 - Para camarones, las tallas como "41/50", "61/70" son importantes para el match
 - Redondear cantidades calculadas a 3 decimales
 
@@ -209,6 +210,7 @@ CAMARONES (producto estrella):
   * Ejemplo: "2kg desvenado jumbo" = Camarón Desvenado Jumbo
 - "camaron con concha", "camarones conchas", "concha" = Camarón en Concha
 - "camaron vivito", "vivitos", "camarones vivos" = Camarón Vivito (fresco, vivo)
+- ⚠️ CRITICO: "camaron vivito"/"vivito" NUNCA debe matchear "Camarón Precocido" ni ningún otro producto. Si existe "Camarón Vivito" en el catálogo, SIEMPRE usarlo sin excepción.
 - Si dicen "#16" o "# 16" después del camarón, es el PRECIO personalizado $16/kg
 - Las tallas 41/50, 61/70 indican cantidad por libra (más bajo = más grande)
 
@@ -231,6 +233,7 @@ PULPO:
 
 MOLUSCOS:
 - "pepitona", "pepitonas" = Pepitona (no caja a menos que diga "caja")
+- ⚠️⚠️ CRITICO "pepitona": Si el usuario dice "pepitona" SIN la palabra "caja", SIEMPRE matchear el producto "Pepitona" (vendido por kg/unidad), NUNCA "Caja de Pepitona". Solo usar "Caja de Pepitona" si dice EXPLICITAMENTE "caja de pepitona" o "X cajas de pepitona".
 - "mejillon", "mejillones" = Mejillón
 - "almeja", "almejas" = Almeja
 - "vieira", "vieras" = Vieira (verificar ortografía en catálogo)
@@ -443,6 +446,45 @@ INSTRUCCIONES:
 
     // Pre-escanear texto original para patrones de monto en dólares
     const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    // Corrige matches incorrectos del AI: valida que keywords del usuario estén en el producto matcheado
+    const correctProductMatch = (requestedName: string, productId: string): ProductInfo | null => {
+      const normReq = normalize(requestedName);
+      const current = products.find((p: ProductInfo) => String(p.id) === productId);
+      if (!current) return null;
+      const normCurrent = normalize(current.nombre);
+
+      // "jumbo" sin "desvenado" → NO debe matchear producto con "desvenado"
+      if (/\bjumbo\b/.test(normReq) && !/\bdesvenado\b/.test(normReq) && /\bdesvenado\b/.test(normCurrent)) {
+        const better = products.find((p: ProductInfo) => /\bjumbo\b/.test(normalize(p.nombre)) && !/\bdesvenado\b/.test(normalize(p.nombre)));
+        if (better) return better;
+      }
+
+      // "vivito" debe matchear producto con "vivito"
+      if (/\bvivito\b/.test(normReq) && !/\bvivito\b/.test(normCurrent)) {
+        const better = products.find((p: ProductInfo) => /\bvivito\b/.test(normalize(p.nombre)));
+        if (better) return better;
+      }
+
+      // "pepitona" sin "caja" → NO debe matchear "Caja de Pepitona"
+      if (/\bpepitona\b/.test(normReq) && !/\bcaja\b/.test(normReq) && /\bcaja\b/.test(normCurrent)) {
+        const better = products.find((p: ProductInfo) => /\bpepitona\b/.test(normalize(p.nombre)) && !/\bcaja\b/.test(normalize(p.nombre)));
+        if (better) return better;
+      }
+
+      // "caja de X" → preferir producto con "caja" en el nombre si existe uno que comparte palabras base
+      if (/\bcaja\b/.test(normReq) && !/\bcaja\b/.test(normCurrent)) {
+        const baseWords = normCurrent.split(/\s+/).filter((w: string) => w.length > 3);
+        const better = products.find((p: ProductInfo) => {
+          const pn = normalize(p.nombre);
+          return /\bcaja\b/.test(pn) && baseWords.some((w: string) => pn.includes(w));
+        });
+        if (better) return better;
+      }
+
+      return null;
+    };
+
     const dollarFromText: { amount: number; fragment: string }[] = [];
     // Captura: "$X de/del/en producto", "X$ de/del/en producto", "X dólares/dolares de/del/en producto"
     const dollarTextPatterns = [
@@ -465,6 +507,17 @@ INSTRUCCIONES:
 
     const items = (parsedResult.items || []).map((item: any) => {
       if (!item.matched || !item.productId) return item;
+
+      // Corregir matches incorrectos del AI
+      const matchCorrection = correctProductMatch(item.requestedName || '', String(item.productId));
+      if (matchCorrection) {
+        item = { ...item, productId: matchCorrection.id, productName: matchCorrection.nombre, unit: matchCorrection.unidad };
+      }
+      // Si usuario dijo "caja" explícitamente, forzar unit: caja
+      if (/\bcaja\b/i.test(item.requestedName || '') && item.unit !== 'caja') {
+        item = { ...item, unit: 'caja' };
+      }
+
       const product = products.find((p: any) => String(p.id) === String(item.productId));
       if (!product || product.precioUSD <= 0) return item;
 

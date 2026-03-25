@@ -139,6 +139,7 @@ PRODUCTOS:
 
 MOLUSCOS (unidad crítica):
 - "pepitona", "pepitonas" = Pepitona. Si el usuario dice "1kg pepitona" → unit: "kg". Solo "caja" si dice explícitamente "caja de pepitona" o "X cajas"
+- ⚠️⚠️ CRITICO "pepitona": "pepitona" SIN "caja" → SIEMPRE usar producto "Pepitona" (kg/unidad), NUNCA "Caja de Pepitona". Solo "Caja de Pepitona" si dice EXPLICITAMENTE "caja de pepitona" o "X cajas de pepitona".
 - "mejillon", "mejillones" = Mejillón
 - "almeja", "almejas" = Almeja
 
@@ -149,6 +150,7 @@ CAMARONES - REGLA CRITICA DE DISAMBIGUATION:
 - "camaron desvenado jumbo", "desvenado jumbo", "jumbo desvenado" = Camarón Desvenado Jumbo (talla 31/35-36/40)
 - ⚠️ REGLA MAS IMPORTANTE: "jumbo" SOLO o "camaron jumbo" SIN la palabra "desvenado" = Camarón Jumbo (en concha). NUNCA lo interpretes como Camarón Desvenado Jumbo a menos que EXPLICITAMENTE digan "desvenado"
 - "camaron vivito", "vivitos" = Camarón Vivito
+- ⚠️ CRITICO: "camaron vivito"/"vivito" NUNCA debe matchear "Camarón Precocido" ni otro producto. Si existe "Camarón Vivito" en el catálogo, SIEMPRE usarlo.
 - PRECIOS PERSONALIZADOS (CRITICO - LEE CON CUIDADO):
   * Si el usuario escribe "a $X" o "a X" DESPUES de un producto, ese producto tiene customPrice: X
   * El modificador de precio aplica al producto INMEDIATAMENTE ANTERIOR
@@ -269,6 +271,45 @@ Responde SOLO con un JSON valido:
 
     // Pre-escanear texto original para patrones de monto en dólares
     const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    // Corrige matches incorrectos del AI: valida que keywords del usuario estén en el producto matcheado
+    const correctProductMatch = (requestedName: string, productId: string): ProductInfo | null => {
+      const normReq = normalize(requestedName);
+      const current = products.find((p: ProductInfo) => String(p.id) === productId);
+      if (!current) return null;
+      const normCurrent = normalize(current.nombre);
+
+      // "jumbo" sin "desvenado" → NO debe matchear producto con "desvenado"
+      if (/\bjumbo\b/.test(normReq) && !/\bdesvenado\b/.test(normReq) && /\bdesvenado\b/.test(normCurrent)) {
+        const better = products.find((p: ProductInfo) => /\bjumbo\b/.test(normalize(p.nombre)) && !/\bdesvenado\b/.test(normalize(p.nombre)));
+        if (better) return better;
+      }
+
+      // "vivito" debe matchear producto con "vivito"
+      if (/\bvivito\b/.test(normReq) && !/\bvivito\b/.test(normCurrent)) {
+        const better = products.find((p: ProductInfo) => /\bvivito\b/.test(normalize(p.nombre)));
+        if (better) return better;
+      }
+
+      // "pepitona" sin "caja" → NO debe matchear "Caja de Pepitona"
+      if (/\bpepitona\b/.test(normReq) && !/\bcaja\b/.test(normReq) && /\bcaja\b/.test(normCurrent)) {
+        const better = products.find((p: ProductInfo) => /\bpepitona\b/.test(normalize(p.nombre)) && !/\bcaja\b/.test(normalize(p.nombre)));
+        if (better) return better;
+      }
+
+      // "caja de X" → preferir producto con "caja" en el nombre si existe uno que comparte palabras base
+      if (/\bcaja\b/.test(normReq) && !/\bcaja\b/.test(normCurrent)) {
+        const baseWords = normCurrent.split(/\s+/).filter((w: string) => w.length > 3);
+        const better = products.find((p: ProductInfo) => {
+          const pn = normalize(p.nombre);
+          return /\bcaja\b/.test(pn) && baseWords.some((w: string) => pn.includes(w));
+        });
+        if (better) return better;
+      }
+
+      return null;
+    };
+
     const dollarFromText: { amount: number; fragment: string }[] = [];
     // Captura: "$X de/del/en producto", "X$ de/del/en producto", "X dólares/dolares de/del/en producto"
     const dollarTextPatterns2 = [
@@ -299,6 +340,7 @@ Responde SOLO con un JSON valido:
     function detectExplicitUnit(item: any, userText: string): string | null {
       // Revisar en requestedName
       if (item.requestedName) {
+        if (/\b(?:caja|cajas|cj)\b/i.test(item.requestedName)) return 'caja';
         if (explicitUnitRegex.test(item.requestedName) || halfKgRegex.test(item.requestedName)) {
           return 'kg';
         }
@@ -323,6 +365,13 @@ Responde SOLO con un JSON valido:
 
     for (const item of parsed.items || []) {
       if (item.matched && item.productId) {
+        // Corregir matches incorrectos del AI
+        const matchCorrection = correctProductMatch(item.requestedName || '', String(item.productId));
+        if (matchCorrection) {
+          item.productId = matchCorrection.id;
+          item.productName = matchCorrection.nombre;
+          item.unit = matchCorrection.unidad;
+        }
         const product = products.find(p => String(p.id) === String(item.productId));
         if (product) {
           let effectiveDollarAmount = item.dollarAmount && item.dollarAmount > 0 ? item.dollarAmount : null;
