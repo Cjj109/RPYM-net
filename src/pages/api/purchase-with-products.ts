@@ -345,8 +345,9 @@ Responde SOLO con un JSON valido:
           return 'kg';
         }
       }
-      // Revisar en el texto original buscando el nombre del producto cerca de "kg"
+      // Revisar en el texto original
       if (userText) {
+        if (/\b(?:caja|cajas|cj)\b/i.test(userText)) return 'caja';
         const prodName = item.productName || item.requestedName || '';
         const normalizedProd = normalize(prodName);
         const normalizedText = normalize(userText);

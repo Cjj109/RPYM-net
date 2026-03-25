@@ -93,11 +93,13 @@ const halfKgRegex = /(?:medio|1\/2)\s*(?:kg|kilo)?\b/i;
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function detectExplicitUnit(item: any, userText: string): string | null {
   if (item.requestedName) {
+    if (/\b(?:caja|cajas|cj)\b/i.test(item.requestedName)) return 'caja';
     if (explicitUnitRegex.test(item.requestedName) || halfKgRegex.test(item.requestedName)) {
       return 'kg';
     }
   }
   if (userText) {
+    if (/\b(?:caja|cajas|cj)\b/i.test(userText)) return 'caja';
     const prodName = item.productName || item.requestedName || '';
     const normalizedProd = normalize(prodName);
     const normalizedText = normalize(userText);
