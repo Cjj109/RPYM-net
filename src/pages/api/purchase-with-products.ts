@@ -345,14 +345,20 @@ Responde SOLO con un JSON valido:
           return 'kg';
         }
       }
-      // Revisar en el texto original
+      // Revisar en el texto original, acotado al segmento de ESTE producto
       if (userText) {
-        if (/\b(?:caja|cajas|cj)\b/i.test(userText)) return 'caja';
         const prodName = item.productName || item.requestedName || '';
         const normalizedProd = normalize(prodName);
         const normalizedText = normalize(userText);
-        // Buscar patrón: "Xkg productoNombre" o "X kg productoNombre"
         const words = normalizedProd.split(/\s+/).filter((w: string) => w.length > 3);
+        // Buscar 'caja' solo en el segmento del texto que corresponde a ESTE producto,
+        // no en todo el texto (evita asignar 'caja' a productos que no la mencionan)
+        if (words.length > 0) {
+          const segments = normalizedText.split(/,|\s+y\s+/);
+          const productSegment = segments.find(seg => words.some(w => seg.includes(w)));
+          if (productSegment && /\b(?:caja|cajas|cj)\b/i.test(productSegment)) return 'caja';
+        }
+        // Buscar patrón: "Xkg productoNombre" o "X kg productoNombre"
         for (const word of words) {
           const escaped = escapeRegex(word);
           const pattern = new RegExp(`\\d+(?:\\.\\d+)?\\s*(?:kg|kilo|kilos)\\s+[^,]*?${escaped}`, 'i');
