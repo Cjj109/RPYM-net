@@ -27,6 +27,8 @@ interface Props {
   bcvRate: BCVRate;
 }
 
+type SortOrder = 'default' | 'price-asc' | 'price-desc' | 'popular';
+
 function formatPriceUSD(price: number): string {
   return `$${price.toFixed(2)}`;
 }
@@ -37,26 +39,62 @@ function formatPriceBs(price: number): string {
 
 export default function PriceListSearch({ categories, bcvRate }: Props) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('default');
+
+  const categoryNames = useMemo(() => {
+    return ['Todos', ...categories.map(c => c.name)];
+  }, [categories]);
 
   const filteredCategories = useMemo(() => {
-    if (!searchTerm.trim()) return categories;
-    const term = searchTerm.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    return categories
-      .map(cat => ({
+    let result = categories;
+
+    // Filtrar por categoría
+    if (selectedCategory !== 'Todos') {
+      result = result.filter(cat => cat.name === selectedCategory);
+    }
+
+    // Filtrar por búsqueda
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      result = result
+        .map(cat => ({
+          ...cat,
+          products: cat.products.filter(p => {
+            const nombre = p.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            const desc = (p.descripcionCorta || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            return nombre.includes(term) || desc.includes(term);
+          })
+        }))
+        .filter(cat => cat.products.length > 0);
+    }
+
+    // Ordenar productos dentro de cada categoría
+    if (sortOrder !== 'default') {
+      result = result.map(cat => ({
         ...cat,
-        products: cat.products.filter(p => {
-          const nombre = p.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-          const desc = (p.descripcionCorta || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-          return nombre.includes(term) || desc.includes(term);
+        products: [...cat.products].sort((a, b) => {
+          if (sortOrder === 'price-asc') return a.precioUSD - b.precioUSD;
+          if (sortOrder === 'price-desc') return b.precioUSD - a.precioUSD;
+          if (sortOrder === 'popular') {
+            if (a.masVendido && !b.masVendido) return -1;
+            if (!a.masVendido && b.masVendido) return 1;
+            return a.nombre.localeCompare(b.nombre);
+          }
+          return 0;
         })
-      }))
-      .filter(cat => cat.products.length > 0);
-  }, [categories, searchTerm]);
+      }));
+    }
+
+    return result;
+  }, [categories, searchTerm, selectedCategory, sortOrder]);
+
+  const hasActiveFilters = selectedCategory !== 'Todos' || sortOrder !== 'default';
 
   return (
     <div>
       {/* Buscador */}
-      <div className="mb-6 relative">
+      <div className="mb-4 relative">
         <div className="relative">
           <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-ocean-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -76,6 +114,54 @@ export default function PriceListSearch({ categories, bcvRate }: Props) {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Filtros */}
+      <div className="mb-6 space-y-3">
+        {/* Chips de categoría */}
+        <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          {categoryNames.map(catName => (
+            <button
+              key={catName}
+              onClick={() => setSelectedCategory(catName)}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                selectedCategory === catName
+                  ? 'bg-ocean-600 text-white border-ocean-600'
+                  : 'bg-white border-ocean-200 text-ocean-700 hover:border-ocean-400 hover:text-ocean-900'
+              }`}
+            >
+              {catName}
+            </button>
+          ))}
+        </div>
+
+        {/* Ordenar + limpiar filtros */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-ocean-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h18M6 12h12M10 17h4" />
+            </svg>
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value as SortOrder)}
+              className="text-sm border border-ocean-200 rounded-lg px-3 py-1.5 bg-white text-ocean-900 focus:outline-none focus:ring-2 focus:ring-ocean-500 cursor-pointer"
+            >
+              <option value="default">Ordenar por defecto</option>
+              <option value="price-asc">Menor precio primero</option>
+              <option value="price-desc">Mayor precio primero</option>
+              <option value="popular">Más vendidos primero</option>
+            </select>
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              onClick={() => { setSelectedCategory('Todos'); setSortOrder('default'); }}
+              className="text-xs text-ocean-500 hover:text-ocean-700 underline decoration-ocean-300 flex-shrink-0 transition-colors"
+            >
+              Limpiar filtros
             </button>
           )}
         </div>
