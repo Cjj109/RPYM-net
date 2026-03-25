@@ -87,14 +87,16 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   // Estado para copiar ID
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Preferencia de ocultar montos en Bs
-  const [hideBs, setHideBs] = useState(() => {
-    try { return localStorage.getItem('rpym_admin_hide_bs') === 'true'; } catch { return false; }
+  // Preferencia de ocultar montos en Bs por presupuesto
+  const [hideBsMap, setHideBsMap] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem('rpym_hide_bs_map') || '{}'); } catch { return {}; }
   });
-  const toggleHideBs = () => {
-    const next = !hideBs;
-    setHideBs(next);
-    try { localStorage.setItem('rpym_admin_hide_bs', String(next)); } catch {}
+  const toggleBudgetHideBs = (id: string) => {
+    setHideBsMap(prev => {
+      const next = { ...prev, [id]: !prev[id] };
+      try { localStorage.setItem('rpym_hide_bs_map', JSON.stringify(next)); } catch {}
+      return next;
+    });
   };
 
   // Función para copiar ID al portapapeles
@@ -765,17 +767,6 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
             </button>
           ))}
           <button
-            onClick={toggleHideBs}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              hideBs
-                ? 'bg-coral-100 text-coral-700 border border-coral-200 hover:bg-coral-200'
-                : 'bg-white text-ocean-700 border border-ocean-200 hover:bg-ocean-50'
-            }`}
-            title={hideBs ? 'Mostrando solo USD — clic para mostrar Bs.' : 'Clic para ocultar montos en Bs.'}
-          >
-            {hideBs ? '$ Solo USD' : '$ / Bs.'}
-          </button>
-          <button
             onClick={loadData}
             disabled={isLoading}
             className="ml-auto px-3 py-1.5 bg-ocean-100 text-ocean-700 rounded-lg text-sm hover:bg-ocean-200 transition-colors"
@@ -843,7 +834,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <span className="font-semibold text-coral-600">{formatUSD(p.totalUSD)}</span>
-                        {!hideBs && bcvRateValue > 0 && p.totalBs !== 0 && !p.hideRate && (
+                        {!hideBsMap[p.id] && bcvRateValue > 0 && p.totalBs !== 0 && !p.hideRate && (
                           <span className="block text-xs text-ocean-500">{formatBs(p.totalUSD * bcvRateValue)}</span>
                         )}
                       </td>
@@ -869,17 +860,10 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (whatsappPopoverId === p.id) {
-                                setWhatsappPopoverId(null);
-                              } else {
-                                setWhatsappPopoverId(p.id);
-                                setRowWhatsappPhone('');
-                                setWhatsappStatus('idle');
-                                setWhatsappError(null);
-                              }
+                              handleWhatsAppView(p);
                             }}
                             className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                            title="Enviar por WhatsApp"
+                            title="Ver vista WhatsApp"
                           >
                             📱
                           </button>
@@ -910,6 +894,19 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                           >
                             👁️
                           </button>
+                          {bcvRateValue > 0 && p.totalBs !== 0 && !p.hideRate && (
+                            <button
+                              onClick={() => toggleBudgetHideBs(p.id)}
+                              className={`p-1.5 rounded-lg transition-colors text-xs font-bold ${
+                                hideBsMap[p.id]
+                                  ? 'bg-coral-100 text-coral-700 hover:bg-coral-200'
+                                  : 'text-ocean-400 hover:bg-ocean-50'
+                              }`}
+                              title={hideBsMap[p.id] ? 'Mostrando solo USD — clic para mostrar Bs.' : 'Clic para ocultar Bs.'}
+                            >
+                              Bs
+                            </button>
+                          )}
                           <button
                             onClick={() => handleDelete(p.id, p.isLinked)}
                             disabled={actionLoading === p.id || p.isLinked}
