@@ -197,8 +197,15 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
   // Editing delivery input (string-based to allow clearing)
   const [editingDelivery, setEditingDelivery] = useState<string | null>(null);
 
-  // Solo divisas mode (hide Bs)
-  const [soloDivisas, setSoloDivisas] = useState(false);
+  // Solo divisas mode (hide Bs) — persiste en localStorage
+  const [soloDivisas, setSoloDivisas] = useState(() => {
+    try { return localStorage.getItem('rpym_admin_hide_bs') === 'true'; } catch { return false; }
+  });
+
+  // Persistir preferencia de ocultar Bs en localStorage
+  useEffect(() => {
+    try { localStorage.setItem('rpym_admin_hide_bs', String(soloDivisas)); } catch {}
+  }, [soloDivisas]);
 
   // Pricing mode: BCV or Divisa
   const [modoPrecio, setModoPrecio] = useState<'bcv' | 'divisa' | 'dual'>('bcv');

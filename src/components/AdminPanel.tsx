@@ -87,6 +87,16 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   // Estado para copiar ID
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Preferencia de ocultar montos en Bs
+  const [hideBs, setHideBs] = useState(() => {
+    try { return localStorage.getItem('rpym_admin_hide_bs') === 'true'; } catch { return false; }
+  });
+  const toggleHideBs = () => {
+    const next = !hideBs;
+    setHideBs(next);
+    try { localStorage.setItem('rpym_admin_hide_bs', String(next)); } catch {}
+  };
+
   // Función para copiar ID al portapapeles
   const copyIdToClipboard = async (id: string) => {
     try {
@@ -755,6 +765,17 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
             </button>
           ))}
           <button
+            onClick={toggleHideBs}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              hideBs
+                ? 'bg-coral-100 text-coral-700 border border-coral-200 hover:bg-coral-200'
+                : 'bg-white text-ocean-700 border border-ocean-200 hover:bg-ocean-50'
+            }`}
+            title={hideBs ? 'Mostrando solo USD — clic para mostrar Bs.' : 'Clic para ocultar montos en Bs.'}
+          >
+            {hideBs ? '$ Solo USD' : '$ / Bs.'}
+          </button>
+          <button
             onClick={loadData}
             disabled={isLoading}
             className="ml-auto px-3 py-1.5 bg-ocean-100 text-ocean-700 rounded-lg text-sm hover:bg-ocean-200 transition-colors"
@@ -822,7 +843,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <span className="font-semibold text-coral-600">{formatUSD(p.totalUSD)}</span>
-                        {bcvRateValue > 0 && p.totalBs !== 0 && !p.hideRate && (
+                        {!hideBs && bcvRateValue > 0 && p.totalBs !== 0 && !p.hideRate && (
                           <span className="block text-xs text-ocean-500">{formatBs(p.totalUSD * bcvRateValue)}</span>
                         )}
                       </td>
@@ -1030,8 +1051,8 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                   <span className="text-ocean-700">Total USD:</span>
                   <span className="text-xl font-bold text-coral-600">{formatUSD(currentTotalUSD)}</span>
                 </div>
-                {/* Mostrar Bs solo si no es modo divisas y tenemos tasa BCV */}
-                {bcvRateValue > 0 && selectedPresupuesto.totalBs !== 0 && !selectedPresupuesto.hideRate && (
+                {/* Mostrar Bs solo si no es modo divisas, tenemos tasa BCV y el toggle lo permite */}
+                {!hideBs && bcvRateValue > 0 && selectedPresupuesto.totalBs !== 0 && !selectedPresupuesto.hideRate && (
                   <div className="flex justify-between items-center mt-1">
                     <span className="text-ocean-700">Total Bs:</span>
                     <span className="font-semibold text-ocean-900">{formatBs(currentTotalBs)}</span>
