@@ -181,9 +181,12 @@ CAMARONES - REGLA CRITICA DE DISAMBIGUATION:
   * Si hay precio dual, poner tambien customPriceDivisa
 
 MONTOS EN DOLARES (¡¡¡MUY IMPORTANTE!!!):
-- "$X de producto" o "X$ de producto" = el cliente quiere COMPRAR por ese monto total
+- El cliente especifica CUÁNTO DINERO quiere gastar, NO la cantidad
+- PATRONES RECONOCIDOS: "$X de producto", "$X en producto", "X$ de producto", "X$ en producto", "X dólares de producto", "X dólares en producto", "Dame $X de producto", "dame $X en producto"
 - DEBES calcular: quantity = monto / precio del producto. NUNCA pongas quantity: 0
 - "$20 de calamar" (precio $18/kg) → quantity: 20/18 = 1.111 kg, dollarAmount: 20, customPrice: null
+- "$50 en camarones 61/70" (precio $14/kg) → quantity: 50/14 = 3.571 kg, dollarAmount: 50, customPrice: null
+- "dame $30 de pulpo" (precio $22/kg) → quantity: 30/22 = 1.364 kg, dollarAmount: 30, customPrice: null
 - "$15 de langostino" (precio $12/kg) → quantity: 15/12 = 1.25 kg, dollarAmount: 15, customPrice: null
 - ¡¡¡NO confundas dollarAmount con customPrice!!! dollarAmount = cuanto dinero gastar, customPrice = precio por unidad
 - Usar el precio segun el modo de precio especificado
@@ -264,22 +267,29 @@ Responde SOLO con un JSON valido:
     // Build presupuesto items with prices based on mode
     const presupuestoItems: ParsedAction['items'] = [];
 
-    // Pre-escanear texto original para "$X de producto"
+    // Pre-escanear texto original para patrones de monto en dólares
     const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const textDollarRegex2 = /\$\s*(\d+(?:\.\d+)?)\s*(?:de|del)\s+([^,\n$]+)/gi;
     const dollarFromText: { amount: number; fragment: string }[] = [];
-    let dm2;
-    while ((dm2 = textDollarRegex2.exec(text)) !== null) {
-      // Cortar el fragmento en "y" para evitar que "$X de prodA y prodB" asigne el monto a prodB
-      const rawFragment = dm2[2].trim().split(/\s+y\s+/i)[0].trim();
-      const fragment = normalize(rawFragment);
-      if (!dollarFromText.some(d => d.amount === parseFloat(dm2![1]) && d.fragment === fragment)) {
-        dollarFromText.push({ amount: parseFloat(dm2[1]), fragment });
+    // Captura: "$X de/del/en producto", "X$ de/del/en producto", "X dólares/dolares de/del/en producto"
+    const dollarTextPatterns2 = [
+      /\$\s*(\d+(?:\.\d+)?)\s*(?:de|del|en)\s+([^,\n$]+)/gi,
+      /(\d+(?:\.\d+)?)\s*\$\s*(?:de|del|en)\s+([^,\n$]+)/gi,
+      /(\d+(?:\.\d+)?)\s*(?:d[oó]lares?|dollars?|usd)\s+(?:de|del|en)\s+([^,\n$]+)/gi,
+    ];
+    for (const rx of dollarTextPatterns2) {
+      let dm;
+      while ((dm = rx.exec(text)) !== null) {
+        // Cortar en "y" para evitar que "$X de prodA y prodB" asigne el monto a prodB
+        const rawFragment = dm[2].trim().split(/\s+y\s+/i)[0].trim();
+        const fragment = normalize(rawFragment);
+        if (!dollarFromText.some(d => d.amount === parseFloat(dm![1]) && d.fragment === fragment)) {
+          dollarFromText.push({ amount: parseFloat(dm[1]), fragment });
+        }
       }
     }
 
     const dollarAmountRegex = /^\$\s*(\d+(?:\.\d+)?)|^(\d+(?:\.\d+)?)\s*\$|^(\d+(?:\.\d+)?)\s*(?:dolares?|dollars?|usd)\s/i;
-    const dollarDeRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|d\s)/i;
+    const dollarDeRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|en\s|d\s)/i;
 
     // Detectar unidad explícita del usuario (ej: "1kg pepitona" → "kg")
     // Si el usuario escribe "kg" explícitamente, NO usar la unidad del catálogo (podría ser "caja")

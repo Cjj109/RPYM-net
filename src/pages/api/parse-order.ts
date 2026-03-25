@@ -125,15 +125,19 @@ El cliente quiere COMPRAR por ese monto → DEBES calcular la cantidad = monto /
 - Si el producto se vende por kg, calcular cantidad en kg
 - Si el producto se vende por caja, calcular cantidad en cajas (redondear hacia abajo a enteros)
 - Si el producto se vende por unidad, calcular cantidad en unidades (redondear hacia abajo a enteros)
-- PATRÓN: "$X de [producto]" o "X$ de [producto]" o "X dólares de [producto]"
+- PATRONES RECONOCIDOS: "$X de [producto]", "$X en [producto]", "X$ de [producto]", "X$ en [producto]", "X dólares de [producto]", "X dólares en [producto]", "Dame $X de [producto]", "dame $X en [producto]"
 - dollarAmount = X, customPrice = null (NO es precio personalizado)
 - quantity = dollarAmount / precio del producto del catálogo
 - EJEMPLOS:
   * "$20 de camarón desvenado" (precio catálogo: $17/kg) → dollarAmount: 20, quantity: 20/17 = 1.176 kg, customPrice: null
+  * "$50 en camarones 61/70" (precio catálogo: $14/kg) → dollarAmount: 50, quantity: 50/14 = 3.571 kg, customPrice: null
+  * "dame $30 de pulpo" (precio catálogo: $22/kg) → dollarAmount: 30, quantity: 30/22 = 1.364 kg, customPrice: null
   * "$15 de langostino" (precio catálogo: $12/kg) → dollarAmount: 15, quantity: 15/12 = 1.25 kg, customPrice: null
   * "$10 de pulpo" (precio catálogo: $22/kg) → dollarAmount: 10, quantity: 10/22 = 0.455 kg, customPrice: null
   * "20$ de calamar" (precio catálogo: $18/kg) → dollarAmount: 20, quantity: 20/18 = 1.111 kg, customPrice: null
+  * "20$ en calamar nacional" (precio catálogo: $18/kg) → dollarAmount: 20, quantity: 20/18 = 1.111 kg, customPrice: null
   * "20 dolares de calamar" → dollarAmount: 20, quantity: 20/18 = 1.111 kg, customPrice: null
+  * "20 dólares en calamar" → dollarAmount: 20, quantity: 20/18 = 1.111 kg, customPrice: null
 - ¡¡¡NUNCA pongas quantity: 0 cuando hay dollarAmount!!! SIEMPRE calcula quantity = dollarAmount / precio
 - ¡¡¡NUNCA confundas dollarAmount con customPrice!!! Son cosas distintas:
   * dollarAmount = CUÁNTO DINERO quiere gastar → calcular cantidad
@@ -437,17 +441,27 @@ INSTRUCCIONES:
       });
     }
 
-    // Pre-escanear texto original para "$X de producto"
+    // Pre-escanear texto original para patrones de monto en dólares
     const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const textDollarRegex = /\$\s*(\d+(?:\.\d+)?)\s*(?:de|del)\s+([^,\n$]+)/gi;
     const dollarFromText: { amount: number; fragment: string }[] = [];
-    let dm;
-    while ((dm = textDollarRegex.exec(text)) !== null) {
-      dollarFromText.push({ amount: parseFloat(dm[1]), fragment: normalize(dm[2].trim()) });
+    // Captura: "$X de/del/en producto", "X$ de/del/en producto", "X dólares/dolares de/del/en producto"
+    const dollarTextPatterns = [
+      /\$\s*(\d+(?:\.\d+)?)\s*(?:de|del|en)\s+([^,\n$]+)/gi,
+      /(\d+(?:\.\d+)?)\s*\$\s*(?:de|del|en)\s+([^,\n$]+)/gi,
+      /(\d+(?:\.\d+)?)\s*(?:d[oó]lares?|dollars?|usd)\s+(?:de|del|en)\s+([^,\n$]+)/gi,
+    ];
+    for (const rx of dollarTextPatterns) {
+      let dm;
+      while ((dm = rx.exec(text)) !== null) {
+        const fragment = normalize(dm[2].trim());
+        if (!dollarFromText.some(d => d.amount === parseFloat(dm![1]) && d.fragment === fragment)) {
+          dollarFromText.push({ amount: parseFloat(dm[1]), fragment });
+        }
+      }
     }
 
     const dollarAmountRegex = /^\$\s*(\d+(?:\.\d+)?)|^(\d+(?:\.\d+)?)\s*\$|^(\d+(?:\.\d+)?)\s*(?:dolares?|dollars?|usd)\s/i;
-    const dollarDeRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|d\s)/i;
+    const dollarDeRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|en\s|d\s)/i;
 
     const items = (parsedResult.items || []).map((item: any) => {
       if (!item.matched || !item.productId) return item;
