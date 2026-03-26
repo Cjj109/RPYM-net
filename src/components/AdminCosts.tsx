@@ -156,6 +156,26 @@ export default function AdminCosts() {
         setProducts(data.products);
         setBags(data.bags);
         if (data.settings) {
+          // Auto-actualizar tasa BCV si hay diferencia
+          const currentBcv = data.settings.bcvRate;
+          const liveBcv = bcvRes?.rate;
+          if (liveBcv && Math.abs(liveBcv - currentBcv) >= 0.01) {
+            fetch('/api/costs', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                bcvRate: liveBcv,
+                parallelRate: data.settings.parallelRate,
+                ivaRate: data.settings.ivaRate,
+                debitCommission: data.settings.debitCommission,
+                creditCommission: data.settings.creditCommission,
+              }),
+            }).then(r => r.json()).then(d => {
+              if (d.success) loadData();
+            }).catch(() => {});
+            return; // loadData se re-invocará con la tasa actualizada
+          }
           setSettingsForm({
             bcvRate: String(data.settings.bcvRate),
             parallelRate: String(data.settings.parallelRate),
@@ -535,28 +555,7 @@ export default function AdminCosts() {
         </div>
       </div>
 
-      {/* BCV rate sync banner */}
-      {liveBcvRate != null && settings && Math.abs(liveBcvRate - settings.bcvRate) >= 0.01 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-amber-800">
-              Nueva tasa BCV disponible: <span className="font-bold">Bs. {liveBcvRate.toFixed(2)}</span>
-            </p>
-            <p className="text-xs text-amber-600">
-              Costos usa Bs. {settings.bcvRate.toFixed(2)} — diferencia de Bs. {Math.abs(liveBcvRate - settings.bcvRate).toFixed(2)}
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              setSettingsForm(f => ({ ...f, bcvRate: String(liveBcvRate) }));
-              setSubView('settings');
-            }}
-            className="shrink-0 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            Actualizar
-          </button>
-        </div>
-      )}
+      {/* BCV rate — auto-sync activo, no requiere banner manual */}
 
       {/* ── DASHBOARD ─────────────────────────────── */}
       {subView === 'dashboard' && (
