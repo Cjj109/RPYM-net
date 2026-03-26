@@ -40,6 +40,8 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState('');
   const [editingCurrency, setEditingCurrency] = useState<'USD' | 'Bs'>('Bs');
+  const [editingEntryNoteId, setEditingEntryNoteId] = useState<string | null>(null);
+  const [editingEntryNoteValue, setEditingEntryNoteValue] = useState('');
   const [noteInput, setNoteInput] = useState('');
 
   // Queue item editing state
@@ -160,6 +162,17 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
     }));
     inputRef.current?.focus();
   }, [editingValue, editingCurrency, activeRate]);
+
+  const startEditingEntryNote = useCallback((entry: QuickOpEntry) => {
+    setEditingEntryNoteId(entry.id);
+    setEditingEntryNoteValue(entry.note ?? '');
+  }, []);
+
+  const confirmEntryNoteEdit = useCallback((entryId: string) => {
+    setEditingEntryNoteId(null);
+    const newNote = editingEntryNoteValue.trim() || undefined;
+    setCurrentEntries(prev => prev.map(e => e.id === entryId ? { ...e, note: newNote } : e));
+  }, [editingEntryNoteValue]);
 
   const startEditingQueueTotal = useCallback((item: QuickQueueItem, currency: 'USD' | 'Bs') => {
     setEditingQueueTotalId(item.id);
@@ -765,6 +778,39 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                     >
                       {formatBs(entry.amountBs)}
                     </button>
+                    {/* Nota del entry */}
+                    {editingEntryNoteId === entry.id ? (
+                      <input
+                        autoFocus
+                        type="text"
+                        value={editingEntryNoteValue}
+                        onChange={ev => setEditingEntryNoteValue(ev.target.value)}
+                        onBlur={() => confirmEntryNoteEdit(entry.id)}
+                        onKeyDown={ev => {
+                          if (ev.key === 'Enter') { ev.preventDefault(); confirmEntryNoteEdit(entry.id); }
+                          if (ev.key === 'Escape') { ev.preventDefault(); setEditingEntryNoteId(null); }
+                        }}
+                        placeholder="Nota..."
+                        className="text-[11px] bg-white border border-ocean-200 rounded px-1.5 py-0.5 focus:outline-none focus:border-ocean-400 text-ocean-700 w-24"
+                      />
+                    ) : entry.note ? (
+                      <span
+                        className={`shrink min-w-0 text-[11px] italic truncate cursor-pointer ${displayMode === 'vero' ? `${dispatcherInfo?.text ?? 'text-emerald-700'} opacity-70` : 'text-ocean-400'}`}
+                        onClick={() => startEditingEntryNote(entry)}
+                        title={entry.note}
+                      >
+                        {entry.note}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => startEditingEntryNote(entry)}
+                        className={`shrink-0 text-[10px] leading-none px-1 py-0.5 rounded opacity-30 hover:opacity-70 transition-opacity ${displayMode === 'vero' ? (dispatcherInfo?.text ?? 'text-emerald-700') : 'text-ocean-400'}`}
+                        title="Agregar nota"
+                      >
+                        +nota
+                      </button>
+                    )}
                   </div>
                 )}
                 {editingEntryId !== entry.id && (
@@ -799,7 +845,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                 <div className={`text-xl font-bold font-mono ${dispatcherInfo?.text ?? 'text-ocean-800'}`}>
                   {formatBs(currentTotal.bs)}
                 </div>
-                <div className="text-xs text-ocean-400 font-mono">{formatUSD(currentTotal.usd)}</div>
+                <div className={`text-xs font-bold font-mono ${dispatcherInfo?.text ?? 'text-ocean-800'}`}>{formatUSD(currentTotal.usd)}</div>
               </div>
               <button
                 onClick={editingQueueId ? updateQueueItem : addToQueue}
