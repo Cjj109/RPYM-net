@@ -68,6 +68,7 @@ export interface QuickOpEntry {
   amountUSD: number;
   amountBs: number;
   expression?: string;
+  note?: string;
 }
 
 export interface QuickQueueItem {

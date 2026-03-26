@@ -55,6 +55,10 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
   const [editingChipValue, setEditingChipValue] = useState('');
   const [editingChipCurrency, setEditingChipCurrency] = useState<'USD' | 'Bs'>('USD');
 
+  // Chip note editing (nota por entry individual)
+  const [editingChipNoteKey, setEditingChipNoteKey] = useState<string | null>(null); // "queueId:entryId"
+  const [editingChipNoteValue, setEditingChipNoteValue] = useState('');
+
   // Queue item inline note editing
   const [editingQueueNoteId, setEditingQueueNoteId] = useState<string | null>(null);
   const [editingQueueNoteValue, setEditingQueueNoteValue] = useState('');
@@ -243,6 +247,23 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
       setCurrentEntries(prev => prev.map(e => e.id === entryId ? { ...e, ...updatedEntry } : e));
     }
   }, [editingChipValue, editingChipCurrency, activeRate, onQueueChange, editingQueueId]);
+
+  const startEditingChipNote = useCallback((queueItemId: string, entry: QuickOpEntry) => {
+    setEditingChipNoteKey(`${queueItemId}:${entry.id}`);
+    setEditingChipNoteValue(entry.note ?? '');
+  }, []);
+
+  const confirmChipNoteEdit = useCallback((queueItemId: string, entryId: string) => {
+    setEditingChipNoteKey(null);
+    const newNote = editingChipNoteValue.trim() || undefined;
+    onQueueChange(prev => prev.map(item => {
+      if (item.id !== queueItemId) return item;
+      return { ...item, entries: item.entries.map(e => e.id === entryId ? { ...e, note: newNote } : e) };
+    }));
+    if (editingQueueId === queueItemId) {
+      setCurrentEntries(prev => prev.map(e => e.id === entryId ? { ...e, note: newNote } : e));
+    }
+  }, [editingChipNoteValue, onQueueChange, editingQueueId]);
 
   const addAmount = useCallback(() => {
     const parsed = evalMathExpr(inputAmount);
@@ -1021,6 +1042,39 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                               >
                                 {formatBs(liveEntry.amountBs)}
                               </span>
+                              {/* Nota del entry */}
+                              {editingChipNoteKey === chipKey ? (
+                                <input
+                                  autoFocus
+                                  type="text"
+                                  value={editingChipNoteValue}
+                                  onChange={ev => setEditingChipNoteValue(ev.target.value)}
+                                  onBlur={() => confirmChipNoteEdit(item.id, e.id)}
+                                  onKeyDown={ev => {
+                                    if (ev.key === 'Enter') { ev.preventDefault(); confirmChipNoteEdit(item.id, e.id); }
+                                    if (ev.key === 'Escape') { ev.preventDefault(); setEditingChipNoteKey(null); }
+                                  }}
+                                  placeholder="Nota..."
+                                  className="text-[10px] bg-white border border-ocean-200 rounded px-1 py-0.5 focus:outline-none focus:border-ocean-400 text-ocean-700 w-20 font-sans"
+                                />
+                              ) : liveEntry.note ? (
+                                <span
+                                  className={`italic truncate cursor-pointer max-w-[80px] font-sans ${displayMode === 'vero' ? 'opacity-70' : 'opacity-60'}`}
+                                  onClick={() => startEditingChipNote(item.id, liveEntry)}
+                                  title={liveEntry.note}
+                                >
+                                  {liveEntry.note}
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => startEditingChipNote(item.id, liveEntry)}
+                                  className="opacity-30 hover:opacity-70 transition-opacity font-sans"
+                                  title="Agregar nota"
+                                >
+                                  +nota
+                                </button>
+                              )}
                             </div>
                           );
                         })}
