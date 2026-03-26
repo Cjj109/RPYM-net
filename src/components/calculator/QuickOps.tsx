@@ -50,6 +50,11 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
   const [editingQueueTotalValue, setEditingQueueTotalValue] = useState('');
   const [editingQueueTotalCurrency, setEditingQueueTotalCurrency] = useState<'USD' | 'Bs'>('Bs');
 
+  // Queue item inline entry editing (editar un monto individual directo en el chip)
+  const [editingChipKey, setEditingChipKey] = useState<string | null>(null); // "queueId:entryId"
+  const [editingChipValue, setEditingChipValue] = useState('');
+  const [editingChipCurrency, setEditingChipCurrency] = useState<'USD' | 'Bs'>('USD');
+
   // Queue item inline note editing
   const [editingQueueNoteId, setEditingQueueNoteId] = useState<string | null>(null);
   const [editingQueueNoteValue, setEditingQueueNoteValue] = useState('');
@@ -172,7 +177,15 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
       const newTotalUSD = editingQueueTotalCurrency === 'Bs' ? Math.round(parsed / activeRate * 100) / 100 : Math.round(parsed * 100) / 100;
       return { ...item, totalBs: newTotalBs, totalUSD: newTotalUSD };
     }));
-  }, [editingQueueTotalValue, editingQueueTotalCurrency, activeRate, onQueueChange]);
+    // Si este item está en modo edición (doble-click), cancelar para que
+    // "Actualizar" no sobrescriba el total que acabamos de corregir
+    if (editingQueueId === itemId) {
+      setEditingQueueId(null);
+      setCurrentEntries([]);
+      setInputAmount('');
+      setNoteInput('');
+    }
+  }, [editingQueueTotalValue, editingQueueTotalCurrency, activeRate, onQueueChange, editingQueueId]);
 
   const startEditingQueueNote = useCallback((item: QuickQueueItem) => {
     setEditingQueueNoteId(item.id);
@@ -186,6 +199,50 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
       return { ...item, note: editingQueueNoteValue.trim() || undefined };
     }));
   }, [editingQueueNoteValue, onQueueChange]);
+
+  const startEditingChip = useCallback((queueItemId: string, entry: QuickOpEntry, forCurrency: 'USD' | 'Bs') => {
+    setEditingChipKey(`${queueItemId}:${entry.id}`);
+    setEditingChipCurrency(forCurrency);
+    setEditingChipValue(
+      forCurrency === 'USD'
+        ? String(Math.round(entry.amountUSD * 100) / 100)
+        : (entry.currency === 'Bs' ? entry.amountInput : String(Math.round(entry.amountBs * 100) / 100))
+    );
+  }, []);
+
+  const confirmChipEdit = useCallback((queueItemId: string, entryId: string) => {
+    const parsed = evalMathExpr(editingChipValue);
+    setEditingChipKey(null);
+    if (parsed === 0 || !activeRate) return;
+    let usd: number, bs: number;
+    if (editingChipCurrency === 'USD') {
+      usd = Math.round(parsed * 100) / 100;
+      bs = Math.round(parsed * activeRate * 100) / 100;
+    } else {
+      bs = Math.round(parsed * 100) / 100;
+      usd = Math.round(parsed / activeRate * 100) / 100;
+    }
+    const hasExpression = /[+\-*/]/.test(editingChipValue.replace(/^-/, ''));
+    const updatedEntry: Partial<QuickOpEntry> = {
+      amountInput: editingChipValue.trim(),
+      currency: editingChipCurrency,
+      amountUSD: usd,
+      amountBs: bs,
+      expression: hasExpression ? editingChipValue.trim() : undefined,
+    };
+    // Actualizar el queue item directo
+    onQueueChange(prev => prev.map(item => {
+      if (item.id !== queueItemId) return item;
+      const newEntries = item.entries.map(e => e.id === entryId ? { ...e, ...updatedEntry } : e);
+      const newTotalUSD = newEntries.reduce((s, e) => s + e.amountUSD, 0);
+      const newTotalBs = newEntries.reduce((s, e) => s + e.amountBs, 0);
+      return { ...item, entries: newEntries, totalUSD: newTotalUSD, totalBs: newTotalBs };
+    }));
+    // Si el item está en modo edición, sincronizar currentEntries
+    if (editingQueueId === queueItemId) {
+      setCurrentEntries(prev => prev.map(e => e.id === entryId ? { ...e, ...updatedEntry } : e));
+    }
+  }, [editingChipValue, editingChipCurrency, activeRate, onQueueChange, editingQueueId]);
 
   const addAmount = useCallback(() => {
     const parsed = evalMathExpr(inputAmount);
@@ -927,19 +984,20 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                         onTouchEnd={e => e.stopPropagation()}
                       >
                         {item.entries.map(e => {
+                          const chipKey = `${item.id}:${e.id}`;
                           const liveEntry = currentEntries.find(ce => ce.id === e.id) ?? e;
-                          return editingEntryId === liveEntry.id ? (
+                          return editingChipKey === chipKey ? (
                             <input
                               key={e.id}
                               autoFocus
                               type="text"
                               inputMode="decimal"
-                              value={editingValue}
-                              onChange={ev => setEditingValue(ev.target.value)}
-                              onBlur={() => confirmEditEntry(liveEntry.id)}
+                              value={editingChipValue}
+                              onChange={ev => setEditingChipValue(ev.target.value)}
+                              onBlur={() => confirmChipEdit(item.id, e.id)}
                               onKeyDown={ev => {
-                                if (ev.key === 'Enter') { ev.preventDefault(); confirmEditEntry(liveEntry.id); }
-                                if (ev.key === 'Escape') { ev.preventDefault(); setEditingEntryId(null); }
+                                if (ev.key === 'Enter') { ev.preventDefault(); confirmChipEdit(item.id, e.id); }
+                                if (ev.key === 'Escape') { ev.preventDefault(); setEditingChipKey(null); }
                               }}
                               className="text-[10px] font-mono w-24 border border-ocean-300 rounded px-1.5 py-0.5 focus:outline-none focus:border-ocean-500"
                             />
@@ -950,7 +1008,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                             >
                               <span
                                 className="cursor-pointer hover:underline"
-                                onClick={() => startEditingEntry(liveEntry, 'USD')}
+                                onClick={() => startEditingChip(item.id, liveEntry, 'USD')}
                                 title="Editar en USD"
                               >
                                 {formatUSD(liveEntry.amountUSD)}
@@ -958,7 +1016,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                               <span className="opacity-40">·</span>
                               <span
                                 className="cursor-pointer hover:underline"
-                                onClick={() => startEditingEntry(liveEntry, 'Bs')}
+                                onClick={() => startEditingChip(item.id, liveEntry, 'Bs')}
                                 title="Editar en Bs"
                               >
                                 {formatBs(liveEntry.amountBs)}
