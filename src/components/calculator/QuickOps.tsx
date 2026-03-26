@@ -1209,7 +1209,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
       {whatsappItem && (() => {
         const calcEntries: CalcEntry[] = whatsappItem.entries.map(e => ({
           id: e.id,
-          description: e.note || (e.currency === 'USD' ? `$${e.amountInput}` : `Bs ${e.amountInput}`),
+          description: e.note || 'Mariscos Varios',
           amountUSD: e.amountUSD,
           amountBs: e.amountBs,
           isNegative: false,
