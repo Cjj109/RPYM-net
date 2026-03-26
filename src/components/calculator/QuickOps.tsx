@@ -1082,7 +1082,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                               </span>
                               <span className="opacity-40">·</span>
                               <span
-                                className="cursor-pointer hover:underline"
+                                className="font-semibold cursor-pointer hover:underline"
                                 onClick={() => startEditingChip(item.id, liveEntry, 'Bs')}
                                 title="Editar en Bs"
                               >
@@ -1105,7 +1105,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                                 />
                               ) : liveEntry.note ? (
                                 <span
-                                  className={`italic truncate cursor-pointer max-w-[80px] font-sans ${displayMode === 'vero' ? 'opacity-70' : 'opacity-60'}`}
+                                  className={`italic font-semibold truncate cursor-pointer max-w-[80px] font-sans ${displayMode === 'vero' ? 'opacity-80' : 'opacity-70'}`}
                                   onClick={() => startEditingChipNote(item.id, liveEntry)}
                                   title={liveEntry.note}
                                 >
@@ -1115,7 +1115,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                                 <button
                                   type="button"
                                   onClick={() => startEditingChipNote(item.id, liveEntry)}
-                                  className="opacity-50 hover:opacity-90 transition-opacity font-sans italic"
+                                  className="opacity-60 hover:opacity-90 transition-opacity font-sans font-semibold italic"
                                   title="Agregar nota"
                                 >
                                   +nota
