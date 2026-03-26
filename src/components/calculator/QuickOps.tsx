@@ -3,7 +3,9 @@ import { evalMathExpr } from '../../lib/safe-math';
 import { formatUSD, formatBs } from '../../lib/format';
 import { DISPATCHERS } from './constants';
 import type { QuickOpEntry, QuickQueueItem, SavedSession } from './types';
-import { PlusIcon, CloseIcon, TrashIcon, PencilIcon } from './icons';
+import { PlusIcon, CloseIcon, TrashIcon, PencilIcon, WhatsAppIcon } from './icons';
+import { WhatsAppModal } from './WhatsAppModal';
+import type { CalcEntry } from './types';
 
 interface QuickOpsProps {
   activeRate: number;
@@ -67,6 +69,9 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
 
   // Dispatcher change mode for queue items (badge tap → selecciona arriba)
   const [changingDispatcherForItemId, setChangingDispatcherForItemId] = useState<string | null>(null);
+
+  // WhatsApp modal state
+  const [whatsappItem, setWhatsappItem] = useState<QuickQueueItem | null>(null);
 
   // Drag & drop state
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -1030,6 +1035,15 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                         );
                       })()}
 
+                      {/* WhatsApp */}
+                      <button
+                        onClick={e => { e.stopPropagation(); setWhatsappItem(item); }}
+                        className={`transition-colors p-0.5 shrink-0 ${displayMode === 'vero' ? `${disp?.text ?? 'text-emerald-700'} opacity-40 hover:opacity-90` : 'text-ocean-300 hover:text-green-500'}`}
+                        title="Enviar por WhatsApp"
+                      >
+                        <WhatsAppIcon className="w-3.5 h-3.5" />
+                      </button>
+
                       {/* Trash */}
                       <button
                         onClick={e => { e.stopPropagation(); onQueueChange(prev => prev.filter(q => q.id !== item.id)); if (editingQueueId === item.id) cancelEditingQueue(); }}
@@ -1188,6 +1202,28 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
               </svg>
             </button>
           </div>
+        );
+      })()}
+
+      {/* WhatsApp modal */}
+      {whatsappItem && (() => {
+        const calcEntries: CalcEntry[] = whatsappItem.entries.map(e => ({
+          id: e.id,
+          description: e.note || (e.currency === 'USD' ? `$${e.amountInput}` : `Bs ${e.amountInput}`),
+          amountUSD: e.amountUSD,
+          amountBs: e.amountBs,
+          isNegative: false,
+          expression: e.expression,
+        }));
+        return (
+          <WhatsAppModal
+            entries={calcEntries}
+            clientName={whatsappItem.note || `Op. Rápida - ${whatsappItem.dispatcher}`}
+            totalUSD={whatsappItem.totalUSD}
+            totalBs={whatsappItem.totalBs}
+            activeRate={whatsappItem.rate}
+            onClose={() => setWhatsappItem(null)}
+          />
         );
       })()}
     </div>
