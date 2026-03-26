@@ -1218,7 +1218,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
         return (
           <WhatsAppModal
             entries={calcEntries}
-            clientName={whatsappItem.note || `Op. Rápida - ${whatsappItem.dispatcher}`}
+            clientName=""
             totalUSD={whatsappItem.totalUSD}
             totalBs={whatsappItem.totalBs}
             activeRate={whatsappItem.rate}

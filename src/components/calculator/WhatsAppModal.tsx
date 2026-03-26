@@ -17,6 +17,7 @@ interface WhatsAppModalProps {
 
 export function WhatsAppModal({ entries, clientName, totalUSD, totalBs, activeRate, onClose }: WhatsAppModalProps) {
   const [phone, setPhone] = useState('');
+  const [nameInput, setNameInput] = useState(clientName || '');
   const [status, setStatus] = useState<'idle' | 'capturing' | 'uploading' | 'sent' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -24,7 +25,8 @@ export function WhatsAppModal({ entries, clientName, totalUSD, totalBs, activeRa
 
   const [refId] = useState(() => String(Math.floor(100000 + Math.random() * 900000)));
 
-  const cardData = { entries, clientName, totalUSD, totalBs, activeRate, refId };
+  const resolvedName = nameInput.trim() || 'Cliente';
+  const cardData = { entries, clientName: resolvedName, totalUSD, totalBs, activeRate, refId };
 
   const handlePreview = () => {
     openCalcCardWindow(cardData, window.location.origin);
@@ -77,7 +79,7 @@ export function WhatsAppModal({ entries, clientName, totalUSD, totalBs, activeRa
       const formData = new FormData();
       formData.append('image', blob, 'calculadora.jpg');
       formData.append('phone', phone.replace(/\D/g, ''));
-      formData.append('customerName', clientName || 'Cliente');
+      formData.append('customerName', resolvedName);
       formData.append('totalUSD', Math.abs(totalUSD).toFixed(2));
       formData.append('presupuestoId', refId);
 
@@ -129,7 +131,6 @@ export function WhatsAppModal({ entries, clientName, totalUSD, totalBs, activeRa
           <div className="p-4 space-y-4">
             {/* Info */}
             <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-sm font-medium text-gray-700">{clientName || 'Cliente'}</p>
               <p className="text-xs text-gray-500">{entries.length} producto{entries.length !== 1 ? 's' : ''}</p>
               <p className="text-lg font-bold text-green-600 mt-1">{totalUSD < 0 ? '-' : ''}{formatUSD(Math.abs(totalUSD))}</p>
               {activeRate > 0 && (
@@ -165,6 +166,19 @@ export function WhatsAppModal({ entries, clientName, totalUSD, totalBs, activeRa
                 className="w-full px-4 py-3 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none placeholder:text-gray-400 font-mono text-center"
                 disabled={sending}
                 autoFocus
+              />
+            </div>
+
+            {/* Nombre */}
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1.5 block">Nombre del cliente</label>
+              <input
+                type="text"
+                placeholder="Cliente"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none placeholder:text-gray-400 text-center"
+                disabled={sending}
               />
             </div>
 
