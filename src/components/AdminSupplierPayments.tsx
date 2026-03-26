@@ -120,6 +120,13 @@ export default function AdminSupplierPayments() {
   const [mergeTargetId, setMergeTargetId] = useState<number | null>(null);
   const [isMerging, setIsMerging] = useState(false);
 
+  // Trasladar saldo a favor
+  const [trasladarSource, setTrasladarSource] = useState<CompraProveedor | null>(null);
+  const [trasladarTargets, setTrasladarTargets] = useState<CompraProveedor[]>([]);
+  const [trasladarMonto, setTrasladarMonto] = useState('');
+  const [trasladarTargetId, setTrasladarTargetId] = useState<number | null>(null);
+  const [isTrasladando, setIsTrasladando] = useState(false);
+
   // Modo precio filter
   const [modoPrecioFilter, setModoPrecioFilter] = useState<ModoPrecioCompra | ''>('');
 
@@ -709,6 +716,74 @@ export default function AdminSupplierPayments() {
     }
   };
 
+  // ── Trasladar saldo a favor ──────────────────────────
+
+  const openTrasladarModal = async (compra: CompraProveedor) => {
+    setTrasladarSource(compra);
+    setTrasladarMonto(Math.abs(compra.saldoPendiente).toFixed(2));
+    setTrasladarTargetId(null);
+    setIsTrasladando(false);
+    // Cargar todas las compras del mismo proveedor (sin filtro de mes)
+    try {
+      const params = new URLSearchParams({ proveedor_id: String(compra.proveedorId), estado: 'pendiente' });
+      const res = await fetch(`/api/pagos-proveedores/compras?${params}`);
+      const data = await res.json();
+      if (data.success) {
+        setTrasladarTargets((data.compras as CompraProveedor[]).filter(c => c.id !== compra.id && c.saldoPendiente > 0 && !c.pagadaManual));
+      }
+    } catch {
+      setTrasladarTargets([]);
+    }
+  };
+
+  const handleTrasladarSaldo = async () => {
+    if (!trasladarSource || !trasladarTargetId || !trasladarMonto) return;
+    const monto = parseFloat(trasladarMonto);
+    if (isNaN(monto) || monto <= 0) { alert('Monto inválido'); return; }
+    const saldoDisponible = Math.abs(trasladarSource.saldoPendiente);
+    if (monto > saldoDisponible + 0.01) { alert(`Máximo disponible: ${formatUSD(saldoDisponible)}`); return; }
+
+    setIsTrasladando(true);
+    try {
+      // 1. Abono negativo en compra origen (reduce saldo a favor)
+      const resOrigen = await fetch(`/api/pagos-proveedores/compras/${trasladarSource.id}/abonos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          montoUsd: String(-monto),
+          fecha: new Date().toISOString().split('T')[0],
+          metodoPago: 'transferencia',
+          cuenta: 'pa',
+          notas: `Saldo trasladado a compra #${trasladarTargetId}`,
+        }),
+      });
+      const dataOrigen = await resOrigen.json();
+      if (!dataOrigen.success) throw new Error(dataOrigen.error || 'Error al ajustar origen');
+
+      // 2. Abono positivo en compra destino
+      const resDestino = await fetch(`/api/pagos-proveedores/compras/${trasladarTargetId}/abonos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          montoUsd: String(monto),
+          fecha: new Date().toISOString().split('T')[0],
+          metodoPago: 'transferencia',
+          cuenta: 'pa',
+          notas: `Saldo a favor de compra #${trasladarSource.id}`,
+        }),
+      });
+      const dataDestino = await resDestino.json();
+      if (!dataDestino.success) throw new Error(dataDestino.error || 'Error al abonar destino');
+
+      setTrasladarSource(null);
+      await Promise.all([loadCompras(), loadResumen()]);
+    } catch (err: any) {
+      alert(err.message || 'Error al trasladar saldo');
+    } finally {
+      setIsTrasladando(false);
+    }
+  };
+
   // ── Helper: progress bar percentage ───────────────────
 
   const progressPercent = (compra: CompraProveedor) => {
@@ -1287,6 +1362,16 @@ export default function AdminSupplierPayments() {
                           className="px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-medium hover:bg-emerald-200"
                         >
                           Desmarcar pagada
+                        </button>
+                      )}
+
+                      {/* Trasladar saldo a favor */}
+                      {isSaldoFavor && (
+                        <button
+                          onClick={() => openTrasladarModal(compra)}
+                          className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-100"
+                        >
+                          Trasladar saldo
                         </button>
                       )}
 
@@ -2250,6 +2335,85 @@ export default function AdminSupplierPayments() {
                 className="max-h-[85vh] rounded-lg"
               />
             )}
+          </div>
+        </div>
+      )}
+      {/* Modal trasladar saldo a favor */}
+      {trasladarSource && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setTrasladarSource(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-blue-600 px-4 py-3 flex items-center justify-between">
+              <span className="font-semibold text-white">Trasladar saldo a favor</span>
+              <button onClick={() => setTrasladarSource(null)} className="text-white/80 hover:text-white p-1">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              {/* Origen */}
+              <div className="bg-blue-50 rounded-lg p-3">
+                <p className="text-xs text-blue-600 font-medium">Origen</p>
+                <p className="text-sm font-semibold text-ocean-900">{trasladarSource.proveedorNombre} — {trasladarSource.producto}</p>
+                <p className="text-xs text-ocean-500">{formatDateShort(trasladarSource.fecha)} · Compra #{trasladarSource.id}</p>
+                <p className="text-sm font-bold text-blue-700 mt-1">Saldo a favor: {formatUSD(Math.abs(trasladarSource.saldoPendiente))}</p>
+              </div>
+
+              {/* Monto */}
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1.5 block">Monto a trasladar</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={trasladarMonto}
+                  onChange={e => setTrasladarMonto(e.target.value)}
+                  className="w-full px-4 py-2.5 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none font-mono text-center"
+                />
+              </div>
+
+              {/* Destino */}
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1.5 block">Aplicar a compra</label>
+                {trasladarTargets.length === 0 ? (
+                  <p className="text-sm text-ocean-400 italic">No hay compras pendientes de {trasladarSource.proveedorNombre}</p>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {trasladarTargets.map(c => (
+                      <label
+                        key={c.id}
+                        className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                          trasladarTargetId === c.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-200'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="trasladar-target"
+                          checked={trasladarTargetId === c.id}
+                          onChange={() => setTrasladarTargetId(c.id)}
+                          className="text-blue-600 focus:ring-blue-500"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-ocean-900 truncate">{c.producto}</p>
+                          <p className="text-xs text-ocean-400">{formatDateShort(c.fecha)} · #{c.id}</p>
+                        </div>
+                        <span className="text-xs font-semibold text-amber-600 shrink-0">
+                          Pend: {formatUSD(c.saldoPendiente)}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Botón */}
+              <button
+                onClick={handleTrasladarSaldo}
+                disabled={isTrasladando || !trasladarTargetId || !trasladarMonto}
+                className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold transition-colors hover:bg-blue-500 disabled:bg-blue-300 flex items-center justify-center gap-2"
+              >
+                {isTrasladando ? 'Trasladando...' : 'Trasladar saldo'}
+              </button>
+            </div>
           </div>
         </div>
       )}
