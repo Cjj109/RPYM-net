@@ -320,7 +320,11 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
       timestamp: Date.now(),
       note: noteInput.trim() || undefined,
     };
-    onQueueChange(prev => [...prev, item]);
+    onQueueChange(prev => {
+      const normal = prev.filter(q => !q.frozen);
+      const frozen = prev.filter(q => q.frozen);
+      return [...normal, item, ...frozen];
+    });
     setCurrentEntries([]);
     setInputAmount('');
     setNoteInput('');
