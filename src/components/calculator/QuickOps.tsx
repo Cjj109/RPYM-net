@@ -772,7 +772,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                     )}
                     <button
                       type="button"
-                      className="text-[11px] text-ocean-400 font-mono hover:underline cursor-pointer ml-auto shrink-0 px-1 py-0.5"
+                      className={`text-[11px] font-semibold font-mono hover:underline cursor-pointer ml-auto shrink-0 px-1 py-0.5 ${dispatcherInfo?.text ?? 'text-ocean-700'}`}
                       onClick={() => startEditingEntry(entry, 'Bs')}
                       title="Editar en Bs"
                     >
@@ -795,7 +795,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                       />
                     ) : entry.note ? (
                       <span
-                        className={`shrink min-w-0 text-[11px] italic truncate cursor-pointer ${displayMode === 'vero' ? `${dispatcherInfo?.text ?? 'text-emerald-700'} opacity-70` : 'text-ocean-400'}`}
+                        className={`shrink min-w-0 text-[11px] italic font-semibold truncate cursor-pointer ${dispatcherInfo?.text ?? 'text-ocean-700'} opacity-70`}
                         onClick={() => startEditingEntryNote(entry)}
                         title={entry.note}
                       >
@@ -805,7 +805,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                       <button
                         type="button"
                         onClick={() => startEditingEntryNote(entry)}
-                        className={`shrink-0 text-[10px] leading-none px-1 py-0.5 rounded opacity-30 hover:opacity-70 transition-opacity ${displayMode === 'vero' ? (dispatcherInfo?.text ?? 'text-emerald-700') : 'text-ocean-400'}`}
+                        className={`shrink-0 text-[10px] leading-none px-1 py-0.5 rounded font-semibold italic opacity-60 hover:opacity-90 transition-opacity ${dispatcherInfo?.text ?? 'text-ocean-700'}`}
                         title="Agregar nota"
                       >
                         +nota
