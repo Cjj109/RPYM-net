@@ -1115,7 +1115,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                                 <button
                                   type="button"
                                   onClick={() => startEditingChipNote(item.id, liveEntry)}
-                                  className="opacity-30 hover:opacity-70 transition-opacity font-sans"
+                                  className="opacity-50 hover:opacity-90 transition-opacity font-sans italic"
                                   title="Agregar nota"
                                 >
                                   +nota
