@@ -3,7 +3,7 @@ import { evalMathExpr } from '../../lib/safe-math';
 import { formatUSD, formatBs } from '../../lib/format';
 import { DISPATCHERS } from './constants';
 import type { QuickOpEntry, QuickQueueItem, SavedSession } from './types';
-import { PlusIcon, CloseIcon, TrashIcon, PencilIcon, WhatsAppIcon } from './icons';
+import { PlusIcon, CloseIcon, TrashIcon, PencilIcon, WhatsAppIcon, SnowflakeIcon } from './icons';
 import { WhatsAppModal } from './WhatsAppModal';
 import type { CalcEntry } from './types';
 
@@ -403,9 +403,9 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
 
   const discardFirstInQueue = useCallback(() => {
     const q = queueRef.current;
-    if (q.length === 0) return;
-    const item = q[0];
-    onQueueChangeRef.current(prev => prev.slice(1));
+    const item = q.find(i => !i.frozen);
+    if (!item) return;
+    onQueueChangeRef.current(prev => prev.filter(i => i.id !== item.id));
     // Bug 1 fix: si el item descartado estaba siendo editado, limpiar estado de edición
     if (editingQueueIdRef.current === item.id) {
       setEditingQueueId(null);
@@ -538,7 +538,8 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
       } else if (e.key === '/') {
         e.preventDefault();
         const q = queueRef.current;
-        if (q.length > 0) markAsPaidRef.current(q[0].id);
+        const first = q.find(i => !i.frozen);
+        if (first) markAsPaidRef.current(first.id);
       } else if (e.key === '|') {
         e.preventDefault();
         setCurrentEntries(prev => prev.slice(0, -1));
@@ -679,7 +680,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                 else { setInputAmount(''); }
               }
               else if (e.key === "'" || e.key === '"') { e.preventDefault(); setInputCurrency(prev => prev === 'USD' ? 'Bs' : 'USD'); }
-              else if (e.key === '/') { e.preventDefault(); if (queue.length > 0) markAsPaid(queue[0].id); }
+              else if (e.key === '/') { e.preventDefault(); const f = queue.find(i => !i.frozen); if (f) markAsPaid(f.id); }
               else if (e.key === '|') { e.preventDefault(); setCurrentEntries(prev => prev.slice(0, -1)); }
               else if (e.key === '\\') { e.preventDefault(); discardFirstInQueue(); }
               // Fix #3: Tab cicla entre despachadores (Shift+Tab hacia atrás)
@@ -884,7 +885,15 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
             const isDragging = dragIndex === idx;
             const isDragOver = dragOverIndex === idx && dragIndex !== idx;
             const isBeingEdited = editingQueueId === item.id;
-            return (
+            const isFirstFrozen = item.frozen && (idx === 0 || !queue[idx - 1].frozen);
+            return (<>
+              {isFirstFrozen && (
+                <div className="flex items-center gap-2 pt-2">
+                  <div className="flex-1 border-t border-dashed border-cyan-300" />
+                  <span className="text-[9px] text-cyan-400 font-semibold uppercase tracking-wider">congeladas</span>
+                  <div className="flex-1 border-t border-dashed border-cyan-300" />
+                </div>
+              )}
               <div
                 key={item.id}
                 data-queue-index={idx}
@@ -903,7 +912,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                   isBeingEdited
                     ? displayMode === 'vero' ? 'ring-2 ring-amber-300 shadow-amber-200 shadow-md' : 'border-amber-300 ring-2 ring-amber-200 shadow-amber-100 shadow-md'
                     : displayMode === 'vero' ? '' : 'border-ocean-100 shadow-sm'
-                } ${isDragging ? 'opacity-40 scale-[0.97] shadow-lg' : ''} ${isDragOver ? displayMode === 'vero' ? 'shadow-lg -translate-y-0.5' : 'border-ocean-400 shadow-md -translate-y-0.5' : ''}`}
+                } ${isDragging ? 'opacity-40 scale-[0.97] shadow-lg' : ''} ${isDragOver ? displayMode === 'vero' ? 'shadow-lg -translate-y-0.5' : 'border-ocean-400 shadow-md -translate-y-0.5' : ''} ${item.frozen && !isBeingEdited ? 'opacity-60 border-cyan-200' : ''}`}
               >
                 <div className="flex">
                   {/* Strip lateral del color del despachador (solo modo Carlos) */}
@@ -1044,6 +1053,28 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                         <WhatsAppIcon className="w-3.5 h-3.5" />
                       </button>
 
+                      {/* Congelar / descongelar */}
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          onQueueChange(prev => {
+                            const updated = prev.map(q => q.id === item.id ? { ...q, frozen: !q.frozen } : q);
+                            // Mover congelados al final, no-congelados mantienen orden
+                            const normal = updated.filter(q => !q.frozen);
+                            const frozen = updated.filter(q => q.frozen);
+                            return [...normal, ...frozen];
+                          });
+                        }}
+                        className={`transition-colors p-0.5 shrink-0 ${
+                          item.frozen
+                            ? 'text-cyan-500 hover:text-cyan-700'
+                            : displayMode === 'vero' ? `${disp?.text ?? 'text-emerald-700'} opacity-40 hover:opacity-90` : 'text-ocean-300 hover:text-cyan-500'
+                        }`}
+                        title={item.frozen ? 'Descongelar' : 'Congelar (mover al final)'}
+                      >
+                        <SnowflakeIcon className="w-3.5 h-3.5" />
+                      </button>
+
                       {/* Trash */}
                       <button
                         onClick={e => { e.stopPropagation(); onQueueChange(prev => prev.filter(q => q.id !== item.id)); if (editingQueueId === item.id) cancelEditingQueue(); }}
@@ -1143,7 +1174,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                   </div>
                 </div>
               </div>
-            );
+            </>);
           })}
         </div>
       )}

@@ -80,4 +80,5 @@ export interface QuickQueueItem {
   rate: number;
   timestamp: number;
   note?: string;
+  frozen?: boolean;
 }

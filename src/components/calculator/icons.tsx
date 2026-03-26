@@ -118,6 +118,14 @@ export function NoteIcon({ className = 'w-4 h-4' }: IconProps) {
   );
 }
 
+export function SnowflakeIcon({ className = 'w-3.5 h-3.5' }: IconProps) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v20m0-20l-3 3m3-3l3 3m-3 17l-3-3m3 3l3-3M2 12h20m-20 0l3-3m-3 3l3 3m17-3l-3-3m3 3l-3 3" />
+    </svg>
+  );
+}
+
 export function AIBoltIcon({ className = 'w-4 h-4' }: IconProps) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
