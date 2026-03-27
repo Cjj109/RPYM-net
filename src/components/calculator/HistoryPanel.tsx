@@ -124,21 +124,21 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
       </div>
 
       {view === 'ranking' ? (
-        /* Vista Ranking */
+        /* Vista Ranking — Podio visual */
         (() => {
-          const MEDALS = ['🥇', '🥈', '🥉'];
-          const STRIP_COLORS: Record<string, string> = {
-            Carlos: 'from-red-400 to-red-500',
-            Luis: 'from-amber-400 to-amber-500',
-            Pedro: 'from-teal-400 to-teal-500',
-            Johan: 'from-violet-400 to-violet-500',
-            Pa: 'from-blue-400 to-blue-500',
+          const BG_SOLID: Record<string, string> = {
+            Carlos: 'bg-red-400', Luis: 'bg-amber-400', Pedro: 'bg-teal-400', Johan: 'bg-violet-400', Pa: 'bg-blue-400',
           };
+          const BG_LIGHT: Record<string, string> = {
+            Carlos: 'bg-red-100', Luis: 'bg-amber-100', Pedro: 'bg-teal-100', Johan: 'bg-violet-100', Pa: 'bg-blue-100',
+          };
+          const TEXT_COLOR: Record<string, string> = {
+            Carlos: 'text-red-700', Luis: 'text-amber-700', Pedro: 'text-teal-700', Johan: 'text-violet-700', Pa: 'text-blue-700',
+          };
+
           const daySessions = sessions.filter(s => dateKey(s.timestamp) === selectedDateKey);
 
-          // Ranking por operaciones
           const byOps = new Map<string, number>();
-          // Ranking por monto
           const byAmount = new Map<string, number>();
           for (const s of daySessions) {
             const d = s.dispatcher || 'Sin asignar';
@@ -147,11 +147,80 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
           }
           const opsRanking = [...byOps.entries()].sort((a, b) => b[1] - a[1]);
           const amountRanking = [...byAmount.entries()].sort((a, b) => b[1] - a[1]);
-          const maxOps = opsRanking[0]?.[1] || 1;
-          const maxAmount = amountRanking[0]?.[1] || 1;
+
+          // Podio: [2do, 1ro, 3ro] para layout visual
+          const podiumOrder = (ranking: [string, number][]) => {
+            const r = ranking.slice(0, 3);
+            if (r.length < 2) return r.map((e, i) => ({ name: e[0], value: e[1], place: i + 1 }));
+            const result: { name: string; value: number; place: number }[] = [];
+            if (r[1]) result.push({ name: r[1][0], value: r[1][1], place: 2 });
+            result.push({ name: r[0][0], value: r[0][1], place: 1 });
+            if (r[2]) result.push({ name: r[2][0], value: r[2][1], place: 3 });
+            return result;
+          };
+
+          const PODIUM_HEIGHTS = { 1: 'h-28', 2: 'h-20', 3: 'h-14' } as Record<number, string>;
+          const PLACE_LABELS = { 1: '1ro', 2: '2do', 3: '3ro' } as Record<number, string>;
+
+          const renderPodium = (title: string, icon: string, ranking: [string, number][], showValues: boolean) => {
+            const podium = podiumOrder(ranking);
+            if (podium.length === 0) return null;
+            const maxVal = ranking[0]?.[1] || 1;
+            return (
+              <div>
+                <div className="text-center mb-3">
+                  <span className="text-2xl">{icon}</span>
+                  <p className="text-xs font-bold text-ocean-700 uppercase tracking-wider mt-1">{title}</p>
+                </div>
+                {/* Podio */}
+                <div className="flex items-end justify-center gap-2 px-2">
+                  {podium.map(({ name, value, place }) => {
+                    const bg = BG_SOLID[name] ?? 'bg-ocean-400';
+                    const bgLight = BG_LIGHT[name] ?? 'bg-ocean-100';
+                    const text = TEXT_COLOR[name] ?? 'text-ocean-700';
+                    const height = PODIUM_HEIGHTS[place];
+                    return (
+                      <div key={name} className="flex flex-col items-center flex-1 max-w-[120px]">
+                        {/* Corona para el 1ro */}
+                        {place === 1 && <span className="text-2xl mb-1 animate-bounce" style={{ animationDuration: '2s' }}>👑</span>}
+                        {/* Nombre */}
+                        <span className={`text-xs font-bold ${text} mb-1 truncate max-w-full`}>{name}</span>
+                        {/* Valor */}
+                        {showValues && (
+                          <span className={`text-[10px] font-bold ${text} opacity-80 mb-1`}>
+                            {value} {value === 1 ? 'op' : 'ops'}
+                          </span>
+                        )}
+                        {/* Bloque del podio */}
+                        <div className={`w-full ${height} ${bg} rounded-t-xl flex flex-col items-center justify-end pb-2 shadow-md relative overflow-hidden`}>
+                          <div className="absolute inset-0 opacity-20 bg-gradient-to-t from-black/10 to-white/30" />
+                          <span className="text-white font-black text-lg relative z-10">{PLACE_LABELS[place]}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Resto del ranking (4to en adelante) */}
+                {ranking.length > 3 && (
+                  <div className="mt-3 space-y-1 px-2">
+                    {ranking.slice(3).map(([name, value], i) => {
+                      const bgLight = BG_LIGHT[name] ?? 'bg-ocean-100';
+                      const text = TEXT_COLOR[name] ?? 'text-ocean-700';
+                      return (
+                        <div key={name} className={`flex items-center justify-between ${bgLight} rounded-lg px-3 py-1.5`}>
+                          <span className={`text-xs font-bold ${text}`}>{i + 4}. {name}</span>
+                          {showValues && <span className={`text-xs font-semibold ${text} opacity-70`}>{value} ops</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          };
 
           return (
-            <div className="p-3 space-y-4">
+            <div className="p-3 space-y-5">
               {/* Navegación de día */}
               <div className="flex items-center justify-between">
                 <button
@@ -174,71 +243,13 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
 
               {daySessions.length === 0 ? (
                 <div className="text-center py-8 text-ocean-300">
-                  <p className="text-2xl mb-1">🏆</p>
+                  <p className="text-3xl mb-2">🏆</p>
                   <p className="text-sm">Sin operaciones para rankear</p>
                 </div>
               ) : (<>
-                {/* Ranking: Más operaciones */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-base">⚡</span>
-                    <span className="text-xs font-bold text-ocean-700 uppercase tracking-wide">Más operaciones</span>
-                  </div>
-                  <div className="space-y-1.5">
-                    {opsRanking.map(([name, count], i) => {
-                      const disp = DISPATCHERS.find(d => d.name === name);
-                      const pct = (count / maxOps) * 100;
-                      return (
-                        <div key={name} className="flex items-center gap-2">
-                          <span className="text-lg w-7 text-center shrink-0">{MEDALS[i] ?? `${i + 1}.`}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-0.5">
-                              <span className={`text-xs font-bold ${disp?.text ?? 'text-ocean-700'}`}>{name}</span>
-                              <span className="text-xs font-bold text-ocean-600">{count} op{count !== 1 ? 's' : ''}</span>
-                            </div>
-                            <div className="h-3 bg-ocean-50 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full rounded-full bg-gradient-to-r ${STRIP_COLORS[name] ?? 'from-ocean-400 to-ocean-500'} transition-all duration-700`}
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Ranking: Mayor monto */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-base">💰</span>
-                    <span className="text-xs font-bold text-ocean-700 uppercase tracking-wide">Mayor venta</span>
-                  </div>
-                  <div className="space-y-1.5">
-                    {amountRanking.map(([name], i) => {
-                      const disp = DISPATCHERS.find(d => d.name === name);
-                      const amount = byAmount.get(name) || 0;
-                      const pct = (amount / maxAmount) * 100;
-                      return (
-                        <div key={name} className="flex items-center gap-2">
-                          <span className="text-lg w-7 text-center shrink-0">{MEDALS[i] ?? `${i + 1}.`}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-0.5">
-                              <span className={`text-xs font-bold ${disp?.text ?? 'text-ocean-700'}`}>{name}</span>
-                            </div>
-                            <div className="h-3 bg-ocean-50 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full rounded-full bg-gradient-to-r ${STRIP_COLORS[name] ?? 'from-ocean-400 to-ocean-500'} transition-all duration-700`}
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                {renderPodium('Más Operaciones', '⚡', opsRanking, true)}
+                <div className="border-t border-ocean-100" />
+                {renderPodium('Más Ventas', '💰', amountRanking, false)}
               </>)}
             </div>
           );
