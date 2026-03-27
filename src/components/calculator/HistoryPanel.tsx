@@ -136,7 +136,8 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
             Carlos: 'text-red-700', Luis: 'text-amber-700', Pedro: 'text-teal-700', Johan: 'text-violet-700', Pa: 'text-blue-700',
           };
 
-          const daySessions = sessions.filter(s => dateKey(s.timestamp) === selectedDateKey);
+          const EXCLUDED = new Set(['Carlos', 'Pa']);
+          const daySessions = sessions.filter(s => dateKey(s.timestamp) === selectedDateKey && !EXCLUDED.has(s.dispatcher || ''));
 
           const byOps = new Map<string, number>();
           const byAmount = new Map<string, number>();
@@ -188,7 +189,7 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
                         {/* Valor */}
                         {showValues && (
                           <span className={`text-[10px] font-bold ${text} opacity-80 mb-1`}>
-                            {value} {value === 1 ? 'op' : 'ops'}
+                            {value} {value === 1 ? 'cliente' : 'clientes'}
                           </span>
                         )}
                         {/* Bloque del podio */}
@@ -209,7 +210,7 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
                       return (
                         <div key={name} className={`flex items-center justify-between ${bgLight} rounded-lg px-3 py-1.5`}>
                           <span className={`text-xs font-bold ${text}`}>{i + 4}. {name}</span>
-                          {showValues && <span className={`text-xs font-semibold ${text} opacity-70`}>{value} ops</span>}
+                          {showValues && <span className={`text-xs font-semibold ${text} opacity-70`}>{value} clientes</span>}
                         </div>
                       );
                     })}
@@ -247,7 +248,7 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
                   <p className="text-sm">Sin operaciones para rankear</p>
                 </div>
               ) : (<>
-                {renderPodium('Más Operaciones', '⚡', opsRanking, true)}
+                {renderPodium('Más Clientes', '⚡', opsRanking, true)}
                 <div className="border-t border-ocean-100" />
                 {renderPodium('Más Ventas', '💰', amountRanking, false)}
               </>)}
