@@ -253,9 +253,6 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
                           <span className="text-white font-black text-2xl relative z-10 drop-shadow">
                             {place === 1 ? '1' : place === 2 ? '2' : '3'}
                           </span>
-                          <span className="text-white/70 text-[10px] font-bold relative z-10">
-                            {place === 1 ? 'ro' : place === 2 ? 'do' : 'ro'}
-                          </span>
                         </div>
                       </div>
                     );
