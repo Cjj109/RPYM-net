@@ -41,7 +41,7 @@ interface DispatcherStats {
 }
 
 export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: HistoryPanelProps) {
-  const [view, setView] = useState<'summary' | 'detail'>('detail');
+  const [view, setView] = useState<'summary' | 'detail' | 'ranking'>('detail');
   const [selectedDateKey, setSelectedDateKey] = useState<string>(() => dateKey(Date.now()));
   const [expandedDispatcher, setExpandedDispatcher] = useState<string | null>(null);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
@@ -115,9 +115,135 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
         >
           Detalle ({sessions.length})
         </button>
+        <button
+          onClick={() => setView('ranking')}
+          className={`flex-1 text-xs font-medium py-2 transition-colors ${view === 'ranking' ? 'text-ocean-700 bg-ocean-50 border-b-2 border-ocean-500' : 'text-ocean-400 hover:text-ocean-600'}`}
+        >
+          Ranking
+        </button>
       </div>
 
-      {view === 'summary' ? (
+      {view === 'ranking' ? (
+        /* Vista Ranking */
+        (() => {
+          const MEDALS = ['🥇', '🥈', '🥉'];
+          const STRIP_COLORS: Record<string, string> = {
+            Carlos: 'from-red-400 to-red-500',
+            Luis: 'from-amber-400 to-amber-500',
+            Pedro: 'from-teal-400 to-teal-500',
+            Johan: 'from-violet-400 to-violet-500',
+            Pa: 'from-blue-400 to-blue-500',
+          };
+          const daySessions = sessions.filter(s => dateKey(s.timestamp) === selectedDateKey);
+
+          // Ranking por operaciones
+          const byOps = new Map<string, number>();
+          // Ranking por monto
+          const byAmount = new Map<string, number>();
+          for (const s of daySessions) {
+            const d = s.dispatcher || 'Sin asignar';
+            byOps.set(d, (byOps.get(d) || 0) + 1);
+            byAmount.set(d, (byAmount.get(d) || 0) + s.totalUSD);
+          }
+          const opsRanking = [...byOps.entries()].sort((a, b) => b[1] - a[1]);
+          const amountRanking = [...byAmount.entries()].sort((a, b) => b[1] - a[1]);
+          const maxOps = opsRanking[0]?.[1] || 1;
+          const maxAmount = amountRanking[0]?.[1] || 1;
+
+          return (
+            <div className="p-3 space-y-4">
+              {/* Navegación de día */}
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setSelectedDateKey(allDayKeys[currentDayIndex + 1])}
+                  disabled={currentDayIndex >= allDayKeys.length - 1}
+                  className="p-1.5 rounded-md text-ocean-400 hover:text-ocean-600 hover:bg-ocean-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >←</button>
+                <span className="text-sm font-semibold text-ocean-700">
+                  {formatDayLabel(selectedDateKey)}
+                  {selectedDateKey !== dateKey(Date.now()) && (
+                    <button onClick={() => setSelectedDateKey(dateKey(Date.now()))} className="ml-2 text-[10px] font-normal text-ocean-400 hover:text-ocean-600 underline">Ir a hoy</button>
+                  )}
+                </span>
+                <button
+                  onClick={() => setSelectedDateKey(allDayKeys[currentDayIndex - 1])}
+                  disabled={currentDayIndex <= 0}
+                  className="p-1.5 rounded-md text-ocean-400 hover:text-ocean-600 hover:bg-ocean-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >→</button>
+              </div>
+
+              {daySessions.length === 0 ? (
+                <div className="text-center py-8 text-ocean-300">
+                  <p className="text-2xl mb-1">🏆</p>
+                  <p className="text-sm">Sin operaciones para rankear</p>
+                </div>
+              ) : (<>
+                {/* Ranking: Más operaciones */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-base">⚡</span>
+                    <span className="text-xs font-bold text-ocean-700 uppercase tracking-wide">Más operaciones</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {opsRanking.map(([name, count], i) => {
+                      const disp = DISPATCHERS.find(d => d.name === name);
+                      const pct = (count / maxOps) * 100;
+                      return (
+                        <div key={name} className="flex items-center gap-2">
+                          <span className="text-lg w-7 text-center shrink-0">{MEDALS[i] ?? `${i + 1}.`}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className={`text-xs font-bold ${disp?.text ?? 'text-ocean-700'}`}>{name}</span>
+                              <span className="text-xs font-bold text-ocean-600">{count} op{count !== 1 ? 's' : ''}</span>
+                            </div>
+                            <div className="h-3 bg-ocean-50 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full bg-gradient-to-r ${STRIP_COLORS[name] ?? 'from-ocean-400 to-ocean-500'} transition-all duration-700`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Ranking: Mayor monto */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-base">💰</span>
+                    <span className="text-xs font-bold text-ocean-700 uppercase tracking-wide">Mayor venta</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {amountRanking.map(([name], i) => {
+                      const disp = DISPATCHERS.find(d => d.name === name);
+                      const amount = byAmount.get(name) || 0;
+                      const pct = (amount / maxAmount) * 100;
+                      return (
+                        <div key={name} className="flex items-center gap-2">
+                          <span className="text-lg w-7 text-center shrink-0">{MEDALS[i] ?? `${i + 1}.`}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className={`text-xs font-bold ${disp?.text ?? 'text-ocean-700'}`}>{name}</span>
+                            </div>
+                            <div className="h-3 bg-ocean-50 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full bg-gradient-to-r ${STRIP_COLORS[name] ?? 'from-ocean-400 to-ocean-500'} transition-all duration-700`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>)}
+            </div>
+          );
+        })()
+      ) : view === 'summary' ? (
         <div className="p-3 space-y-3">
           {/* Navegación de día */}
           <div className="flex items-center justify-between">
