@@ -102,21 +102,8 @@
       }
     },
     easter: {
-      count: 15,
-      create: (i) => {
-        const colors = ['#f9a8d4', '#a78bfa', '#86efac', '#fde047', '#67e8f9'];
-        const element = document.createElement('div');
-        element.className = 'easter-egg';
-        const size = 8 + Math.random() * 8;
-        element.style.setProperty('--egg-size', `${size}px`);
-        element.style.setProperty('--egg-color', colors[i % colors.length]);
-        element.style.left = `${Math.random() * 100}%`;
-        element.style.opacity = `${0.5 + Math.random() * 0.4}`;
-        const duration = 7 + Math.random() * 6;
-        const delay = Math.random() * 4;
-        element.style.animation = `easter-fall ${duration}s linear ${delay}s infinite, easter-wobble 2s ease-in-out ${delay}s infinite`;
-        return element;
-      }
+      count: 0,
+      create: () => document.createElement('div'),
     },
     valentine: {
       count: 28,

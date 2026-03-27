@@ -1747,35 +1747,13 @@
   background-color: #faf5ff !important; /* purple-50 */
 }
 
-/* === PASCUA - Botones suaves y coloridos === */
+/* === PASCUA - Botones suaves === */
 [data-theme="easter"] .themed-button,
 [data-theme="easter"] a[href*="whatsapp"] {
   background: linear-gradient(135deg, #ec4899 0%, #db2777 100%) !important;
   box-shadow:
     0 4px 15px rgba(236, 72, 153, 0.4),
     0 0 20px rgba(167, 139, 250, 0.2);
-  animation: easter-bounce-btn 2s ease-in-out infinite;
-}
-
-@keyframes easter-bounce-btn {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
-}
-
-/* Huevitos decorativos */
-[data-theme="easter"] .themed-button::after {
-  content: '🥚';
-  position: absolute;
-  top: -10px;
-  right: -8px;
-  font-size: 14px;
-  animation: egg-wobble 1s ease-in-out infinite;
-}
-
-@keyframes egg-wobble {
-  0%, 100% { transform: rotate(0deg); }
-  25% { transform: rotate(-5deg); }
-  75% { transform: rotate(5deg); }
 }
 
 /* ========== EFECTOS ADICIONALES WOW ========== */
