@@ -68,10 +68,11 @@ export function CalcInput({
             } else if (e.key === '[') {
               e.preventDefault();
               onInputAmountChange(inputAmount + '*');
+            } else if (e.key === 'Enter') {
+              e.preventDefault();
+              onInputAmountChange(inputAmount + '/');
             } else if (e.key === 'Escape') {
               onInputAmountChange('');
-            } else if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp') {
-              handleKeyDown(e);
             }
           }}
           className="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 text-xl sm:text-2xl font-semibold border border-ocean-200 rounded-lg focus:ring-2 focus:ring-ocean-500 focus:border-transparent text-ocean-900 font-mono"
