@@ -198,7 +198,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
           const map = new Map<string, SavedSession>();
           for (const s of data.sessions) map.set(s.id, s);
           for (const s of prev) if (!map.has(s.id)) map.set(s.id, s);
-          return Array.from(map.values()).sort((a, b) => b.timestamp - a.timestamp).slice(0, 100);
+          return Array.from(map.values()).sort((a, b) => b.timestamp - a.timestamp).slice(0, 500);
         });
       })
       .catch(console.error);
@@ -286,7 +286,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
         rate: activeRate,
         timestamp: Date.now(),
       };
-      setSessions(prev => [session, ...prev].slice(0, 100));
+      setSessions(prev => [session, ...prev].slice(0, 500));
       fetch('/api/calc/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -691,7 +691,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
               activeRate={activeRate}
               queue={quickQueue}
               onQueueChange={setQuickQueue}
-              onAddSession={(session) => { setSessions(prev => [session, ...prev].slice(0, 100)); fetch('/api/calc/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(session) }).catch(console.error); }}
+              onAddSession={(session) => { setSessions(prev => [session, ...prev].slice(0, 500)); fetch('/api/calc/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(session) }).catch(console.error); }}
               onRemoveSession={(sessionId) => { setSessions(prev => prev.filter(s => s.id !== sessionId)); fetch(`/api/calc/sessions/${sessionId}`, { method: 'DELETE' }).catch(console.error); }}
               displayMode={queueDisplayMode}
             />
