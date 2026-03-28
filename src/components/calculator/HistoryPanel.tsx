@@ -220,7 +220,7 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
             return result;
           };
 
-          const renderPodium = (title: string, icon: string, ranking: [string, number][], label: string) => {
+          const renderPodium = (title: string, icon: string, ranking: [string, number][], formatLabel: (v: number) => string) => {
             const podium = podiumOrder(ranking);
             if (podium.length === 0) return null;
             const heights = { 1: 140, 2: 100, 3: 72 } as Record<number, number>;
@@ -240,11 +240,9 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
                       <div key={name} className="flex flex-col items-center flex-1 max-w-[130px]">
                         {place === 1 && <Crown />}
                         <span className={`text-sm font-extrabold ${text} mb-1`}>{name}</span>
-                        {label && (
-                          <span className={`text-[11px] font-bold ${text} opacity-80 mb-1.5`}>
-                            {value} {label}
-                          </span>
-                        )}
+                        <span className={`text-[11px] font-bold ${text} opacity-80 mb-1.5`}>
+                          {formatLabel(value)}
+                        </span>
                         <div
                           className={`w-full bg-gradient-to-t ${grad} rounded-t-2xl flex flex-col items-center justify-center shadow-lg border-2 border-b-0 ${border} relative overflow-hidden`}
                           style={{ height: `${h}px` }}
@@ -298,9 +296,9 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
                     <p className="text-sm">Sin operaciones para rankear</p>
                   </div>
                 ) : (<>
-                  {renderPodium('Más Clientes', '⚡', dayRanking.ops, 'clientes')}
+                  {renderPodium('Más Clientes', '⚡', dayRanking.ops, v => `${v} clientes`)}
                   <div className="border-t border-ocean-100 my-2" />
-                  {renderPodium('Más Ventas', '💰', dayRanking.amt, '')}
+                  {renderPodium('Más Ventas', '💰', dayRanking.amt, v => formatUSD(v))}
                 </>)}
               </>) : (<>
                 {/* Vista Semana */}
@@ -314,9 +312,9 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
                     <p className="text-sm">Sin operaciones esta semana</p>
                   </div>
                 ) : (<>
-                  {renderPodium('Más Clientes (semana)', '⚡', weekRanking.ops, 'clientes')}
+                  {renderPodium('Más Clientes (semana)', '⚡', weekRanking.ops, v => `${v} clientes`)}
                   <div className="border-t border-ocean-100 my-2" />
-                  {renderPodium('Más Ventas (semana)', '💰', weekRanking.amt, '')}
+                  {renderPodium('Más Ventas (semana)', '💰', weekRanking.amt, v => formatUSD(v))}
 
                   {/* Acumulado: quién fue 1ro más veces */}
                   {daysInWeek.length > 1 && (winsOps.length > 0 || winsAmt.length > 0) && (<>
