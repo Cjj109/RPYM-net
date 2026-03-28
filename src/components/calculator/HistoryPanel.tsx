@@ -294,6 +294,8 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
                   <button onClick={() => setSelectedDateKey(allDayKeys[currentDayIndex - 1])} disabled={currentDayIndex <= 0} className="p-1.5 rounded-md text-ocean-400 hover:text-ocean-600 hover:bg-ocean-50 disabled:opacity-30 transition-colors">→</button>
                 </div>
 
+                <p className="text-[10px] text-ocean-400 text-center">{daySessions.length} ops rankeadas · {sessions.filter(s => dateKey(s.timestamp) === selectedDateKey).length} ops totales del día</p>
+
                 {daySessions.length === 0 ? (
                   <div className="text-center py-10 text-ocean-300">
                     <p className="text-4xl mb-2">🏆</p>
