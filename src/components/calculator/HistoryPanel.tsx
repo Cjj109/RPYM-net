@@ -144,13 +144,18 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
 
           // --- Datos del día ---
           const daySessions = sessions.filter(s => dateKey(s.timestamp) === selectedDateKey && !EXCLUDED.has(s.dispatcher || ''));
-          const buildRanking = (filtered: SavedSession[]): [string, number][] => {
+          const buildRanking = (filtered: SavedSession[]) => {
             const ops = new Map<string, number>();
+            const amt = new Map<string, number>();
             for (const s of filtered) {
               const d = s.dispatcher || 'Sin asignar';
               ops.set(d, (ops.get(d) || 0) + 1);
+              amt.set(d, (amt.get(d) || 0) + s.totalUSD);
             }
-            return [...ops.entries()].sort((a, b) => b[1] - a[1]);
+            return {
+              ops: [...ops.entries()].sort((a, b) => b[1] - a[1]),
+              amt: [...amt.entries()].sort((a, b) => b[1] - a[1]),
+            };
           };
           const dayRanking = buildRanking(daySessions);
 
@@ -174,7 +179,8 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
           const weekRanking = buildRanking(weekSessions);
 
           // --- Acumulado semanal: cuántas veces fue 1ro cada uno ---
-          const weekWins = new Map<string, number>();
+          const weekWinsOps = new Map<string, number>();
+          const weekWinsAmt = new Map<string, number>();
           const daysInWeek: string[] = [];
           for (let i = 0; i < 7; i++) {
             const d = new Date(week.start);
@@ -186,9 +192,11 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
             const ds = sessions.filter(s => dateKey(s.timestamp) === dk && !EXCLUDED.has(s.dispatcher || ''));
             if (ds.length === 0) continue;
             const r = buildRanking(ds);
-            if (r[0]) weekWins.set(r[0][0], (weekWins.get(r[0][0]) || 0) + 1);
+            if (r.ops[0]) weekWinsOps.set(r.ops[0][0], (weekWinsOps.get(r.ops[0][0]) || 0) + 1);
+            if (r.amt[0]) weekWinsAmt.set(r.amt[0][0], (weekWinsAmt.get(r.amt[0][0]) || 0) + 1);
           }
-          const wins = [...weekWins.entries()].sort((a, b) => b[1] - a[1]);
+          const winsOps = [...weekWinsOps.entries()].sort((a, b) => b[1] - a[1]);
+          const winsAmt = [...weekWinsAmt.entries()].sort((a, b) => b[1] - a[1]);
 
           // --- Corona SVG ---
           const Crown = () => (
@@ -214,7 +222,7 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
             return result;
           };
 
-          const renderPodium = (title: string, icon: string, ranking: [string, number][], formatLabel: (v: number) => string) => {
+          const renderPodium = (title: string, icon: string, ranking: [string, number][], formatLabel?: (v: number) => string) => {
             const podium = podiumOrder(ranking);
             if (podium.length === 0) return null;
             const heights = { 1: 140, 2: 100, 3: 72 } as Record<number, number>;
@@ -234,9 +242,11 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
                       <div key={name} className="flex flex-col items-center flex-1 max-w-[130px]">
                         {place === 1 && <Crown />}
                         <span className={`text-sm font-extrabold ${text} mb-1`}>{name}</span>
-                        <span className={`text-[11px] font-bold ${text} opacity-80 mb-1.5`}>
-                          {formatLabel(value)}
-                        </span>
+                        {formatLabel && (
+                          <span className={`text-[11px] font-bold ${text} opacity-80 mb-1.5`}>
+                            {formatLabel(value)}
+                          </span>
+                        )}
                         <div
                           className={`w-full bg-gradient-to-t ${grad} rounded-t-2xl flex flex-col items-center justify-center shadow-lg border-2 border-b-0 ${border} relative overflow-hidden`}
                           style={{ height: `${h}px` }}
@@ -290,7 +300,9 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
                     <p className="text-sm">Sin operaciones para rankear</p>
                   </div>
                 ) : (<>
-                  {renderPodium('Más Clientes', '⚡', dayRanking, v => `${v} clientes`)}
+                  {renderPodium('Más Clientes', '⚡', dayRanking.ops, v => `${v} clientes`)}
+                  <div className="border-t border-ocean-100 my-2" />
+                  {renderPodium('Más Ventas', '💰', dayRanking.amt)}
                 </>)}
               </>) : (<>
                 {/* Vista Semana */}
@@ -304,27 +316,45 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
                     <p className="text-sm">Sin operaciones esta semana</p>
                   </div>
                 ) : (<>
-                  {renderPodium('Más Clientes (semana)', '⚡', weekRanking, v => `${v} clientes`)}
+                  {renderPodium('Más Clientes (semana)', '⚡', weekRanking.ops, v => `${v} clientes`)}
+                  <div className="border-t border-ocean-100 my-2" />
+                  {renderPodium('Más Ventas (semana)', '💰', weekRanking.amt)}
 
                   {/* Acumulado: quién fue 1ro más veces */}
-                  {daysInWeek.length > 1 && wins.length > 0 && (<>
+                  {daysInWeek.length > 1 && (winsOps.length > 0 || winsAmt.length > 0) && (<>
                     <div className="border-t border-ocean-100 my-2" />
                     <div className="text-center mb-2">
                       <span className="text-2xl">🔥</span>
                       <p className="text-xs font-extrabold text-ocean-800 uppercase tracking-wider mt-1">Días como #1</p>
                       <p className="text-[10px] text-ocean-400">{daysInWeek.length} días contados</p>
                     </div>
-                    <div className="space-y-1.5">
-                      {wins.map(([name, w]) => {
-                        const text = TEXT_COLOR[name] ?? 'text-ocean-700';
-                        const bgL = BG_LIGHT[name] ?? 'bg-ocean-100';
-                        return (
-                          <div key={name} className={`${bgL} rounded-lg px-2 py-1.5 text-center`}>
-                            <span className={`text-2xl font-black ${text}`}>{w}</span>
-                            <p className={`text-[10px] font-bold ${text}`}>{name}</p>
-                          </div>
-                        );
-                      })}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] font-bold text-ocean-500 text-center uppercase">Clientes</p>
+                        {winsOps.map(([name, w]) => {
+                          const text = TEXT_COLOR[name] ?? 'text-ocean-700';
+                          const bgL = BG_LIGHT[name] ?? 'bg-ocean-100';
+                          return (
+                            <div key={name} className={`${bgL} rounded-lg px-2 py-1.5 text-center`}>
+                              <span className={`text-2xl font-black ${text}`}>{w}</span>
+                              <p className={`text-[10px] font-bold ${text}`}>{name}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] font-bold text-ocean-500 text-center uppercase">Ventas</p>
+                        {winsAmt.map(([name, w]) => {
+                          const text = TEXT_COLOR[name] ?? 'text-ocean-700';
+                          const bgL = BG_LIGHT[name] ?? 'bg-ocean-100';
+                          return (
+                            <div key={name} className={`${bgL} rounded-lg px-2 py-1.5 text-center`}>
+                              <span className={`text-2xl font-black ${text}`}>{w}</span>
+                              <p className={`text-[10px] font-bold ${text}`}>{name}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </>)}
                 </>)}
