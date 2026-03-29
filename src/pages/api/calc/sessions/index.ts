@@ -11,7 +11,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
   try {
     const rows = await db.prepare(
-      'SELECT id, data FROM calc_sessions ORDER BY created_at DESC LIMIT 500'
+      'SELECT id, data FROM calc_sessions ORDER BY created_at DESC LIMIT 2000'
     ).all<{ id: string; data: string }>();
 
     const sessions: SavedSession[] = [];
@@ -50,10 +50,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
       'INSERT OR IGNORE INTO calc_sessions (id, data) VALUES (?, ?)'
     ).bind(session.id, JSON.stringify(session)).run();
 
-    // Mantener solo las últimas 500 sesiones
+    // Mantener solo las últimas 2000 sesiones
     await db.prepare(`
       DELETE FROM calc_sessions WHERE id NOT IN (
-        SELECT id FROM calc_sessions ORDER BY created_at DESC LIMIT 500
+        SELECT id FROM calc_sessions ORDER BY created_at DESC LIMIT 2000
       )
     `).run();
 
