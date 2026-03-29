@@ -134,6 +134,11 @@ export default function AdminSupplierPayments() {
   const notaUploadRef = useRef<HTMLInputElement>(null);
   const [uploadingNotaCompraId, setUploadingNotaCompraId] = useState<number | null>(null);
 
+  // Pendientes de meses anteriores
+  const [pendientesCount, setPendientesCount] = useState(0);
+  const [pendientesList, setPendientesList] = useState<{ id: number; producto: string; proveedor: string; montoTotal: number; saldoPendiente: number; fecha: string; mes: string }[]>([]);
+  const [showPendientes, setShowPendientes] = useState(false);
+
   // ── Data Loading ──────────────────────────────────────
 
   const loadProveedores = useCallback(async () => {
@@ -187,17 +192,30 @@ export default function AdminSupplierPayments() {
     }
   }, [mesSeleccionado]);
 
+  const loadPendientes = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/pagos-proveedores/pendientes?antes_de=${mesSeleccionado}`);
+      const data = await res.json();
+      if (data.success) {
+        setPendientesCount(data.count);
+        setPendientesList(data.pendientes);
+      }
+    } catch {
+      console.error('Error loading pendientes');
+    }
+  }, [mesSeleccionado]);
+
   const loadAll = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      await Promise.all([loadProveedores(), loadCompras(), loadResumen(), loadBcvRate()]);
+      await Promise.all([loadProveedores(), loadCompras(), loadResumen(), loadBcvRate(), loadPendientes()]);
     } catch {
       setError('Error al cargar datos');
     } finally {
       setIsLoading(false);
     }
-  }, [loadProveedores, loadCompras, loadResumen, loadBcvRate]);
+  }, [loadProveedores, loadCompras, loadResumen, loadBcvRate, loadPendientes]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -817,7 +835,23 @@ export default function AdminSupplierPayments() {
           >
             &larr;
           </button>
-          <h2 className="text-lg font-semibold text-ocean-900">{formatMonthLabel(mesSeleccionado)}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-ocean-900">{formatMonthLabel(mesSeleccionado)}</h2>
+            {pendientesCount > 0 && (
+              <button
+                onClick={() => setShowPendientes(prev => !prev)}
+                className="relative p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                title={`${pendientesCount} pendiente${pendientesCount !== 1 ? 's' : ''} de meses anteriores`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 text-red-500">
+                  <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                </svg>
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                  {pendientesCount}
+                </span>
+              </button>
+            )}
+          </div>
           <button
             onClick={() => setMesSeleccionado(prev => shiftMonth(prev, 1))}
             className="p-2 hover:bg-ocean-50 rounded-lg text-ocean-600"
@@ -825,6 +859,32 @@ export default function AdminSupplierPayments() {
             &rarr;
           </button>
         </div>
+
+        {/* Panel de pendientes anteriores */}
+        {showPendientes && pendientesList.length > 0 && (
+          <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3">
+            <p className="text-xs font-bold text-red-700 mb-2">Pendientes de meses anteriores</p>
+            <div className="space-y-1.5 max-h-48 overflow-y-auto">
+              {pendientesList.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => { setMesSeleccionado(p.mes); setShowPendientes(false); }}
+                  className="w-full flex items-center justify-between bg-white rounded-lg px-3 py-2 text-left hover:bg-red-100 transition-colors"
+                >
+                  <div>
+                    <span className="text-sm font-medium text-ocean-800">{p.proveedor}</span>
+                    <span className="text-xs text-ocean-400 ml-1.5">— {p.producto}</span>
+                    <p className="text-[10px] text-ocean-400">{formatMonthLabel(p.mes)}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-bold text-red-600">{formatUSD(p.saldoPendiente)}</span>
+                    <p className="text-[10px] text-ocean-400">de {formatUSD(p.montoTotal)}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Total principal */}
         {(() => {
