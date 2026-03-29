@@ -679,6 +679,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
               }
               else if (e.key === ' ') { e.preventDefault(); setInputAmount(prev => prev + '+'); }
               else if (e.key === '[') { e.preventDefault(); setInputAmount(prev => prev + '*'); }
+              else if (e.key === '=') { e.preventDefault(); setInputAmount(prev => prev + '/'); }
               else if (e.key === 'Escape') {
                 if (editingQueueId) { cancelEditingQueue(); }
                 else { setInputAmount(''); }
