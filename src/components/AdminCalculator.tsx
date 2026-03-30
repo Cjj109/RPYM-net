@@ -61,17 +61,15 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   const [quickQueue, setQuickQueue] = useLocalStorage<QuickQueueItem[]>(LS_KEYS.QUICK_QUEUE, []);
   const [rateConfig, setRateConfig] = useLocalStorage<RateConfig>(LS_KEYS.RATE_CONFIG, { useManualRate: false, manualRate: '' });
   const [queueDisplayMode, setQueueDisplayMode] = useLocalStorage<'carlos' | 'vero'>(LS_KEYS.QUEUE_DISPLAY_MODE, 'carlos');
-  const [noteSheets, setNoteSheets] = useLocalStorage<NoteSheet[]>(LS_KEYS.NOTES, () => {
-    // Migrar formato viejo (string HTML) a nuevo (array de hojas)
+  const [noteSheets, setNoteSheets] = useLocalStorage<NoteSheet[]>(LS_KEYS.NOTE_SHEETS, () => {
+    // Migrar formato viejo (string HTML en NOTES key) → array de hojas
     try {
       const raw = localStorage.getItem(LS_KEYS.NOTES);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (typeof parsed === 'string') {
-          const sheets: NoteSheet[] = [{ id: crypto.randomUUID(), name: 'Hoja 1', content: parsed }];
-          return sheets;
+        if (typeof parsed === 'string' && parsed.trim()) {
+          return [{ id: crypto.randomUUID(), name: 'Hoja 1', content: parsed }];
         }
-        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id) return parsed;
       }
     } catch {}
     return [{ id: crypto.randomUUID(), name: 'Hoja 1', content: '' }];

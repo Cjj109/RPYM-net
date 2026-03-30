@@ -18,6 +18,7 @@ export const LS_KEYS = {
   QUICK_QUEUE: 'rpym_calc_quick_queue',
   QUEUE_DISPLAY_MODE: 'rpym_calc_queue_display_mode',
   NOTES: 'rpym_calc_notes',
+  NOTE_SHEETS: 'rpym_calc_note_sheets',
   // Claves del formato anterior (para migración)
   CLIENTS: 'rpym_calc_clients',
   ACTIVE_CLIENT: 'rpym_calc_active_client',
