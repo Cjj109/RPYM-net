@@ -17,7 +17,7 @@ import { ClientHeader } from './calculator/ClientHeader';
 import { KeyboardHelp } from './calculator/KeyboardHelp';
 import { UndoToast } from './calculator/UndoToast';
 import { QuickOps } from './calculator/QuickOps';
-import { NotesPanel } from './calculator/NotesPanel';
+import { NotesPanel, type NoteSheet } from './calculator/NotesPanel';
 
 interface AdminCalculatorProps {
   bcvRate?: { rate: number; date: string; source: string };
@@ -61,7 +61,22 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   const [quickQueue, setQuickQueue] = useLocalStorage<QuickQueueItem[]>(LS_KEYS.QUICK_QUEUE, []);
   const [rateConfig, setRateConfig] = useLocalStorage<RateConfig>(LS_KEYS.RATE_CONFIG, { useManualRate: false, manualRate: '' });
   const [queueDisplayMode, setQueueDisplayMode] = useLocalStorage<'carlos' | 'vero'>(LS_KEYS.QUEUE_DISPLAY_MODE, 'carlos');
-  const [notes, setNotes] = useLocalStorage<string>(LS_KEYS.NOTES, '');
+  const [noteSheets, setNoteSheets] = useLocalStorage<NoteSheet[]>(LS_KEYS.NOTES, () => {
+    // Migrar formato viejo (string HTML) a nuevo (array de hojas)
+    try {
+      const raw = localStorage.getItem(LS_KEYS.NOTES);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed === 'string') {
+          const sheets: NoteSheet[] = [{ id: crypto.randomUUID(), name: 'Hoja 1', content: parsed }];
+          return sheets;
+        }
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id) return parsed;
+      }
+    } catch {}
+    return [{ id: crypto.randomUUID(), name: 'Hoja 1', content: '' }];
+  });
+  const [activeNoteSheetId, setActiveNoteSheetId] = useLocalStorage<string>('rpym_calc_notes_active', '');
   const [notesLastEdited, setNotesLastEdited] = useLocalStorage<number | null>('rpym_calc_notes_ts', null);
 
   // === Estado no persistido ===
@@ -129,13 +144,13 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
     ));
   }, [setDispatchers]);
 
-  const syncNotesToAPI = useCallback((content: string) => {
+  const syncNotesToAPI = useCallback((sheets: NoteSheet[]) => {
     if (notesSyncRef.current) clearTimeout(notesSyncRef.current);
     notesSyncRef.current = setTimeout(() => {
       fetch('/api/calc/notes', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content: JSON.stringify(sheets) }),
       }).catch(console.error);
     }, 1500);
   }, []);
@@ -184,7 +199,18 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
         if (!data.success || !data.updated_at) return;
         const apiTs = new Date(data.updated_at).getTime();
         if (apiTs > (initialNotesTs.current ?? 0)) {
-          setNotes(data.content);
+          try {
+            const parsed = JSON.parse(data.content);
+            if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id) {
+              setNoteSheets(parsed);
+            } else if (typeof parsed === 'string' && parsed) {
+              setNoteSheets([{ id: crypto.randomUUID(), name: 'Hoja 1', content: parsed }]);
+            }
+          } catch {
+            if (data.content) {
+              setNoteSheets([{ id: crypto.randomUUID(), name: 'Hoja 1', content: data.content }]);
+            }
+          }
           setNotesLastEdited(apiTs);
         }
       })
@@ -512,7 +538,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
               title="Notas"
             >
               <NoteIcon />
-              {notes.trim() && !showNotes && (
+              {noteSheets.some(s => s.content.trim() && s.content !== '<br>') && !showNotes && (
                 <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-ocean-400 rounded-full" />
               )}
             </button>
@@ -595,10 +621,18 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
 
         {showNotes && (
           <NotesPanel
-            notes={notes}
+            sheets={noteSheets}
+            activeSheetId={activeNoteSheetId || noteSheets[0]?.id || ''}
             lastEdited={notesLastEdited}
-            onChange={(value) => { setNotes(value); setNotesLastEdited(Date.now()); syncNotesToAPI(value); }}
-            onClear={() => { setNotes(''); setNotesLastEdited(null); syncNotesToAPI(''); }}
+            onSheetsChange={(sheets) => { setNoteSheets(sheets); setNotesLastEdited(Date.now()); syncNotesToAPI(sheets); }}
+            onActiveSheetChange={setActiveNoteSheetId}
+            onClear={() => {
+              const empty: NoteSheet[] = [{ id: crypto.randomUUID(), name: 'Hoja 1', content: '' }];
+              setNoteSheets(empty);
+              setActiveNoteSheetId(empty[0].id);
+              setNotesLastEdited(null);
+              syncNotesToAPI(empty);
+            }}
           />
         )}
 
