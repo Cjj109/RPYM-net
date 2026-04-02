@@ -71,6 +71,12 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
     return `${year}-${month}-${day}`;
   };
 
+  const normalizeName = (name: string) =>
+    name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+
+  const findSimilarCustomer = (name: string): SimpleCustomer | null =>
+    customers.find(c => normalizeName(c.name) === normalizeName(name)) ?? null;
+
   useEffect(() => {
     fetch('/api/customers', { credentials: 'include' })
       .then(r => r.json())
@@ -317,11 +323,26 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
       }
     } else {
       for (const action of aiActions) {
-        if (!action.customerId) {
-          failCount++;
-          continue;
-        }
+        let customerId = action.customerId;
         try {
+          if (!customerId) {
+            const createRes = await fetch('/api/customers', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ name: action.customerName, phone: null, notes: null, rateType: 'dolar_bcv', customRate: null })
+            });
+            const createData = await createRes.json();
+            if (createData.success && createData.id) {
+              customerId = createData.id;
+              fetch('/api/customers', { credentials: 'include' })
+                .then(r => r.json())
+                .then(data => { if (data.success) setCustomers(data.customers); })
+                .catch(() => {});
+            } else {
+              throw new Error(createData.error || 'Error al crear cliente');
+            }
+          }
           const today = new Date().toISOString().split('T')[0];
           const txDate = action.date || today;
           const txPayload: any = {
@@ -339,7 +360,7 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
           if (action.amountUsdDivisa && action.amountUsdDivisa > 0) {
             txPayload.amountUsdDivisa = action.amountUsdDivisa;
           }
-          const response = await fetch(`/api/customers/${action.customerId}/transactions`, {
+          const response = await fetch(`/api/customers/${customerId}/transactions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(txPayload),
@@ -493,37 +514,45 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
           </div>
 
           <div className="flex items-center gap-2 mb-2 flex-wrap">
-            {aiProductAction.customerId ? (
-              <span className="text-sm font-medium text-ocean-700">{aiProductAction.customerName}</span>
-            ) : (
-              <div className="flex items-center gap-1 flex-wrap">
-                <select
-                  className="text-sm border border-amber-300 bg-amber-50 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-amber-400"
-                  value={aiProductAction.customerId || 'new'}
-                  onChange={(e) => {
-                    if (e.target.value === 'new') {
-                      setAiProductAction(prev => prev ? { ...prev, customerId: null } : null);
-                    } else {
-                      const selectedId = Number(e.target.value);
-                      const selectedCustomer = customers.find(c => c.id === selectedId);
-                      setAiProductAction(prev => prev ? {
-                        ...prev,
-                        customerId: selectedId,
-                        customerName: selectedCustomer?.name || prev.customerName
-                      } : null);
-                    }
-                  }}
-                >
-                  <option value="new">➕ Crear: "{aiProductAction.customerName}"</option>
-                  {customers.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+            <select
+              className={`text-sm border rounded px-2 py-0.5 focus:outline-none focus:ring-1 ${
+                aiProductAction.customerId
+                  ? 'border-ocean-200 bg-white text-ocean-700 focus:ring-ocean-400'
+                  : 'border-amber-300 bg-amber-50 focus:ring-amber-400'
+              }`}
+              value={aiProductAction.customerId ?? 'new'}
+              onChange={(e) => {
+                if (e.target.value === 'new') {
+                  setAiProductAction(prev => prev ? { ...prev, customerId: null } : null);
+                } else {
+                  const selectedId = Number(e.target.value);
+                  const selectedCustomer = customers.find(c => c.id === selectedId);
+                  setAiProductAction(prev => prev ? {
+                    ...prev,
+                    customerId: selectedId,
+                    customerName: selectedCustomer?.name || prev.customerName
+                  } : null);
+                }
+              }}
+            >
+              <option value="new">+ Crear: "{aiProductAction.customerName}"</option>
+              {customers.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            {!aiProductAction.customerId && (() => {
+              const similar = findSimilarCustomer(aiProductAction.customerName);
+              if (similar) return (
+                <span className="text-xs text-amber-700 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded">
+                  Ya existe "{similar.name}"
+                </span>
+              );
+              return (
                 <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">
                   Nuevo cliente
                 </span>
-              </div>
-            )}
+              );
+            })()}
             {aiProductAction.date && (
               <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700">
                 {formatDate(aiProductAction.date)}
@@ -739,10 +768,41 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
                     {formatDate(action.date)}
                   </span>
                 )}
-                <span className="text-ocean-700 font-medium">{action.customerName}</span>
-                {!action.customerId && (
-                  <span className="text-xs text-amber-600 bg-amber-50 px-1 rounded">No encontrado</span>
-                )}
+                <select
+                  className={`text-sm border rounded px-2 py-0.5 focus:outline-none focus:ring-1 ${
+                    action.customerId
+                      ? 'border-ocean-200 bg-white text-ocean-700 focus:ring-ocean-400'
+                      : 'border-amber-300 bg-amber-50 focus:ring-amber-400'
+                  }`}
+                  value={action.customerId ?? 'new'}
+                  onChange={(e) => {
+                    const updated = [...aiActions];
+                    if (e.target.value === 'new') {
+                      updated[i] = { ...action, customerId: null };
+                    } else {
+                      const selectedId = Number(e.target.value);
+                      const selectedCustomer = customers.find(c => c.id === selectedId);
+                      updated[i] = { ...action, customerId: selectedId, customerName: selectedCustomer?.name || action.customerName };
+                    }
+                    setAiActions(updated);
+                  }}
+                >
+                  <option value="new">+ Crear: "{action.customerName}"</option>
+                  {customers.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                {!action.customerId && (() => {
+                  const similar = findSimilarCustomer(action.customerName);
+                  if (similar) return (
+                    <span className="text-xs text-amber-700 bg-amber-100 border border-amber-300 px-1 py-0.5 rounded">
+                      Ya existe "{similar.name}"
+                    </span>
+                  );
+                  return (
+                    <span className="text-xs text-amber-600 bg-amber-50 px-1 rounded">No encontrado</span>
+                  );
+                })()}
                 <span className="text-ocean-600">{formatUSD(action.amountUsd)}</span>
                 {action.amountUsdDivisa != null && action.amountUsdDivisa > 0 && (
                   <span className="text-xs text-amber-600">| Div: {formatUSD(action.amountUsdDivisa)}</span>
