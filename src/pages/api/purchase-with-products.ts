@@ -133,6 +133,7 @@ PRODUCTOS:
 - Formatos de cantidad: "2kg", "1 kilo", "500g" (= 0.5kg), "medio kilo" (= 0.5kg), "1/2", "2 1/2" (= 2.5)
 - Si no hay unidad, asumir "kg" para productos por peso
 - ⚠️ UNIDAD EXPLÍCITA: Si el usuario dice "1kg", "2kg", etc., usar SIEMPRE "kg" aunque el catálogo diga "caja" u otra unidad
+- ⚠️ UNIDAD POR DEFECTO: NUNCA asignes unit "caja" a un producto a menos que el usuario lo diga EXPLÍCITAMENTE para ESE producto. Que otro producto anterior sea "caja" NO afecta a los siguientes. Sin unidad explícita, usar la unidad del catálogo.
 - Hacer match con el catalogo usando nombres parciales
 - "calamar" sin especificar → preferir "Calamar Nacional"
 - "camaron" → buscar por talla si se menciona (41/50, 61/70, etc.)
@@ -161,6 +162,8 @@ CAMARONES - REGLA CRITICA DE DISAMBIGUATION:
     - "pescado a $8 del lunes" → pescado tiene customPrice: 8
   * Si ves "a $X" despues de un producto, ESE producto tiene customPrice: X
   * El precio del catalogo se IGNORA cuando hay precio personalizado
+  * ⚠️ PRECIO CON ETIQUETA DE MONEDA (UN SOLO PRECIO): "a $X en divisas", "$X divisa", "$X efectivo", "$X cash" → customPriceDivisa: X, customPrice: null (NO es BCV)
+  * ⚠️ PRECIO CON ETIQUETA DE MONEDA (UN SOLO PRECIO): "a $X a BCV", "$X BCV", "$X bolivares", "$X bs" → customPrice: X, customPriceDivisa: null (NO es divisa)
 
 - PRECIOS DUALES (DOS PRECIOS - BCV Y DIVISA):
   * customPrice = precio BCV (bolivares), customPriceDivisa = precio Divisa (dolar efectivo)
@@ -406,8 +409,15 @@ Responde SOLO con un JSON valido:
             }
           }
 
+          let effectiveCustomPriceDivisa = item.customPriceDivisa;
+          // En modo divisas, si Gemini puso el precio en customPrice (BCV) sin customPriceDivisa,
+          // ese precio aplica a divisas (el usuario no tiene intención de dar precio BCV)
+          if (pricingMode === 'divisas' && effectiveCustomPrice && !effectiveCustomPriceDivisa) {
+            effectiveCustomPriceDivisa = effectiveCustomPrice;
+            effectiveCustomPrice = null;
+          }
           const precioBcv = effectiveCustomPrice || product.precioUSD;
-          const precioDivisa = item.customPriceDivisa || product.precioUSDDivisa || precioBcv;
+          const precioDivisa = effectiveCustomPriceDivisa || product.precioUSDDivisa || precioBcv;
           const precioMain = pricingMode === 'divisas' ? precioDivisa : precioBcv;
 
           // Si hay dollarAmount, SIEMPRE recalcular qty con precio real del catálogo
@@ -419,7 +429,7 @@ Responde SOLO con un JSON valido:
           const itemData: any = {
             nombre: item.productName || product.nombre,
             cantidad: qty,
-            unidad: detectExplicitUnit(item, text) || item.unit || product.unidad,
+            unidad: detectExplicitUnit(item, text) || product.unidad,
             precioUSD: precioMain,
             subtotalUSD: Math.round(precioMain * qty * 100) / 100,
           };
