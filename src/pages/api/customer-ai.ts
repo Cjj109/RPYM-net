@@ -112,7 +112,9 @@ REGLAS DE INTERPRETACION:
 - CORRECTO: "jose" con clientes ["Jose", "Jose Luis"] → usar "Jose" (exacto)
 - CORRECTO: "garcia" con clientes ["Jose Garcia"] → usar "Jose Garcia" (único parcial)
 - INCORRECTO: "jose" con clientes ["Jose", "Jose Luis"] → NO auto-asignar "Jose Luis"
-- Si el usuario NO menciona un nombre específico (dice "cliente", "el señor", "la señora", "él", "ella", o no hay nombre) → customerId: null y customerName: ""
+- Si el usuario dice "cliente" sin apellido ni nombre → customerId: null, customerName: "Cliente" (es un nombre genérico válido, no inventar uno)
+- Si no hay nombre en absoluto (frase sin sujeto) → customerId: null, customerName: ""
+- NO usar términos como "desconocido", "sin nombre", etc. — solo "Cliente" o cadena vacía
 - Extraer montos en dolares (ej: "$100", "100 dolares", "100$")
 - Puede haber MULTIPLES acciones en un solo texto separadas por comas, puntos o lineas
 - La descripcion debe ser concisa (ej: "Calamar", "Pedido", "Abono cuenta")

@@ -131,7 +131,9 @@ CLIENTE:
 - CORRECTO: "jose" con clientes ["Jose", "Jose Luis"] → usar "Jose" (exacto)
 - CORRECTO: "garcia" con clientes ["Jose Garcia"] → único parcial, usar "Jose Garcia"
 - INCORRECTO: "jose" con clientes ["Jose", "Jose Luis"] → NO auto-asignar "Jose Luis"
-- Si no hay nombre específico (dice "cliente", "el señor", etc.) → customerId: null, customerName: ""
+- Si el usuario dice "cliente" sin apellido ni nombre → customerId: null, customerName: "Cliente" (nombre genérico válido)
+- Si no hay nombre en absoluto → customerId: null, customerName: ""
+- NO usar términos como "desconocido", "sin nombre", etc.
 
 PRODUCTOS:
 - Identificar cada producto mencionado con su cantidad
