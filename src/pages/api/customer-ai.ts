@@ -106,8 +106,13 @@ REGLAS DE INTERPRETACION:
 - "anota/registra/apunta a [cliente] $X de [descripcion]" = purchase (compra)
 - "abona/pago/paga [cliente] $X" = payment (abono)
 - "cobra/cobro a [cliente] $X" = purchase (compra)
-- Match nombres de clientes de forma fuzzy (ej: "deisy" = "Deisy", "jose" = "Jose Garcia")
-- Si un cliente no existe en la lista, devolver customerId: null y el nombre tal como se escribio
+- Ignorar acentos/mayusculas (ej: "deisy" = "Deisy", "garcia" = "García", "angel" = "Ángel")
+- PRIORIDAD de match: 1) coincidencia exacta, 2) coincidencia parcial única (solo un cliente posible)
+- Si el nombre escrito es AMBIGUO (varios clientes coinciden), devolver customerId: null
+- CORRECTO: "jose" con clientes ["Jose", "Jose Luis"] → usar "Jose" (exacto)
+- CORRECTO: "garcia" con clientes ["Jose Garcia"] → usar "Jose Garcia" (único parcial)
+- INCORRECTO: "jose" con clientes ["Jose", "Jose Luis"] → NO auto-asignar "Jose Luis"
+- Si el usuario NO menciona un nombre específico (dice "cliente", "el señor", "la señora", "él", "ella", o no hay nombre) → customerId: null y customerName: ""
 - Extraer montos en dolares (ej: "$100", "100 dolares", "100$")
 - Puede haber MULTIPLES acciones en un solo texto separadas por comas, puntos o lineas
 - La descripcion debe ser concisa (ej: "Calamar", "Pedido", "Abono cuenta")

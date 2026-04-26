@@ -125,8 +125,13 @@ REGLAS DE INTERPRETACION:
 
 CLIENTE:
 - Buscar el nombre del cliente en la lista de clientes registrados
-- Match fuzzy e IGNORAR ACENTOS/TILDES (ej: "delcy" = "Delcy", "jose" = "Jose Garcia", "policia" = "Policía", "garcia" = "García", "angel" = "Ángel")
-- Si no se encuentra, devolver customerId: null pero el nombre tal como se escribio
+- Ignorar acentos/mayusculas (ej: "delcy" = "Delcy", "garcia" = "García", "angel" = "Ángel")
+- PRIORIDAD de match: 1) coincidencia exacta, 2) coincidencia parcial única (solo un cliente posible)
+- Si el nombre escrito es AMBIGUO (varios clientes coinciden), devolver customerId: null
+- CORRECTO: "jose" con clientes ["Jose", "Jose Luis"] → usar "Jose" (exacto)
+- CORRECTO: "garcia" con clientes ["Jose Garcia"] → único parcial, usar "Jose Garcia"
+- INCORRECTO: "jose" con clientes ["Jose", "Jose Luis"] → NO auto-asignar "Jose Luis"
+- Si no hay nombre específico (dice "cliente", "el señor", etc.) → customerId: null, customerName: ""
 
 PRODUCTOS:
 - Identificar cada producto mencionado con su cantidad
@@ -503,13 +508,21 @@ Responde SOLO con un JSON valido:
 
     // Fallback: si Gemini no encontró el cliente, buscar sin acentos
     let resolvedCustomerId = parsed.customerId || null;
-    let resolvedCustomerName = parsed.customerName || 'Cliente';
+    let resolvedCustomerName = parsed.customerName || '';
     if (!resolvedCustomerId && parsed.customerName) {
-      const normalizedInput = normalize(parsed.customerName);
-      const match = customers.find(c => normalize(c.name).includes(normalizedInput) || normalizedInput.includes(normalize(c.name)));
-      if (match) {
-        resolvedCustomerId = match.id;
-        resolvedCustomerName = match.name;
+      const normalizedInput = normalize(parsed.customerName).trim();
+      if (normalizedInput) {
+        const exactMatch = customers.find(c => normalize(c.name) === normalizedInput);
+        if (exactMatch) {
+          resolvedCustomerId = exactMatch.id;
+          resolvedCustomerName = exactMatch.name;
+        } else {
+          const partialMatches = customers.filter(c => normalize(c.name).includes(normalizedInput));
+          if (partialMatches.length === 1) {
+            resolvedCustomerId = partialMatches[0].id;
+            resolvedCustomerName = partialMatches[0].name;
+          }
+        }
       }
     }
 
