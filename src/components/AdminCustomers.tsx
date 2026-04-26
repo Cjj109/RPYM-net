@@ -1395,12 +1395,37 @@ export default function AdminCustomers() {
         alert(`Error: ${err instanceof Error ? err.message : 'Error desconocido'}`);
       }
     } else {
-      // Simple mode: existing behavior
+      // Simple mode
       for (const action of aiActions) {
-        if (!action.customerId) {
-          failCount++;
-          continue;
+        let customerId = action.customerId;
+
+        if (!customerId) {
+          try {
+            const createRes = await fetch('/api/customers', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                name: action.customerName,
+                phone: null,
+                notes: null,
+                rateType: 'dolar_bcv',
+                customRate: null
+              })
+            });
+            const customerData = await createRes.json();
+            if (customerData.success && customerData.id) {
+              customerId = customerData.id;
+            } else {
+              failCount++;
+              continue;
+            }
+          } catch {
+            failCount++;
+            continue;
+          }
         }
+
         try {
           const today = new Date().toISOString().split('T')[0];
           const txDate = action.date || today;
@@ -1419,7 +1444,7 @@ export default function AdminCustomers() {
           if (action.amountUsdDivisa && action.amountUsdDivisa > 0) {
             txPayload.amountUsdDivisa = action.amountUsdDivisa;
           }
-          const response = await fetch(`/api/customers/${action.customerId}/transactions`, {
+          const response = await fetch(`/api/customers/${customerId}/transactions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(txPayload),
@@ -1432,6 +1457,8 @@ export default function AdminCustomers() {
           failCount++;
         }
       }
+      // Refresh after potential new customers
+      await loadCustomers(searchTerm || undefined);
     }
 
     setAiExecuting(false);
@@ -1886,9 +1913,33 @@ export default function AdminCustomers() {
                       {formatDate(action.date)}
                     </span>
                   )}
-                  <span className="text-ocean-700 font-medium">{action.customerName}</span>
-                  {!action.customerId && (
-                    <span className="text-xs text-amber-600 bg-amber-50 px-1 rounded">No encontrado</span>
+                  {action.customerId ? (
+                    <span className="text-ocean-700 font-medium">{action.customerName}</span>
+                  ) : (
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <select
+                        className="text-sm border border-amber-300 bg-amber-50 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                        value={action.customerId || 'new'}
+                        onChange={(e) => {
+                          if (e.target.value === 'new') {
+                            setAiActions(prev => prev.map((a, idx) => idx === i ? { ...a, customerId: null } : a));
+                          } else {
+                            const selId = Number(e.target.value);
+                            const selCustomer = customers.find(c => c.id === selId);
+                            setAiActions(prev => prev.map((a, idx) => idx === i ? {
+                              ...a,
+                              customerId: selId,
+                              customerName: selCustomer?.name || a.customerName
+                            } : a));
+                          }
+                        }}
+                      >
+                        <option value="new">➕ Crear: "{action.customerName}"</option>
+                        {customers.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
                   )}
                   <span className="text-ocean-600">{formatUSD(action.amountUsd)}</span>
                   {action.amountUsdDivisa != null && action.amountUsdDivisa > 0 && (
@@ -1910,7 +1961,7 @@ export default function AdminCustomers() {
             <div className="flex gap-2 mt-3">
               <button
                 onClick={() => handleAiConfirm()}
-                disabled={aiExecuting || aiActions.every(a => !a.customerId)}
+                disabled={aiExecuting}
                 className="px-3 py-1.5 bg-green-600 hover:bg-green-500 disabled:bg-green-300 text-white rounded-lg text-xs font-medium transition-colors"
               >
                 {aiExecuting ? 'Creando...' : 'Confirmar'}
