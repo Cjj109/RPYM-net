@@ -1660,37 +1660,48 @@ export default function AdminCustomers() {
             </div>
 
             {/* Customer selector and date */}
-            <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <select
-                className={`text-sm border rounded px-2 py-0.5 focus:outline-none focus:ring-1 ${
-                  aiProductAction.customerId
-                    ? 'border-ocean-300 bg-white focus:ring-ocean-400'
-                    : 'border-amber-300 bg-amber-50 focus:ring-amber-400'
-                }`}
-                value={aiProductAction.customerId ?? 'new'}
-                onChange={(e) => {
-                  if (e.target.value === 'new') {
-                    setAiProductAction(prev => prev ? { ...prev, customerId: null } : null);
-                  } else {
-                    const selectedId = Number(e.target.value);
-                    const selectedCustomer = customers.find(c => c.id === selectedId);
-                    setAiProductAction(prev => prev ? {
-                      ...prev,
-                      customerId: selectedId,
-                      customerName: selectedCustomer?.name || prev.customerName
-                    } : null);
-                  }
-                }}
-              >
-                <option value="new">➕ Crear: "{aiProductAction.customerName}"</option>
-                {customers.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-              {aiProductAction.date && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700">
-                  {formatDate(aiProductAction.date)}
-                </span>
+            <div className="flex flex-col gap-1 mb-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <select
+                  className={`text-sm border rounded px-2 py-0.5 focus:outline-none focus:ring-1 ${
+                    aiProductAction.customerId
+                      ? 'border-ocean-300 bg-white focus:ring-ocean-400'
+                      : 'border-amber-300 bg-amber-50 focus:ring-amber-400'
+                  }`}
+                  value={aiProductAction.customerId ?? 'new'}
+                  onChange={(e) => {
+                    if (e.target.value === 'new') {
+                      setAiProductAction(prev => prev ? { ...prev, customerId: null } : null);
+                    } else {
+                      const selectedId = Number(e.target.value);
+                      const selectedCustomer = customers.find(c => c.id === selectedId);
+                      setAiProductAction(prev => prev ? {
+                        ...prev,
+                        customerId: selectedId,
+                        customerName: selectedCustomer?.name || prev.customerName
+                      } : null);
+                    }
+                  }}
+                >
+                  <option value="new">➕ Crear: "{aiProductAction.customerName}"</option>
+                  {customers.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                {aiProductAction.date && (
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700">
+                    {formatDate(aiProductAction.date)}
+                  </span>
+                )}
+              </div>
+              {!aiProductAction.customerId && (
+                <input
+                  type="text"
+                  value={aiProductAction.customerName}
+                  onChange={(e) => setAiProductAction(prev => prev ? { ...prev, customerName: e.target.value } : null)}
+                  placeholder="Nombre del cliente a crear"
+                  className="text-xs border border-amber-300 bg-amber-50 rounded px-2 py-1 w-52 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                />
               )}
             </div>
 
@@ -1892,58 +1903,69 @@ export default function AdminCustomers() {
             <p className="text-xs font-semibold text-purple-700 mb-2">Acciones detectadas:</p>
             <div className="space-y-2">
               {aiActions.map((action, i) => (
-                <div key={i} className="flex items-center gap-2 text-sm flex-wrap">
-                  <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
-                    action.type === 'purchase'
-                      ? 'bg-red-100 text-red-700'
-                      : 'bg-green-100 text-green-700'
-                  }`}>
-                    {action.type === 'purchase' ? 'Compra' : 'Abono'}
-                  </span>
-                  {action.date && (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700">
-                      {formatDate(action.date)}
+                <div key={i} className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2 text-sm flex-wrap">
+                    <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                      action.type === 'purchase'
+                        ? 'bg-red-100 text-red-700'
+                        : 'bg-green-100 text-green-700'
+                    }`}>
+                      {action.type === 'purchase' ? 'Compra' : 'Abono'}
                     </span>
-                  )}
-                  <select
-                    className={`text-sm border rounded px-2 py-0.5 focus:outline-none focus:ring-1 ${
-                      action.customerId
-                        ? 'border-ocean-300 bg-white focus:ring-ocean-400'
-                        : 'border-amber-300 bg-amber-50 focus:ring-amber-400'
-                    }`}
-                    value={action.customerId ?? 'new'}
-                    onChange={(e) => {
-                      if (e.target.value === 'new') {
-                        setAiActions(prev => prev.map((a, idx) => idx === i ? { ...a, customerId: null } : a));
-                      } else {
-                        const selId = Number(e.target.value);
-                        const selCustomer = customers.find(c => c.id === selId);
-                        setAiActions(prev => prev.map((a, idx) => idx === i ? {
-                          ...a,
-                          customerId: selId,
-                          customerName: selCustomer?.name || a.customerName
-                        } : a));
-                      }
-                    }}
-                  >
-                    <option value="new">➕ Crear: "{action.customerName}"</option>
-                    {customers.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                  <span className="text-ocean-600">{formatUSD(action.amountUsd)}</span>
-                  {action.amountUsdDivisa != null && action.amountUsdDivisa > 0 && (
-                    <span className="text-xs text-amber-600">| Div: {formatUSD(action.amountUsdDivisa)}</span>
-                  )}
-                  <span className="text-ocean-400 text-xs">{action.description}</span>
-                  {action.presupuestoId && (
-                    <span className="text-xs text-purple-600">#{action.presupuestoId}</span>
-                  )}
-                  {action.amountUsdDivisa != null && action.amountUsdDivisa > 0 && (
-                    <span className="px-1 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700">Dual</span>
-                  )}
-                  {action.paymentMethod && (
-                    <span className="text-xs text-ocean-400">({action.paymentMethod})</span>
+                    {action.date && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700">
+                        {formatDate(action.date)}
+                      </span>
+                    )}
+                    <select
+                      className={`text-sm border rounded px-2 py-0.5 focus:outline-none focus:ring-1 ${
+                        action.customerId
+                          ? 'border-ocean-300 bg-white focus:ring-ocean-400'
+                          : 'border-amber-300 bg-amber-50 focus:ring-amber-400'
+                      }`}
+                      value={action.customerId ?? 'new'}
+                      onChange={(e) => {
+                        if (e.target.value === 'new') {
+                          setAiActions(prev => prev.map((a, idx) => idx === i ? { ...a, customerId: null } : a));
+                        } else {
+                          const selId = Number(e.target.value);
+                          const selCustomer = customers.find(c => c.id === selId);
+                          setAiActions(prev => prev.map((a, idx) => idx === i ? {
+                            ...a,
+                            customerId: selId,
+                            customerName: selCustomer?.name || a.customerName
+                          } : a));
+                        }
+                      }}
+                    >
+                      <option value="new">➕ Crear: "{action.customerName}"</option>
+                      {customers.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                    <span className="text-ocean-600">{formatUSD(action.amountUsd)}</span>
+                    {action.amountUsdDivisa != null && action.amountUsdDivisa > 0 && (
+                      <span className="text-xs text-amber-600">| Div: {formatUSD(action.amountUsdDivisa)}</span>
+                    )}
+                    <span className="text-ocean-400 text-xs">{action.description}</span>
+                    {action.presupuestoId && (
+                      <span className="text-xs text-purple-600">#{action.presupuestoId}</span>
+                    )}
+                    {action.amountUsdDivisa != null && action.amountUsdDivisa > 0 && (
+                      <span className="px-1 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700">Dual</span>
+                    )}
+                    {action.paymentMethod && (
+                      <span className="text-xs text-ocean-400">({action.paymentMethod})</span>
+                    )}
+                  </div>
+                  {!action.customerId && (
+                    <input
+                      type="text"
+                      value={action.customerName}
+                      onChange={(e) => setAiActions(prev => prev.map((a, idx) => idx === i ? { ...a, customerName: e.target.value } : a))}
+                      placeholder="Nombre del cliente a crear"
+                      className="text-xs border border-amber-300 bg-amber-50 rounded px-2 py-1 w-52 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    />
                   )}
                 </div>
               ))}

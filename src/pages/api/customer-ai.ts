@@ -197,9 +197,14 @@ Responde SOLO con un JSON valido:
       }), { status: 500, headers: { 'Content-Type': 'application/json' } });
     }
 
+    const actions = (parsedResult.actions || []).map((action: AIAction) => ({
+      ...action,
+      customerName: action.customerName?.trim() || 'Cliente',
+    }));
+
     return new Response(JSON.stringify({
       success: true,
-      actions: parsedResult.actions || [],
+      actions,
       unmatchedCustomers: parsedResult.unmatchedCustomers || []
     }), {
       status: 200, headers: { 'Content-Type': 'application/json' }

@@ -510,7 +510,7 @@ Responde SOLO con un JSON valido:
 
     // Fallback: si Gemini no encontró el cliente, buscar sin acentos
     let resolvedCustomerId = parsed.customerId || null;
-    let resolvedCustomerName = parsed.customerName || '';
+    let resolvedCustomerName = parsed.customerName?.trim() || 'Cliente';
     if (!resolvedCustomerId && parsed.customerName) {
       const normalizedInput = normalize(parsed.customerName).trim();
       if (normalizedInput) {
