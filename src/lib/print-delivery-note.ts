@@ -191,8 +191,8 @@ export function printDeliveryNote(presupuesto: PrintPresupuesto, bcvRate?: numbe
     table { width:100%; border-collapse:collapse; }
     .close-btn {
       position: fixed;
-      top: 10px;
-      right: 10px;
+      bottom: 20px;
+      right: 20px;
       padding: 8px 16px;
       background: #dc2626;
       color: white;

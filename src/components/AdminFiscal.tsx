@@ -1176,8 +1176,8 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
     /* Close button for Safari PWA */
     .close-btn {
       position: fixed;
-      top: 10px;
-      right: 10px;
+      bottom: 20px;
+      right: 20px;
       padding: 8px 16px;
       background: #dc2626;
       color: #fff;

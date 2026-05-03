@@ -89,7 +89,9 @@ export function openCalcCardWindow(data: CalcCardData, baseUrl: string = ''): vo
       padding: 16px 0;
     }
     .close-btn {
-      margin-bottom: 12px;
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
       padding: 8px 20px;
       background: #dc2626;
       color: white;
@@ -98,6 +100,7 @@ export function openCalcCardWindow(data: CalcCardData, baseUrl: string = ''): vo
       font-size: 14px;
       font-weight: 600;
       cursor: pointer;
+      z-index: 9999;
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
     .close-btn:hover { background: #b91c1c; }
