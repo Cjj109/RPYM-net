@@ -82,3 +82,8 @@ export interface QuickQueueItem {
   note?: string;
   frozen?: boolean;
 }
+
+export interface DiscardedSession extends SavedSession {
+  discardedAt: number;
+  source: 'quick_queue' | 'history';
+}

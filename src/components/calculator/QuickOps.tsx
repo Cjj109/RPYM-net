@@ -13,6 +13,7 @@ interface QuickOpsProps {
   onQueueChange: Dispatch<SetStateAction<QuickQueueItem[]>>;
   onAddSession: (session: SavedSession) => void;
   onRemoveSession?: (sessionId: string) => void;
+  onDiscardQueueItem?: (item: QuickQueueItem) => void;
   displayMode?: 'carlos' | 'vero';
 }
 
@@ -34,7 +35,7 @@ function formatTimeAgo(timestamp: number): string {
   return `${Math.floor(hours / 24)}d`;
 }
 
-export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRemoveSession, displayMode = 'carlos' }: QuickOpsProps) {
+export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRemoveSession, onDiscardQueueItem, displayMode = 'carlos' }: QuickOpsProps) {
   const [selectedDispatcher, setSelectedDispatcher] = useState(DISPATCHERS[0].name);
   const [inputAmount, setInputAmount] = useState('');
   const [inputCurrency, setInputCurrency] = useState<'USD' | 'Bs'>('USD');
@@ -100,6 +101,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
   const handleDispatcherChangeRef = useRef<(name: string, isEditing?: boolean) => void>(() => {});
   const onQueueChangeRef = useRef(onQueueChange);
   const onRemoveSessionRef = useRef(onRemoveSession);
+  const onDiscardQueueItemRef = useRef(onDiscardQueueItem);
 
   const dispatcherInfo = DISPATCHERS.find(d => d.name === selectedDispatcher);
 
@@ -421,6 +423,8 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
     setLastDiscarded(item);
     if (discardTimerRef.current) clearTimeout(discardTimerRef.current);
     discardTimerRef.current = setTimeout(() => {
+      const discarded = lastDiscardedRef.current;
+      if (discarded) onDiscardQueueItemRef.current?.(discarded);
       setLastDiscarded(null);
       lastDiscardedRef.current = null;
     }, 5000);
@@ -517,6 +521,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
   useEffect(() => { handleDispatcherChangeRef.current = handleDispatcherChange; }, [handleDispatcherChange]);
   useEffect(() => { onQueueChangeRef.current = onQueueChange; }, [onQueueChange]);
   useEffect(() => { onRemoveSessionRef.current = onRemoveSession; }, [onRemoveSession]);
+  useEffect(() => { onDiscardQueueItemRef.current = onDiscardQueueItem; }, [onDiscardQueueItem]);
   useEffect(() => { discardFirstInQueueRef.current = discardFirstInQueue; }, [discardFirstInQueue]);
 
   // Handler global de teclado — funciona sin importar qué elemento tenga el foco
@@ -1082,7 +1087,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
 
                       {/* Trash */}
                       <button
-                        onClick={e => { e.stopPropagation(); onQueueChange(prev => prev.filter(q => q.id !== item.id)); if (editingQueueId === item.id) cancelEditingQueue(); }}
+                        onClick={e => { e.stopPropagation(); onDiscardQueueItem?.(item); onQueueChange(prev => prev.filter(q => q.id !== item.id)); if (editingQueueId === item.id) cancelEditingQueue(); }}
                         className={`transition-colors p-0.5 shrink-0 ${displayMode === 'vero' ? `${disp?.text ?? 'text-emerald-700'} opacity-40 hover:opacity-90` : 'text-ocean-300 hover:text-red-400'}`}
                         title="Eliminar"
                       >

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { evalMathExpr } from '../lib/safe-math';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { migrateToDispatchers } from './calculator/migration';
-import type { DispatcherTab, SubClient, CalcEntry, SavedSession, UndoAction, RateConfig, ClientTotals, QuickQueueItem } from './calculator/types';
+import type { DispatcherTab, SubClient, CalcEntry, SavedSession, UndoAction, RateConfig, ClientTotals, QuickQueueItem, DiscardedSession } from './calculator/types';
 import { LS_KEYS, DEFAULT_SUBCLIENT_NAME, DEFAULT_SUBCLIENT_COUNT, DISPATCHERS } from './calculator/constants';
 import { ClockIcon, GearIcon, QueueIcon, NoteIcon, AIBoltIcon } from './calculator/icons';
 import { CustomerAIPanel } from './calculator/CustomerAIPanel';
@@ -59,6 +59,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   });
   const [sessions, setSessions] = useLocalStorage<SavedSession[]>(LS_KEYS.SESSIONS, []);
   const [quickQueue, setQuickQueue] = useLocalStorage<QuickQueueItem[]>(LS_KEYS.QUICK_QUEUE, []);
+  const [discardedSessions, setDiscardedSessions] = useLocalStorage<DiscardedSession[]>(LS_KEYS.DISCARDED_SESSIONS, []);
   const [rateConfig, setRateConfig] = useLocalStorage<RateConfig>(LS_KEYS.RATE_CONFIG, { useManualRate: false, manualRate: '' });
   const [queueDisplayMode, setQueueDisplayMode] = useLocalStorage<'carlos' | 'vero'>(LS_KEYS.QUEUE_DISPLAY_MODE, 'carlos');
   const [noteSheets, setNoteSheets] = useLocalStorage<NoteSheet[]>(LS_KEYS.NOTE_SHEETS, () => {
@@ -188,6 +189,29 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
   useEffect(() => {
     return () => { if (undoTimerRef.current) clearTimeout(undoTimerRef.current); };
   }, []);
+
+  const handleDiscardQueueItem = useCallback((item: QuickQueueItem) => {
+    const discarded: DiscardedSession = {
+      id: crypto.randomUUID(),
+      clientName: item.note ? item.note : 'Op. Rápida',
+      dispatcher: item.dispatcher,
+      entries: item.entries.map(e => ({
+        id: e.id,
+        description: e.note || (e.currency === 'USD' ? `$${e.amountInput}` : `Bs ${e.amountInput}`),
+        amountUSD: e.amountUSD,
+        amountBs: e.amountBs,
+        isNegative: false,
+        expression: e.expression,
+      })),
+      totalUSD: item.totalUSD,
+      totalBs: item.totalBs,
+      rate: item.rate,
+      timestamp: item.timestamp,
+      discardedAt: Date.now(),
+      source: 'quick_queue',
+    };
+    setDiscardedSessions(prev => [discarded, ...prev].slice(0, 500));
+  }, [setDiscardedSessions]);
 
   // Sync de notas y sesiones con la BD al montar (localStorage como caché local)
   useEffect(() => {
@@ -521,7 +545,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
                 </button>
               ) : null;
             })()}
-            {sessions.length > 0 && (
+            {(sessions.length > 0 || discardedSessions.length > 0) && (
               <button
                 onClick={() => { setShowHistory(prev => !prev); setShowQueue(false); }}
                 className={`p-1.5 rounded-lg transition-colors ${showHistory ? 'bg-ocean-100 text-ocean-700' : 'text-ocean-400 hover:text-ocean-600 hover:bg-ocean-50'}`}
@@ -647,11 +671,20 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
               />
             )}
 
-            {showHistory && sessions.length > 0 && (
+            {showHistory && (sessions.length > 0 || discardedSessions.length > 0) && (
               <HistoryPanel
                 sessions={sessions}
-                onRemoveSession={(id) => { setSessions(prev => prev.filter(s => s.id !== id)); fetch(`/api/calc/sessions/${id}`, { method: 'DELETE' }).catch(console.error); }}
+                discardedSessions={discardedSessions}
+                onRemoveSession={(id) => {
+                  const session = sessions.find(s => s.id === id);
+                  if (session) {
+                    setDiscardedSessions(prev => [{ ...session, discardedAt: Date.now(), source: 'history' as const }, ...prev].slice(0, 500));
+                  }
+                  setSessions(prev => prev.filter(s => s.id !== id));
+                  fetch(`/api/calc/sessions/${id}`, { method: 'DELETE' }).catch(console.error);
+                }}
                 onClearHistory={() => { setSessions([]); fetch('/api/calc/sessions', { method: 'DELETE' }).catch(console.error); }}
+                onClearDiscarded={() => setDiscardedSessions([])}
               />
             )}
 
@@ -712,11 +745,20 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
 
         {activeTab === 'quickops' && (
           <>
-            {showHistory && sessions.length > 0 && (
+            {showHistory && (sessions.length > 0 || discardedSessions.length > 0) && (
               <HistoryPanel
                 sessions={sessions}
-                onRemoveSession={(id) => { setSessions(prev => prev.filter(s => s.id !== id)); fetch(`/api/calc/sessions/${id}`, { method: 'DELETE' }).catch(console.error); }}
+                discardedSessions={discardedSessions}
+                onRemoveSession={(id) => {
+                  const session = sessions.find(s => s.id === id);
+                  if (session) {
+                    setDiscardedSessions(prev => [{ ...session, discardedAt: Date.now(), source: 'history' as const }, ...prev].slice(0, 500));
+                  }
+                  setSessions(prev => prev.filter(s => s.id !== id));
+                  fetch(`/api/calc/sessions/${id}`, { method: 'DELETE' }).catch(console.error);
+                }}
                 onClearHistory={() => { setSessions([]); fetch('/api/calc/sessions', { method: 'DELETE' }).catch(console.error); }}
+                onClearDiscarded={() => setDiscardedSessions([])}
               />
             )}
             <QuickOps
@@ -725,6 +767,7 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
               onQueueChange={setQuickQueue}
               onAddSession={(session) => { setSessions(prev => [session, ...prev].slice(0, 2000)); fetch('/api/calc/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(session) }).catch(console.error); }}
               onRemoveSession={(sessionId) => { setSessions(prev => prev.filter(s => s.id !== sessionId)); fetch(`/api/calc/sessions/${sessionId}`, { method: 'DELETE' }).catch(console.error); }}
+              onDiscardQueueItem={handleDiscardQueueItem}
               displayMode={queueDisplayMode}
             />
           </>

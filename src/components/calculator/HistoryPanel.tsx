@@ -1,12 +1,14 @@
 import { useState, useMemo } from 'react';
 import { formatUSD, formatBs } from '../../lib/format';
-import type { SavedSession } from './types';
+import type { SavedSession, DiscardedSession } from './types';
 import { DISPATCHERS } from './constants';
 
 interface HistoryPanelProps {
   sessions: SavedSession[];
+  discardedSessions?: DiscardedSession[];
   onRemoveSession: (id: string) => void;
   onClearHistory: () => void;
+  onClearDiscarded?: () => void;
 }
 
 function formatTime(ts: number) {
@@ -40,8 +42,8 @@ interface DispatcherStats {
   daySessions: SavedSession[];
 }
 
-export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: HistoryPanelProps) {
-  const [view, setView] = useState<'summary' | 'detail' | 'ranking'>('detail');
+export function HistoryPanel({ sessions, discardedSessions = [], onRemoveSession, onClearHistory, onClearDiscarded }: HistoryPanelProps) {
+  const [view, setView] = useState<'summary' | 'detail' | 'ranking' | 'discarded'>('detail');
   const [rankingTab, setRankingTab] = useState<'day' | 'week'>('day');
   const [selectedDateKey, setSelectedDateKey] = useState<string>(() => dateKey(Date.now()));
   const [expandedDispatcher, setExpandedDispatcher] = useState<string | null>(null);
@@ -122,6 +124,14 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
         >
           Ranking
         </button>
+        {discardedSessions.length > 0 && (
+          <button
+            onClick={() => setView('discarded')}
+            className={`flex-1 text-xs font-medium py-2 transition-colors ${view === 'discarded' ? 'text-red-600 bg-red-50 border-b-2 border-red-400' : 'text-red-300 hover:text-red-500'}`}
+          >
+            🗑 ({discardedSessions.length})
+          </button>
+        )}
       </div>
 
       {view === 'ranking' ? (
@@ -508,6 +518,56 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
             </div>
           )}
         </div>
+      ) : view === 'discarded' ? (
+        /* Vista Eliminadas */
+        <div className="p-3 space-y-2">
+          {discardedSessions.length === 0 ? (
+            <div className="text-center py-8 text-ocean-300">
+              <p className="text-3xl mb-2">🗑</p>
+              <p className="text-sm">No hay operaciones eliminadas</p>
+            </div>
+          ) : (
+            <div className="max-h-72 overflow-y-auto divide-y divide-red-50 rounded-lg border border-red-100">
+              {discardedSessions.map(session => {
+                const disp = DISPATCHERS.find(d => d.name === session.dispatcher);
+                const sourceLabel = session.source === 'quick_queue' ? '⚡' : '🕐';
+                return (
+                  <div key={session.id} className="px-3 py-2 bg-white hover:bg-red-50/40 transition-colors">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px]" title={session.source === 'quick_queue' ? 'Op. Rápida' : 'Historial'}>{sourceLabel}</span>
+                          {session.dispatcher && (
+                            <span className={`text-[9px] font-semibold rounded-full px-1.5 py-0.5 shrink-0 ${disp ? disp.badge : 'bg-gray-50 text-gray-500'}`}>{session.dispatcher}</span>
+                          )}
+                          {session.clientName && session.clientName !== 'Op. Rápida' && (
+                            <span className="text-xs font-medium text-ocean-600 truncate">{session.clientName}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] text-ocean-300">{formatTime(session.discardedAt)}</span>
+                          <span className="text-[9px] text-ocean-200">·</span>
+                          <span className="text-[10px] text-ocean-300">{session.entries.length} item{session.entries.length !== 1 ? 's' : ''}</span>
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {session.entries.map(entry => (
+                            <span key={entry.id} className="text-[10px] font-mono bg-red-50 text-red-400 px-1.5 py-0.5 rounded">
+                              {entry.description ? `${entry.description} ` : ''}{formatUSD(entry.amountUSD)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-bold font-mono text-red-500">{formatBs(Math.abs(session.totalBs))}</p>
+                        <p className="text-[10px] font-mono font-bold text-red-300">{formatUSD(Math.abs(session.totalUSD))}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       ) : (
         /* Vista Detalle — sesiones del día seleccionado con navegación */
         <div className="p-3 space-y-3">
@@ -617,9 +677,15 @@ export function HistoryPanel({ sessions, onRemoveSession, onClearHistory }: Hist
       )}
 
       <div className="px-4 py-1.5 border-t border-ocean-100 bg-ocean-50/50">
-        <button onClick={onClearHistory} className="text-xs text-red-400 hover:text-red-600 transition-colors">
-          Borrar historial
-        </button>
+        {view === 'discarded' ? (
+          <button onClick={onClearDiscarded} className="text-xs text-red-400 hover:text-red-600 transition-colors">
+            Borrar eliminadas
+          </button>
+        ) : (
+          <button onClick={onClearHistory} className="text-xs text-red-400 hover:text-red-600 transition-colors">
+            Borrar historial
+          </button>
+        )}
       </div>
     </div>
   );
