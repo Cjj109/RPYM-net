@@ -24,7 +24,7 @@ import {
   type PresupuestoItem,
   type PresupuestoStats
 } from '../lib/presupuesto-storage';
-import { printDeliveryNote, type PrintPresupuesto } from '../lib/print-delivery-note';
+import { printDeliveryNote, downloadDeliveryNoteImage, type PrintPresupuesto } from '../lib/print-delivery-note';
 import { openWhatsAppCardWindow, renderWhatsAppCardHTML, type WhatsAppCardData } from '../lib/presupuesto-whatsapp-card';
 import { formatUSD, formatBs, formatDateWithTime } from '../lib/format';
 import { formatPhoneDisplay, isValidVenezuelanPhone } from '../lib/phone-ve';
@@ -323,6 +323,33 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     };
 
     printDeliveryNote(printData, bcvRateValue);
+  };
+
+  const downloadNote = async (presupuesto: Presupuesto) => {
+    const modo = inferModoPrecio(presupuesto);
+    const printData: PrintPresupuesto = {
+      id: presupuesto.id,
+      fecha: presupuesto.fecha,
+      items: presupuesto.items.map(item => ({
+        nombre: item.nombre,
+        cantidad: item.cantidad,
+        unidad: item.unidad,
+        precioUSD: item.precioUSD,
+        subtotalUSD: item.subtotalUSD,
+        precioUSDDivisa: item.precioUSDDivisa,
+        subtotalUSDDivisa: item.subtotalUSDDivisa,
+      })),
+      totalUSD: presupuesto.totalUSD,
+      totalBs: presupuesto.totalBs,
+      totalUSDDivisa: presupuesto.totalUSDDivisa,
+      hideRate: presupuesto.hideRate || hideBsMap[presupuesto.id] || false,
+      delivery: presupuesto.delivery,
+      modoPrecio: modo,
+      estado: presupuesto.estado,
+      customerName: presupuesto.customerName,
+      customerAddress: presupuesto.customerAddress,
+    };
+    await downloadDeliveryNoteImage(printData, bcvRateValue);
   };
 
   // Mapeo Presupuesto -> WhatsAppCardData (legacy modoPrecio inference)
@@ -856,6 +883,15 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                             title={p.estado === 'pagado' ? 'Imprimir (con sello pagado)' : 'Imprimir presupuesto'}
                           >
                             🖨️
+                          </button>
+                          <button
+                            onClick={() => downloadNote(p)}
+                            className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                            title="Descargar nota como imagen"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
                           </button>
                           <button
                             onClick={(e) => {

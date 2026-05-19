@@ -187,7 +187,7 @@ export function printDeliveryNote(presupuesto: PrintPresupuesto, bcvRate?: numbe
 <head>
   <title>Presupuesto - ${presupuesto.id}</title>
   <base href="${origin}" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=800, viewport-fit=cover" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
