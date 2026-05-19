@@ -2,9 +2,8 @@
  * RPYM - Vista publica de estado de cuenta del cliente
  * Accesible sin autenticacion via token unico
  */
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { formatUSD, formatEUR, formatQuantity, formatDateMonthShort, formatMonthYear } from '../lib/format';
-import EstadoCuentaExport from './EstadoCuentaExport';
 
 interface PublicTransaction {
   id: number;
@@ -49,12 +48,6 @@ export default function CuentaPublica() {
   const [txSearch, setTxSearch] = useState('');
   const [txPage, setTxPage] = useState(0);
   const TX_PAGE_SIZE = 20;
-
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [isExportingPng, setIsExportingPng] = useState(false);
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
-  const [exportDate, setExportDate] = useState('');
-  const exportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -406,90 +399,6 @@ export default function CuentaPublica() {
     );
   };
 
-  const handleOpenExportModal = () => {
-    const now = new Date();
-    const dateStr = now.toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' });
-    const timeStr = now.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
-    setExportDate(`${dateStr} ${timeStr}`);
-    setShowExportModal(true);
-  };
-
-  const handleExportPng = async () => {
-    if (!exportRef.current || isExportingPng) return;
-    setIsExportingPng(true);
-    try {
-      const html2canvas = (await import('html2canvas')).default;
-      const el = exportRef.current;
-      const canvas = await html2canvas(el, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        width: 640,
-        height: el.scrollHeight,
-        windowWidth: 640,
-        windowHeight: el.scrollHeight,
-        scrollX: 0,
-        scrollY: 0,
-      });
-      const url = canvas.toDataURL('image/png');
-      const a = document.createElement('a');
-      a.href = url;
-      const safeName = customer?.name.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '').toLowerCase() || 'cliente';
-      a.download = `estado-cuenta-${safeName}-${new Date().toISOString().slice(0, 10)}.png`;
-      a.click();
-    } catch (err) {
-      console.error('Error generando PNG:', err);
-    } finally {
-      setIsExportingPng(false);
-    }
-  };
-
-  const handleExportPdf = async () => {
-    if (!exportRef.current || isExportingPdf) return;
-    setIsExportingPdf(true);
-    try {
-      const html2canvas = (await import('html2canvas')).default;
-      const { jsPDF } = await import('jspdf');
-      const el = exportRef.current;
-      const canvas = await html2canvas(el, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        width: 640,
-        height: el.scrollHeight,
-        windowWidth: 640,
-        windowHeight: el.scrollHeight,
-        scrollX: 0,
-        scrollY: 0,
-      });
-      const imgData = canvas.toDataURL('image/png');
-      const pdfWidth = 210; // A4 en mm
-      const pageHeight = 297;
-      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-      heightLeft -= pageHeight;
-
-      while (heightLeft > 0) {
-        position -= pageHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-
-      const safeName = customer?.name.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '').toLowerCase() || 'cliente';
-      pdf.save(`estado-cuenta-${safeName}-${new Date().toISOString().slice(0, 10)}.pdf`);
-    } catch (err) {
-      console.error('Error generando PDF:', err);
-    } finally {
-      setIsExportingPdf(false);
-    }
-  };
-
   // Calculate displayed balances
   const displayBcv = adjustedBalances.bcv;
   const displayDivisas = adjustedBalances.divisas;
@@ -631,20 +540,6 @@ export default function CuentaPublica() {
               )}
             </>
           )}
-        </div>
-
-        {/* Botón de descarga */}
-        <div className="bg-white rounded-xl shadow-sm border border-ocean-100 p-3">
-          <p className="text-[11px] text-ocean-400 mb-2.5 text-center">Descarga tu estado de cuenta para compartirlo</p>
-          <button
-            onClick={handleOpenExportModal}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-ocean-600 hover:bg-ocean-700 active:bg-ocean-800 text-white rounded-xl text-sm font-semibold transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Guardar como imagen / PDF
-          </button>
         </div>
 
         {/* Transactions */}
@@ -861,81 +756,6 @@ export default function CuentaPublica() {
       </div>
 
       {renderPresupuestoModal()}
-
-      {/* Modal de exportación */}
-      {showExportModal && customer && (
-        <div
-          className="fixed inset-0 z-50 flex flex-col bg-black/60 overflow-hidden"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowExportModal(false); }}
-        >
-          {/* Barra superior fija */}
-          <div className="bg-white border-b border-ocean-100 px-4 py-3 flex items-center justify-between flex-shrink-0">
-            <div>
-              <h3 className="font-bold text-ocean-900 text-sm">Descargar estado de cuenta</h3>
-              <p className="text-xs text-ocean-400 mt-0.5">{customer.name}</p>
-            </div>
-            <button
-              onClick={() => setShowExportModal(false)}
-              className="p-1.5 text-ocean-400 hover:text-ocean-600 hover:bg-ocean-50 rounded-lg transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Botones de descarga */}
-          <div className="bg-white border-b border-ocean-100 px-4 py-3 flex gap-2 flex-shrink-0">
-            <button
-              onClick={handleExportPng}
-              disabled={isExportingPng || isExportingPdf}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-semibold transition-colors"
-            >
-              {isExportingPng ? (
-                <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-              ) : (
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              )}
-              {isExportingPng ? 'Generando...' : 'Imagen PNG'}
-            </button>
-            <button
-              onClick={handleExportPdf}
-              disabled={isExportingPng || isExportingPdf}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-semibold transition-colors"
-            >
-              {isExportingPdf ? (
-                <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-              ) : (
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-              )}
-              {isExportingPdf ? 'Generando...' : 'PDF'}
-            </button>
-          </div>
-
-          {/* Vista previa scrolleable */}
-          <div className="flex-1 overflow-y-auto bg-gray-100">
-            <div className="p-4 flex justify-center">
-              <div
-                ref={exportRef}
-                style={{ width: '640px', maxWidth: '100%' }}
-              >
-                <EstadoCuentaExport
-                  customer={customer}
-                  transactions={transactions}
-                  bcvRate={bcvRate}
-                  dualView={dualView}
-                  adjustedBalances={adjustedBalances}
-                  generatedAt={exportDate}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
