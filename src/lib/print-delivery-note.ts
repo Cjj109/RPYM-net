@@ -33,7 +33,7 @@ export interface PrintPresupuesto {
 
 // ─── Shared page builders (same output used by popup AND direct download) ────
 
-function buildBcvPage(presupuesto: PrintPresupuesto, bcvRate: number | undefined, baseUrl = ''): string {
+function buildBcvPage(presupuesto: PrintPresupuesto, bcvRate: number | undefined): string {
   const modoPrecio = presupuesto.modoPrecio || '';
   const isDualMode = modoPrecio === 'dual';
   const hideRateOnly = presupuesto.hideRate === true;
@@ -65,7 +65,7 @@ function buildBcvPage(presupuesto: PrintPresupuesto, bcvRate: number | undefined
       <div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
           <div style="width:48px;height:48px;border-radius:50%;border:2px solid #7dd3fc;overflow:hidden;flex-shrink:0;background:white;display:flex;align-items:center;justify-content:center;">
-            <img src="${baseUrl}/camaronlogo-sm.webp" alt="RPYM" style="width:140%;height:140%;object-fit:contain;" />
+            <img src="/camaronlogo-sm.webp" alt="RPYM" style="width:140%;height:140%;object-fit:contain;" />
           </div>
           <div style="font-size:22px;font-weight:800;color:#0c4a6e;">RPYM</div>
         </div>
@@ -165,7 +165,7 @@ function buildBcvPage(presupuesto: PrintPresupuesto, bcvRate: number | undefined
   </div>`;
 }
 
-function buildDivisaPage(presupuesto: PrintPresupuesto, prependPageBreak: boolean, baseUrl = ''): string {
+function buildDivisaPage(presupuesto: PrintPresupuesto, prependPageBreak: boolean): string {
   const modoPrecio = presupuesto.modoPrecio || '';
   const isDualMode = modoPrecio === 'dual';
   const showPaid = presupuesto.estado === 'pagado';
@@ -198,7 +198,7 @@ function buildDivisaPage(presupuesto: PrintPresupuesto, prependPageBreak: boolea
       <div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
           <div style="width:48px;height:48px;border-radius:50%;border:2px solid #fde68a;overflow:hidden;flex-shrink:0;background:white;display:flex;align-items:center;justify-content:center;">
-            <img src="${baseUrl}/camaronlogo-sm.webp" alt="RPYM" style="width:140%;height:140%;object-fit:contain;" />
+            <img src="/camaronlogo-sm.webp" alt="RPYM" style="width:140%;height:140%;object-fit:contain;" />
           </div>
           <div style="font-size:22px;font-weight:800;color:#713f12;">RPYM</div>
         </div>
@@ -386,54 +386,103 @@ export function printDeliveryNote(presupuesto: PrintPresupuesto, bcvRate?: numbe
 
 // ─── Descarga directa como PNG (sin abrir popup) ──────────────────────────
 
-// CSS que replica EXACTAMENTE el <style> block del popup, escopado para no afectar la app
-const CAPTURE_CSS = `
-  .rpym-cap * { margin:0; padding:0; box-sizing:border-box; }
-  .rpym-cap #page-bcv { padding:12mm 15mm; position:relative; background:white; }
-  .rpym-cap #page-divisa { padding:12mm 15mm; position:relative; background:white; }
-  .rpym-cap table { width:100%; border-collapse:collapse; }
-  .rpym-cap .watermark {
-    position:absolute; top:50%; left:50%;
-    transform:translate(-50%,-50%) rotate(-30deg);
-    font-size:80px; font-weight:900; letter-spacing:12px;
-    pointer-events:none; z-index:0;
-    color:rgba(14,165,233,0.06);
-  }
-`;
+/**
+ * Genera el HTML completo del documento de captura.
+ * CSS idéntico al popup, sin toolbar ni auto-print.
+ * Se usa como documento de un iframe invisible para garantizar
+ * el mismo entorno CSS que el popup (sin interferencia de Tailwind).
+ */
+function buildCaptureHtml(presupuesto: PrintPresupuesto, bcvRate: number | undefined, baseUrl: string): string {
+  const modoPrecio = presupuesto.modoPrecio || '';
+  const isDualMode = modoPrecio === 'dual';
+  const isDivisasOnly = ['divisa', 'divisas'].includes(modoPrecio);
+  const showBcvPage = !isDivisasOnly;
+  const showDivisaPage = isDualMode || isDivisasOnly;
 
-async function capturePageToBlob(pageId: string, pageHtml: string): Promise<Blob> {
-  const styleEl = document.createElement('style');
-  styleEl.textContent = CAPTURE_CSS;
-  document.head.appendChild(styleEl);
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <base href="${baseUrl}/" />
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: white;
+      color: #0c4a6e;
+    }
+    #page-bcv {
+      padding: 12mm 15mm;
+      position: relative;
+      background: white;
+    }
+    table { width:100%; border-collapse:collapse; }
+    .watermark {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-30deg);
+      font-size: 80px;
+      font-weight: 900;
+      letter-spacing: 12px;
+      pointer-events: none;
+      z-index: 0;
+      color: rgba(14, 165, 233, 0.06);
+    }
+  </style>
+</head>
+<body>
+  ${showBcvPage ? buildBcvPage(presupuesto, bcvRate) : ''}
+  ${showDivisaPage ? buildDivisaPage(presupuesto, isDualMode) : ''}
+</body>
+</html>`;
+}
 
-  const container = document.createElement('div');
-  container.className = 'rpym-cap';
-  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;z-index:-1;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#0c4a6e;background:white;';
-  container.innerHTML = pageHtml;
-  document.body.appendChild(container);
-
-  const el = container.querySelector(`#${pageId}`) as HTMLElement | null;
-  if (!el) {
-    document.head.removeChild(styleEl);
-    document.body.removeChild(container);
-    throw new Error(`#${pageId} no encontrado en el HTML generado`);
-  }
-
-  await Promise.all(
-    Array.from(el.querySelectorAll('img')).map(img =>
-      img.complete ? Promise.resolve()
-        : new Promise<void>(r => { img.onload = () => r(); img.onerror = () => r(); })
-    )
-  );
+/**
+ * Renderiza captureHtml en un iframe invisible (mismo entorno CSS que el popup)
+ * y captura el elemento #pageId con html2canvas.
+ */
+async function captureViaIframe(pageId: string, captureHtml: string): Promise<Blob> {
+  const iframe = document.createElement('iframe');
+  // position:fixed off-screen, not display:none — display:none blocks rendering
+  iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;height:2000px;border:none;visibility:hidden;';
+  document.body.appendChild(iframe);
 
   try {
-    const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
+    await new Promise<void>((resolve) => {
+      iframe.addEventListener('load', () => resolve(), { once: true });
+      iframe.contentDocument!.open();
+      iframe.contentDocument!.write(captureHtml);
+      iframe.contentDocument!.close();
+    });
+
+    const iframeDoc = iframe.contentDocument!;
+
+    // Verify all images are loaded (iframe load fires after images, but be safe)
+    await Promise.all(
+      Array.from(iframeDoc.querySelectorAll<HTMLImageElement>('img')).map(img =>
+        img.complete
+          ? Promise.resolve()
+          : new Promise<void>(r => { img.onload = () => r(); img.onerror = () => r(); })
+      )
+    );
+
+    const el = iframeDoc.getElementById(pageId) as HTMLElement | null;
+    if (!el) throw new Error(`#${pageId} no encontrado en el documento del iframe`);
+
+    // html2canvas uses el.ownerDocument (the iframe's document) for CSS resolution
+    const canvas = await html2canvas(el, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+    });
+
     return await new Promise<Blob>((resolve, reject) =>
       canvas.toBlob(b => b ? resolve(b) : reject(new Error('canvas.toBlob falló')), 'image/png')
     );
   } finally {
-    document.head.removeChild(styleEl);
-    document.body.removeChild(container);
+    try { document.body.removeChild(iframe); } catch {}
   }
 }
 
@@ -450,29 +499,28 @@ function triggerDownload(blob: Blob, filename: string): void {
 
 /**
  * Descarga la nota de entrega directamente como imagen PNG, sin abrir ventana de impresión.
+ * Usa un iframe invisible con el mismo HTML/CSS que el popup para output idéntico.
  * En modo dual descarga dos archivos (BCV y Divisa).
  */
 export async function downloadDeliveryNoteImage(presupuesto: PrintPresupuesto, bcvRate?: number): Promise<void> {
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
   const modoPrecio = presupuesto.modoPrecio || '';
   const isDualMode = modoPrecio === 'dual';
   const isDivisasOnly = ['divisa', 'divisas'].includes(modoPrecio);
-  // Use absolute URLs so html2canvas resolves images correctly without a <base> tag
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  const captureHtml = buildCaptureHtml(presupuesto, bcvRate, baseUrl);
 
   try {
     if (isDualMode) {
-      const [bcvBlob, divisaBlob] = await Promise.all([
-        capturePageToBlob('page-bcv', buildBcvPage(presupuesto, bcvRate, baseUrl)),
-        capturePageToBlob('page-divisa', buildDivisaPage(presupuesto, false, baseUrl)),
-      ]);
+      const bcvBlob = await captureViaIframe('page-bcv', captureHtml);
+      const divisaBlob = await captureViaIframe('page-divisa', captureHtml);
       triggerDownload(bcvBlob, `nota-bcv-${presupuesto.id}.png`);
       await new Promise(r => setTimeout(r, 400));
       triggerDownload(divisaBlob, `nota-divisa-${presupuesto.id}.png`);
     } else if (isDivisasOnly) {
-      const blob = await capturePageToBlob('page-divisa', buildDivisaPage(presupuesto, false, baseUrl));
+      const blob = await captureViaIframe('page-divisa', captureHtml);
       triggerDownload(blob, `nota-${presupuesto.id}.png`);
     } else {
-      const blob = await capturePageToBlob('page-bcv', buildBcvPage(presupuesto, bcvRate, baseUrl));
+      const blob = await captureViaIframe('page-bcv', captureHtml);
       triggerDownload(blob, `nota-${presupuesto.id}.png`);
     }
   } catch (err) {
