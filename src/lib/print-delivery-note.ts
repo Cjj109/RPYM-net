@@ -33,7 +33,7 @@ export interface PrintPresupuesto {
 
 // ─── Shared page builders (same output used by popup AND direct download) ────
 
-function buildBcvPage(presupuesto: PrintPresupuesto, bcvRate: number | undefined): string {
+function buildBcvPage(presupuesto: PrintPresupuesto, bcvRate: number | undefined, baseUrl = ''): string {
   const modoPrecio = presupuesto.modoPrecio || '';
   const isDualMode = modoPrecio === 'dual';
   const hideRateOnly = presupuesto.hideRate === true;
@@ -65,7 +65,7 @@ function buildBcvPage(presupuesto: PrintPresupuesto, bcvRate: number | undefined
       <div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
           <div style="width:48px;height:48px;border-radius:50%;border:2px solid #7dd3fc;overflow:hidden;flex-shrink:0;background:white;display:flex;align-items:center;justify-content:center;">
-            <img src="/camaronlogo-sm.webp" alt="RPYM" style="width:140%;height:140%;object-fit:contain;" />
+            <img src="${baseUrl}/camaronlogo-sm.webp" alt="RPYM" style="width:140%;height:140%;object-fit:contain;" />
           </div>
           <div style="font-size:22px;font-weight:800;color:#0c4a6e;">RPYM</div>
         </div>
@@ -165,7 +165,7 @@ function buildBcvPage(presupuesto: PrintPresupuesto, bcvRate: number | undefined
   </div>`;
 }
 
-function buildDivisaPage(presupuesto: PrintPresupuesto, prependPageBreak: boolean): string {
+function buildDivisaPage(presupuesto: PrintPresupuesto, prependPageBreak: boolean, baseUrl = ''): string {
   const modoPrecio = presupuesto.modoPrecio || '';
   const isDualMode = modoPrecio === 'dual';
   const showPaid = presupuesto.estado === 'pagado';
@@ -198,7 +198,7 @@ function buildDivisaPage(presupuesto: PrintPresupuesto, prependPageBreak: boolea
       <div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
           <div style="width:48px;height:48px;border-radius:50%;border:2px solid #fde68a;overflow:hidden;flex-shrink:0;background:white;display:flex;align-items:center;justify-content:center;">
-            <img src="/camaronlogo-sm.webp" alt="RPYM" style="width:140%;height:140%;object-fit:contain;" />
+            <img src="${baseUrl}/camaronlogo-sm.webp" alt="RPYM" style="width:140%;height:140%;object-fit:contain;" />
           </div>
           <div style="font-size:22px;font-weight:800;color:#713f12;">RPYM</div>
         </div>
@@ -386,8 +386,9 @@ export function printDeliveryNote(presupuesto: PrintPresupuesto, bcvRate?: numbe
 
 // ─── Descarga directa como PNG (sin abrir popup) ──────────────────────────
 
-// CSS que replica los estilos del popup, escopado para no afectar la app
+// CSS que replica EXACTAMENTE el <style> block del popup, escopado para no afectar la app
 const CAPTURE_CSS = `
+  .rpym-cap * { margin:0; padding:0; box-sizing:border-box; }
   .rpym-cap #page-bcv { padding:12mm 15mm; position:relative; background:white; }
   .rpym-cap #page-divisa { padding:12mm 15mm; position:relative; background:white; }
   .rpym-cap table { width:100%; border-collapse:collapse; }
@@ -396,6 +397,7 @@ const CAPTURE_CSS = `
     transform:translate(-50%,-50%) rotate(-30deg);
     font-size:80px; font-weight:900; letter-spacing:12px;
     pointer-events:none; z-index:0;
+    color:rgba(14,165,233,0.06);
   }
 `;
 
@@ -454,21 +456,23 @@ export async function downloadDeliveryNoteImage(presupuesto: PrintPresupuesto, b
   const modoPrecio = presupuesto.modoPrecio || '';
   const isDualMode = modoPrecio === 'dual';
   const isDivisasOnly = ['divisa', 'divisas'].includes(modoPrecio);
+  // Use absolute URLs so html2canvas resolves images correctly without a <base> tag
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
 
   try {
     if (isDualMode) {
       const [bcvBlob, divisaBlob] = await Promise.all([
-        capturePageToBlob('page-bcv', buildBcvPage(presupuesto, bcvRate)),
-        capturePageToBlob('page-divisa', buildDivisaPage(presupuesto, false)),
+        capturePageToBlob('page-bcv', buildBcvPage(presupuesto, bcvRate, baseUrl)),
+        capturePageToBlob('page-divisa', buildDivisaPage(presupuesto, false, baseUrl)),
       ]);
       triggerDownload(bcvBlob, `nota-bcv-${presupuesto.id}.png`);
       await new Promise(r => setTimeout(r, 400));
       triggerDownload(divisaBlob, `nota-divisa-${presupuesto.id}.png`);
     } else if (isDivisasOnly) {
-      const blob = await capturePageToBlob('page-divisa', buildDivisaPage(presupuesto, false));
+      const blob = await capturePageToBlob('page-divisa', buildDivisaPage(presupuesto, false, baseUrl));
       triggerDownload(blob, `nota-${presupuesto.id}.png`);
     } else {
-      const blob = await capturePageToBlob('page-bcv', buildBcvPage(presupuesto, bcvRate));
+      const blob = await capturePageToBlob('page-bcv', buildBcvPage(presupuesto, bcvRate, baseUrl));
       triggerDownload(blob, `nota-${presupuesto.id}.png`);
     }
   } catch (err) {
