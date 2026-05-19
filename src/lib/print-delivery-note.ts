@@ -586,7 +586,8 @@ function buildDivisaPageHtmlForDownload(presupuesto: PrintPresupuesto): string {
 
 async function capturePageToBlob(html: string): Promise<Blob> {
   const container = document.createElement('div');
-  container.style.cssText = 'position:absolute;left:-9999px;top:0;';
+  // position:fixed escapes overflow:hidden parents; width:800px matches popup viewport
+  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;z-index:-1;';
   container.innerHTML = html;
   document.body.appendChild(container);
   const el = container.firstElementChild as HTMLElement;
@@ -626,19 +627,24 @@ export async function downloadDeliveryNoteImage(presupuesto: PrintPresupuesto, b
   const isDualMode = modoPrecio === 'dual';
   const isDivisasOnly = ['divisa', 'divisas'].includes(modoPrecio);
 
-  if (isDualMode) {
-    const [bcvBlob, divisaBlob] = await Promise.all([
-      capturePageToBlob(buildBcvPageHtmlForDownload(presupuesto, bcvRate)),
-      capturePageToBlob(buildDivisaPageHtmlForDownload(presupuesto)),
-    ]);
-    triggerDownload(bcvBlob, `nota-bcv-${presupuesto.id}.png`);
-    await new Promise(r => setTimeout(r, 400));
-    triggerDownload(divisaBlob, `nota-divisa-${presupuesto.id}.png`);
-  } else if (isDivisasOnly) {
-    const blob = await capturePageToBlob(buildDivisaPageHtmlForDownload(presupuesto));
-    triggerDownload(blob, `nota-${presupuesto.id}.png`);
-  } else {
-    const blob = await capturePageToBlob(buildBcvPageHtmlForDownload(presupuesto, bcvRate));
-    triggerDownload(blob, `nota-${presupuesto.id}.png`);
+  try {
+    if (isDualMode) {
+      const [bcvBlob, divisaBlob] = await Promise.all([
+        capturePageToBlob(buildBcvPageHtmlForDownload(presupuesto, bcvRate)),
+        capturePageToBlob(buildDivisaPageHtmlForDownload(presupuesto)),
+      ]);
+      triggerDownload(bcvBlob, `nota-bcv-${presupuesto.id}.png`);
+      await new Promise(r => setTimeout(r, 400));
+      triggerDownload(divisaBlob, `nota-divisa-${presupuesto.id}.png`);
+    } else if (isDivisasOnly) {
+      const blob = await capturePageToBlob(buildDivisaPageHtmlForDownload(presupuesto));
+      triggerDownload(blob, `nota-${presupuesto.id}.png`);
+    } else {
+      const blob = await capturePageToBlob(buildBcvPageHtmlForDownload(presupuesto, bcvRate));
+      triggerDownload(blob, `nota-${presupuesto.id}.png`);
+    }
+  } catch (err) {
+    console.error('[downloadDeliveryNoteImage] Error:', err);
+    alert('Error al generar la imagen. Intenta de nuevo.');
   }
 }

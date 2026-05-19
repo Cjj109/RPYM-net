@@ -349,7 +349,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
       customerName: presupuesto.customerName,
       customerAddress: presupuesto.customerAddress,
     };
-    await downloadDeliveryNoteImage(printData, bcvRateValue);
+    await downloadDeliveryNoteImage(printData, bcvRateValue ?? undefined);
   };
 
   // Mapeo Presupuesto -> WhatsAppCardData (legacy modoPrecio inference)
