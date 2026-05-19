@@ -1182,6 +1182,22 @@ export default function AdminCustomers() {
     }
   };
 
+  const handleOpenExportFromList = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setTransactions([]);
+    setExportBalances({
+      divisas: customer.balanceDivisas,
+      bcv: customer.balanceBcv,
+      euro: customer.balanceEuro,
+    });
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' });
+    const timeStr = now.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
+    setExportDate(`${dateStr} ${timeStr}`);
+    setShowExportModal(true);
+    loadTransactions(customer.id);
+  };
+
   const handleGenerateShareToken = async () => {
     if (!selectedCustomer) return;
     setIsGeneratingToken(true);
@@ -2106,50 +2122,68 @@ export default function AdminCustomers() {
       ) : (
         <div className="space-y-2">
           {customers.map((customer) => (
-            <button
+            <div
               key={customer.id}
-              onClick={() => handleSelectCustomer(customer)}
-              className="w-full bg-white rounded-xl shadow-sm border border-ocean-100 p-4 text-left hover:border-ocean-300 transition-colors"
+              className="w-full bg-white rounded-xl shadow-sm border border-ocean-100 hover:border-ocean-300 transition-colors flex items-center"
             >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-ocean-900 text-base">{customer.name}</span>
-                    {customer.rateType === 'euro_bcv' && (
-                      <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">
-                        Euro BCV
-                      </span>
-                    )}
-                    {customer.rateType === 'manual' && (
-                      <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs rounded-full font-medium">
-                        Manual
-                      </span>
+              {/* Área principal — navega al detalle */}
+              <button
+                onClick={() => handleSelectCustomer(customer)}
+                className="flex-1 min-w-0 p-4 text-left"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-ocean-900 text-base">{customer.name}</span>
+                      {customer.rateType === 'euro_bcv' && (
+                        <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">
+                          Euro BCV
+                        </span>
+                      )}
+                      {customer.rateType === 'manual' && (
+                        <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs rounded-full font-medium">
+                          Manual
+                        </span>
+                      )}
+                    </div>
+                    {customer.phone && (
+                      <p className="text-xs text-ocean-500 mt-0.5">{customer.phone}</p>
                     )}
                   </div>
-                  {customer.phone && (
-                    <p className="text-xs text-ocean-500 mt-0.5">{customer.phone}</p>
-                  )}
-                </div>
 
-                <div className="text-right flex-shrink-0">
-                  {(() => {
-                    const totalBalance = customer.balanceDivisas + customer.balanceBcv + customer.balanceEuro;
-                    return (
-                      <>
-                        <p className={`font-semibold text-sm ${totalBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {formatUSD(totalBalance)}
-                        </p>
-                        {customer.balanceDivisas > 0 && customer.balanceBcv > 0 && (
-                          <p className="text-xs text-ocean-500">
-                            Div: {formatUSD(customer.balanceDivisas)} | BCV: {formatUSD(customer.balanceBcv)}
+                  <div className="text-right flex-shrink-0">
+                    {(() => {
+                      const totalBalance = customer.balanceDivisas + customer.balanceBcv + customer.balanceEuro;
+                      return (
+                        <>
+                          <p className={`font-semibold text-sm ${totalBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            {formatUSD(totalBalance)}
                           </p>
-                        )}
-                      </>
-                    );
-                  })()}
+                          {customer.balanceDivisas > 0 && customer.balanceBcv > 0 && (
+                            <p className="text-xs text-ocean-500">
+                              Div: {formatUSD(customer.balanceDivisas)} | BCV: {formatUSD(customer.balanceBcv)}
+                            </p>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
                 </div>
+              </button>
+
+              {/* Ícono exportar */}
+              <div className="pr-2 flex-shrink-0">
+                <button
+                  onClick={() => handleOpenExportFromList(customer)}
+                  className="p-2 text-ocean-400 hover:text-ocean-600 hover:bg-ocean-50 rounded-lg transition-colors"
+                  title="Guardar imagen / PDF"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                </button>
               </div>
-            </button>
+            </div>
           ))}
         </div>
       )}
@@ -3804,7 +3838,7 @@ export default function AdminCustomers() {
           >
             <button
               onClick={handleExportPng}
-              disabled={isExportingPng || isExportingPdf}
+              disabled={isExportingPng || isExportingPdf || isLoadingTx}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-semibold transition-colors"
             >
               {isExportingPng ? (
@@ -3818,7 +3852,7 @@ export default function AdminCustomers() {
             </button>
             <button
               onClick={handleExportPdf}
-              disabled={isExportingPng || isExportingPdf}
+              disabled={isExportingPng || isExportingPdf || isLoadingTx}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-semibold transition-colors"
             >
               {isExportingPdf ? (
@@ -3833,19 +3867,26 @@ export default function AdminCustomers() {
           </div>
 
           {/* Vista previa scrolleable */}
-          <div className="flex-1 overflow-y-auto bg-gray-100">
-            <div className="p-4 flex justify-center">
-              <div ref={exportRef} style={{ width: '640px', maxWidth: '100%' }}>
-                <EstadoCuentaExport
-                  customer={selectedCustomer}
-                  transactions={transactions}
-                  bcvRate={bcvRate ?? 0}
-                  dualView={dualView}
-                  adjustedBalances={exportBalances}
-                  generatedAt={exportDate}
-                />
+          <div className="flex-1 overflow-y-auto bg-gray-100 relative">
+            {isLoadingTx ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                <div className="w-8 h-8 border-2 border-ocean-200 border-t-ocean-600 rounded-full animate-spin" />
+                <p className="text-xs text-ocean-500 font-medium">Cargando movimientos...</p>
               </div>
-            </div>
+            ) : (
+              <div className="p-4 flex justify-center">
+                <div ref={exportRef} style={{ width: '640px', maxWidth: '100%' }}>
+                  <EstadoCuentaExport
+                    customer={selectedCustomer}
+                    transactions={transactions}
+                    bcvRate={bcvRate ?? 0}
+                    dualView={dualView}
+                    adjustedBalances={exportBalances}
+                    generatedAt={exportDate}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
