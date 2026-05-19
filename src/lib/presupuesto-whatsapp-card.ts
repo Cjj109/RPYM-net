@@ -170,6 +170,7 @@ export function openWhatsAppCardWindow(data: WhatsAppCardData, opts: WhatsAppCar
   const isDivisasOnly = ['divisa', 'divisas'].includes(data.modoPrecio || '');
   const colors = getThemeColors(isDivisasOnly);
   const bubbles = generateBubbles(data, opts);
+  const origin = window.location.origin;
 
   const waWindow = window.open('', '_blank', 'width=380,height=700,scrollbars=yes');
   if (!waWindow) {
@@ -181,7 +182,9 @@ export function openWhatsAppCardWindow(data: WhatsAppCardData, opts: WhatsAppCar
 <html>
 <head>
   <title>Presupuesto RPYM</title>
+  <base href="${origin}" />
   <meta name="viewport" content="width=320" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body {
@@ -190,30 +193,69 @@ export function openWhatsAppCardWindow(data: WhatsAppCardData, opts: WhatsAppCar
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 16px 0;
+      padding: 16px 0 80px;
     }
-    .close-btn {
+    #dl-toolbar {
       position: fixed;
       bottom: 20px;
-      right: 20px;
-      padding: 8px 20px;
-      background: #dc2626;
+      right: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 9999;
+    }
+    #dl-toolbar button {
+      padding: 8px 16px;
       color: white;
       border: none;
       border-radius: 8px;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
       cursor: pointer;
-      z-index: 9999;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
     }
-    .close-btn:hover { background: #b91c1c; }
     @media print { .no-print { display: none !important; } }
   </style>
 </head>
 <body>
-  <button class="close-btn no-print" onclick="window.close()">Cerrar</button>
-  ${bubbles}
+  <div class="no-print" id="dl-toolbar">
+    <button onclick="downloadImage('card-content','presupuesto-${data.id}.png')" style="background:#16a34a;">&#11015; Descargar imagen</button>
+    <button onclick="window.close()" style="background:#dc2626;">Cerrar</button>
+  </div>
+  <div id="card-content" style="padding:16px;background:${colors.bg};display:flex;flex-direction:column;align-items:center;">
+    ${bubbles}
+  </div>
+  <script>
+  async function downloadImage(elementId, filename) {
+    if (typeof html2canvas === 'undefined') {
+      alert('Cargando... Intenta nuevamente en un momento.');
+      return;
+    }
+    var toolbar = document.getElementById('dl-toolbar');
+    if (toolbar) toolbar.style.visibility = 'hidden';
+    try {
+      var el = document.getElementById(elementId);
+      if (!el) return;
+      var canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: null,
+        logging: false
+      });
+      var a = document.createElement('a');
+      a.download = filename;
+      a.href = canvas.toDataURL('image/png');
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch(err) {
+      alert('Error al generar imagen. Intenta de nuevo.');
+      console.error(err);
+    } finally {
+      if (toolbar) toolbar.style.visibility = '';
+    }
+  }
+  <\/script>
 </body>
 </html>`);
 
