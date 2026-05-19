@@ -2238,6 +2238,15 @@ export default function AdminCustomers() {
                 </svg>
               </button>
               <button
+                onClick={() => handleOpenExportModal({ divisas: displayDivisas, bcv: displayBcv, euro: displayEuro })}
+                className="p-2 text-ocean-600 hover:bg-ocean-50 rounded-lg transition-colors"
+                title="Guardar imagen / PDF"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+              </button>
+              <button
                 onClick={() => handleDeleteCustomer(selectedCustomer.id, selectedCustomer.name)}
                 className="p-2 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
                 title="Eliminar cliente"
@@ -2308,17 +2317,6 @@ export default function AdminCustomers() {
             </div>
           )}
         </div>
-
-        {/* Botón exportar estado de cuenta */}
-        <button
-          onClick={() => handleOpenExportModal({ divisas: displayDivisas, bcv: displayBcv, euro: displayEuro })}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-ocean-50 hover:bg-ocean-100 border border-ocean-200 text-ocean-700 rounded-xl text-sm font-medium transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-          Guardar imagen / PDF para WhatsApp
-        </button>
 
         {/* Botones de accion */}
         <div className="grid grid-cols-2 gap-3">
