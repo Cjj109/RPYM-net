@@ -1160,6 +1160,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
 <html>
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Comprobante de Retención IVA - ${comprobante.numero}</title>
   <style>
     * { box-sizing: border-box; }
@@ -1176,8 +1177,9 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
     /* Close button for Safari PWA */
     .close-btn {
       position: fixed;
-      bottom: 20px;
-      right: 20px;
+      top: 16px;
+      top: max(16px, calc(env(safe-area-inset-top, 0px) + 8px));
+      right: 16px;
       padding: 8px 16px;
       background: #dc2626;
       color: #fff;

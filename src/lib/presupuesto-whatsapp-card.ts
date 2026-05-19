@@ -183,7 +183,7 @@ export function openWhatsAppCardWindow(data: WhatsAppCardData, opts: WhatsAppCar
 <head>
   <title>Presupuesto RPYM</title>
   <base href="${origin}" />
-  <meta name="viewport" content="width=320" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
@@ -193,15 +193,22 @@ export function openWhatsAppCardWindow(data: WhatsAppCardData, opts: WhatsAppCar
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 16px 0 80px;
+      padding: 16px 0;
     }
     #dl-toolbar {
-      position: fixed;
-      bottom: 20px;
-      right: 16px;
+      position: -webkit-sticky;
+      position: sticky;
+      top: 0;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.97);
+      border-bottom: 1px solid #e2e8f0;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
+      justify-content: flex-end;
+      align-items: center;
       gap: 8px;
+      padding: 10px 16px;
       z-index: 9999;
     }
     #dl-toolbar button {
