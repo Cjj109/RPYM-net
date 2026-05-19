@@ -414,7 +414,7 @@ export function printDeliveryNote(presupuesto: PrintPresupuesto, bcvRate?: numbe
 <head>
   <title>Presupuesto - ${presupuesto.id}</title>
   <base href="${origin}" />
-  <meta name="viewport" content="width=800, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
@@ -427,7 +427,7 @@ export function printDeliveryNote(presupuesto: PrintPresupuesto, bcvRate?: numbe
   </style>
 </head>
 <body>
-  <div class="no-print" id="dl-toolbar" style="position:-webkit-sticky;position:sticky;top:0;width:100%;background:rgba(255,255,255,0.97);border-bottom:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,0.08);display:flex;flex-direction:row;justify-content:flex-end;align-items:center;gap:8px;padding:10px 16px;z-index:9999;">
+  <div class="no-print" id="dl-toolbar" style="position:-webkit-sticky;position:sticky;top:0;width:100%;background:rgba(255,255,255,0.97);border-bottom:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,0.08);display:flex;flex-direction:row;justify-content:flex-end;align-items:center;gap:8px;padding:10px 16px;padding-top:max(10px,env(safe-area-inset-top,0px));z-index:9999;">
     ${downloadBtns}
     <button onclick="window.close()" style="padding:8px 14px;background:#dc2626;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);">Cerrar</button>
   </div>

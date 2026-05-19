@@ -105,6 +105,7 @@ export function openCalcCardWindow(data: CalcCardData, baseUrl: string = ''): vo
       align-items: center;
       gap: 8px;
       padding: 10px 16px;
+      padding-top: max(10px, env(safe-area-inset-top, 0px));
       z-index: 9999;
     }
     #dl-toolbar button {

@@ -209,6 +209,7 @@ export function openWhatsAppCardWindow(data: WhatsAppCardData, opts: WhatsAppCar
       align-items: center;
       gap: 8px;
       padding: 10px 16px;
+      padding-top: max(10px, env(safe-area-inset-top, 0px));
       z-index: 9999;
     }
     #dl-toolbar button {
