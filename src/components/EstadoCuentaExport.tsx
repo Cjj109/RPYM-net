@@ -319,10 +319,8 @@ export default function EstadoCuentaExport({ customer, transactions, bcvRate, du
                       fontWeight: '600',
                       color: dimmed ? C.textMuted : C.text,
                       textDecoration: tx.isCrossed ? 'line-through' : 'none',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      maxWidth: '310px',
+                      whiteSpace: 'normal',
+                      wordBreak: 'break-word',
                     }}
                   >
                     {tx.description}
