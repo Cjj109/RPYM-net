@@ -3777,9 +3777,12 @@ export default function AdminCustomers() {
 
       {/* Modal exportación PNG/PDF */}
       {showExportModal && selectedCustomer && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black/60 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex flex-col bg-black/60">
           {/* Barra superior */}
-          <div className="bg-white border-b border-ocean-100 px-4 py-3 flex items-center justify-between flex-shrink-0">
+          <div
+            className="bg-white border-b border-ocean-100 px-4 py-3 flex items-center justify-between flex-shrink-0"
+            style={{ paddingTop: 'max(env(safe-area-inset-top), 12px)' }}
+          >
             <div>
               <h3 className="font-bold text-ocean-900 text-sm">Estado de cuenta</h3>
               <p className="text-xs text-ocean-400 mt-0.5">{selectedCustomer.name}</p>
@@ -3795,7 +3798,10 @@ export default function AdminCustomers() {
           </div>
 
           {/* Botones de descarga */}
-          <div className="bg-white border-b border-ocean-100 px-4 py-3 flex gap-2 flex-shrink-0">
+          <div
+            className="bg-white border-b border-ocean-100 px-4 flex gap-2 flex-shrink-0"
+            style={{ paddingTop: '12px', paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
+          >
             <button
               onClick={handleExportPng}
               disabled={isExportingPng || isExportingPdf}
