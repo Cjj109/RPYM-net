@@ -70,6 +70,12 @@ interface PasswordFormState {
   confirmPassword: string;
 }
 
+interface AIProviderOption {
+  id: string;
+  label: string;
+  available: boolean;
+}
+
 const THEMES: ThemeConfig[] = [
   {
     id: 'ocean',
@@ -153,6 +159,13 @@ export default function AdminSettings({ currentBcvRate }: Props) {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // AI provider config state
+  const [aiPrimary, setAiPrimary] = useState<string>('gemini');
+  const [aiFallback, setAiFallback] = useState<string>('claude');
+  const [aiProviders, setAiProviders] = useState<AIProviderOption[]>([]);
+  const [isSavingAI, setIsSavingAI] = useState(false);
+  const [aiMessage, setAiMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   // Load current config on mount
   useEffect(() => {
     const loadConfig = async () => {
@@ -172,6 +185,17 @@ export default function AdminSettings({ currentBcvRate }: Props) {
           setUseManualRate(data.manual);
           if (data.manual && data.rate) {
             setManualRate(data.rate.toString());
+          }
+        }
+
+        // Load AI provider config
+        const aiRes = await fetch('/api/config/ai-providers');
+        if (aiRes.ok) {
+          const aiData = await aiRes.json();
+          if (aiData.success) {
+            setAiPrimary(aiData.primary);
+            setAiFallback(aiData.fallback);
+            setAiProviders(aiData.providers || []);
           }
         }
       } catch (error) {
@@ -269,6 +293,32 @@ export default function AdminSettings({ currentBcvRate }: Props) {
       setRateMessage({ type: 'error', text: 'Error de conexion' });
     } finally {
       setIsSavingRate(false);
+    }
+  };
+
+  const handleSaveAI = async () => {
+    setIsSavingAI(true);
+    setAiMessage(null);
+    try {
+      const response = await fetch('/api/config/ai-providers', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ primary: aiPrimary, fallback: aiFallback })
+      });
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setAiMessage({
+          type: 'success',
+          text: 'Configuracion de IA guardada. Se aplicara en las proximas anotaciones.'
+        });
+      } else {
+        setAiMessage({ type: 'error', text: data.error || 'Error al guardar la configuracion de IA' });
+      }
+    } catch (error) {
+      setAiMessage({ type: 'error', text: 'Error de conexion' });
+    } finally {
+      setIsSavingAI(false);
     }
   };
 
@@ -555,6 +605,97 @@ export default function AdminSettings({ currentBcvRate }: Props) {
             text-white rounded-lg font-medium transition-colors flex items-center gap-2"
         >
           {isSavingRate ? (
+            <>
+              <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+              Guardando...
+            </>
+          ) : (
+            <>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Guardar Configuracion
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* AI Providers Section */}
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-ocean-100">
+        <h2 className="text-lg font-semibold text-ocean-900 mb-2 flex items-center gap-2">
+          <span className="text-2xl">🤖</span>
+          Inteligencia Artificial
+        </h2>
+        <p className="text-sm text-ocean-600 mb-4">
+          Elige que IA usar para la <strong>anotacion rapida</strong> (simple y con productos).
+          Si la principal falla, se usa la de respaldo automaticamente.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+          {/* IA principal */}
+          <div>
+            <label className="block text-sm font-medium text-ocean-700 mb-1">
+              IA principal
+            </label>
+            <select
+              value={aiPrimary}
+              onChange={(e) => setAiPrimary(e.target.value)}
+              className="w-full px-3 py-2.5 border border-ocean-200 rounded-lg
+                focus:ring-2 focus:ring-ocean-500 focus:border-transparent
+                bg-white text-ocean-900"
+            >
+              {aiProviders.map((p) => (
+                <option key={p.id} value={p.id} disabled={!p.available}>
+                  {p.label}{p.available ? '' : ' — sin key'}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* IA de respaldo */}
+          <div>
+            <label className="block text-sm font-medium text-ocean-700 mb-1">
+              IA de respaldo
+            </label>
+            <select
+              value={aiFallback}
+              onChange={(e) => setAiFallback(e.target.value)}
+              className="w-full px-3 py-2.5 border border-ocean-200 rounded-lg
+                focus:ring-2 focus:ring-ocean-500 focus:border-transparent
+                bg-white text-ocean-900"
+            >
+              {aiProviders.map((p) => (
+                <option key={p.id} value={p.id} disabled={!p.available}>
+                  {p.label}{p.available ? '' : ' — sin key'}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {aiPrimary === aiFallback && (
+          <div className="text-sm p-3 rounded-lg mb-4 bg-amber-50 text-amber-700 border border-amber-200">
+            La IA principal y la de respaldo son la misma. Elige proveedores distintos para tener un respaldo real.
+          </div>
+        )}
+
+        {aiMessage && (
+          <div className={`text-sm p-3 rounded-lg mb-4 ${
+            aiMessage.type === 'error'
+              ? 'bg-red-50 text-red-700 border border-red-200'
+              : 'bg-green-50 text-green-700 border border-green-200'
+          }`}>
+            {aiMessage.text}
+          </div>
+        )}
+
+        <button
+          onClick={handleSaveAI}
+          disabled={isSavingAI}
+          className="px-6 py-2.5 bg-ocean-600 hover:bg-ocean-500 disabled:bg-ocean-300
+            text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+        >
+          {isSavingAI ? (
             <>
               <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
               Guardando...

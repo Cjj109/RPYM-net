@@ -5,6 +5,8 @@
 
 export interface EnvVars {
   GEMINI_API_KEY?: string;
+  CLAUDE_API_KEY?: string;
+  OPENAI_API_KEY?: string;
   TELEGRAM_BOT_TOKEN?: string;
   WHATSAPP_ACCESS_TOKEN?: string;
   WHATSAPP_PHONE_NUMBER_ID?: string;
@@ -21,6 +23,8 @@ export function getEnv(locals?: App.Locals): EnvVars {
 
   return {
     GEMINI_API_KEY: env.GEMINI_API_KEY,
+    CLAUDE_API_KEY: env.CLAUDE_API_KEY,
+    OPENAI_API_KEY: env.OPENAI_API_KEY,
     TELEGRAM_BOT_TOKEN: env.TELEGRAM_BOT_TOKEN,
     WHATSAPP_ACCESS_TOKEN: env.WHATSAPP_ACCESS_TOKEN,
     WHATSAPP_PHONE_NUMBER_ID: env.WHATSAPP_PHONE_NUMBER_ID,
@@ -33,6 +37,20 @@ export function getEnv(locals?: App.Locals): EnvVars {
  */
 export function getGeminiApiKey(locals?: App.Locals): string | undefined {
   return getEnv(locals).GEMINI_API_KEY;
+}
+
+/**
+ * Obtiene CLAUDE_API_KEY (Anthropic — usada como fallback de IA)
+ */
+export function getClaudeApiKey(locals?: App.Locals): string | undefined {
+  return getEnv(locals).CLAUDE_API_KEY;
+}
+
+/**
+ * Obtiene OPENAI_API_KEY (ChatGPT — proveedor de IA intercambiable)
+ */
+export function getOpenaiApiKey(locals?: App.Locals): string | undefined {
+  return getEnv(locals).OPENAI_API_KEY;
 }
 
 /**

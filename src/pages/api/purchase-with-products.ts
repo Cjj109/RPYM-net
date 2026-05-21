@@ -1,7 +1,8 @@
 import type { APIRoute } from 'astro';
 import { requireAuth } from '../../lib/require-auth';
-import { getGeminiApiKey } from '../../lib/env';
-import { callGeminiWithRetry } from '../../lib/gemini-client';
+import { getEnv } from '../../lib/env';
+import { callAIWithFallback } from '../../lib/ai-fallback';
+import { getProviderOrder } from '../../lib/ai-config';
 
 export const prerender = false;
 
@@ -75,11 +76,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const { db } = auth;
 
   try {
-    const apiKey = getGeminiApiKey(locals);
+    const env = getEnv(locals);
+    const apiKeys = {
+      gemini: env.GEMINI_API_KEY,
+      claude: env.CLAUDE_API_KEY,
+      openai: env.OPENAI_API_KEY,
+    };
 
-    if (!apiKey) {
+    if (!apiKeys.gemini && !apiKeys.claude && !apiKeys.openai) {
       return new Response(JSON.stringify({
-        success: false, error: 'API key de Gemini no configurada'
+        success: false, error: 'API key de IA no configurada'
       }), { status: 500, headers: { 'Content-Type': 'application/json' } });
     }
 
@@ -243,23 +249,26 @@ Responde SOLO con un JSON valido:
   "unmatched": ["productos que no se pudieron identificar"]
 }`;
 
-    const geminiResult = await callGeminiWithRetry({
+    const providerOrder = await getProviderOrder(db);
+    const aiResult = await callAIWithFallback({
       systemPrompt,
       userMessage: text,
-      apiKey,
+      providerOrder,
+      apiKeys,
       temperature: 0.1,
       maxOutputTokens: 2048,
       jsonMode: true,
     });
 
-    if (!geminiResult.success) {
-      console.error('Error de API Gemini:', geminiResult.error);
+    if (!aiResult.success) {
+      console.error('Error de IA (anotación con productos):', aiResult.error);
       return new Response(JSON.stringify({
         success: false, error: 'Error al procesar. Intenta de nuevo.'
       }), { status: 500, headers: { 'Content-Type': 'application/json' } });
     }
 
-    const content = geminiResult.content;
+    console.log(`[purchase-with-products] Procesado con: ${aiResult.provider}`);
+    const content = aiResult.content;
 
     let parsed;
     try {
