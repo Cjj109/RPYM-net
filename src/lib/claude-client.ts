@@ -31,15 +31,16 @@ const RETRY_DELAY_MS = 1000;
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * Determina si un error es recuperable con retry
+ * Determina si un error es recuperable con retry.
+ * IMPORTANTE: 429 / rate_limit (límite de cuota) NO se reintenta — reintentar
+ * no resuelve la cuota y gasta más solicitudes. Se falla de inmediato para que
+ * el orquestador pase al siguiente proveedor.
  */
 function isRetryableError(status: number, errorText: string): boolean {
-  return status === 429 ||
-         status === 500 ||
+  return status === 500 ||
          status === 503 ||
          status === 529 || // Anthropic: "overloaded"
-         errorText.includes('overloaded') ||
-         errorText.includes('rate_limit');
+         errorText.includes('overloaded');
 }
 
 /**

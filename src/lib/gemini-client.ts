@@ -30,14 +30,15 @@ const RETRY_DELAY_MS = 1000;
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * Determina si un error es recuperable con retry
+ * Determina si un error es recuperable con retry.
+ * IMPORTANTE: 429 y RESOURCE_EXHAUSTED (límite de cuota) NO se reintentan —
+ * reintentar no resuelve la cuota y solo gasta más solicitudes. Ante esos
+ * errores se falla de inmediato para que el orquestador pase al siguiente proveedor.
  */
 function isRetryableError(status: number, errorText: string): boolean {
   return status === 503 ||
-         status === 429 ||
          errorText.includes('high demand') ||
-         errorText.includes('overloaded') ||
-         errorText.includes('RESOURCE_EXHAUSTED');
+         errorText.includes('overloaded');
 }
 
 /**
