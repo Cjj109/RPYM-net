@@ -964,16 +964,6 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
           </div>
         )}
 
-        {/* Nota - siempre visible */}
-        <div className="mt-2">
-          <input
-            type="text"
-            value={noteInput}
-            onChange={e => setNoteInput(e.target.value)}
-            placeholder="Nota opcional..."
-            className="w-full bg-white/70 rounded-lg px-2.5 py-1.5 text-xs border border-ocean-100 focus:border-ocean-300 focus:outline-none text-ocean-600 placeholder-ocean-300"
-          />
-        </div>
 
         {/* Total acumulado + botón agregar/actualizar */}
         {currentEntries.length > 0 && (
