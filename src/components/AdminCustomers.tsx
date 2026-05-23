@@ -1487,6 +1487,24 @@ export default function AdminCustomers() {
       let customerId = action.customerId;
 
       try {
+        // Fallback: si la IA no resolvió el cliente, buscar en la lista completa por nombre
+        if (!customerId && action.customerName?.trim()) {
+          const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+          const input = norm(action.customerName.trim());
+          const all = allCustomersRef.current;
+          const exact = all.find(c => norm(c.name) === input);
+          if (exact) {
+            customerId = exact.id;
+          } else {
+            const words = input.split(/\s+/).filter((w: string) => w.length > 0);
+            const partial = all.filter(c => {
+              const cn = norm(c.name);
+              return words.every((w: string) => cn.includes(w));
+            });
+            if (partial.length === 1) customerId = partial[0].id;
+          }
+        }
+
         // If customer doesn't exist, create them first
         if (!customerId) {
           const createCustomerRes = await fetch('/api/customers', {
@@ -1865,7 +1883,8 @@ export default function AdminCustomers() {
                       setAiProductAction(prev => prev ? { ...prev, customerId: null } : null);
                     } else {
                       const selectedId = Number(e.target.value);
-                      const selectedCustomer = customers.find(c => c.id === selectedId);
+                      const allCusts = allCustomersRef.current.length > 0 ? allCustomersRef.current : customers;
+                      const selectedCustomer = allCusts.find(c => c.id === selectedId);
                       setAiProductAction(prev => prev ? {
                         ...prev,
                         customerId: selectedId,
@@ -1875,7 +1894,7 @@ export default function AdminCustomers() {
                   }}
                 >
                   <option value="new">➕ Crear: "{aiProductAction.customerName}"</option>
-                  {customers.map(c => (
+                  {(allCustomersRef.current.length > 0 ? allCustomersRef.current : customers).map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
