@@ -52,6 +52,7 @@ export default function AdminCustomers() {
 
   // Estado lista de clientes
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const allCustomersRef = useRef<Customer[]>([]); // Lista completa, no afectada por el buscador
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -477,6 +478,7 @@ export default function AdminCustomers() {
 
       if (data.success) {
         setCustomers(data.customers);
+        if (!search) allCustomersRef.current = data.customers;
       } else {
         setError(data.error || 'Error al cargar clientes');
       }
@@ -1413,7 +1415,7 @@ export default function AdminCustomers() {
           body: JSON.stringify({
             text: aiText,
             products: productInfo,
-            customers: customers.map(c => ({ id: c.id, name: c.name })),
+            customers: (allCustomersRef.current.length > 0 ? allCustomersRef.current : customers).map(c => ({ id: c.id, name: c.name })),
             bcvRate: rate,
             pricingMode: aiPricingMode
           }),
@@ -1451,7 +1453,7 @@ export default function AdminCustomers() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text: aiText,
-            customers: customers.map(c => ({ id: c.id, name: c.name })),
+            customers: (allCustomersRef.current.length > 0 ? allCustomersRef.current : customers).map(c => ({ id: c.id, name: c.name })),
             recentPresupuestos
           }),
           credentials: 'include'
