@@ -37,12 +37,15 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
     let filtered = results.results;
     if (search) {
-      // Normalizar acentos para búsqueda insensible a tildes
-      const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const normalizedSearch = normalize(search);
-      filtered = filtered.filter(c =>
-        normalize((c as any).name || '').includes(normalizedSearch)
-      );
+      const normalize = (s: string) =>
+        s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+      // Busca cada palabra del término por separado (sin importar orden ni acentos).
+      // "chon fri" encuentra "Friteria Chon", "gomez deisy" encuentra "Deisy Gómez".
+      const searchWords = normalize(search).trim().split(/\s+/).filter(w => w.length > 0);
+      filtered = filtered.filter(c => {
+        const normalizedName = normalize((c as any).name || '');
+        return searchWords.every(word => normalizedName.includes(word));
+      });
     }
 
     return new Response(JSON.stringify({
