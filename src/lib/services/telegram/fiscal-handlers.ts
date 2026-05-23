@@ -117,16 +117,19 @@ REGLAS IMPORTANTES:
     }
 
     // Primera pasada: clasificar conceptos
+    // IVA/30 (Forma 30) = IVA neto propio; IVA/35 (Forma 35) = Retención IVA a proveedores
     const rawObligaciones = parsed.obligaciones.map((o: any) => {
       const label = String(o.impuesto || '').toUpperCase().trim();
       let concepto = 'iva_neto';
       if (label.includes('IGTF')) concepto = 'igtf';
       else if (label.includes('ISLR')) concepto = 'retencion_islr';
       else if (label.includes('SUMAT')) concepto = 'sumat';
+      else if (label.includes('IVA') && label.includes('35')) concepto = 'retencion_iva';
+      // IVA/30 o cualquier otra variante de IVA → iva_neto (default)
       return { concepto, label, o };
     });
 
-    // Si hay IVA neto → 1ER PAGO (retenciones Q2 del mes anterior + IVA mensual)
+    // Si hay IVA neto (IVA/30) → 1ER PAGO (retenciones Q2 del mes anterior + IVA mensual)
     // Si no hay IVA neto → 2DO PAGO (retenciones Q1 del mes actual)
     const esUnoPago = rawObligaciones.some(r => r.concepto === 'iva_neto');
     const tipoPagoRet: string = esUnoPago ? 'pago1' : 'pago2';
