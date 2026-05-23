@@ -94,8 +94,8 @@ REGLAS IMPORTANTES:
 - Incluye todas las filas de la tabla
 - Si NO es una imagen de Compromisos de Pago del SENIAT, responde: {"tipo": "otro"}`,
     apiKey: geminiApiKey,
-    model: 'gemini-2.0-flash',
-    jsonMode: true,
+    model: 'gemini-1.5-flash',
+    jsonMode: false,
     maxOutputTokens: 1024,
     inlineData: { mimeType, data: base64 },
   });
@@ -105,7 +105,8 @@ REGLAS IMPORTANTES:
   }
 
   try {
-    const parsed = JSON.parse(result.content);
+    const raw = result.content.replace(/```(?:json)?\s*/g, '').replace(/```/g, '').trim();
+    const parsed = JSON.parse(raw);
 
     if (parsed.tipo !== 'compromisos_pago' || !Array.isArray(parsed.obligaciones)) {
       return {
