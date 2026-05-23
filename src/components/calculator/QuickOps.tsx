@@ -95,6 +95,9 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
   const inputAreaRef = useRef<HTMLDivElement>(null);
   const queueAreaRef = useRef<HTMLDivElement>(null);
 
+  // Catálogo de productos para inferir unidades en el print
+  const productCatalogRef = useRef<{ normalized: string; unidad: string }[]>([]);
+
   // Refs para evitar closures obsoletos en el handler global
   const queueRef = useRef(queue);
   const selectedDispatcherRef = useRef(selectedDispatcher);
@@ -515,6 +518,23 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
     setDragOverIndex(null);
   }, [dragOverIndex, onQueueChange]);
 
+  // Cargar catálogo de productos una sola vez para inferir unidades en el print
+  useEffect(() => {
+    fetch('/api/products')
+      .then(r => r.json())
+      .then((data: any) => {
+        if (data.success && Array.isArray(data.products)) {
+          const normalize = (s: string) =>
+            s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+          productCatalogRef.current = data.products.map((p: any) => ({
+            normalized: normalize(p.nombre),
+            unidad: p.unidad || 'kg',
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // Sincronizar refs con estado/callbacks actuales
   useEffect(() => { queueRef.current = queue; }, [queue]);
   useEffect(() => { selectedDispatcherRef.current = selectedDispatcher; }, [selectedDispatcher]);
@@ -602,8 +622,28 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
     const refId = String(Math.floor(100000 + Math.random() * 900000));
 
     const cap = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
-    const inferUnit = (name: string) => {
-      const n = name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const normalize = (s: string) =>
+      s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const inferUnit = (name: string): string => {
+      const n = normalize(name);
+      const words = n.split(/\s+/).filter(w => w.length > 1);
+      if (words.length === 0) return 'kg';
+      // Buscar en catálogo: coincidencia por palabras (cada palabra del nombre existe en el producto o viceversa)
+      const matches = productCatalogRef.current.filter(p => {
+        const pWords = p.normalized.split(/\s+/);
+        return words.every(w => p.normalized.includes(w)) || pWords.every(w => n.includes(w));
+      });
+      if (matches.length > 0) {
+        // Si todas las coincidencias tienen la misma unidad, usarla
+        const units = [...new Set(matches.map(m => m.unidad))];
+        if (units.length === 1) return units[0];
+        // Si hay ambigüedad, preferir la coincidencia más específica (más palabras comunes)
+        const best = matches
+          .map(m => ({ m, score: m.normalized.split(/\s+/).filter(w => n.includes(w)).length }))
+          .sort((a, b) => b.score - a.score)[0];
+        return best.m.unidad;
+      }
+      // Fallback heurístico
       if (/camaron/.test(n) && !/vivito|vivo/.test(n)) return 'caja';
       return 'kg';
     };
