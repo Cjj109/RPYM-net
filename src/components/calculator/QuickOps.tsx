@@ -643,8 +643,6 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
           .sort((a, b) => b.score - a.score)[0];
         return best.m.unidad;
       }
-      // Fallback heurístico
-      if (/camaron/.test(n) && !/vivito|vivo/.test(n)) return 'caja';
       return 'kg';
     };
 
