@@ -600,22 +600,56 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
 
   const handlePrintItem = useCallback((item: QuickQueueItem) => {
     const refId = String(Math.floor(100000 + Math.random() * 900000));
+
+    const cap = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+    const inferUnit = (name: string) => {
+      const n = name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+      if (/camaron/.test(n) && !/vivito|vivo/.test(n)) return 'caja';
+      return 'kg';
+    };
+
     const printItems = item.entries.map(e => {
-      const text = e.note?.trim() || '';
-      let nombre = text || 'Varios';
-      let cantidad = 1;
-      let unidad = 'und';
-      // Detectar "Xkg nombre", "X kilo nombre", "X cajas nombre", etc.
-      const m = text.match(/^(\d+(?:[.,]\d+)?)\s*(kg|kilo|kilos?|caja|cajas|paquete|paquetes?|unidad|und|lt|litros?)\s*/i);
-      if (m) {
-        cantidad = parseFloat(m[1].replace(',', '.'));
-        const u = m[2].toLowerCase();
-        unidad = /^kg|kilo/.test(u) ? 'kg' : /^caja/.test(u) ? 'caja' : /^paquete/.test(u) ? 'paquete' : /^lt|litro/.test(u) ? 'lt' : 'und';
-        const rest = text.slice(m[0].length).trim().replace(/^de(?:l| la| los| las)?\s+/i, '');
-        nombre = rest ? rest.charAt(0).toUpperCase() + rest.slice(1) : nombre;
+      const note = e.note?.trim() || '';
+      const amtUSD = e.amountUSD;
+
+      // Estrategia 1: precio entre paréntesis — "pulpo (25)" o "pulpo (25/kg)"
+      const parenMatch = note.match(/^(.*?)\s*\(\s*(\d+(?:[.,]\d+)?)\s*(?:\/\s*(kg|caja|cajas|paquete|und|lt))?\s*\)\s*$/i);
+      if (parenMatch) {
+        const nombre = cap(parenMatch[1].trim()) || 'Varios';
+        const precioUSD = parseFloat(parenMatch[2].replace(',', '.'));
+        const uHint = parenMatch[3]?.toLowerCase();
+        const unidad = uHint
+          ? (/^kg/.test(uHint) ? 'kg' : /^caja/.test(uHint) ? 'caja' : /^paquete/.test(uHint) ? 'paquete' : /^lt/.test(uHint) ? 'lt' : 'und')
+          : inferUnit(nombre);
+        const cantidad = precioUSD > 0 ? Math.round((amtUSD / precioUSD) * 100) / 100 : 1;
+        return { nombre, cantidad, unidad, precioUSD, subtotalUSD: Math.round(amtUSD * 100) / 100 };
       }
-      const precioUSD = cantidad > 0 ? Math.round((e.amountUSD / cantidad) * 100) / 100 : e.amountUSD;
-      return { nombre, cantidad, unidad, precioUSD, subtotalUSD: Math.round(e.amountUSD * 100) / 100 };
+
+      // Estrategia 2: expresión de multiplicación A×B → cantidad=A, precio=B
+      const expr = e.expression?.trim() || '';
+      const multMatch = expr.match(/^(\d+(?:[.,]\d+)?)\s*[\*xX×]\s*(\d+(?:[.,]\d+)?)$/);
+      if (multMatch) {
+        const cantidad = parseFloat(multMatch[1].replace(',', '.'));
+        const precioUSD = parseFloat(multMatch[2].replace(',', '.'));
+        const nombre = note ? cap(note) : 'Varios';
+        return { nombre, cantidad, unidad: inferUnit(nombre), precioUSD, subtotalUSD: Math.round(amtUSD * 100) / 100 };
+      }
+
+      // Estrategia 3: cantidad+unidad al inicio de la nota — "1.72kg pulpo", "3 cajas camarón"
+      const quantUnitMatch = note.match(/^(\d+(?:[.,]\d+)?)\s*(kg|kilos?|caja|cajas|paquete|paquetes?|unidad|und|lt|litros?)\s*/i);
+      if (quantUnitMatch) {
+        const cantidad = parseFloat(quantUnitMatch[1].replace(',', '.'));
+        const u = quantUnitMatch[2].toLowerCase();
+        const unidad = /^kg|kilo/.test(u) ? 'kg' : /^caja/.test(u) ? 'caja' : /^paquete/.test(u) ? 'paquete' : /^lt/.test(u) ? 'lt' : 'und';
+        const rest = note.slice(quantUnitMatch[0].length).trim().replace(/^de(?:l| la| los| las)?\s+/i, '');
+        const nombre = rest ? cap(rest) : 'Varios';
+        const precioUSD = cantidad > 0 ? Math.round((amtUSD / cantidad) * 100) / 100 : amtUSD;
+        return { nombre, cantidad, unidad, precioUSD, subtotalUSD: Math.round(amtUSD * 100) / 100 };
+      }
+
+      // Estrategia 4: solo nombre sin información de cantidad
+      const nombre = note ? cap(note) : 'Varios';
+      return { nombre, cantidad: 1, unidad: inferUnit(nombre), precioUSD: Math.round(amtUSD * 100) / 100, subtotalUSD: Math.round(amtUSD * 100) / 100 };
     });
 
     const presupuesto: PrintPresupuesto = {
