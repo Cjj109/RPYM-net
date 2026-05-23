@@ -9,6 +9,7 @@ export interface SeniatObligation {
   periodo: string;          // "2026-05"
   concepto: string;         // "iva_neto" | "igtf" | "retencion_islr" | "sumat"
   tipo_pago: string;        // "pago1" | "pago2" | "sumat" | "otro"
+  quincena: number | null;  // 1 = 1-15, 2 = 16-fin, null = mensual
   monto_bs: number;
   numero_planilla: string | null;
   fecha_vencimiento: string | null; // "YYYY-MM-DD"
@@ -115,26 +116,43 @@ REGLAS IMPORTANTES:
       };
     }
 
-    const obligations: SeniatObligation[] = parsed.obligaciones.map((o: any) => {
+    // Primera pasada: clasificar conceptos
+    const rawObligaciones = parsed.obligaciones.map((o: any) => {
       const label = String(o.impuesto || '').toUpperCase().trim();
       let concepto = 'iva_neto';
-      let tipo_pago = 'pago1';
+      if (label.includes('IGTF')) concepto = 'igtf';
+      else if (label.includes('ISLR')) concepto = 'retencion_islr';
+      else if (label.includes('SUMAT')) concepto = 'sumat';
+      return { concepto, label, o };
+    });
 
-      if (label.includes('IGTF')) {
-        concepto = 'igtf';
+    // Si hay IVA neto → 1ER PAGO (retenciones Q2 del mes anterior + IVA mensual)
+    // Si no hay IVA neto → 2DO PAGO (retenciones Q1 del mes actual)
+    const esUnoPago = rawObligaciones.some(r => r.concepto === 'iva_neto');
+    const tipoPagoRet: string = esUnoPago ? 'pago1' : 'pago2';
+    const quincenaRet: number = esUnoPago ? 2 : 1;
+
+    const obligations: SeniatObligation[] = rawObligaciones.map(({ concepto, label, o }) => {
+      let tipo_pago: string;
+      let quincena: number | null;
+
+      if (concepto === 'iva_neto') {
         tipo_pago = 'pago1';
-      } else if (label.includes('ISLR')) {
-        concepto = 'retencion_islr';
-        tipo_pago = 'pago1';
-      } else if (label.includes('SUMAT')) {
-        concepto = 'sumat';
+        quincena = null; // IVA neto es mensual, no tiene quincena
+      } else if (concepto === 'sumat') {
         tipo_pago = 'sumat';
+        quincena = null;
+      } else {
+        // igtf, retencion_islr → dependen del tipo de pago detectado
+        tipo_pago = tipoPagoRet;
+        quincena = quincenaRet;
       }
 
       return {
         periodo: parsed.periodo,
         concepto,
         tipo_pago,
+        quincena,
         monto_bs: Number(o.monto_bs) || 0,
         numero_planilla: o.numero_documento ? String(o.numero_documento) : null,
         fecha_vencimiento: o.fecha_vencimiento || null,
@@ -156,7 +174,9 @@ const fmtBs = (n: number) =>
  */
 export function buildSeniatConfirmMsg(obligations: SeniatObligation[]): string {
   const periodo = obligations[0]?.periodo ?? '??';
-  let msg = `📋 *Compromisos SENIAT — ${periodo}*\n\n`;
+  const esUnoPago = obligations.some(o => o.concepto === 'iva_neto');
+  const tipoPagoLabel = esUnoPago ? '1er pago' : '2do pago';
+  let msg = `📋 *Compromisos SENIAT — ${periodo}* (${tipoPagoLabel})\n\n`;
 
   for (const o of obligations) {
     msg += `• *${o.impuesto_label}*: Bs. ${fmtBs(o.monto_bs)}`;
@@ -183,12 +203,13 @@ export async function registerSeniatObligations(
       const fechaPago = o.fecha_vencimiento ?? new Date().toISOString().split('T')[0];
       await db.prepare(`
         INSERT INTO fiscal_pagos_seniat
-          (periodo, tipo_pago, concepto, fecha_pago, monto, numero_planilla, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+          (periodo, tipo_pago, concepto, quincena, fecha_pago, monto, numero_planilla, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
         o.periodo,
         o.tipo_pago,
         o.concepto,
+        o.quincena,
         fechaPago,
         o.monto_bs,
         o.numero_planilla,
