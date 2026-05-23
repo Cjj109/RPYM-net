@@ -12,6 +12,7 @@ export interface CalcCardData {
   totalBs: number;
   activeRate: number;
   refId: string;
+  hideBs?: boolean;
 }
 
 function generateBubble(data: CalcCardData, baseUrl: string): string {
@@ -42,7 +43,7 @@ function generateBubble(data: CalcCardData, baseUrl: string): string {
         <span style="font-size:14px;font-weight:600;color:#0369a1;">Total USD</span>
         <span style="font-size:20px;font-weight:800;color:#0c4a6e;">${data.totalUSD < 0 ? '-' : ''}${formatUSD(Math.abs(data.totalUSD))}</span>
       </div>
-      ${data.activeRate > 0 ? `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px;">
+      ${data.activeRate > 0 && !data.hideBs ? `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px;">
         <span style="font-size:12px;color:#0369a1;">Total Bs.</span>
         <span style="font-size:15px;font-weight:700;color:#ea580c;">${data.totalBs < 0 ? '-' : ''}${formatBs(Math.abs(data.totalBs))}</span>
       </div>` : ''}

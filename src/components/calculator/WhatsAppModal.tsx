@@ -24,9 +24,10 @@ export function WhatsAppModal({ entries, clientName, totalUSD, totalBs, activeRa
   const captureRef = useRef<HTMLDivElement>(null);
 
   const [refId] = useState(() => String(Math.floor(100000 + Math.random() * 900000)));
+  const [hideBs, setHideBs] = useState(false);
 
   const resolvedName = nameInput.trim() || 'Cliente';
-  const cardData = { entries, clientName: resolvedName, totalUSD, totalBs, activeRate, refId };
+  const cardData = { entries, clientName: resolvedName, totalUSD, totalBs, activeRate, refId, hideBs };
 
   const handlePreview = () => {
     openCalcCardWindow(cardData, window.location.origin);
@@ -134,7 +135,21 @@ export function WhatsAppModal({ entries, clientName, totalUSD, totalBs, activeRa
               <p className="text-xs text-gray-500">{entries.length} producto{entries.length !== 1 ? 's' : ''}</p>
               <p className="text-lg font-bold text-green-600 mt-1">{totalUSD < 0 ? '-' : ''}{formatUSD(Math.abs(totalUSD))}</p>
               {activeRate > 0 && (
-                <p className="text-sm font-semibold text-orange-500">{totalBs < 0 ? '-' : ''}{formatBs(Math.abs(totalBs))}</p>
+                <div className="flex items-center justify-between mt-1">
+                  {!hideBs && (
+                    <p className="text-sm font-semibold text-orange-500">{totalBs < 0 ? '-' : ''}{formatBs(Math.abs(totalBs))}</p>
+                  )}
+                  <button
+                    onClick={() => setHideBs(v => !v)}
+                    className={`ml-auto flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full transition-colors ${
+                      hideBs
+                        ? 'bg-orange-100 text-orange-600 hover:bg-orange-200'
+                        : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
+                    }`}
+                  >
+                    <span>{hideBs ? 'Bs. oculto' : 'Ocultar Bs.'}</span>
+                  </button>
+                </div>
               )}
             </div>
 
