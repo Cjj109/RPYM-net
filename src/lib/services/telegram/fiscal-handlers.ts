@@ -94,7 +94,6 @@ REGLAS IMPORTANTES:
 - Incluye todas las filas de la tabla
 - Si NO es una imagen de Compromisos de Pago del SENIAT, responde: {"tipo": "otro"}`,
     apiKey: geminiApiKey,
-    model: 'gemini-1.5-flash',
     jsonMode: false,
     maxOutputTokens: 1024,
     inlineData: { mimeType, data: base64 },
