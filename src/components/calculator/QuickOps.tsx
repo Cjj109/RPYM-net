@@ -835,11 +835,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
               }
             }}
             placeholder="0.00"
-            className={`flex-1 rounded-lg px-3 py-2.5 text-xl font-semibold border-2 focus:outline-none font-mono transition-colors ${
-              inputCurrency === 'USD'
-                ? 'bg-emerald-50 border-emerald-200 focus:border-emerald-400 text-emerald-900'
-                : 'bg-blue-50 border-blue-200 focus:border-blue-400 text-blue-900'
-            }`}
+            className="flex-1 bg-white rounded-lg px-3 py-2.5 text-xl font-semibold border border-ocean-100 focus:border-ocean-300 focus:outline-none font-mono text-ocean-900"
           />
           <button
             onClick={addAmount}
