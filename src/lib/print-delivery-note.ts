@@ -130,7 +130,7 @@ function buildBcvPage(presupuesto: PrintPresupuesto, bcvRate: number | undefined
           <span style="color:#0369a1;font-weight:600;">Total USD:</span>
           <span style="font-weight:800;color:#0c4a6e;">${formatUSD(presupuesto.totalUSD)}</span>
         </div>
-        ${!hideRateOnly ? `<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;border-top:1px solid #7dd3fc;padding-top:4px;">
+        ${!hideRateOnly ? `<div class="bs-toggle-row" style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;border-top:1px solid #7dd3fc;padding-top:4px;">
           <span style="color:#0369a1;">Total Bs.:</span>
           <span style="font-weight:700;color:#ea580c;">${formatBs(bcvRate ? presupuesto.totalUSD * bcvRate : presupuesto.totalBs)}</span>
         </div>` : ''}
@@ -291,6 +291,11 @@ export function printDeliveryNote(presupuesto: PrintPresupuesto, bcvRate?: numbe
   const showBcvPage = !isDivisasOnly;
   const showDivisaPage = isDualMode || isDivisasOnly;
 
+  const hideRateOnly = presupuesto.hideRate === true;
+  const bsToggleBtn = (!hideRateOnly && showBcvPage)
+    ? `<button id="btn-bs-toggle" onclick="toggleBs()" style="padding:8px 14px;background:#ea580c;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);">Ocultar Bs.</button>`
+    : '';
+
   const downloadBtns = isDualMode
     ? `<button onclick="downloadImage('page-bcv','presupuesto-bcv-${presupuesto.id}.png')" style="padding:8px 14px;background:#0369a1;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);">&#11015; Imagen BCV</button>
        <button onclick="downloadImage('page-divisa','presupuesto-divisa-${presupuesto.id}.png')" style="padding:8px 14px;background:#d97706;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);">&#11015; Imagen Divisa</button>`
@@ -334,10 +339,12 @@ export function printDeliveryNote(presupuesto: PrintPresupuesto, bcvRate?: numbe
       z-index: 0;
       color: rgba(14, 165, 233, 0.06);
     }
+    .hide-bs .bs-toggle-row { display: none !important; }
   </style>
 </head>
 <body>
   <div class="no-print" id="dl-toolbar" style="position:-webkit-sticky;position:sticky;top:0;width:100%;background:rgba(255,255,255,0.97);border-bottom:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,0.08);display:flex;flex-direction:row;justify-content:flex-end;align-items:center;gap:8px;padding:10px 16px;padding-top:max(10px,env(safe-area-inset-top,0px));z-index:9999;">
+    ${bsToggleBtn}
     ${downloadBtns}
     <button onclick="window.close()" style="padding:8px 14px;background:#dc2626;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);">Cerrar</button>
   </div>
@@ -346,6 +353,11 @@ export function printDeliveryNote(presupuesto: PrintPresupuesto, bcvRate?: numbe
   ${showDivisaPage ? buildDivisaPage(presupuesto, isDualMode) : ''}
 
   <script>
+  function toggleBs() {
+    document.body.classList.toggle('hide-bs');
+    var btn = document.getElementById('btn-bs-toggle');
+    if (btn) btn.textContent = document.body.classList.contains('hide-bs') ? 'Mostrar Bs.' : 'Ocultar Bs.';
+  }
   async function downloadImage(elementId, filename) {
     if (typeof html2canvas === 'undefined') {
       alert('Cargando libreria... Intenta nuevamente en un momento.');
