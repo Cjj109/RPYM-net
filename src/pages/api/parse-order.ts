@@ -513,13 +513,27 @@ INSTRUCCIONES:
       if (matchCorrection) {
         item = { ...item, productId: matchCorrection.id, productName: matchCorrection.nombre, unit: matchCorrection.unidad };
       }
-      // Si usuario dijo "caja" explícitamente, forzar unit: caja
+      // Siempre sincronizar la unidad con el catálogo del producto matcheado.
+      // Evita que Gemini "contamine" la unidad con la de otro producto de nombre similar
+      // (ej: "4kg camarón vivito" heredaba unit:"caja" del "camarón 51/70" procesado antes).
+      const catalogProduct = products.find((p: ProductInfo) => String(p.id) === String(item.productId));
+      if (catalogProduct) {
+        item = { ...item, unit: catalogProduct.unidad };
+      }
+      // Si usuario dijo "caja" explícitamente, forzar unit: caja (override sobre la unidad del catálogo)
       if (/\bcaja\b/i.test(item.requestedName || '') && item.unit !== 'caja') {
         item = { ...item, unit: 'caja' };
       }
 
       const product = products.find((p: any) => String(p.id) === String(item.productId));
       if (!product || product.precioUSD <= 0) return item;
+
+      // Siempre forzar la unidad canónica del producto encontrado en el catálogo.
+      // Esto evita que la IA herede la unidad del item anterior en su respuesta JSON.
+      // Excepción: si el usuario dijo "caja" explícitamente, ese override ya se aplicó arriba.
+      if (!/\bcaja\b/i.test(item.requestedName || '')) {
+        item = { ...item, unit: product.unidad };
+      }
 
       let dollarAmount = item.dollarAmount && item.dollarAmount > 0 ? item.dollarAmount : null;
 
