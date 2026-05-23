@@ -611,7 +611,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
         cantidad = parseFloat(m[1].replace(',', '.'));
         const u = m[2].toLowerCase();
         unidad = /^kg|kilo/.test(u) ? 'kg' : /^caja/.test(u) ? 'caja' : /^paquete/.test(u) ? 'paquete' : /^lt|litro/.test(u) ? 'lt' : 'und';
-        const rest = text.slice(m[0].length).trim();
+        const rest = text.slice(m[0].length).trim().replace(/^de(?:l| la| los| las)?\s+/i, '');
         nombre = rest ? rest.charAt(0).toUpperCase() + rest.slice(1) : nombre;
       }
       const precioUSD = cantidad > 0 ? Math.round((e.amountUSD / cantidad) * 100) / 100 : e.amountUSD;
