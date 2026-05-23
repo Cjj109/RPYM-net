@@ -765,16 +765,30 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
       <div className={`rounded-xl p-3 transition-all ${dispatcherInfo?.bg ?? 'bg-ocean-50'} ${editingQueueId ? 'ring-2 ring-amber-300' : ''}`}>
         {/* Input de monto */}
         <div className="flex items-stretch gap-2">
-          <button
-            onClick={() => setInputCurrency(prev => prev === 'USD' ? 'Bs' : 'USD')}
-            className={`shrink-0 px-3 py-2.5 rounded-lg text-sm font-bold transition-colors ${
-              inputCurrency === 'USD'
-                ? 'bg-emerald-100 text-emerald-700'
-                : 'bg-blue-100 text-blue-700'
-            }`}
-          >
-            {inputCurrency === 'USD' ? '$' : 'Bs'}
-          </button>
+          {/* Pill toggle $ / Bs */}
+          <div className="shrink-0 flex rounded-lg overflow-hidden border-2 border-ocean-100 bg-white">
+            <button
+              onClick={() => setInputCurrency('USD')}
+              className={`px-2.5 py-2 text-sm font-bold transition-colors ${
+                inputCurrency === 'USD'
+                  ? 'bg-emerald-500 text-white'
+                  : 'text-ocean-300 hover:text-ocean-500'
+              }`}
+            >
+              $
+            </button>
+            <div className="w-px bg-ocean-100" />
+            <button
+              onClick={() => setInputCurrency('Bs')}
+              className={`px-2.5 py-2 text-sm font-bold transition-colors ${
+                inputCurrency === 'Bs'
+                  ? 'bg-blue-500 text-white'
+                  : 'text-ocean-300 hover:text-ocean-500'
+              }`}
+            >
+              Bs
+            </button>
+          </div>
           <input
             ref={inputRef}
             type="text"
@@ -821,7 +835,11 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
               }
             }}
             placeholder="0.00"
-            className="flex-1 bg-white rounded-lg px-3 py-2.5 text-xl font-semibold border border-ocean-100 focus:border-ocean-300 focus:outline-none font-mono text-ocean-900"
+            className={`flex-1 rounded-lg px-3 py-2.5 text-xl font-semibold border-2 focus:outline-none font-mono transition-colors ${
+              inputCurrency === 'USD'
+                ? 'bg-emerald-50 border-emerald-200 focus:border-emerald-400 text-emerald-900'
+                : 'bg-blue-50 border-blue-200 focus:border-blue-400 text-blue-900'
+            }`}
           />
           <button
             onClick={addAmount}
