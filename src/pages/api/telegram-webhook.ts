@@ -34,6 +34,12 @@ import {
   createCustomerPurchaseWithProducts,
   type BudgetEdit,
 } from '../../lib/services/telegram/budget-handlers';
+import {
+  downloadTelegramPhoto,
+  analyzeSeniatPhoto,
+  buildSeniatConfirmMsg,
+  registerSeniatObligations,
+} from '../../lib/services/telegram/fiscal-handlers';
 
 export const prerender = false;
 
@@ -369,10 +375,10 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
   try {
     const body = await request.json();
     const message = body.message;
-    if (!message?.text) return new Response('OK', { status: 200 });
+    const hasPhoto = Array.isArray(message?.photo) && message.photo.length > 0;
+    if (!message?.text && !hasPhoto) return new Response('OK', { status: 200 });
 
     const chatId = message.chat.id;
-    const text = message.text.trim();
     const runtime = (locals as any).runtime;
     const botToken = runtime?.env?.TELEGRAM_BOT_TOKEN || import.meta.env.TELEGRAM_BOT_TOKEN;
     const geminiApiKey = runtime?.env?.GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY;
@@ -386,6 +392,40 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
 
     const adminName = ADMIN_NAMES[chatId] || 'Admin';
     const db = getD1(locals);
+
+    // ═══════════════════════════════════════════════════════════════
+    // FOTOS — capturas fiscales (SENIAT, comprobantes, etc.)
+    // ═══════════════════════════════════════════════════════════════
+    if (hasPhoto) {
+      const photos = message.photo;
+      const largest = photos[photos.length - 1]; // Telegram ordena de menor a mayor resolución
+      const caption = message.caption?.trim() ?? '';
+
+      await sendTelegramMessage(chatId, '🔍 Analizando imagen...', botToken);
+
+      const imageData = await downloadTelegramPhoto(largest.file_id, botToken);
+      if (!imageData) {
+        await sendTelegramMessage(chatId, '❌ No pude descargar la imagen. Intenta de nuevo.', botToken);
+        return new Response('OK', { status: 200 });
+      }
+
+      const parseResult = await analyzeSeniatPhoto(imageData.base64, imageData.mimeType, geminiApiKey);
+      if (!parseResult.success || parseResult.obligations.length === 0) {
+        await sendTelegramMessage(
+          chatId,
+          `❌ ${parseResult.error ?? 'No reconocí un Compromiso de Pago del SENIAT en esta imagen.'}`,
+          botToken
+        );
+        return new Response('OK', { status: 200 });
+      }
+
+      const confirmMsg = buildSeniatConfirmMsg(parseResult.obligations);
+      await savePendingConfirmation(db, chatId, 'fiscal_seniat', { obligations: parseResult.obligations });
+      await sendTelegramMessage(chatId, confirmMsg, botToken);
+      return new Response('OK', { status: 200 });
+    }
+
+    const text = message.text.trim();
 
     // Comandos directos
     if (text === '/start') {
@@ -424,6 +464,8 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
           }
         } else if (intent === 'budget_action' && params.action === 'eliminar' && params.id) {
           response = await deleteBudget(db, params.id);
+        } else if (intent === 'fiscal_seniat' && params.obligations) {
+          response = await registerSeniatObligations(db, params.obligations);
         }
 
         if (response) {
