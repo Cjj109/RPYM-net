@@ -6,6 +6,8 @@ import type { QuickOpEntry, QuickQueueItem, SavedSession } from './types';
 import { PlusIcon, CloseIcon, TrashIcon, PencilIcon, WhatsAppIcon, SnowflakeIcon } from './icons';
 import { WhatsAppModal } from './WhatsAppModal';
 import type { CalcEntry } from './types';
+import { printDeliveryNote } from '../../lib/print-delivery-note';
+import type { PrintPresupuesto } from '../../lib/print-delivery-note';
 
 interface QuickOpsProps {
   activeRate: number;
@@ -596,6 +598,40 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
   const previewUSD = inputCurrency === 'USD' ? parsedAmount : (activeRate ? parsedAmount / activeRate : 0);
   const previewBs = inputCurrency === 'USD' ? (activeRate ? parsedAmount * activeRate : 0) : parsedAmount;
 
+  const handlePrintItem = useCallback((item: QuickQueueItem) => {
+    const refId = String(Math.floor(100000 + Math.random() * 900000));
+    const printItems = item.entries.map(e => {
+      const text = e.note?.trim() || '';
+      let nombre = text || 'Varios';
+      let cantidad = 1;
+      let unidad = 'und';
+      // Detectar "Xkg nombre", "X kilo nombre", "X cajas nombre", etc.
+      const m = text.match(/^(\d+(?:[.,]\d+)?)\s*(kg|kilo|kilos?|caja|cajas|paquete|paquetes?|unidad|und|lt|litros?)\s*/i);
+      if (m) {
+        cantidad = parseFloat(m[1].replace(',', '.'));
+        const u = m[2].toLowerCase();
+        unidad = /^kg|kilo/.test(u) ? 'kg' : /^caja/.test(u) ? 'caja' : /^paquete/.test(u) ? 'paquete' : /^lt|litro/.test(u) ? 'lt' : 'und';
+        const rest = text.slice(m[0].length).trim();
+        nombre = rest ? rest.charAt(0).toUpperCase() + rest.slice(1) : nombre;
+      }
+      const precioUSD = cantidad > 0 ? Math.round((e.amountUSD / cantidad) * 100) / 100 : e.amountUSD;
+      return { nombre, cantidad, unidad, precioUSD, subtotalUSD: Math.round(e.amountUSD * 100) / 100 };
+    });
+
+    const presupuesto: PrintPresupuesto = {
+      id: `Q-${refId}`,
+      fecha: new Date().toISOString(),
+      items: printItems,
+      totalUSD: item.totalUSD,
+      totalBs: item.totalBs,
+      hideRate: item.rate <= 0,
+      estado: 'pendiente',
+      customerName: item.note || '',
+      modoPrecio: 'bcv',
+    };
+    printDeliveryNote(presupuesto, item.rate > 0 ? item.rate : undefined);
+  }, []);
+
   return (
     <div className="space-y-3">
       {/* Selector de repartidor */}
@@ -1053,6 +1089,17 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                           </button>
                         );
                       })()}
+
+                      {/* Print */}
+                      <button
+                        onClick={e => { e.stopPropagation(); handlePrintItem(item); }}
+                        className={`transition-colors p-0.5 shrink-0 ${displayMode === 'vero' ? `${disp?.text ?? 'text-emerald-700'} opacity-40 hover:opacity-90` : 'text-ocean-300 hover:text-blue-500'}`}
+                        title="Generar hoja de presupuesto"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                        </svg>
+                      </button>
 
                       {/* WhatsApp */}
                       <button
