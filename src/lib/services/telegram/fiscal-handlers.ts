@@ -122,10 +122,10 @@ REGLAS IMPORTANTES:
 
       if (label.includes('IGTF')) {
         concepto = 'igtf';
-        tipo_pago = 'pago2';
+        tipo_pago = 'pago1';
       } else if (label.includes('ISLR')) {
         concepto = 'retencion_islr';
-        tipo_pago = 'otro';
+        tipo_pago = 'pago1';
       } else if (label.includes('SUMAT')) {
         concepto = 'sumat';
         tipo_pago = 'sumat';

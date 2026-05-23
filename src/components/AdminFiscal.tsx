@@ -410,7 +410,8 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
 
   const getPago = (tipoPago: TipoPagoSeniat, concepto: ConceptoPago, quincena?: number | null): FiscalPagoSeniat | undefined => {
     return dashboardData?.pagosSeniat?.find(p =>
-      p.tipoPago === tipoPago && p.concepto === concepto && (quincena == null ? true : p.quincena === quincena)
+      p.tipoPago === tipoPago && p.concepto === concepto &&
+      (quincena == null || p.quincena == null || p.quincena === quincena)
     );
   };
 
