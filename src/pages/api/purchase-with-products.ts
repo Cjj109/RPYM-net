@@ -374,8 +374,13 @@ Responde SOLO con un JSON valido:
         // no en todo el texto (evita asignar 'caja' a productos que no la mencionan)
         if (words.length > 0) {
           const segments = normalizedText.split(/,|\s+y\s+/);
-          const productSegment = segments.find(seg => words.some(w => seg.includes(w)));
-          if (productSegment && /\b(?:caja|cajas|cj)\b/i.test(productSegment)) return 'caja';
+          // Usar el segmento con MÁS palabras del producto en común (evita tomar un segmento de
+          // otro producto con nombre similar, ej: "cajas de camarón 51/60" vs "camarón vivito")
+          const bestSegment = segments
+            .map(seg => ({ seg, score: words.filter(w => seg.includes(w)).length }))
+            .filter(s => s.score > 0)
+            .sort((a, b) => b.score - a.score)[0]?.seg;
+          if (bestSegment && /\b(?:caja|cajas|cj)\b/i.test(bestSegment)) return 'caja';
         }
         // Buscar patrón: "Xkg productoNombre" o "X kg productoNombre"
         for (const word of words) {
