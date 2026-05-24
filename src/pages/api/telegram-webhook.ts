@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getBCVRate } from '../../lib/sheets';
-import { getD1 } from '../../lib/d1-types';
+import { getD1, getR2 } from '../../lib/d1-types';
 import { detectIntent, parseCustomerActions, type CustomerAction, type AlternativeIntent, type RouterResult } from '../../lib/telegram-ai';
 import { AUTHORIZED_CHAT_IDS, ADMIN_NAMES } from '../../lib/services/telegram/config';
 import {
@@ -39,6 +39,7 @@ import {
   analyzeSeniatPhoto,
   buildSeniatConfirmMsg,
   registerSeniatObligations,
+  uploadSeniatImageToR2,
 } from '../../lib/services/telegram/fiscal-handlers';
 
 export const prerender = false;
@@ -397,9 +398,17 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     // FOTOS — capturas fiscales (SENIAT, comprobantes, etc.)
     // ═══════════════════════════════════════════════════════════════
     if (hasPhoto) {
-      const photos = message.photo;
-      const largest = photos[photos.length - 1]; // Telegram ordena de menor a mayor resolución
+      const photos = message.photo as Array<{ file_id: string; file_size?: number; width?: number }>;
+      // Seleccionar la foto de mayor tamaño explícitamente (no asumir orden)
+      const largest = photos.reduce((max, p) =>
+        ((p.file_size ?? p.width ?? 0) > (max.file_size ?? max.width ?? 0) ? p : max)
+      );
       const caption = message.caption?.trim() ?? '';
+
+      if (!largest?.file_id) {
+        await sendTelegramMessage(chatId, '❌ No pude leer el archivo de la foto.', botToken);
+        return new Response('OK', { status: 200 });
+      }
 
       await sendTelegramMessage(chatId, '🔍 Analizando imagen...', botToken);
 
@@ -409,7 +418,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
         return new Response('OK', { status: 200 });
       }
 
-      const parseResult = await analyzeSeniatPhoto(imageData.base64, imageData.mimeType, geminiApiKey);
+      const parseResult = await analyzeSeniatPhoto(imageData.base64, imageData.mimeType, geminiApiKey, caption);
       if (!parseResult.success || parseResult.obligations.length === 0) {
         await sendTelegramMessage(
           chatId,
@@ -419,8 +428,15 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
         return new Response('OK', { status: 200 });
       }
 
+      // Subir imagen a R2 como evidencia (no bloqueante: si falla, seguimos sin image_key)
+      const r2 = getR2(locals);
+      const imageKey = await uploadSeniatImageToR2(r2, imageData.buffer, imageData.mimeType);
+
       const confirmMsg = buildSeniatConfirmMsg(parseResult.obligations);
-      await savePendingConfirmation(db, chatId, 'fiscal_seniat', { obligations: parseResult.obligations });
+      await savePendingConfirmation(db, chatId, 'fiscal_seniat', {
+        obligations: parseResult.obligations,
+        imageKey,
+      });
       await sendTelegramMessage(chatId, confirmMsg, botToken);
       return new Response('OK', { status: 200 });
     }
@@ -465,7 +481,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
         } else if (intent === 'budget_action' && params.action === 'eliminar' && params.id) {
           response = await deleteBudget(db, params.id);
         } else if (intent === 'fiscal_seniat' && params.obligations) {
-          response = await registerSeniatObligations(db, params.obligations);
+          response = await registerSeniatObligations(db, params.obligations, params.imageKey ?? null);
         }
 
         if (response) {

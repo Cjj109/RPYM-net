@@ -8,6 +8,8 @@ import { WhatsAppModal } from './WhatsAppModal';
 import type { CalcEntry } from './types';
 import { printDeliveryNote } from '../../lib/print-delivery-note';
 import type { PrintPresupuesto } from '../../lib/print-delivery-note';
+import { loadProductCatalog, inferUnitFromCatalog, type CatalogEntry } from '../../lib/product-catalog-cache';
+import { parsePrintEntry } from '../../lib/quickops-print-parser';
 
 interface QuickOpsProps {
   activeRate: number;
@@ -95,8 +97,8 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
   const inputAreaRef = useRef<HTMLDivElement>(null);
   const queueAreaRef = useRef<HTMLDivElement>(null);
 
-  // Catálogo de productos para inferir unidades en el print
-  const productCatalogRef = useRef<{ normalized: string; unidad: string }[]>([]);
+  // Catálogo de productos para inferir unidades en el print (cacheado a nivel módulo)
+  const productCatalogRef = useRef<CatalogEntry[]>([]);
 
   // Refs para evitar closures obsoletos en el handler global
   const queueRef = useRef(queue);
@@ -518,21 +520,9 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
     setDragOverIndex(null);
   }, [dragOverIndex, onQueueChange]);
 
-  // Cargar catálogo de productos una sola vez para inferir unidades en el print
+  // Catálogo cacheado a nivel módulo (15 min TTL, dedupe de requests)
   useEffect(() => {
-    fetch('/api/products')
-      .then(r => r.json())
-      .then((data: any) => {
-        if (data.success && Array.isArray(data.products)) {
-          const normalize = (s: string) =>
-            s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-          productCatalogRef.current = data.products.map((p: any) => ({
-            normalized: normalize(p.nombre),
-            unidad: p.unidad || 'kg',
-          }));
-        }
-      })
-      .catch(() => {});
+    loadProductCatalog().then(entries => { productCatalogRef.current = entries; });
   }, []);
 
   // Sincronizar refs con estado/callbacks actuales
@@ -620,75 +610,10 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
 
   const handlePrintItem = useCallback((item: QuickQueueItem) => {
     const refId = String(Math.floor(100000 + Math.random() * 900000));
-
-    const cap = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
-    const normalize = (s: string) =>
-      s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-    const inferUnit = (name: string): string => {
-      const n = normalize(name);
-      const words = n.split(/\s+/).filter(w => w.length > 1);
-      if (words.length === 0) return 'kg';
-      // Buscar en catálogo: coincidencia por palabras (cada palabra del nombre existe en el producto o viceversa)
-      const matches = productCatalogRef.current.filter(p => {
-        const pWords = p.normalized.split(/\s+/);
-        return words.every(w => p.normalized.includes(w)) || pWords.every(w => n.includes(w));
-      });
-      if (matches.length > 0) {
-        // Si todas las coincidencias tienen la misma unidad, usarla
-        const units = [...new Set(matches.map(m => m.unidad))];
-        if (units.length === 1) return units[0];
-        // Si hay ambigüedad, preferir la coincidencia más específica (más palabras comunes)
-        const best = matches
-          .map(m => ({ m, score: m.normalized.split(/\s+/).filter(w => n.includes(w)).length }))
-          .sort((a, b) => b.score - a.score)[0];
-        return best.m.unidad;
-      }
-      return 'kg';
-    };
-
-    const printItems = item.entries.map(e => {
-      const note = e.note?.trim() || '';
-      const amtUSD = e.amountUSD;
-
-      // Estrategia 1: precio entre paréntesis — "pulpo (25)" o "pulpo (25/kg)"
-      const parenMatch = note.match(/^(.*?)\s*\(\s*(\d+(?:[.,]\d+)?)\s*(?:\/\s*(kg|caja|cajas|paquete|und|lt))?\s*\)\s*$/i);
-      if (parenMatch) {
-        const nombre = cap(parenMatch[1].trim()) || 'Varios';
-        const precioUSD = parseFloat(parenMatch[2].replace(',', '.'));
-        const uHint = parenMatch[3]?.toLowerCase();
-        const unidad = uHint
-          ? (/^kg/.test(uHint) ? 'kg' : /^caja/.test(uHint) ? 'caja' : /^paquete/.test(uHint) ? 'paquete' : /^lt/.test(uHint) ? 'lt' : 'und')
-          : inferUnit(nombre);
-        const cantidad = precioUSD > 0 ? Math.round((amtUSD / precioUSD) * 100) / 100 : 1;
-        return { nombre, cantidad, unidad, precioUSD, subtotalUSD: Math.round(amtUSD * 100) / 100 };
-      }
-
-      // Estrategia 2: expresión de multiplicación A×B → cantidad=A, precio=B
-      const expr = e.expression?.trim() || '';
-      const multMatch = expr.match(/^(\d+(?:[.,]\d+)?)\s*[\*xX×]\s*(\d+(?:[.,]\d+)?)$/);
-      if (multMatch) {
-        const cantidad = parseFloat(multMatch[1].replace(',', '.'));
-        const precioUSD = parseFloat(multMatch[2].replace(',', '.'));
-        const nombre = note ? cap(note) : 'Varios';
-        return { nombre, cantidad, unidad: inferUnit(nombre), precioUSD, subtotalUSD: Math.round(amtUSD * 100) / 100 };
-      }
-
-      // Estrategia 3: cantidad+unidad al inicio de la nota — "1.72kg pulpo", "3 cajas camarón"
-      const quantUnitMatch = note.match(/^(\d+(?:[.,]\d+)?)\s*(kg|kilos?|caja|cajas|paquete|paquetes?|unidad|und|lt|litros?)\s*/i);
-      if (quantUnitMatch) {
-        const cantidad = parseFloat(quantUnitMatch[1].replace(',', '.'));
-        const u = quantUnitMatch[2].toLowerCase();
-        const unidad = /^kg|kilo/.test(u) ? 'kg' : /^caja/.test(u) ? 'caja' : /^paquete/.test(u) ? 'paquete' : /^lt/.test(u) ? 'lt' : 'und';
-        const rest = note.slice(quantUnitMatch[0].length).trim().replace(/^de(?:l| la| los| las)?\s+/i, '');
-        const nombre = rest ? cap(rest) : 'Varios';
-        const precioUSD = cantidad > 0 ? Math.round((amtUSD / cantidad) * 100) / 100 : amtUSD;
-        return { nombre, cantidad, unidad, precioUSD, subtotalUSD: Math.round(amtUSD * 100) / 100 };
-      }
-
-      // Estrategia 4: solo nombre sin información de cantidad
-      const nombre = note ? cap(note) : 'Varios';
-      return { nombre, cantidad: 1, unidad: inferUnit(nombre), precioUSD: Math.round(amtUSD * 100) / 100, subtotalUSD: Math.round(amtUSD * 100) / 100 };
-    });
+    const inferUnit = (name: string) => inferUnitFromCatalog(name, productCatalogRef.current);
+    const printItems = item.entries.map(e =>
+      parsePrintEntry(e.note ?? '', e.expression ?? '', e.amountUSD, inferUnit)
+    );
 
     const presupuesto: PrintPresupuesto = {
       id: `Q-${refId}`,
