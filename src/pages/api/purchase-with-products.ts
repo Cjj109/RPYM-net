@@ -237,7 +237,7 @@ Responde SOLO con un JSON valido:
       "requestedName": "lo que escribio el usuario",
       "suggestedName": "nombre sugerido si es producto personalizado" | null,
       "quantity": numero,
-      "unit": "kg" | "caja" | "paquete",
+      "unit": "kg" | "caja" | "unidad" | "paquete" | "bolsa",
       "matched": true/false,
       "customPrice": numero o null,
       "customPriceDivisa": numero o null,

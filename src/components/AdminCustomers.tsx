@@ -1971,7 +1971,7 @@ export default function AdminCustomers() {
                               return { ...prev, items: newItems };
                             });
                           }}
-                          className="ml-0.5 text-ocean-500 border border-ocean-200 rounded focus:outline-none focus:ring-1 focus:ring-ocean-400 text-xs py-0.5"
+                          className="ml-0.5 px-1 bg-white text-ocean-500 border border-ocean-300 rounded focus:outline-none focus:ring-1 focus:ring-ocean-400 text-xs py-0.5"
                         >
                           <option value="kg">kg</option>
                           <option value="caja">caja</option>
