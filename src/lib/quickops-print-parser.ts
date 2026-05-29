@@ -5,7 +5,7 @@
  * Orden de preferencia:
  * 1. Precio entre paréntesis:           "pulpo (25)" o "pulpo (25/kg)"
  * 2. Expresión de multiplicación:       "2*15" con nota "pulpo"
- * 3. Cantidad+unidad al inicio:         "1.72kg pulpo" / "3 cajas camarón"
+ * 3. Cantidad+unidad al inicio:         "1.72kg pulpo" / "1/2kg pepitona" / "500gr camarón"
  * 4. Solo nombre:                       "pulpo"
  */
 import { round2 } from './text-utils';
@@ -28,6 +28,15 @@ const normalizeUnit = (raw: string): string => {
   if (/^lt|litro/.test(u)) return 'lt';
   return 'und';
 };
+
+// Parses "1/2", "2 1/2", "1.72" — returns NaN if unparseable
+function parseFractionalQty(raw: string): number {
+  const mixed = raw.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+  if (mixed) return parseInt(mixed[1]) + parseInt(mixed[2]) / parseInt(mixed[3]);
+  const simple = raw.match(/^(\d+)\s*\/\s*(\d+)$/);
+  if (simple) return parseInt(simple[1]) / parseInt(simple[2]);
+  return parseFloat(raw.replace(',', '.'));
+}
 
 export function parsePriceInParens(
   note: string,
@@ -58,10 +67,22 @@ export function parseMultExpression(
 }
 
 export function parseQuantityUnitPrefix(note: string, amtUSD: number): PrintItem | null {
-  const m = note.match(/^(\d+(?:[.,]\d+)?)\s*(kg|kilos?|caja|cajas|paquete|paquetes?|unidad|und|lt|litros?)\s*/i);
+  // Handles fractions (1/2, 2 1/2), decimals (1.72), integers (3), and grams (500g, 500gr, 500gramos)
+  // Pattern: (mixed fraction | simple fraction | decimal) then unit
+  const m = note.match(
+    /^(\d+\s+\d+\/\d+|\d+(?:\s*\/\s*\d+)?(?:[.,]\d+)?)\s*(gramos?|gr|g|kg|kilos?|caja[s]?|paquetes?|unidad|und|lt|litros?)\s*/i
+  );
   if (!m) return null;
-  const cantidad = parseFloat(m[1].replace(',', '.'));
-  const unidad = normalizeUnit(m[2]);
+
+  let cantidad = parseFractionalQty(m[1].trim());
+  let unidad = normalizeUnit(m[2]);
+
+  // Convert grams to kg
+  if (/^g$|^gr$|^gramos?$/i.test(m[2].trim())) {
+    cantidad = round2(cantidad / 1000);
+    unidad = 'kg';
+  }
+
   const rest = note.slice(m[0].length).trim().replace(/^de(?:l| la| los| las)?\s+/i, '');
   const nombre = rest ? cap(rest) : 'Varios';
   const precioUSD = cantidad > 0 ? round2(amtUSD / cantidad) : round2(amtUSD);
