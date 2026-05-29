@@ -605,7 +605,24 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
                         }}
                         className="w-14 px-1 py-0.5 text-center text-ocean-700 border border-ocean-200 rounded focus:outline-none focus:ring-1 focus:ring-ocean-400 text-xs"
                       />
-                      <span className="ml-0.5 text-ocean-500">{item.unidad}</span>
+                      <select
+                          value={item.unidad}
+                          onChange={(e) => {
+                            setAiProductAction(prev => {
+                              if (!prev) return null;
+                              const newItems = [...prev.items];
+                              newItems[i] = { ...newItems[i], unidad: e.target.value };
+                              return { ...prev, items: newItems };
+                            });
+                          }}
+                          className="ml-0.5 px-1 bg-white text-ocean-500 border border-ocean-300 rounded focus:outline-none focus:ring-1 focus:ring-ocean-400 text-xs py-0.5"
+                        >
+                          <option value="kg">kg</option>
+                          <option value="caja">caja</option>
+                          <option value="unidad">unidad</option>
+                          <option value="paquete">paquete</option>
+                          <option value="bolsa">bolsa</option>
+                        </select>
                     </td>
                     <td className="px-2 py-1 text-right">
                       <div className="flex items-center justify-end gap-1">
