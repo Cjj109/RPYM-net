@@ -42,16 +42,18 @@ export const GET: APIRoute = async ({ request, locals }) => {
     let bcvRatesMap: Record<string, number> = {};
 
     if (fechas.length > 0) {
-      // Buscar tasas en bcv_rates
-      const placeholders = fechas.map(() => '?').join(',');
+      const minFecha = fechas.reduce((a, b) => a < b ? a : b);
+      const maxFecha = fechas.reduce((a, b) => a > b ? a : b);
+
+      // Traer todas las tasas del rango de fechas de los reportes (evita límite de 100 params de D1)
       const ratesResult = await db.prepare(
-        `SELECT date, usd_rate FROM bcv_rates WHERE date IN (${placeholders})`
-      ).bind(...fechas).all<{ date: string; usd_rate: number }>();
+        `SELECT date, usd_rate FROM bcv_rates WHERE date BETWEEN ? AND ? ORDER BY date`
+      ).bind(minFecha, maxFecha).all<{ date: string; usd_rate: number }>();
       for (const r of ratesResult.results) {
         bcvRatesMap[r.date] = r.usd_rate;
       }
 
-      // Para fechas sin tasa en bcv_rates, buscar la más cercana anterior
+      // Para fechas sin tasa exacta, buscar la más cercana anterior
       for (const fecha of fechas) {
         if (!bcvRatesMap[fecha]) {
           const closest = await db.prepare(
