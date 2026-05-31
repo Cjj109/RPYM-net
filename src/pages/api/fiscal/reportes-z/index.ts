@@ -45,7 +45,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
       const minFecha = fechas.reduce((a, b) => a < b ? a : b);
       const maxFecha = fechas.reduce((a, b) => a > b ? a : b);
 
-      // Traer todas las tasas del rango de fechas de los reportes (evita límite de 100 params de D1)
+      // Una sola query para todas las tasas del rango (evita N queries y el límite de params D1)
       const ratesResult = await db.prepare(
         `SELECT date, usd_rate FROM bcv_rates WHERE date BETWEEN ? AND ? ORDER BY date`
       ).bind(minFecha, maxFecha).all<{ date: string; usd_rate: number }>();
@@ -53,13 +53,19 @@ export const GET: APIRoute = async ({ request, locals }) => {
         bcvRatesMap[r.date] = r.usd_rate;
       }
 
-      // Para fechas sin tasa exacta, buscar la más cercana anterior
+      // Una segunda query para la tasa más reciente anterior al rango (fallback para fechas sin tasa exacta)
+      const fallbackRate = await db.prepare(
+        `SELECT usd_rate FROM bcv_rates WHERE date < ? ORDER BY date DESC LIMIT 1`
+      ).bind(minFecha).first<{ usd_rate: number }>();
+      const fallback = fallbackRate?.usd_rate ?? null;
+
+      // Interpolar en memoria: para cada fecha sin tasa exacta, usar la tasa inmediata anterior del rango o el fallback
+      const sortedRateDates = ratesResult.results.map(r => r.date);
       for (const fecha of fechas) {
         if (!bcvRatesMap[fecha]) {
-          const closest = await db.prepare(
-            `SELECT usd_rate FROM bcv_rates WHERE date <= ? ORDER BY date DESC LIMIT 1`
-          ).bind(fecha).first<{ usd_rate: number }>();
-          if (closest) bcvRatesMap[fecha] = closest.usd_rate;
+          // Buscar la tasa más cercana anterior disponible en memoria
+          const prev = sortedRateDates.filter(d => d <= fecha).pop();
+          bcvRatesMap[fecha] = prev ? bcvRatesMap[prev] : (fallback ?? 0);
         }
       }
     }
