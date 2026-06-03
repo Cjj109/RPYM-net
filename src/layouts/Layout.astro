@@ -175,6 +175,7 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
               root.style.setProperty('--theme-bg-to', team[7]);
               root.setAttribute('data-mundial-team', team[1]);
               root.setAttribute('data-mundial-flag', team[2]);
+              root.setAttribute('data-mundial-id', team[0]);
             }
             // apply(forceNew): si forceNew, sortea un equipo distinto al actual;
             // si no, reutiliza el de la sesión (o sortea uno la primera vez).

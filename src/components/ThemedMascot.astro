@@ -69,6 +69,17 @@ const { class: className = '' } = Astro.props;
 
     wrapper.style.display = '';
 
+    // Mundial: mascota de la selección activa (imagen única en /mundial/).
+    // El id lo fija el script del tema en data-mundial-id al sortear/elegir equipo.
+    if (theme === 'mundial') {
+      const id = document.documentElement.getAttribute('data-mundial-id');
+      const src = id ? `/mundial/${id}.webp` : '/jose-lg.webp';
+      img.src = src;
+      const sources = picture.querySelectorAll('source');
+      sources.forEach(source => { source.srcset = src; });
+      return;
+    }
+
     // Semana Santa: imagen única desde /mascots/
     if (semanaSantaMascots[theme]) {
       const src = semanaSantaMascots[theme];
@@ -99,7 +110,7 @@ const { class: className = '' } = Astro.props;
 
   const observer = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
-      if (mutation.attributeName === 'data-theme') {
+      if (mutation.attributeName === 'data-theme' || mutation.attributeName === 'data-mundial-id') {
         const newTheme = document.documentElement.getAttribute('data-theme') || 'ocean';
         updateMascot(newTheme);
       }
@@ -108,7 +119,7 @@ const { class: className = '' } = Astro.props;
 
   observer.observe(document.documentElement, {
     attributes: true,
-    attributeFilter: ['data-theme']
+    attributeFilter: ['data-theme', 'data-mundial-id']
   });
 
   if (document.readyState === 'loading') {
