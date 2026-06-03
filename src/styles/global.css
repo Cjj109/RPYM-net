@@ -24,6 +24,9 @@
 
   --theme-bg-from: #f0f9ff;
   --theme-bg-to: #f8fafc;
+
+  --theme-primary-fg: #ffffff;
+  --theme-accent-fg: #ffffff;
 }
 
 /* Carnaval - Morado, Dorado, Verde */
@@ -48,6 +51,9 @@
 
   --theme-bg-from: #faf5ff;
   --theme-bg-to: #f8fafc;
+
+  --theme-primary-fg: #ffffff;
+  --theme-accent-fg: #ffffff;
 }
 
 /* Navidad - Rojo, Verde, Dorado */
@@ -72,6 +78,9 @@
 
   --theme-bg-from: #fef2f2;
   --theme-bg-to: #f0fdf4;
+
+  --theme-primary-fg: #ffffff;
+  --theme-accent-fg: #ffffff;
 }
 
 /* Pascua - Rosa pastel, Azul, Amarillo */
@@ -96,6 +105,9 @@
 
   --theme-bg-from: #fdf2f8;
   --theme-bg-to: #eff6ff;
+
+  --theme-primary-fg: #ffffff;
+  --theme-accent-fg: #ffffff;
 }
 
 /* San Valentin - Rosa, Rojo, Dorado */
@@ -120,6 +132,9 @@
 
   --theme-bg-from: #fff1f2;
   --theme-bg-to: #fef2f2;
+
+  --theme-primary-fg: #ffffff;
+  --theme-accent-fg: #ffffff;
 }
 
 /* Mundial de Futbol - Verde cancha, Dorado trofeo */
@@ -144,6 +159,9 @@
 
   --theme-bg-from: #f0fdf4;
   --theme-bg-to: #fefce8;
+
+  --theme-primary-fg: #ffffff;
+  --theme-accent-fg: #ffffff;
 }
 
 /* Campeones - Venezuela Campeón Mundial de Béisbol 🇻🇪🏆⚾ */
@@ -168,6 +186,9 @@
 
   --theme-bg-from: #fefce8;
   --theme-bg-to: #eef2ff;
+
+  --theme-primary-fg: #ffffff;
+  --theme-accent-fg: #ffffff;
 }
 
 /* Halloween - Naranja, Morado, Negro */
@@ -192,6 +213,9 @@
 
   --theme-bg-from: #1c1917;
   --theme-bg-to: #292524;
+
+  --theme-primary-fg: #ffffff;
+  --theme-accent-fg: #ffffff;
 }
 
 /* ========== SEMANA SANTA 2026 ========== */
@@ -218,6 +242,9 @@
 
   --theme-bg-from: #ecfdf5;
   --theme-bg-to: #fefce8;
+
+  --theme-primary-fg: #ffffff;
+  --theme-accent-fg: #ffffff;
 }
 
 /* Lunes-Miércoles Santo (30 mar - 1 abr) - Violeta profundo y solemne */
@@ -242,6 +269,9 @@
 
   --theme-bg-from: #f5f3ff;
   --theme-bg-to: #ede9fe;
+
+  --theme-primary-fg: #ffffff;
+  --theme-accent-fg: #ffffff;
 }
 
 /* Jueves Santo (2 abr) - Dorado rico y cálido, sagrado */
@@ -266,6 +296,9 @@
 
   --theme-bg-from: #fffbeb;
   --theme-bg-to: #fff7ed;
+
+  --theme-primary-fg: #1a1a1a;
+  --theme-accent-fg: #ffffff;
 }
 
 /* Viernes Santo (3 abr) - Escala de grises completa, luto y respeto */
@@ -290,6 +323,9 @@
 
   --theme-bg-from: #f9fafb;
   --theme-bg-to: #f3f4f6;
+
+  --theme-primary-fg: #ffffff;
+  --theme-accent-fg: #ffffff;
 }
 
 /* Sábado Santo (4 abr) - Grises con leves acentos dorados, transición de esperanza */
@@ -314,6 +350,9 @@
 
   --theme-bg-from: #f4f4f5;
   --theme-bg-to: #fffbeb;
+
+  --theme-primary-fg: #ffffff;
+  --theme-accent-fg: #ffffff;
 }
 
 /* Domingo de Resurrección (5 abr) - Explosión de luz, blancos y dorados luminosos */
@@ -338,6 +377,9 @@
 
   --theme-bg-from: #fffbeb;
   --theme-bg-to: #fefce8;
+
+  --theme-primary-fg: #1a1a1a;
+  --theme-accent-fg: #ffffff;
 }
 
 /* Variables CSS personalizadas - mapean a variables de tema */
@@ -474,14 +516,14 @@
 [data-theme="mundial"] .themed-card,
 [data-theme="mundial"] .scoreboard-style {
   position: relative;
-  border: 2px solid #16a34a !important;
+  border: 2px solid var(--theme-primary-600) !important;
   box-shadow:
-    0 0 0 1px #15803d,
-    0 4px 6px rgba(22, 163, 74, 0.2),
+    0 0 0 1px var(--theme-primary-700),
+    0 4px 6px rgba(0, 0, 0, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-/* Esquinas doradas estilo trofeo */
+/* Esquinas estilo trofeo con color del equipo */
 [data-theme="mundial"] .themed-card::before,
 [data-theme="mundial"] .scoreboard-style::before {
   content: '';
@@ -490,7 +532,7 @@
   left: -3px;
   width: 20px;
   height: 20px;
-  background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
+  background: linear-gradient(135deg, var(--theme-accent-400) 0%, var(--theme-accent-600) 100%);
   clip-path: polygon(0 0, 100% 0, 0 100%);
   z-index: 5;
 }
@@ -503,7 +545,7 @@
   right: -3px;
   width: 20px;
   height: 20px;
-  background: linear-gradient(315deg, #fbbf24 0%, #d97706 100%);
+  background: linear-gradient(315deg, var(--theme-accent-400) 0%, var(--theme-accent-600) 100%);
   clip-path: polygon(100% 0, 100% 100%, 0 100%);
   z-index: 5;
 }
@@ -518,10 +560,10 @@
   height: 4px;
   background: repeating-linear-gradient(
     90deg,
-    #16a34a 0px,
-    #16a34a 2px,
-    #22c55e 2px,
-    #22c55e 4px
+    var(--theme-primary-600) 0px,
+    var(--theme-primary-600) 2px,
+    var(--theme-primary-500) 2px,
+    var(--theme-primary-500) 4px
   );
   border-radius: 0 0 inherit inherit;
 }
@@ -531,20 +573,20 @@
   font-family: 'Courier New', monospace;
   font-weight: bold;
   background: linear-gradient(to bottom, #1a1a1a 0%, #0a0a0a 100%);
-  color: #22c55e;
+  color: var(--theme-primary-400);
   padding: 2px 6px;
   border-radius: 2px;
-  text-shadow: 0 0 8px #22c55e;
+  text-shadow: 0 0 8px var(--theme-primary-400);
   box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
 }
 
-/* Estrellas doradas en headers */
+/* Estrellas del equipo en headers */
 [data-theme="mundial"] h1::before,
 [data-theme="mundial"] h2::before {
   content: '★';
-  color: #fbbf24;
+  color: var(--theme-accent-400);
   margin-right: 8px;
-  text-shadow: 0 0 10px rgba(251, 191, 36, 0.6);
+  text-shadow: 0 0 10px var(--theme-accent-300);
 }
 
 /* === CAMPEONES - CELEBRACIÓN VENEZUELA CAMPEÓN 🇻🇪 === */
@@ -1508,13 +1550,14 @@
 /* === MUNDIAL - Botones estilo estadio/marcador === */
 [data-theme="mundial"] .themed-button,
 [data-theme="mundial"] a[href*="whatsapp"] {
-  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important;
-  border: 2px solid #22c55e !important;
+  background: linear-gradient(135deg, var(--theme-primary-600) 0%, var(--theme-primary-700) 100%) !important;
+  border: 2px solid var(--theme-primary-500) !important;
   box-shadow:
-    0 4px 15px rgba(22, 163, 74, 0.4),
+    0 4px 15px rgba(0, 0, 0, 0.2),
     inset 0 -2px 0 rgba(0, 0, 0, 0.2),
     inset 0 2px 0 rgba(255, 255, 255, 0.2);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  color: var(--theme-primary-fg) !important;
   position: relative;
 }
 
@@ -1541,7 +1584,7 @@
   50%, 100% { left: 200%; }
 }
 
-/* Esquinas doradas estilo trofeo */
+/* Estrella del equipo en botones */
 [data-theme="mundial"] .themed-button::after,
 [data-theme="mundial"] a[href*="whatsapp"]::after {
   content: '★';
@@ -1549,8 +1592,8 @@
   top: -8px;
   right: -8px;
   font-size: 16px;
-  color: #fbbf24;
-  text-shadow: 0 0 10px rgba(251, 191, 36, 0.8);
+  color: var(--theme-accent-400);
+  text-shadow: 0 0 10px var(--theme-accent-300);
   animation: trophy-pulse 1s ease-in-out infinite;
 }
 
@@ -1783,9 +1826,10 @@
   left: 50%;
   width: 200px;
   height: 400px;
-  background: radial-gradient(ellipse at center, rgba(251, 191, 36, 0.1) 0%, transparent 70%);
+  background: radial-gradient(ellipse at center, var(--theme-accent-100) 0%, transparent 70%);
   transform: translateX(-50%);
   pointer-events: none;
+  opacity: 0.8;
 }
 
 /* Estilos base */
@@ -2656,13 +2700,13 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .mundial-confetti.green {
-  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-  color: rgba(34, 197, 94, 0.5);
+  background: linear-gradient(135deg, var(--theme-primary-500) 0%, var(--theme-primary-600) 100%);
+  color: var(--theme-primary-400);
 }
 
 .mundial-confetti.gold {
-  background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
-  color: rgba(251, 191, 36, 0.5);
+  background: linear-gradient(135deg, var(--theme-accent-400) 0%, var(--theme-accent-600) 100%);
+  color: var(--theme-accent-300);
 }
 
 /* === CAMPEONES - Confetti tricolor, pelotas y trofeos === */

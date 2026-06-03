@@ -308,10 +308,53 @@
     }
   }
 
+  // ===== BANNER EQUIPO MUNDIAL =====
+  function renderMundialBanner() {
+    const existing = document.getElementById('mundial-team-banner');
+    const theme = document.documentElement.getAttribute('data-theme');
+    const teamName = document.documentElement.getAttribute('data-mundial-team');
+    const teamFlag = document.documentElement.getAttribute('data-mundial-flag');
+
+    if (theme !== 'mundial' || !teamName) {
+      if (existing) existing.remove();
+      return;
+    }
+    if (existing) return; // ya existe
+
+    const banner = document.createElement('div');
+    banner.id = 'mundial-team-banner';
+    banner.innerHTML = `<span style="font-size:18px;line-height:1">${teamFlag}</span><span>${teamName}</span>`;
+    banner.style.cssText = [
+      'position:fixed',
+      'bottom:20px',
+      'right:20px',
+      'z-index:9999',
+      'display:flex',
+      'align-items:center',
+      'gap:6px',
+      'background:var(--theme-primary-800)',
+      'color:var(--theme-accent-300)',
+      'padding:6px 14px 6px 10px',
+      'border-radius:24px',
+      'font-size:13px',
+      'font-weight:600',
+      'border:1px solid var(--theme-primary-600)',
+      'box-shadow:0 2px 12px rgba(0,0,0,0.2)',
+      'pointer-events:none',
+      'font-family:var(--font-body)',
+      'letter-spacing:0.02em',
+      'opacity:0',
+      'transition:opacity 0.4s ease',
+    ].join(';');
+    document.body.appendChild(banner);
+    requestAnimationFrame(() => { banner.style.opacity = '1'; });
+  }
+
   // Renderizar decoraciones iniciales
   function init() {
     const theme = document.documentElement.getAttribute('data-theme') || 'ocean';
     renderDecorations(theme);
+    renderMundialBanner();
   }
 
   // Observar cambios en el tema
@@ -320,13 +363,14 @@
       if (mutation.attributeName === 'data-theme') {
         const newTheme = document.documentElement.getAttribute('data-theme') || 'ocean';
         renderDecorations(newTheme);
+        renderMundialBanner();
       }
     });
   });
 
   observer.observe(document.documentElement, {
     attributes: true,
-    attributeFilter: ['data-theme']
+    attributeFilter: ['data-theme', 'data-mundial-team']
   });
 
   // Inicializar cuando el DOM esté listo

@@ -29,9 +29,118 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
     <script is:inline>
       (function() {
         try {
+          var VALID_THEMES = ['ocean','carnival','christmas','easter','valentine','mundial','halloween','campeones','ramos','cuaresma','jueves-santo','viernes-santo','sabado-santo','resurreccion'];
           var cached = localStorage.getItem('rpym_theme');
-          if (cached && ['ocean', 'carnival', 'christmas', 'easter', 'valentine', 'mundial', 'halloween', 'campeones', 'ramos', 'cuaresma', 'jueves-santo', 'viernes-santo', 'sabado-santo', 'resurreccion'].includes(cached)) {
+          if (cached && VALID_THEMES.includes(cached)) {
             document.documentElement.setAttribute('data-theme', cached);
+          }
+
+          // ===== MUNDIAL: 48 selecciones, paleta aleatoria por sesión =====
+          if (cached === 'mundial') {
+            // Utilidades de color HSL ↔ hex
+            function h2hsl(hex) {
+              var r=parseInt(hex.slice(1,3),16)/255,g=parseInt(hex.slice(3,5),16)/255,b=parseInt(hex.slice(5,7),16)/255;
+              var mx=Math.max(r,g,b),mn=Math.min(r,g,b),h,s,l=(mx+mn)/2;
+              if(mx===mn){h=s=0;}else{var d=mx-mn;s=l>.5?d/(2-mx-mn):d/(mx+mn);switch(mx){case r:h=(g-b)/d+(g<b?6:0);break;case g:h=(b-r)/d+2;break;default:h=(r-g)/d+4;}h/=6;}
+              return [h*360,s*100,l*100];
+            }
+            function hsl2h(h,s,l) {
+              s/=100;l/=100;var a=s*Math.min(l,1-l);
+              var f=function(n){var k=(n+h/30)%12;return Math.round((l-a*Math.max(Math.min(k-3,9-k,1),-1))*255);};
+              return '#'+[f(0),f(8),f(4)].map(function(v){return v.toString(16).padStart(2,'0');}).join('');
+            }
+            function genP(hex) {
+              var c=h2hsl(hex),h=c[0],s=c[1],l=c[2];
+              var ls=[97,93,87,78,70,l,Math.max(l-10,10),Math.max(l-22,7),Math.max(l-33,4),Math.max(l-42,2),Math.max(l-48,1)];
+              var ss=[s*.1+5,s*.2+8,s*.45+5,s*.75,s*.9,s,s*.92,s*.85,s*.78,s*.72,s*.65];
+              return ls.map(function(li,i){return hsl2h(h,Math.min(100,ss[i]),li);});
+            }
+            function genA(hex) {
+              var c=h2hsl(hex),h=c[0],s=c[1],l=c[2];
+              var ls=[95,80,l,Math.max(l-10,8),Math.max(l-22,5)];
+              var ss=[s*.15+5,s*.7,s,s*.9,s*.8];
+              return ls.map(function(li,i){return hsl2h(h,Math.min(100,ss[i]),li);});
+            }
+
+            // [id, nombre, bandera, colorPrimario, colorAcento, textoSobrePrimario, bgDesde, bgHasta]
+            var T=[
+              // CONMEBOL
+              ['argentina','Argentina','🇦🇷','#3788C8','#F6B40E','#fff','#EBF5FB','#FEF9E7'],
+              ['brazil','Brasil','🇧🇷','#009C3B','#E8C400','#fff','#E8F5E9','#FFFDE7'],
+              ['uruguay','Uruguay','🇺🇾','#4DA8D8','#001A72','#fff','#E3F2FD','#EFF6FF'],
+              ['colombia','Colombia','🇨🇴','#C8910A','#003087','#fff','#FFF8E1','#E8EAF6'],
+              ['ecuador','Ecuador','🇪🇨','#C59A00','#003DA5','#fff','#FFF8E1','#E3F2FD'],
+              ['venezuela','Venezuela','🇻🇪','#8B1A2D','#CBA135','#fff','#FCE4EC','#FFF8E1'],
+              ['chile','Chile','🇨🇱','#D52B1E','#002868','#fff','#FFEBEE','#E3F2FD'],
+              ['paraguay','Paraguay','🇵🇾','#CE2028','#003893','#fff','#FFEBEE','#E8EAF6'],
+              // UEFA
+              ['france','Francia','🇫🇷','#002395','#ED2939','#fff','#E8EAF6','#FFEBEE'],
+              ['germany','Alemania','🇩🇪','#3D3D3D','#CC0000','#fff','#F5F5F5','#FFEBEE'],
+              ['spain','España','🇪🇸','#C60B1E','#FFC400','#fff','#FFEBEE','#FFFDE7'],
+              ['england','Inglaterra','🇬🇧','#1B3A6B','#CF142B','#fff','#E3F2FD','#FFEBEE'],
+              ['portugal','Portugal','🇵🇹','#BA0021','#006600','#fff','#FFEBEE','#E8F5E9'],
+              ['netherlands','Países Bajos','🇳🇱','#D4500A','#003DA5','#fff','#FFF3E0','#E3F2FD'],
+              ['belgium','Bélgica','🇧🇪','#EF3340','#F0A500','#fff','#FFEBEE','#FFF8E1'],
+              ['italy','Italia','🇮🇹','#0066CC','#E8B020','#fff','#E3F2FD','#FFFDE7'],
+              ['croatia','Croacia','🇭🇷','#CC0000','#172983','#fff','#FFEBEE','#E8EAF6'],
+              ['switzerland','Suiza','🇨🇭','#CF0A2C','#3D3D3D','#fff','#FFEBEE','#F5F5F5'],
+              ['poland','Polonia','🇵🇱','#DC143C','#002868','#fff','#FFEBEE','#E3F2FD'],
+              ['denmark','Dinamarca','🇩🇰','#C60C30','#00A3DA','#fff','#FFEBEE','#E3F2FD'],
+              ['austria','Austria','🇦🇹','#ED2939','#C4A020','#fff','#FFEBEE','#FFFDE7'],
+              ['serbia','Serbia','🇷🇸','#C6363C','#0C4076','#fff','#FFEBEE','#E3F2FD'],
+              ['scotland','Escocia','🏴󠁧󠁢󠁳󠁣󠁴󠁿','#003380','#C8A800','#fff','#E3F2FD','#FFFDE7'],
+              ['turkey','Turquía','🇹🇷','#E30A17','#002868','#fff','#FFEBEE','#E3F2FD'],
+              // CONCACAF
+              ['usa','EE. UU.','🇺🇸','#002868','#BF0A30','#fff','#E3F2FD','#FFEBEE'],
+              ['mexico','México','🇲🇽','#006847','#CE1126','#fff','#E8F5E9','#FFEBEE'],
+              ['canada','Canadá','🇨🇦','#CC0000','#222222','#fff','#FFEBEE','#F5F5F5'],
+              ['costa_rica','Costa Rica','🇨🇷','#002BB4','#CE1126','#fff','#E3F2FD','#FFEBEE'],
+              ['honduras','Honduras','🇭🇳','#003DA5','#C4A020','#fff','#E3F2FD','#FFFDE7'],
+              ['jamaica','Jamaica','🇯🇲','#C49A00','#009B3A','#fff','#FFF8E1','#E8F5E9'],
+              // CAF
+              ['morocco','Marruecos','🇲🇦','#C1272D','#006233','#fff','#FFEBEE','#E8F5E9'],
+              ['senegal','Senegal','🇸🇳','#00853F','#DF0D15','#fff','#E8F5E9','#FFEBEE'],
+              ['nigeria','Nigeria','🇳🇬','#008751','#C49A00','#fff','#E8F5E9','#FFF8E1'],
+              ['ghana','Ghana','🇬🇭','#006B3F','#E8B800','#fff','#E8F5E9','#FFFDE7'],
+              ['cameroon','Camerún','🇨🇲','#007A5E','#CE1126','#fff','#E8F5E9','#FFEBEE'],
+              ['ivory_coast','Costa de Marfil','🇨🇮','#D4671E','#009A17','#fff','#FFF3E0','#E8F5E9'],
+              ['algeria','Argelia','🇩🇿','#006233','#D21034','#fff','#E8F5E9','#FFEBEE'],
+              ['egypt','Egipto','🇪🇬','#CE1126','#C4A020','#fff','#FFEBEE','#FFFDE7'],
+              ['south_africa','Sudáfrica','🇿🇦','#007A4D','#D4A000','#fff','#E8F5E9','#FFF8E1'],
+              // AFC
+              ['japan','Japón','🇯🇵','#1A237E','#BC002D','#fff','#E8EAF6','#FFEBEE'],
+              ['south_korea','Corea del Sur','🇰🇷','#CD2E3A','#003478','#fff','#FFEBEE','#E3F2FD'],
+              ['saudi_arabia','Arabia Saudita','🇸🇦','#006C35','#D4A800','#fff','#E8F5E9','#FFFDE7'],
+              ['iran','Irán','🇮🇷','#239F40','#DA0000','#fff','#E8F5E9','#FFEBEE'],
+              ['australia','Australia','🇦🇺','#C49A00','#00843D','#fff','#FFF8E1','#E8F5E9'],
+              ['qatar','Catar','🇶🇦','#8D1B3D','#C4A020','#fff','#FCE4EC','#FFFDE7'],
+              ['china','China','🇨🇳','#DE2910','#D4A800','#fff','#FFEBEE','#FFFDE7'],
+              ['indonesia','Indonesia','🇮🇩','#CE1126','#003DA5','#fff','#FFEBEE','#E3F2FD'],
+              // OFC
+              ['new_zealand','Nueva Zelanda','🇳🇿','#00247D','#CC0000','#fff','#E3F2FD','#FFEBEE']
+            ];
+
+            // Seleccionar equipo (mismo durante la sesión)
+            var tid = sessionStorage.getItem('rpym_mundial_team');
+            var team = null;
+            if (tid) { for(var i=0;i<T.length;i++){if(T[i][0]===tid){team=T[i];break;}} }
+            if (!team) {
+              team = T[Math.floor(Math.random() * T.length)];
+              sessionStorage.setItem('rpym_mundial_team', team[0]);
+            }
+
+            // Generar y aplicar paleta
+            var ps = genP(team[3]), as = genA(team[4]);
+            var root = document.documentElement;
+            var pk=['--theme-primary-50','--theme-primary-100','--theme-primary-200','--theme-primary-300','--theme-primary-400','--theme-primary-500','--theme-primary-600','--theme-primary-700','--theme-primary-800','--theme-primary-900','--theme-primary-950'];
+            var ak=['--theme-accent-100','--theme-accent-300','--theme-accent-400','--theme-accent-500','--theme-accent-600'];
+            for(var pi=0;pi<pk.length;pi++) root.style.setProperty(pk[pi], ps[pi]);
+            for(var ai=0;ai<ak.length;ai++) root.style.setProperty(ak[ai], as[ai]);
+            root.style.setProperty('--theme-primary-fg', team[5]);
+            root.style.setProperty('--theme-bg-from', team[6]);
+            root.style.setProperty('--theme-bg-to', team[7]);
+            root.setAttribute('data-mundial-team', team[1]);
+            root.setAttribute('data-mundial-flag', team[2]);
           }
         } catch (e) {}
       })();
