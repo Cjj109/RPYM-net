@@ -580,14 +580,6 @@
   box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
 }
 
-/* Estrellas del equipo en headers */
-[data-theme="mundial"] h1::before,
-[data-theme="mundial"] h2::before {
-  content: '★';
-  color: var(--theme-accent-400);
-  margin-right: 8px;
-  text-shadow: 0 0 10px var(--theme-accent-300);
-}
 
 /* === CAMPEONES - CELEBRACIÓN VENEZUELA CAMPEÓN 🇻🇪 === */
 
@@ -1561,17 +1553,6 @@
   position: relative;
 }
 
-/* Estrella del equipo en botones (estática para mejor rendimiento) */
-[data-theme="mundial"] .themed-button::after,
-[data-theme="mundial"] a[href*="whatsapp"]::after {
-  content: '★';
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  font-size: 16px;
-  color: var(--theme-accent-400);
-  text-shadow: 0 0 10px var(--theme-accent-300);
-}
 
 /* === CAMPEONES - Botones bandera venezolana === */
 [data-theme="campeones"] .themed-button,
