@@ -71,17 +71,16 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
             // colorPrimario/colorAcento = colores de camiseta (jersey) actual/histórico.
             // textoSobrePrimario: '#fff' o '#1a1a1a' — elegido por máximo contraste WCAG
             // (verificado: todos los equipos ≥4.5 AA normal en botón, banner y LED).
+            // 48 selecciones CLASIFICADAS al Mundial 2026 (Canadá/México/EE.UU.)
             var T=[
-              // CONMEBOL
+              // CONMEBOL (6)
               ['argentina','Argentina','🇦🇷','#3788C8','#F6B40E','#fff','#EBF5FB','#FEF9E7'],
               ['brazil','Brasil','🇧🇷','#FEDF00','#009C3B','#1a1a1a','#FFFDE7','#E8F5E9'],
               ['uruguay','Uruguay','🇺🇾','#4DA8D8','#001A72','#fff','#E3F2FD','#EFF6FF'],
               ['colombia','Colombia','🇨🇴','#FCD116','#003087','#1a1a1a','#FFFDE7','#E8EAF6'],
               ['ecuador','Ecuador','🇪🇨','#FFDD00','#003DA5','#1a1a1a','#FFFDE7','#E3F2FD'],
-              ['venezuela','Venezuela','🇻🇪','#8B1A2D','#CBA135','#fff','#FCE4EC','#FFF8E1'],
-              ['chile','Chile','🇨🇱','#D52B1E','#002868','#fff','#FFEBEE','#E3F2FD'],
               ['paraguay','Paraguay','🇵🇾','#CE2028','#003893','#fff','#FFEBEE','#E8EAF6'],
-              // UEFA
+              // UEFA (16)
               ['france','Francia','🇫🇷','#002395','#ED2939','#fff','#E8EAF6','#FFEBEE'],
               ['germany','Alemania','🇩🇪','#D00000','#FFCE00','#fff','#FFEBEE','#FFFDE7'],
               ['spain','España','🇪🇸','#C60B1E','#FFC400','#fff','#FFEBEE','#FFFDE7'],
@@ -89,42 +88,44 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
               ['portugal','Portugal','🇵🇹','#BA0021','#006600','#fff','#FFEBEE','#E8F5E9'],
               ['netherlands','Países Bajos','🇳🇱','#D4500A','#003DA5','#fff','#FFF3E0','#E3F2FD'],
               ['belgium','Bélgica','🇧🇪','#EF3340','#F0A500','#fff','#FFEBEE','#FFF8E1'],
-              ['italy','Italia','🇮🇹','#0066CC','#E8B020','#fff','#E3F2FD','#FFFDE7'],
               ['croatia','Croacia','🇭🇷','#CC0000','#172983','#fff','#FFEBEE','#E8EAF6'],
               ['switzerland','Suiza','🇨🇭','#CF0A2C','#3D3D3D','#fff','#FFEBEE','#F5F5F5'],
-              ['poland','Polonia','🇵🇱','#DC143C','#002868','#fff','#FFEBEE','#E3F2FD'],
-              ['denmark','Dinamarca','🇩🇰','#C60C30','#00A3DA','#fff','#FFEBEE','#E3F2FD'],
               ['austria','Austria','🇦🇹','#ED2939','#C4A020','#fff','#FFEBEE','#FFFDE7'],
-              ['serbia','Serbia','🇷🇸','#C6363C','#0C4076','#fff','#FFEBEE','#E3F2FD'],
               ['scotland','Escocia','🏴󠁧󠁢󠁳󠁣󠁴󠁿','#003380','#C8A800','#fff','#E3F2FD','#FFFDE7'],
               ['turkey','Turquía','🇹🇷','#E30A17','#002868','#fff','#FFEBEE','#E3F2FD'],
-              // CONCACAF
+              ['norway','Noruega','🇳🇴','#BA0C2F','#00205B','#fff','#FFEBEE','#E3F2FD'],
+              ['sweden','Suecia','🇸🇪','#FFCD00','#006AA7','#1a1a1a','#FFFDE7','#E3F2FD'],
+              ['czechia','Chequia','🇨🇿','#D7141A','#11457E','#fff','#FFEBEE','#E3F2FD'],
+              ['bosnia','Bosnia','🇧🇦','#004A99','#FFD100','#fff','#E3F2FD','#FFFDE7'],
+              // CONCACAF (6)
               ['usa','EE. UU.','🇺🇸','#002868','#BF0A30','#fff','#E3F2FD','#FFEBEE'],
               ['mexico','México','🇲🇽','#006847','#CE1126','#1a1a1a','#E8F5E9','#FFEBEE'],
               ['canada','Canadá','🇨🇦','#CC0000','#222222','#fff','#FFEBEE','#F5F5F5'],
-              ['costa_rica','Costa Rica','🇨🇷','#D7261E','#002BB4','#fff','#FFEBEE','#E3F2FD'],
-              ['honduras','Honduras','🇭🇳','#003DA5','#C4A020','#fff','#E3F2FD','#FFFDE7'],
-              ['jamaica','Jamaica','🇯🇲','#C49A00','#009B3A','#1a1a1a','#FFF8E1','#E8F5E9'],
-              // CAF
+              ['panama','Panamá','🇵🇦','#DA121A','#005293','#fff','#FFEBEE','#E3F2FD'],
+              ['haiti','Haití','🇭🇹','#00209F','#D21034','#fff','#E3F2FD','#FFEBEE'],
+              ['curacao','Curazao','🇨🇼','#002B7F','#FDD116','#fff','#E3F2FD','#FFFDE7'],
+              // CAF (10)
               ['morocco','Marruecos','🇲🇦','#C1272D','#006233','#fff','#FFEBEE','#E8F5E9'],
               ['senegal','Senegal','🇸🇳','#00853F','#DF0D15','#1a1a1a','#E8F5E9','#FFEBEE'],
-              ['nigeria','Nigeria','🇳🇬','#008751','#C49A00','#1a1a1a','#E8F5E9','#FFF8E1'],
               ['ghana','Ghana','🇬🇭','#006B3F','#E8B800','#1a1a1a','#E8F5E9','#FFFDE7'],
-              ['cameroon','Camerún','🇨🇲','#007A5E','#CE1126','#1a1a1a','#E8F5E9','#FFEBEE'],
               ['ivory_coast','Costa de Marfil','🇨🇮','#D4671E','#009A17','#fff','#FFF3E0','#E8F5E9'],
               ['algeria','Argelia','🇩🇿','#006233','#D21034','#1a1a1a','#E8F5E9','#FFEBEE'],
               ['egypt','Egipto','🇪🇬','#CE1126','#C4A020','#fff','#FFEBEE','#FFFDE7'],
               ['south_africa','Sudáfrica','🇿🇦','#007A4D','#D4A000','#1a1a1a','#E8F5E9','#FFF8E1'],
-              // AFC
+              ['tunisia','Túnez','🇹🇳','#E70013','#9E1B32','#fff','#FFEBEE','#FCE4EC'],
+              ['cape_verde','Cabo Verde','🇨🇻','#003893','#CF2027','#fff','#E3F2FD','#FFEBEE'],
+              ['dr_congo','RD Congo','🇨🇩','#007FFF','#CE1021','#fff','#E1F5FE','#FFEBEE'],
+              // AFC (9)
               ['japan','Japón','🇯🇵','#1A237E','#BC002D','#fff','#E8EAF6','#FFEBEE'],
               ['south_korea','Corea del Sur','🇰🇷','#CD2E3A','#003478','#fff','#FFEBEE','#E3F2FD'],
               ['saudi_arabia','Arabia Saudita','🇸🇦','#006C35','#D4A800','#1a1a1a','#E8F5E9','#FFFDE7'],
               ['iran','Irán','🇮🇷','#239F40','#DA0000','#1a1a1a','#E8F5E9','#FFEBEE'],
               ['australia','Australia','🇦🇺','#C49A00','#00843D','#1a1a1a','#FFF8E1','#E8F5E9'],
               ['qatar','Catar','🇶🇦','#8D1B3D','#C4A020','#fff','#FCE4EC','#FFFDE7'],
-              ['china','China','🇨🇳','#DE2910','#D4A800','#fff','#FFEBEE','#FFFDE7'],
-              ['indonesia','Indonesia','🇮🇩','#CE1126','#003DA5','#fff','#FFEBEE','#E3F2FD'],
-              // OFC
+              ['iraq','Irak','🇮🇶','#0A6B3B','#CE1126','#1a1a1a','#E8F5E9','#FFEBEE'],
+              ['jordan','Jordania','🇯🇴','#C8102E','#007A3D','#fff','#FFEBEE','#E8F5E9'],
+              ['uzbekistan','Uzbekistán','🇺🇿','#009FCE','#1EB53A','#1a1a1a','#E1F5FE','#E8F5E9'],
+              // OFC (1)
               ['new_zealand','Nueva Zelanda','🇳🇿','#00247D','#CC0000','#fff','#E3F2FD','#FFEBEE']
             ];
 
