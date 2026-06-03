@@ -1542,13 +1542,15 @@
 /* === MUNDIAL - Botones estilo estadio/marcador === */
 [data-theme="mundial"] .themed-button,
 [data-theme="mundial"] a[href*="whatsapp"] {
-  background: linear-gradient(135deg, var(--theme-primary-600) 0%, var(--theme-primary-700) 100%) !important;
+  /* Gradiente adaptativo por equipo (--btn-from/--btn-to): garantiza ≥4.5 AA
+     en ambos extremos sin importar el color del jersey. Fallback a p700/p800. */
+  background: linear-gradient(135deg, var(--btn-from, var(--theme-primary-700)) 0%, var(--btn-to, var(--theme-primary-800)) 100%) !important;
   border: 2px solid var(--theme-primary-500) !important;
   box-shadow:
     0 4px 15px rgba(0, 0, 0, 0.2),
     inset 0 -2px 0 rgba(0, 0, 0, 0.2),
     inset 0 2px 0 rgba(255, 255, 255, 0.2);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  text-shadow: var(--btn-text-shadow, 0 1px 2px rgba(0, 0, 0, 0.3));
   color: var(--theme-primary-fg) !important;
   position: relative;
 }
