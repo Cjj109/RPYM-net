@@ -111,7 +111,7 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
               ['ivory_coast','Costa de Marfil','🇨🇮','#D4671E','#009A17','#fff','#FFF3E0','#E8F5E9'],
               ['algeria','Argelia','🇩🇿','#006233','#D21034','#1a1a1a','#E8F5E9','#FFEBEE'],
               ['egypt','Egipto','🇪🇬','#CE1126','#C4A020','#fff','#FFEBEE','#FFFDE7'],
-              ['south_africa','Sudáfrica','🇿🇦','#007A4D','#D4A000','#1a1a1a','#E8F5E9','#FFF8E1'],
+              ['south_africa','Sudáfrica','🇿🇦','#FFB81C','#007A4D','#1a1a1a','#FFF8E1','#E8F5E9'],
               ['tunisia','Túnez','🇹🇳','#E70013','#9E1B32','#fff','#FFEBEE','#FCE4EC'],
               ['cape_verde','Cabo Verde','🇨🇻','#003893','#CF2027','#fff','#E3F2FD','#FFEBEE'],
               ['dr_congo','RD Congo','🇨🇩','#007FFF','#CE1021','#fff','#E1F5FE','#FFEBEE'],
@@ -123,7 +123,7 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
               ['australia','Australia','🇦🇺','#C49A00','#00843D','#1a1a1a','#FFF8E1','#E8F5E9'],
               ['qatar','Catar','🇶🇦','#8D1B3D','#C4A020','#fff','#FCE4EC','#FFFDE7'],
               ['iraq','Irak','🇮🇶','#0A6B3B','#CE1126','#1a1a1a','#E8F5E9','#FFEBEE'],
-              ['jordan','Jordania','🇯🇴','#C8102E','#007A3D','#fff','#FFEBEE','#E8F5E9'],
+              ['jordan','Jordania','🇯🇴','#C8102E','#007A3D','#fff','#FFF5F5','#FAFAFA'],
               ['uzbekistan','Uzbekistán','🇺🇿','#009FCE','#1EB53A','#1a1a1a','#E1F5FE','#E8F5E9'],
               // OFC (1)
               ['new_zealand','Nueva Zelanda','🇳🇿','#00247D','#CC0000','#fff','#E3F2FD','#FFEBEE']
@@ -168,7 +168,16 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
               return team;
             }
 
-            window.rpymMundial = { apply: apply, teams: T };
+            // set(id): selecciona un equipo específico de los 48 y lo fija en la sesión.
+            function set(id) {
+              var team = findTeam(id);
+              if (!team) return null;
+              sessionStorage.setItem('rpym_mundial_team', team[0]);
+              paint(team);
+              return team;
+            }
+
+            window.rpymMundial = { apply: apply, set: set, teams: T };
             if (cached === 'mundial') apply(false);
           })();
         } catch (e) {}

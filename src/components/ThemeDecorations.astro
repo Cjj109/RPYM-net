@@ -326,7 +326,7 @@
 
     const banner = document.createElement('div');
     banner.id = 'mundial-team-banner';
-    banner.title = 'Tocar para cambiar de selección';
+    banner.title = 'Tocar para cambiar · mantener presionado para elegir';
     banner.setAttribute('role', 'button');
     banner.setAttribute('tabindex', '0');
     fillBanner(banner);
@@ -355,16 +355,109 @@
       'transition:opacity 0.4s ease, transform 0.15s ease',
     ].join(';');
 
+    function bump() {
+      banner.style.transform = 'scale(0.92)';
+      setTimeout(() => { banner.style.transform = 'scale(1)'; }, 150);
+    }
     function shuffle() {
       if (!window.rpymMundial) return;
       window.rpymMundial.apply(true); // sortea un equipo distinto (recolorea vía CSS vars)
       fillBanner(banner);
-      banner.style.transform = 'scale(0.92)';
-      setTimeout(() => { banner.style.transform = 'scale(1)'; }, 150);
+      bump();
     }
-    banner.addEventListener('click', shuffle);
+
+    // ===== SELECTOR DE LAS 48 SELECCIONES (mantener presionado / clic derecho) =====
+    function openPicker() {
+      if (document.getElementById('mundial-team-picker')) return;
+      const teams = (window.rpymMundial && window.rpymMundial.teams) || [];
+      const current = document.documentElement.getAttribute('data-mundial-team');
+
+      const overlay = document.createElement('div');
+      overlay.id = 'mundial-team-picker';
+      overlay.style.cssText = [
+        'position:fixed','inset:0','z-index:10000',
+        'display:flex','align-items:center','justify-content:center',
+        'background:rgba(0,0,0,0.5)','padding:20px',
+        'opacity:0','transition:opacity 0.2s ease',
+        '-webkit-tap-highlight-color:transparent',
+      ].join(';');
+
+      const panel = document.createElement('div');
+      panel.style.cssText = [
+        'background:#fff','color:#1a1a1a','border-radius:16px',
+        'max-width:520px','width:100%','max-height:80vh','overflow:hidden',
+        'display:flex','flex-direction:column',
+        'box-shadow:0 12px 40px rgba(0,0,0,0.3)',
+        'transform:scale(0.96)','transition:transform 0.2s ease',
+        'font-family:var(--font-body)',
+      ].join(';');
+
+      const head = document.createElement('div');
+      head.style.cssText = 'padding:14px 18px;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:15px';
+      head.innerHTML = '<span>Elige una selección</span><span id="mtp-close" role="button" tabindex="0" aria-label="Cerrar" style="cursor:pointer;font-size:22px;line-height:1;opacity:0.55;padding:0 4px">&times;</span>';
+
+      const grid = document.createElement('div');
+      grid.style.cssText = 'overflow-y:auto;padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px';
+
+      function closePicker() {
+        overlay.style.opacity = '0';
+        setTimeout(() => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 200);
+        document.removeEventListener('keydown', onKey);
+      }
+      function onKey(e) { if (e.key === 'Escape') closePicker(); }
+
+      teams.forEach((t) => {
+        const item = document.createElement('button');
+        const active = t[1] === current;
+        item.type = 'button';
+        item.style.cssText = [
+          'display:flex','align-items:center','gap:8px',
+          'padding:8px 10px','border-radius:10px','cursor:pointer',
+          'border:1px solid ' + (active ? 'var(--theme-primary-600,#1565c0)' : '#e5e5e5'),
+          'background:' + (active ? 'var(--theme-primary-50,#e3f2fd)' : '#fafafa'),
+          'font-size:13px','font-weight:600','color:#1a1a1a','text-align:left',
+          'font-family:inherit','transition:background 0.15s ease',
+        ].join(';');
+        item.innerHTML = '<span style="font-size:18px;line-height:1">' + t[2] + '</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + t[1] + '</span>';
+        item.addEventListener('click', () => {
+          if (window.rpymMundial && window.rpymMundial.set) window.rpymMundial.set(t[0]);
+          fillBanner(banner);
+          bump();
+          closePicker();
+        });
+        grid.appendChild(item);
+      });
+
+      panel.appendChild(head);
+      panel.appendChild(grid);
+      overlay.appendChild(panel);
+      document.body.appendChild(overlay);
+      requestAnimationFrame(() => { overlay.style.opacity = '1'; panel.style.transform = 'scale(1)'; });
+
+      document.addEventListener('keydown', onKey);
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) closePicker(); });
+      head.querySelector('#mtp-close').addEventListener('click', closePicker);
+    }
+
+    // Distinguir toque corto (sortear) de pulsación larga (abrir selector)
+    let pressTimer = null, longPressed = false;
+    function startPress() {
+      longPressed = false;
+      pressTimer = setTimeout(() => { longPressed = true; openPicker(); }, 500);
+    }
+    function cancelPress() { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } }
+    banner.addEventListener('pointerdown', startPress);
+    banner.addEventListener('pointerup', cancelPress);
+    banner.addEventListener('pointerleave', cancelPress);
+    banner.addEventListener('pointercancel', cancelPress);
+    banner.addEventListener('click', (e) => {
+      if (longPressed) { longPressed = false; e.preventDefault(); return; }
+      shuffle();
+    });
+    banner.addEventListener('contextmenu', (e) => { e.preventDefault(); openPicker(); });
     banner.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); shuffle(); }
+      else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); openPicker(); }
     });
 
     document.body.appendChild(banner);
