@@ -28,6 +28,22 @@ const { class: className = '' } = Astro.props;
   </picture>
 </div>
 
+<style>
+  /* Mundial: dimensionado por alto (no por ancho) para tamaño visual uniforme,
+     ya que las imágenes están normalizadas a una misma altura de sujeto. */
+  .themed-mascot img.is-mundial {
+    width: auto !important;
+    height: 15rem;
+    max-width: 90vw;
+  }
+  @media (min-width: 768px) {
+    .themed-mascot img.is-mundial { height: 17rem; }
+  }
+  @media (min-width: 1024px) {
+    .themed-mascot img.is-mundial { height: 21rem; }
+  }
+</style>
+
 <script is:inline>
 (function() {
   // Mapeo de tema a mascota multi-tamaño (archivos en /public/)
@@ -68,6 +84,10 @@ const { class: className = '' } = Astro.props;
     }
 
     wrapper.style.display = '';
+
+    // Mundial usa imágenes normalizadas por ALTURA (ancho variable): se dimensionan
+    // por alto para que todas las selecciones se vean del mismo tamaño.
+    img.classList.toggle('is-mundial', theme === 'mundial');
 
     // Mundial: mascota de la selección activa (imagen única en /mundial/).
     // El id lo fija el script del tema en data-mundial-id al sortear/elegir equipo.
