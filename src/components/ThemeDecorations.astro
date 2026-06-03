@@ -143,24 +143,19 @@
       count: 10,
       create: (i) => {
         const element = document.createElement('div');
-        // Variedad: balones (40%), estrellas (20%), trofeos (15%), confeti verde (15%), confeti dorado (10%)
+        // Variedad: balones (50%), trofeos (10%), confeti verde (20%), confeti dorado (20%)
         const type = i % 10;
-        if (type < 4) {
+        if (type < 5) {
           // Balones de fútbol
           element.className = 'mundial-ball';
           const size = 12 + Math.random() * 8;
           element.style.setProperty('--ball-size', `${size}px`);
         } else if (type < 6) {
-          // Estrellas doradas
-          element.className = 'mundial-star';
-          const size = 10 + Math.random() * 8;
-          element.style.setProperty('--star-size', `${size}px`);
-        } else if (type < 7) {
           // Trofeos
           element.className = 'mundial-trophy';
           const size = 12 + Math.random() * 6;
           element.style.setProperty('--trophy-size', `${size}px`);
-        } else if (type < 9) {
+        } else if (type < 8) {
           // Confeti verde
           element.className = 'mundial-confetti green';
           const size = 6 + Math.random() * 6;
