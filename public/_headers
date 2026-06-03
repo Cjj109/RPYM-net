@@ -10,12 +10,6 @@
 /icons/*
   Cache-Control: public, max-age=31536000, immutable
 
-# Mascotas del mundial: cambian a veces y conservan el mismo nombre de archivo.
-# Revalidar siempre (ETag) para que el navegador tome la versión nueva tras un
-# deploy sin versionar la URL. Más específica que /*.webp.
-/mundial/*
-  Cache-Control: public, no-cache
-
 # Cache control for static assets
 /*.webp
   Cache-Control: public, max-age=31536000, immutable
@@ -58,6 +52,13 @@
 # API endpoints - never cache
 /api/*
   Cache-Control: no-store
+
+# Mascotas del mundial: conservan el mismo nombre al actualizarse, así que NO
+# deben ser immutable (si no, el navegador/borde nunca toma la versión nueva).
+# Va al FINAL para ganar el conflicto con /*.webp (en _headers, la última regla
+# que define un header prevalece). no-cache => revalida vía ETag en cada carga.
+/mundial/*
+  Cache-Control: public, no-cache
 
 # Security headers
 /*
