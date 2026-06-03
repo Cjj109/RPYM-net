@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { ThemeName } from '../lib/d1-types';
+import { MUNDIAL_TEAMS } from '../lib/mundial-teams';
 
 const SEMANA_SANTA_THEMES: ThemeConfig[] = [
   {
@@ -144,6 +145,11 @@ export default function AdminSettings({ currentBcvRate }: Props) {
   const [isSavingTheme, setIsSavingTheme] = useState(false);
   const [themeMessage, setThemeMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Mundial: selecciones deshabilitadas (eliminadas del torneo)
+  const [mundialDisabled, setMundialDisabled] = useState<string[]>([]);
+  const [isSavingMundial, setIsSavingMundial] = useState(false);
+  const [mundialMessage, setMundialMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   const [useManualRate, setUseManualRate] = useState(false);
   const [manualRate, setManualRate] = useState('');
   const [isSavingRate, setIsSavingRate] = useState(false);
@@ -173,9 +179,10 @@ export default function AdminSettings({ currentBcvRate }: Props) {
         // Load theme
         const themeRes = await fetch('/api/config/theme');
         if (themeRes.ok) {
-          const { theme } = await themeRes.json();
+          const { theme, mundialDisabled: disabled } = await themeRes.json();
           setSelectedTheme(theme);
           if (SS_IDS.includes(theme)) setShowSemanaSanta(true);
+          if (Array.isArray(disabled)) setMundialDisabled(disabled);
         }
 
         // Load BCV rate config
@@ -252,6 +259,42 @@ export default function AdminSettings({ currentBcvRate }: Props) {
       setThemeMessage({ type: 'error', text: 'Error de conexion' });
     } finally {
       setIsSavingTheme(false);
+    }
+  };
+
+  const toggleTeam = (id: string) => {
+    setMundialMessage(null);
+    setMundialDisabled((prev) =>
+      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
+    );
+  };
+
+  const handleSaveMundial = async () => {
+    setIsSavingMundial(true);
+    setMundialMessage(null);
+    try {
+      const response = await fetch('/api/config/mundial-teams', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ disabled: mundialDisabled })
+      });
+      if (response.ok) {
+        // Reflejar de inmediato en este navegador
+        localStorage.setItem('rpym_mundial_disabled', JSON.stringify(mundialDisabled));
+        const w = window as unknown as { rpymMundial?: { setDisabled?: (a: string[]) => void } };
+        if (w.rpymMundial?.setDisabled) w.rpymMundial.setDisabled(mundialDisabled);
+        const activas = MUNDIAL_TEAMS.length - mundialDisabled.length;
+        setMundialMessage({
+          type: 'success',
+          text: `Guardado. ${activas} selecciones activas en la rotación.`
+        });
+      } else {
+        setMundialMessage({ type: 'error', text: 'Error al guardar las selecciones' });
+      }
+    } catch (error) {
+      setMundialMessage({ type: 'error', text: 'Error de conexión' });
+    } finally {
+      setIsSavingMundial(false);
     }
   };
 
@@ -480,6 +523,66 @@ export default function AdminSettings({ currentBcvRate }: Props) {
                 </button>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Sub-panel Mundial: deshabilitar selecciones eliminadas */}
+        {selectedTheme === 'mundial' && (
+          <div className="mb-4 p-4 bg-gradient-to-br from-green-50 to-amber-50 border border-green-200 rounded-xl">
+            <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1">
+              ⚽ Selecciones en rotación
+            </p>
+            <p className="text-xs text-ocean-600 mb-3">
+              Toca una selección para deshabilitarla a medida que va siendo eliminada. Las deshabilitadas dejan de aparecer en la rotación aleatoria y en el selector del sitio.
+              <span className="font-medium"> Activas: {MUNDIAL_TEAMS.length - mundialDisabled.length} / {MUNDIAL_TEAMS.length}</span>
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {MUNDIAL_TEAMS.map((team) => {
+                const disabled = mundialDisabled.includes(team.id);
+                return (
+                  <button
+                    key={team.id}
+                    type="button"
+                    onClick={() => toggleTeam(team.id)}
+                    aria-pressed={!disabled}
+                    className={`flex items-center gap-2 p-2 rounded-lg border-2 text-left text-sm transition-all ${
+                      disabled
+                        ? 'border-red-200 bg-red-50/60 text-ocean-400 line-through opacity-70'
+                        : 'border-green-200 bg-white hover:border-green-400'
+                    }`}
+                  >
+                    <span className="text-lg leading-none">{team.flag}</span>
+                    <span className="truncate flex-1">{team.name}</span>
+                    <span className="text-xs">{disabled ? '🚫' : '✓'}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {mundialMessage && (
+              <div className={`text-sm p-3 rounded-lg mt-3 ${
+                mundialMessage.type === 'error'
+                  ? 'bg-red-50 text-red-700 border border-red-200'
+                  : 'bg-green-50 text-green-700 border border-green-200'
+              }`}>
+                {mundialMessage.text}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={handleSaveMundial}
+              disabled={isSavingMundial}
+              className="mt-3 px-5 py-2 bg-green-600 hover:bg-green-500 disabled:bg-green-300
+                text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              {isSavingMundial ? (
+                <>
+                  <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                  Guardando...
+                </>
+              ) : (
+                'Guardar selecciones'
+              )}
+            </button>
           </div>
         )}
 

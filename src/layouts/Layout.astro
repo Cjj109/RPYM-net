@@ -119,7 +119,7 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
               ['japan','Japón','🇯🇵','#1A237E','#BC002D','#fff','#E8EAF6','#FFEBEE'],
               ['south_korea','Corea del Sur','🇰🇷','#CD2E3A','#003478','#fff','#FFEBEE','#E3F2FD'],
               ['saudi_arabia','Arabia Saudita','🇸🇦','#006C35','#D4A800','#1a1a1a','#E8F5E9','#FFFDE7'],
-              ['iran','Irán','🇮🇷','#239F40','#DA0000','#1a1a1a','#E8F5E9','#FFEBEE'],
+              ['iran','Irán','🇮🇷','#239F40','#DA0000','#1a1a1a','#E8F5E9','#FAFAFA'],
               ['australia','Australia','🇦🇺','#C49A00','#00843D','#1a1a1a','#FFF8E1','#E8F5E9'],
               ['qatar','Catar','🇶🇦','#8D1B3D','#C4A020','#fff','#FCE4EC','#FFFDE7'],
               ['iraq','Irak','🇮🇶','#0A6B3B','#CE1126','#1a1a1a','#E8F5E9','#FFEBEE'],
@@ -132,6 +132,29 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
             function findTeam(id) {
               for(var i=0;i<T.length;i++){ if(T[i][0]===id) return T[i]; }
               return null;
+            }
+            // Selecciones deshabilitadas (eliminadas del Mundial): se guardan en
+            // localStorage como JSON de ids para poder filtrar de forma síncrona en
+            // el primer pintado, sin esperar al fetch del poll.
+            var DKEY = 'rpym_mundial_disabled';
+            function getDisabled() {
+              try { var v = JSON.parse(localStorage.getItem(DKEY) || '[]'); return Array.isArray(v) ? v : []; }
+              catch(e) { return []; }
+            }
+            function isDisabled(id) { return getDisabled().indexOf(id) !== -1; }
+            // Equipos seleccionables (no deshabilitados). Si todos estuvieran
+            // deshabilitados, se devuelve la lista completa como salvaguarda.
+            function enabledTeams() {
+              var d = getDisabled();
+              var out = T.filter(function(t){ return d.indexOf(t[0]) === -1; });
+              return out.length ? out : T;
+            }
+            function pickRandom(avoidId) {
+              var pool = enabledTeams();
+              var team;
+              do { team = pool[Math.floor(Math.random() * pool.length)]; }
+              while (pool.length > 1 && team[0] === avoidId);
+              return team;
             }
             function paint(team) {
               var ps = genP(team[3]), as = genA(team[4]);
@@ -155,13 +178,14 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
             }
             // apply(forceNew): si forceNew, sortea un equipo distinto al actual;
             // si no, reutiliza el de la sesión (o sortea uno la primera vez).
+            // Las selecciones deshabilitadas se excluyen del sorteo, y si la de la
+            // sesión quedó deshabilitada se reemplaza por otra habilitada.
             function apply(forceNew) {
               var current = sessionStorage.getItem('rpym_mundial_team');
               var team = null;
-              if (!forceNew && current) team = findTeam(current);
+              if (!forceNew && current && !isDisabled(current)) team = findTeam(current);
               if (!team) {
-                do { team = T[Math.floor(Math.random() * T.length)]; }
-                while (forceNew && T.length > 1 && team[0] === current);
+                team = pickRandom(current);
                 sessionStorage.setItem('rpym_mundial_team', team[0]);
               }
               paint(team);
@@ -177,7 +201,18 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
               return team;
             }
 
-            window.rpymMundial = { apply: apply, set: set, teams: T };
+            // setDisabled(arr): actualiza la lista de selecciones deshabilitadas
+            // (llamado por el poll de tema). Si el equipo actual quedó deshabilitado
+            // y el tema mundial está activo, re-sortea uno habilitado al vuelo.
+            function setDisabled(arr) {
+              var list = Array.isArray(arr) ? arr.filter(function(x){ return typeof x === 'string'; }) : [];
+              localStorage.setItem(DKEY, JSON.stringify(list));
+              if (document.documentElement.getAttribute('data-theme') === 'mundial') {
+                var current = sessionStorage.getItem('rpym_mundial_team');
+                if (current && isDisabled(current)) apply(true);
+              }
+            }
+            window.rpymMundial = { apply: apply, set: set, setDisabled: setDisabled, teams: T, enabledTeams: enabledTeams, isDisabled: isDisabled };
             if (cached === 'mundial') apply(false);
           })();
         } catch (e) {}
@@ -333,6 +368,11 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
             if (response.ok) {
               var data = await response.json();
               var currentTheme = localStorage.getItem('rpym_theme') || 'ocean';
+              // Sincronizar selecciones deshabilitadas antes de (re)aplicar mundial,
+              // para que el sorteo ya use el pool actualizado.
+              if (window.rpymMundial && data.mundialDisabled) {
+                window.rpymMundial.setDisabled(data.mundialDisabled);
+              }
               if (data.theme && data.theme !== currentTheme) {
                 applyTheme(data.theme);
               }

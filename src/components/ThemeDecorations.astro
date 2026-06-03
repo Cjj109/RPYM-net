@@ -369,7 +369,10 @@
     // ===== SELECTOR DE LAS 48 SELECCIONES (mantener presionado / clic derecho) =====
     function openPicker() {
       if (document.getElementById('mundial-team-picker')) return;
-      const teams = (window.rpymMundial && window.rpymMundial.teams) || [];
+      // Solo selecciones habilitadas (las eliminadas del Mundial no aparecen).
+      const teams = (window.rpymMundial && window.rpymMundial.enabledTeams)
+        ? window.rpymMundial.enabledTeams()
+        : ((window.rpymMundial && window.rpymMundial.teams) || []);
       const current = document.documentElement.getAttribute('data-mundial-team');
 
       const overlay = document.createElement('div');

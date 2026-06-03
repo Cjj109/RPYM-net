@@ -13,7 +13,8 @@ export const GET: APIRoute = async ({ locals }) => {
       // Fallback when D1 is not configured (dev mode without D1)
       return new Response(JSON.stringify({
         theme: 'ocean',
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        mundialDisabled: []
       }), {
         headers: {
           'Content-Type': 'application/json',
@@ -26,9 +27,23 @@ export const GET: APIRoute = async ({ locals }) => {
       "SELECT value, updated_at FROM site_config WHERE key = 'theme'"
     ).first<{ value: string; updated_at: string }>();
 
+    const disabledRow = await db.prepare(
+      "SELECT value FROM site_config WHERE key = 'mundial_disabled'"
+    ).first<{ value: string }>();
+    let mundialDisabled: string[] = [];
+    if (disabledRow?.value) {
+      try {
+        const parsed = JSON.parse(disabledRow.value);
+        if (Array.isArray(parsed)) mundialDisabled = parsed.filter((id) => typeof id === 'string');
+      } catch {
+        mundialDisabled = [];
+      }
+    }
+
     return new Response(JSON.stringify({
       theme: result?.value || 'ocean',
-      updatedAt: result?.updated_at || new Date().toISOString()
+      updatedAt: result?.updated_at || new Date().toISOString(),
+      mundialDisabled
     }), {
       headers: {
         'Content-Type': 'application/json',
@@ -39,7 +54,8 @@ export const GET: APIRoute = async ({ locals }) => {
     console.error('Error getting theme:', error);
     return new Response(JSON.stringify({
       theme: 'ocean',
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      mundialDisabled: []
     }), {
       headers: {
         'Content-Type': 'application/json',
