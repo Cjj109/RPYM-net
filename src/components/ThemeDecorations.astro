@@ -140,7 +140,7 @@
       }
     },
     mundial: {
-      count: 20,
+      count: 10,
       create: (i) => {
         const element = document.createElement('div');
         // Variedad: balones (40%), estrellas (20%), trofeos (15%), confeti verde (15%), confeti dorado (10%)
@@ -175,7 +175,7 @@
         element.style.opacity = `${0.6 + Math.random() * 0.4}`;
         const duration = 7 + Math.random() * 6;
         const delay = Math.random() * 6;
-        element.style.animation = `mundial-fall ${duration}s linear ${delay}s infinite, mundial-spin 2s ease-in-out ${delay}s infinite`;
+        element.style.animation = `mundial-fall ${duration}s linear ${delay}s infinite`;
         return element;
       }
     },

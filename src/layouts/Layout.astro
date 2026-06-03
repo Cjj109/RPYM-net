@@ -49,17 +49,20 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
               var f=function(n){var k=(n+h/30)%12;return Math.round((l-a*Math.max(Math.min(k-3,9-k,1),-1))*255);};
               return '#'+[f(0),f(8),f(4)].map(function(v){return v.toString(16).padStart(2,'0');}).join('');
             }
+            // Luminosidades fijas tipo Tailwind: el color del equipo solo define HUE
+            // y saturación, garantizando que primary-500 siempre sea un tono medio
+            // legible sin importar si el color base es muy oscuro (azul marino, gris).
             function genP(hex) {
-              var c=h2hsl(hex),h=c[0],s=c[1],l=c[2];
-              var ls=[97,93,87,78,70,l,Math.max(l-10,10),Math.max(l-22,7),Math.max(l-33,4),Math.max(l-42,2),Math.max(l-48,1)];
-              var ss=[s*.1+5,s*.2+8,s*.45+5,s*.75,s*.9,s,s*.92,s*.85,s*.78,s*.72,s*.65];
-              return ls.map(function(li,i){return hsl2h(h,Math.min(100,ss[i]),li);});
+              var c=h2hsl(hex),h=c[0],s=c[1];
+              var sat = s<12 ? 6 : Math.min(92, Math.max(42, s));
+              var ls=[97,93,86,76,64,53,45,37,30,23,16];
+              return ls.map(function(li){return hsl2h(h,sat,li);});
             }
             function genA(hex) {
-              var c=h2hsl(hex),h=c[0],s=c[1],l=c[2];
-              var ls=[95,80,l,Math.max(l-10,8),Math.max(l-22,5)];
-              var ss=[s*.15+5,s*.7,s,s*.9,s*.8];
-              return ls.map(function(li,i){return hsl2h(h,Math.min(100,ss[i]),li);});
+              var c=h2hsl(hex),h=c[0],s=c[1];
+              var sat = s<12 ? 8 : Math.min(95, Math.max(48, s));
+              var ls=[93,72,61,51,42];
+              return ls.map(function(li){return hsl2h(h,sat,li);});
             }
 
             // [id, nombre, bandera, colorPrimario, colorAcento, textoSobrePrimario, bgDesde, bgHasta]
@@ -75,7 +78,7 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
               ['paraguay','Paraguay','🇵🇾','#CE2028','#003893','#fff','#FFEBEE','#E8EAF6'],
               // UEFA
               ['france','Francia','🇫🇷','#002395','#ED2939','#fff','#E8EAF6','#FFEBEE'],
-              ['germany','Alemania','🇩🇪','#3D3D3D','#CC0000','#fff','#F5F5F5','#FFEBEE'],
+              ['germany','Alemania','🇩🇪','#D00000','#FFCE00','#fff','#FFEBEE','#FFFDE7'],
               ['spain','España','🇪🇸','#C60B1E','#FFC400','#fff','#FFEBEE','#FFFDE7'],
               ['england','Inglaterra','🇬🇧','#1B3A6B','#CF142B','#fff','#E3F2FD','#FFEBEE'],
               ['portugal','Portugal','🇵🇹','#BA0021','#006600','#fff','#FFEBEE','#E8F5E9'],

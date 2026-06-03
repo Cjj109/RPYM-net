@@ -1561,30 +1561,7 @@
   position: relative;
 }
 
-/* Efecto de reflector de estadio */
-[data-theme="mundial"] .themed-button::before,
-[data-theme="mundial"] a[href*="whatsapp"]::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.4) 50%,
-    transparent 100%
-  );
-  animation: stadium-light 2s ease-in-out infinite;
-}
-
-@keyframes stadium-light {
-  0% { left: -100%; }
-  50%, 100% { left: 200%; }
-}
-
-/* Estrella del equipo en botones */
+/* Estrella del equipo en botones (estática para mejor rendimiento) */
 [data-theme="mundial"] .themed-button::after,
 [data-theme="mundial"] a[href*="whatsapp"]::after {
   content: '★';
@@ -1594,12 +1571,6 @@
   font-size: 16px;
   color: var(--theme-accent-400);
   text-shadow: 0 0 10px var(--theme-accent-300);
-  animation: trophy-pulse 1s ease-in-out infinite;
-}
-
-@keyframes trophy-pulse {
-  0%, 100% { transform: scale(1); opacity: 0.8; }
-  50% { transform: scale(1.2); opacity: 1; }
 }
 
 /* === CAMPEONES - Botones bandera venezolana === */
