@@ -35,8 +35,10 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
             document.documentElement.setAttribute('data-theme', cached);
           }
 
-          // ===== MUNDIAL: 48 selecciones, paleta aleatoria por sesión =====
-          if (cached === 'mundial') {
+          // ===== MUNDIAL: 48 selecciones, paleta por sesión =====
+          // Se define como API global (window.rpymMundial) para que el polling de
+          // tema y el banner cliqueable puedan re-aplicar/sortear el equipo sin recargar.
+          (function() {
             // Utilidades de color HSL ↔ hex
             function h2hsl(hex) {
               var r=parseInt(hex.slice(1,3),16)/255,g=parseInt(hex.slice(3,5),16)/255,b=parseInt(hex.slice(5,7),16)/255;
@@ -126,35 +128,48 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
               ['new_zealand','Nueva Zelanda','🇳🇿','#00247D','#CC0000','#fff','#E3F2FD','#FFEBEE']
             ];
 
-            // Seleccionar equipo (mismo durante la sesión)
-            var tid = sessionStorage.getItem('rpym_mundial_team');
-            var team = null;
-            if (tid) { for(var i=0;i<T.length;i++){if(T[i][0]===tid){team=T[i];break;}} }
-            if (!team) {
-              team = T[Math.floor(Math.random() * T.length)];
-              sessionStorage.setItem('rpym_mundial_team', team[0]);
+            function findTeam(id) {
+              for(var i=0;i<T.length;i++){ if(T[i][0]===id) return T[i]; }
+              return null;
+            }
+            function paint(team) {
+              var ps = genP(team[3]), as = genA(team[4]);
+              var root = document.documentElement;
+              var pk=['--theme-primary-50','--theme-primary-100','--theme-primary-200','--theme-primary-300','--theme-primary-400','--theme-primary-500','--theme-primary-600','--theme-primary-700','--theme-primary-800','--theme-primary-900','--theme-primary-950'];
+              var ak=['--theme-accent-100','--theme-accent-300','--theme-accent-400','--theme-accent-500','--theme-accent-600'];
+              for(var pi=0;pi<pk.length;pi++) root.style.setProperty(pk[pi], ps[pi]);
+              for(var ai=0;ai<ak.length;ai++) root.style.setProperty(ak[ai], as[ai]);
+              root.style.setProperty('--theme-primary-fg', team[5]);
+              // Gradiente de botón adaptativo: equipos con texto oscuro (verde/dorado,
+              // perceptualmente claros) usan p600→p700; los de texto blanco usan p700→p800.
+              // Garantiza ≥4.5 (AA normal) en ambos extremos del gradiente.
+              var darkFg = (team[5] !== '#fff');
+              root.style.setProperty('--btn-from', darkFg ? ps[6] : ps[7]);
+              root.style.setProperty('--btn-to',   darkFg ? ps[7] : ps[8]);
+              root.style.setProperty('--btn-text-shadow', darkFg ? 'none' : '0 1px 2px rgba(0,0,0,0.3)');
+              root.style.setProperty('--theme-bg-from', team[6]);
+              root.style.setProperty('--theme-bg-to', team[7]);
+              root.setAttribute('data-mundial-team', team[1]);
+              root.setAttribute('data-mundial-flag', team[2]);
+            }
+            // apply(forceNew): si forceNew, sortea un equipo distinto al actual;
+            // si no, reutiliza el de la sesión (o sortea uno la primera vez).
+            function apply(forceNew) {
+              var current = sessionStorage.getItem('rpym_mundial_team');
+              var team = null;
+              if (!forceNew && current) team = findTeam(current);
+              if (!team) {
+                do { team = T[Math.floor(Math.random() * T.length)]; }
+                while (forceNew && T.length > 1 && team[0] === current);
+                sessionStorage.setItem('rpym_mundial_team', team[0]);
+              }
+              paint(team);
+              return team;
             }
 
-            // Generar y aplicar paleta
-            var ps = genP(team[3]), as = genA(team[4]);
-            var root = document.documentElement;
-            var pk=['--theme-primary-50','--theme-primary-100','--theme-primary-200','--theme-primary-300','--theme-primary-400','--theme-primary-500','--theme-primary-600','--theme-primary-700','--theme-primary-800','--theme-primary-900','--theme-primary-950'];
-            var ak=['--theme-accent-100','--theme-accent-300','--theme-accent-400','--theme-accent-500','--theme-accent-600'];
-            for(var pi=0;pi<pk.length;pi++) root.style.setProperty(pk[pi], ps[pi]);
-            for(var ai=0;ai<ak.length;ai++) root.style.setProperty(ak[ai], as[ai]);
-            root.style.setProperty('--theme-primary-fg', team[5]);
-            // Gradiente de botón adaptativo: equipos con texto oscuro (verde/dorado,
-            // perceptualmente claros) usan p600→p700; los de texto blanco usan p700→p800.
-            // Garantiza ≥4.5 (AA normal) en ambos extremos del gradiente.
-            var darkFg = (team[5] !== '#fff');
-            root.style.setProperty('--btn-from', darkFg ? ps[6] : ps[7]);
-            root.style.setProperty('--btn-to',   darkFg ? ps[7] : ps[8]);
-            root.style.setProperty('--btn-text-shadow', darkFg ? 'none' : '0 1px 2px rgba(0,0,0,0.3)');
-            root.style.setProperty('--theme-bg-from', team[6]);
-            root.style.setProperty('--theme-bg-to', team[7]);
-            root.setAttribute('data-mundial-team', team[1]);
-            root.setAttribute('data-mundial-flag', team[2]);
-          }
+            window.rpymMundial = { apply: apply, teams: T };
+            if (cached === 'mundial') apply(false);
+          })();
         } catch (e) {}
       })();
     </script>
@@ -298,6 +313,8 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
           };
           var metaTheme = document.querySelector('meta[name="theme-color"]');
           if (metaTheme) metaTheme.setAttribute('content', themeColors[theme]);
+          // Al activar mundial en caliente, sembrar/aplicar el equipo de la sesión
+          if (theme === 'mundial' && window.rpymMundial) window.rpymMundial.apply(false);
         }
 
         async function checkTheme() {

@@ -314,11 +314,22 @@
       if (existing) existing.remove();
       return;
     }
-    if (existing) return; // ya existe
+
+    // Contenido: bandera + nombre + ícono de "sortear otro equipo"
+    function fillBanner(el) {
+      const name = document.documentElement.getAttribute('data-mundial-team');
+      const flag = document.documentElement.getAttribute('data-mundial-flag');
+      el.innerHTML = `<span style="font-size:18px;line-height:1">${flag}</span><span>${name}</span><span aria-hidden="true" style="font-size:13px;opacity:0.7;margin-left:2px">⇄</span>`;
+    }
+
+    if (existing) { fillBanner(existing); return; } // ya existe: solo actualizar
 
     const banner = document.createElement('div');
     banner.id = 'mundial-team-banner';
-    banner.innerHTML = `<span style="font-size:18px;line-height:1">${teamFlag}</span><span>${teamName}</span>`;
+    banner.title = 'Tocar para cambiar de selección';
+    banner.setAttribute('role', 'button');
+    banner.setAttribute('tabindex', '0');
+    fillBanner(banner);
     banner.style.cssText = [
       'position:fixed',
       'bottom:20px',
@@ -335,12 +346,27 @@
       'font-weight:600',
       'border:1px solid var(--theme-primary-700)',
       'box-shadow:0 2px 12px rgba(0,0,0,0.2)',
-      'pointer-events:none',
+      'cursor:pointer',
+      'user-select:none',
+      '-webkit-tap-highlight-color:transparent',
       'font-family:var(--font-body)',
       'letter-spacing:0.02em',
       'opacity:0',
-      'transition:opacity 0.4s ease',
+      'transition:opacity 0.4s ease, transform 0.15s ease',
     ].join(';');
+
+    function shuffle() {
+      if (!window.rpymMundial) return;
+      window.rpymMundial.apply(true); // sortea un equipo distinto (recolorea vía CSS vars)
+      fillBanner(banner);
+      banner.style.transform = 'scale(0.92)';
+      setTimeout(() => { banner.style.transform = 'scale(1)'; }, 150);
+    }
+    banner.addEventListener('click', shuffle);
+    banner.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); shuffle(); }
+    });
+
     document.body.appendChild(banner);
     requestAnimationFrame(() => { banner.style.opacity = '1'; });
   }
