@@ -46,6 +46,11 @@ const { class: className = '' } = Astro.props;
 
 <script is:inline>
 (function() {
+  // Versión global de las imágenes /mundial/. Bumpear este número al reemplazar
+  // cualquier .webp de mascota mundial — la URL cambia (?v=N) y se invalida
+  // cualquier caché envenenado (navegador, CDN, Apple Private Relay, VPN).
+  const MUNDIAL_IMAGES_VERSION = 2;
+
   // Mapeo de tema a mascota multi-tamaño (archivos en /public/)
   const themeMascots = {
     ocean: 'jose',
@@ -93,7 +98,7 @@ const { class: className = '' } = Astro.props;
     // El id lo fija el script del tema en data-mundial-id al sortear/elegir equipo.
     if (theme === 'mundial') {
       const id = document.documentElement.getAttribute('data-mundial-id');
-      const src = id ? `/mundial/${id}.webp` : '/jose-lg.webp';
+      const src = id ? `/mundial/${id}.webp?v=${MUNDIAL_IMAGES_VERSION}` : '/jose-lg.webp';
       img.src = src;
       const sources = picture.querySelectorAll('source');
       sources.forEach(source => { source.srcset = src; });
