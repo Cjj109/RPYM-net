@@ -14,11 +14,23 @@
         <div class="flex items-start gap-4 md:gap-6 relative">
           <!-- Imagen delivery -->
           <div class="flex-shrink-0">
-            <picture>
+            <picture class="mascot-default">
               <source srcset="/delivery-sm.webp" media="(max-width: 400px)" />
               <img
                 src="/delivery-md.webp"
                 alt="Delivery disponible"
+                class="w-20 h-auto md:w-28 drop-shadow-lg"
+                width="300"
+                height="300"
+                loading="lazy"
+                decoding="async"
+              />
+            </picture>
+            <picture class="mascot-mundial">
+              <source srcset="/delivery-mundial-sm.webp" media="(max-width: 400px)" />
+              <img
+                src="/delivery-mundial-md.webp"
+                alt="Delivery disponible — edición Mundial"
                 class="w-20 h-auto md:w-28 drop-shadow-lg"
                 width="300"
                 height="300"
@@ -153,3 +165,10 @@
     </div>
   </div>
 </section>
+
+<style>
+  /* Mascota alternativa para el tema "mundial"; oculta por defecto */
+  .mascot-mundial { display: none; }
+  :global([data-theme="mundial"]) .mascot-default { display: none; }
+  :global([data-theme="mundial"]) .mascot-mundial { display: initial; }
+</style>

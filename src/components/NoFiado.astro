@@ -45,11 +45,20 @@
         <!-- Cobranzas - Si no pagamos -->
         <div class="text-center">
           <div class="relative inline-block">
-            <picture>
+            <picture class="mascot-default">
               <source srcset="/cobranzas-sm.webp" media="(max-width: 400px)" />
               <img
                 src="/cobranzas-md.webp"
                 alt="Cobranzas - Tenemos que cobrar"
+                class="w-24 h-auto md:w-40 lg:w-48 mx-auto drop-shadow-lg"
+                loading="lazy"
+              />
+            </picture>
+            <picture class="mascot-mundial">
+              <source srcset="/cobranzas-mundial-sm.webp" media="(max-width: 400px)" />
+              <img
+                src="/cobranzas-mundial-md.webp"
+                alt="Cobranzas — edición Mundial"
                 class="w-24 h-auto md:w-40 lg:w-48 mx-auto drop-shadow-lg"
                 loading="lazy"
               />
@@ -81,3 +90,10 @@
     </div>
   </div>
 </section>
+
+<style>
+  /* Mascota alternativa para el tema "mundial"; oculta por defecto */
+  .mascot-mundial { display: none; }
+  :global([data-theme="mundial"]) .mascot-default { display: none; }
+  :global([data-theme="mundial"]) .mascot-mundial { display: initial; }
+</style>
