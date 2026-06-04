@@ -90,11 +90,23 @@
           <!-- Imágenes: pesca (trabajo) y cerrado (descanso) -->
           <div class="flex-shrink-0 flex flex-col gap-2">
             <!-- Pesca - trabajando -->
-            <picture>
+            <picture class="mascot-default">
               <source srcset="/pesca-sm.webp" media="(max-width: 400px)" />
               <img
                 src="/pesca-md.webp"
                 alt="Trabajando en el muelle"
+                class="w-14 h-auto md:w-20 drop-shadow-lg"
+                width="300"
+                height="300"
+                loading="lazy"
+                decoding="async"
+              />
+            </picture>
+            <picture class="mascot-mundial">
+              <source srcset="/pesca-mundial-sm.webp" media="(max-width: 400px)" />
+              <img
+                src="/pesca-mundial-md.webp"
+                alt="Trabajando en el muelle — edición Mundial"
                 class="w-14 h-auto md:w-20 drop-shadow-lg"
                 width="300"
                 height="300"
