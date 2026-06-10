@@ -3,6 +3,7 @@ import { requireAuth } from '../../lib/require-auth';
 import { getEnv } from '../../lib/env';
 import { callAIWithFallback } from '../../lib/ai-fallback';
 import { getProviderOrder } from '../../lib/ai-config';
+import { detectExplicitUnit } from '../../lib/detect-explicit-unit';
 
 export const prerender = false;
 
@@ -350,49 +351,6 @@ Responde SOLO con un JSON valido:
 
     const dollarAmountRegex = /^\$\s*(\d+(?:\.\d+)?)|^(\d+(?:\.\d+)?)\s*\$|^(\d+(?:\.\d+)?)\s*(?:dolares?|dollars?|usd)\s/i;
     const dollarDeRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|en\s|d\s)/i;
-
-    // Detectar unidad explícita del usuario (ej: "1kg pepitona" → "kg")
-    // Si el usuario escribe "kg" explícitamente, NO usar la unidad del catálogo (podría ser "caja")
-    const explicitUnitRegex = /\d+(?:\.\d+)?\s*(kg|kilo|kilos)\b/i;
-    const halfKgRegex = /(?:medio|1\/2)\s*(?:kg|kilo)?\b/i;
-    const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    function detectExplicitUnit(item: any, userText: string): string | null {
-      // Revisar en requestedName
-      if (item.requestedName) {
-        if (/\b(?:caja|cajas|cj)\b/i.test(item.requestedName)) return 'caja';
-        if (explicitUnitRegex.test(item.requestedName) || halfKgRegex.test(item.requestedName)) {
-          return 'kg';
-        }
-      }
-      // Revisar en el texto original, acotado al segmento de ESTE producto
-      if (userText) {
-        const prodName = item.productName || item.requestedName || '';
-        const normalizedProd = normalize(prodName);
-        const normalizedText = normalize(userText);
-        const words = normalizedProd.split(/\s+/).filter((w: string) => w.length > 3);
-        // Buscar 'caja' solo en el segmento del texto que corresponde a ESTE producto,
-        // no en todo el texto (evita asignar 'caja' a productos que no la mencionan)
-        if (words.length > 0) {
-          const segments = normalizedText.split(/,|\s+y\s+/);
-          // Usar el segmento con MÁS palabras del producto en común (evita tomar un segmento de
-          // otro producto con nombre similar, ej: "cajas de camarón 51/60" vs "camarón vivito")
-          const bestSegment = segments
-            .map(seg => ({ seg, score: words.filter(w => seg.includes(w)).length }))
-            .filter(s => s.score > 0)
-            .sort((a, b) => b.score - a.score)[0]?.seg;
-          if (bestSegment && /\b(?:caja|cajas|cj)\b/i.test(bestSegment)) return 'caja';
-        }
-        // Buscar patrón: "Xkg productoNombre" o "X kg productoNombre"
-        for (const word of words) {
-          const escaped = escapeRegex(word);
-          const pattern = new RegExp(`\\d+(?:\\.\\d+)?\\s*(?:kg|kilo|kilos)\\s+[^,]*?${escaped}`, 'i');
-          if (pattern.test(normalizedText)) return 'kg';
-          const patternHalf = new RegExp(`(?:medio|1\\/2)\\s*(?:kg|kilo)?\\s+[^,]*?${escaped}`, 'i');
-          if (patternHalf.test(normalizedText)) return 'kg';
-        }
-      }
-      return null;
-    }
 
     for (const item of parsed.items || []) {
       if (item.matched && item.productId) {

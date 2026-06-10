@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { callGeminiWithRetry } from '../../lib/gemini-client';
+import { detectExplicitUnit } from '../../lib/detect-explicit-unit';
 
 // Este endpoint NO se prerenderiza (se ejecuta en el servidor)
 export const prerender = false;
@@ -520,20 +521,16 @@ INSTRUCCIONES:
       if (catalogProduct) {
         item = { ...item, unit: catalogProduct.unidad };
       }
-      // Si usuario dijo "caja" explícitamente, forzar unit: caja (override sobre la unidad del catálogo)
-      if (/\bcaja\b/i.test(item.requestedName || '') && item.unit !== 'caja') {
-        item = { ...item, unit: 'caja' };
+      // Si el usuario dio una unidad explícita ("2 cajas de X" → caja, "1kg X" → kg),
+      // respetarla por encima de la unidad del catálogo (podría estar matcheado a un
+      // producto que se vende por caja aunque el usuario pidió por kilo, o viceversa)
+      const explicitUnit = detectExplicitUnit(item, text);
+      if (explicitUnit && item.unit !== explicitUnit) {
+        item = { ...item, unit: explicitUnit };
       }
 
       const product = products.find((p: any) => String(p.id) === String(item.productId));
       if (!product || product.precioUSD <= 0) return item;
-
-      // Siempre forzar la unidad canónica del producto encontrado en el catálogo.
-      // Esto evita que la IA herede la unidad del item anterior en su respuesta JSON.
-      // Excepción: si el usuario dijo "caja" explícitamente, ese override ya se aplicó arriba.
-      if (!/\bcaja\b/i.test(item.requestedName || '')) {
-        item = { ...item, unit: product.unidad };
-      }
 
       let dollarAmount = item.dollarAmount && item.dollarAmount > 0 ? item.dollarAmount : null;
 
@@ -565,7 +562,7 @@ INSTRUCCIONES:
           calculatedQty = Math.floor(dollarAmount / priceForCalc);
           if (calculatedQty < 1) calculatedQty = 1;
         }
-        return { ...item, quantity: calculatedQty, unit: product.unidad, dollarAmount, customPrice: null };
+        return { ...item, quantity: calculatedQty, unit: explicitUnit || product.unidad, dollarAmount, customPrice: null };
       }
 
       return item;
