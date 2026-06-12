@@ -55,6 +55,17 @@ describe('detectExplicitUnit', () => {
     expect(detectExplicitUnit(item, 'pulpo para Delcy')).toBeNull();
   });
 
+  it('desempata por cantidad cuando el mismo producto aparece en varios segmentos', () => {
+    // "1 caja de pepitona" y "2kg pepitona" comparten la palabra "pepitona":
+    // el item con quantity 2 debe tomar el segmento "2kg pepitona" → kg
+    const text = 'Delsy: 1 caja de pepitona, 2kg pepitona, 2 cajas de camaron 41/50, 2kg camaron desvenado, 3kg langostinos mega jumbos a 25';
+    expect(detectExplicitUnit({ requestedName: 'pepitona', productName: 'Pepitona', quantity: 2 }, text)).toBe('kg');
+    expect(detectExplicitUnit({ requestedName: 'caja de pepitona', productName: 'Pepitona (Caja de 10kg)', quantity: 1 }, text)).toBe('caja');
+    expect(detectExplicitUnit({ requestedName: 'camaron 41/50', productName: 'Camaron 41/50', quantity: 2 }, text)).toBe('caja');
+    expect(detectExplicitUnit({ requestedName: 'camaron desvenado', productName: 'Camaron Desvenado', quantity: 2 }, text)).toBe('kg');
+    expect(detectExplicitUnit({ requestedName: 'langostinos mega jumbos', productName: null, quantity: 3 }, text)).toBe('kg');
+  });
+
   it('precios "a X" no rompen la segmentación', () => {
     const text = '2kg cuerpo de calamar a 12 y 1 caja de pepitona, medio kilo de pulpo';
     expect(detectExplicitUnit({ requestedName: 'cuerpo de calamar', productName: 'Cuerpo de Calamar' }, text)).toBe('kg');

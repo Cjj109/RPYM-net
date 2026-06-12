@@ -138,6 +138,7 @@ CLIENTE:
 - CORRECTO: "jose" con clientes ["Jose", "Jose Luis"] → usar "Jose" (exacto)
 - CORRECTO: "garcia" con clientes ["Jose Garcia"] → único parcial, usar "Jose Garcia"
 - INCORRECTO: "jose" con clientes ["Jose", "Jose Luis"] → NO auto-asignar "Jose Luis"
+- INCORRECTO: "Delsy" con clientes ["Delicias de la Nona"] → NO matchear por parecido superficial (compartir las primeras letras NO es coincidencia). Si el nombre escrito no coincide con ningún cliente, customerId: null y customerName con el nombre TAL CUAL lo escribió el usuario
 - Si el usuario dice "cliente" sin apellido ni nombre → customerId: null, customerName: "Cliente" (nombre genérico válido)
 - Si no hay nombre en absoluto → customerId: null, customerName: ""
 - NO usar términos como "desconocido", "sin nombre", etc.
@@ -480,11 +481,33 @@ Responde SOLO con un JSON valido:
       `${i.nombre} ${i.cantidad}${i.unidad}`
     ).join(', ');
 
-    // Fallback: si Gemini no encontró el cliente, buscar sin acentos
     let resolvedCustomerId = parsed.customerId || null;
     let resolvedCustomerName = parsed.customerName?.trim() || 'Cliente';
-    if (!resolvedCustomerId && parsed.customerName) {
-      const normalizedInput = normalize(parsed.customerName).trim();
+
+    // Validar el cliente que eligió la IA contra el texto original: a veces
+    // matchea por similitud superficial (ej: "Delsy" → "Delicias de la Nona").
+    // Si ninguna palabra del nombre elegido aparece en el texto, descartarlo
+    // y usar el nombre que el usuario escribió ("Delsy: ..." o "... para Delsy")
+    if (resolvedCustomerId) {
+      const textNorm = normalize(text);
+      const stopTokens = new Set(['los', 'las', 'del', 'para', 'con', 'cliente']);
+      const chosen = customers.find(c => String(c.id) === String(resolvedCustomerId));
+      const appearsInText = chosen
+        ? normalize(chosen.name).split(/\s+/)
+            .filter(t => t.length >= 3 && !stopTokens.has(t))
+            .some(t => new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(textNorm))
+        : false;
+      if (chosen && !appearsInText) {
+        resolvedCustomerId = null;
+        const writtenName = text.match(/^\s*([\p{L} .'-]{2,40}?)\s*:/u)?.[1]
+          || text.match(/\bpara\s+([\p{L} .'-]{2,40}?)\s*(?:$|[,;\n.])/iu)?.[1];
+        if (writtenName?.trim()) resolvedCustomerName = writtenName.trim();
+      }
+    }
+
+    // Fallback: si no hay cliente resuelto, buscar sin acentos por nombre
+    if (!resolvedCustomerId && resolvedCustomerName && resolvedCustomerName !== 'Cliente') {
+      const normalizedInput = normalize(resolvedCustomerName).trim();
       if (normalizedInput) {
         const exactMatch = customers.find(c => normalize(c.name) === normalizedInput);
         if (exactMatch) {
@@ -513,10 +536,20 @@ Responde SOLO con un JSON valido:
       delivery: delivery > 0 ? delivery : null
     };
 
+    // No reportar como "no identificados" productos que sí se agregaron:
+    // la IA a veces lista en unmatched un producto que igual entró como
+    // producto personalizado (suggestedName + customPrice), y eso infla
+    // el conteo del badge de verificación (ej: 5/6 cuando capturó 5/5)
+    const itemNames = presupuestoItems.map(i => normalize(i.nombre));
+    const unmatched = ((parsed.unmatched || []) as unknown[]).map(u => String(u)).filter(u => {
+      const nu = normalize(u);
+      return !itemNames.some(n => n.includes(nu) || nu.includes(n));
+    });
+
     return new Response(JSON.stringify({
       success: true,
       action,
-      unmatched: parsed.unmatched || []
+      unmatched
     }), {
       status: 200, headers: { 'Content-Type': 'application/json' }
     });

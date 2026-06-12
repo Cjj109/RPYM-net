@@ -10,6 +10,7 @@ const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 export interface ExplicitUnitItem {
   requestedName?: string | null;
   productName?: string | null;
+  quantity?: number | null;
 }
 
 /**
@@ -50,10 +51,23 @@ export function detectExplicitUnit(item: ExplicitUnitItem, userText: string): 'k
         .flatMap(seg => seg.split(qtyBoundary));
       // Usar el segmento con MÁS palabras del producto en común (evita tomar un segmento de
       // otro producto con nombre similar, ej: "cajas de camarón 51/60" vs "camarón vivito")
-      const bestSegment = segments
+      const scored = segments
         .map(seg => ({ seg, score: words.filter(w => seg.includes(w)).length }))
-        .filter(s => s.score > 0)
-        .sort((a, b) => b.score - a.score)[0]?.seg;
+        .filter(s => s.score > 0);
+      const maxScore = scored.length > 0 ? Math.max(...scored.map(s => s.score)) : 0;
+      let candidates = scored.filter(s => s.score === maxScore);
+      // Desempate por cantidad: si varios segmentos comparten las palabras del producto
+      // (ej: "1 caja de pepitona" y "2kg pepitona" para el item Pepitona), elegir el
+      // segmento cuyo primer número coincide con la cantidad que la IA asignó a ESTE item
+      if (candidates.length > 1 && typeof item.quantity === 'number') {
+        const qtyMatches = candidates.filter(c => {
+          // Primer número del segmento, ignorando tallas como "41/50"
+          const m = c.seg.match(/(?<![\d/.,])(\d+(?:[.,]\d+)?)(?![\d/])/);
+          return m && parseFloat(m[1].replace(',', '.')) === item.quantity;
+        });
+        if (qtyMatches.length > 0) candidates = qtyMatches;
+      }
+      const bestSegment = candidates[0]?.seg;
       if (bestSegment) {
         if (cajaRegex.test(bestSegment)) return 'caja';
         // kg explícito dentro del segmento de ESTE producto
