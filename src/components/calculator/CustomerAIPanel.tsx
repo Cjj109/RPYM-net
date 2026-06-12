@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { formatUSD, formatDateShort } from '../../lib/format';
+import { countProductsInText } from '../../lib/count-products-in-text';
 
 interface SimpleCustomer {
   id: number;
@@ -502,7 +503,29 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
       {aiConfirming && aiProductAction && (
         <div className="mt-3 bg-purple-50 rounded-lg p-3 border border-purple-200">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-semibold text-purple-700">Presupuesto a crear:</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-xs font-semibold text-purple-700">Presupuesto a crear:</p>
+              {(() => {
+                // Verificación de captura: compara lo que capturó la IA contra el
+                // conteo heurístico de productos en el texto y los no identificados
+                const captured = aiProductAction.items.length;
+                const expected = Math.max(countProductsInText(aiText), captured + aiUnmatched.length);
+                if (expected === 0) return null;
+                const ok = captured >= expected;
+                return (
+                  <span
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                      ok ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    }`}
+                    title={ok
+                      ? 'La IA capturó todos los productos detectados en tu lista'
+                      : 'Atención: la IA capturó menos productos de los que parece tener tu lista'}
+                  >
+                    {ok ? '✓ ' : '⚠ '}{captured}/{expected}
+                  </span>
+                );
+              })()}
+            </div>
             <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
               aiProductAction.pricingMode === 'dual' ? 'bg-purple-100 text-purple-700' :
               aiProductAction.pricingMode === 'divisas' ? 'bg-green-100 text-green-700' :
