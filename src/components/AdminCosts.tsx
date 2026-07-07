@@ -158,13 +158,26 @@ export default function AdminCosts() {
       const data = await res.json();
       if (bcvRes?.rate) setLiveBcvRate(bcvRes.rate);
       if (data.success) {
-        setSettings(data.settings);
         setProducts(data.products);
         setBags(data.bags);
         if (data.settings) {
-          // Auto-actualizar tasa BCV si hay diferencia
           const currentBcv = data.settings.bcvRate;
           const liveBcv = bcvRes?.rate;
+          const effectiveBcv = (liveBcv && Math.abs(liveBcv - currentBcv) >= 0.01) ? liveBcv : currentBcv;
+          setSettings({ ...data.settings, bcvRate: effectiveBcv });
+
+          // Siempre inicializar el formulario antes de cualquier return/fetch
+          setSettingsForm({
+            bcvRate: String(effectiveBcv),
+            parallelRate: String(data.settings.parallelRate),
+            ivaRate: String(data.settings.ivaRate * 100),
+            debitCommission: String(data.settings.debitCommission * 100),
+            creditCommission: String(data.settings.creditCommission * 100),
+          });
+          setSimBcv(String(effectiveBcv));
+          setSimParallel(String(data.settings.parallelRate));
+
+          // Auto-sincronizar tasa BCV en background si hay diferencia
           if (liveBcv && Math.abs(liveBcv - currentBcv) >= 0.01) {
             fetch('/api/costs', {
               method: 'POST',
@@ -179,18 +192,12 @@ export default function AdminCosts() {
               }),
             }).then(r => r.json()).then(d => {
               if (d.success) loadData();
-            }).catch(() => {});
-            return; // loadData se re-invocará con la tasa actualizada
+            }).catch(err => {
+              console.error('Error auto-sincronizando tasa BCV en costos:', err);
+            });
           }
-          setSettingsForm({
-            bcvRate: String(data.settings.bcvRate),
-            parallelRate: String(data.settings.parallelRate),
-            ivaRate: String(data.settings.ivaRate * 100),
-            debitCommission: String(data.settings.debitCommission * 100),
-            creditCommission: String(data.settings.creditCommission * 100),
-          });
-          setSimBcv(String(data.settings.bcvRate));
-          setSimParallel(String(data.settings.parallelRate));
+        } else {
+          setSettings(null);
         }
       } else {
         setError(data.error);
