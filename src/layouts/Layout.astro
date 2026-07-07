@@ -336,8 +336,24 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
         var POLL_INTERVAL = 30000; // 30 seconds
         var VALID_THEMES = ['ocean', 'carnival', 'christmas', 'easter', 'valentine', 'mundial', 'halloween', 'campeones', 'ramos', 'cuaresma', 'jueves-santo', 'viernes-santo', 'sabado-santo', 'resurreccion', 'luto'];
 
+        // Propiedades inline que paint() del mundial inyecta en <html> — deben
+        // limpiarse al salir de mundial para que el CSS del tema entrante tome efecto.
+        var MUNDIAL_INLINE_PROPS = [
+          '--theme-primary-50','--theme-primary-100','--theme-primary-200','--theme-primary-300',
+          '--theme-primary-400','--theme-primary-500','--theme-primary-600','--theme-primary-700',
+          '--theme-primary-800','--theme-primary-900','--theme-primary-950',
+          '--theme-accent-100','--theme-accent-300','--theme-accent-400','--theme-accent-500','--theme-accent-600',
+          '--theme-primary-fg','--btn-from','--btn-to','--btn-text-shadow',
+          '--theme-bg-from','--theme-bg-to'
+        ];
+
         function applyTheme(theme) {
           if (!VALID_THEMES.includes(theme)) return;
+          // Limpiar inline styles del mundial antes de aplicar cualquier otro tema
+          if (theme !== 'mundial') {
+            var root = document.documentElement;
+            MUNDIAL_INLINE_PROPS.forEach(function(p) { root.style.removeProperty(p); });
+          }
           localStorage.setItem('rpym_theme', theme);
           document.documentElement.setAttribute('data-theme', theme);
           // Update meta theme-color for mobile browsers
