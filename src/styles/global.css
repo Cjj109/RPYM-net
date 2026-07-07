@@ -382,6 +382,37 @@
   --theme-accent-fg: #ffffff;
 }
 
+/* Luto — Grises sobrios, en memoria de las víctimas */
+[data-theme="luto"] {
+  --theme-primary-50: #f8f9fa;
+  --theme-primary-100: #f1f3f5;
+  --theme-primary-200: #e9ecef;
+  --theme-primary-300: #dee2e6;
+  --theme-primary-400: #ced4da;
+  --theme-primary-500: #adb5bd;
+  --theme-primary-600: #6c757d;
+  --theme-primary-700: #495057;
+  --theme-primary-800: #343a40;
+  --theme-primary-900: #212529;
+  --theme-primary-950: #0d1117;
+
+  --theme-accent-100: #f5f5f4;
+  --theme-accent-300: #a8a29e;
+  --theme-accent-400: #78716c;
+  --theme-accent-500: #57534e;
+  --theme-accent-600: #44403c;
+
+  --theme-bg-from: #f8f9fa;
+  --theme-bg-to: #f1f3f5;
+
+  --theme-primary-fg: #ffffff;
+  --theme-accent-fg: #ffffff;
+}
+
+[data-theme="luto"] body {
+  background: linear-gradient(180deg, #f1f3f5 0%, #e9ecef 100%) !important;
+}
+
 /* Variables CSS personalizadas - mapean a variables de tema */
 @theme {
   /* Ocean colors map to theme variables for dynamic theming */

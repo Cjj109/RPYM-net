@@ -134,6 +134,13 @@ const THEMES: ThemeConfig[] = [
     colors: ['#FFD100', '#003DA5', '#CF142B'],
     icon: '🏆'
   },
+  {
+    id: 'luto',
+    name: 'Luto — La Guaira',
+    description: 'En memoria de las víctimas · Grises sobrios',
+    colors: ['#212529', '#6c757d', '#adb5bd'],
+    icon: '🕊️'
+  },
 ];
 
 const SS_IDS: ThemeName[] = ['ramos', 'cuaresma', 'jueves-santo', 'viernes-santo', 'sabado-santo', 'resurreccion'];
