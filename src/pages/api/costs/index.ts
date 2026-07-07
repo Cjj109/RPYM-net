@@ -5,6 +5,7 @@
  */
 import type { APIRoute } from 'astro';
 import { requireAuth } from '../../../lib/require-auth';
+import { getBCVRate } from '../../../lib/sheets';
 
 export const prerender = false;
 
@@ -36,17 +37,9 @@ export const GET: APIRoute = async ({ request, locals }) => {
       }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // Leer tasa BCV live desde site_config (misma fuente que el resto del sitio)
-    const bcvRows = await db.prepare(
-      "SELECT key, value FROM site_config WHERE key IN ('bcv_rate', 'bcv_rate_auto', 'bcv_rate_manual')"
-    ).all<{ key: string; value: string }>();
-    const bcvCfg: Record<string, string> = {};
-    for (const row of bcvRows.results) bcvCfg[row.key] = row.value;
-    const isManualBcv = bcvCfg['bcv_rate_manual'] === 'true';
-    const liveBcv = isManualBcv
-      ? parseFloat(bcvCfg['bcv_rate'] || '0')
-      : parseFloat(bcvCfg['bcv_rate_auto'] || bcvCfg['bcv_rate'] || '0');
-    const effectiveBcv = liveBcv > 0 ? liveBcv : settings.bcv_rate;
+    // Obtener tasa BCV igual que el resto del sitio (API externa → D1 cache → fallback)
+    const bcvData = await getBCVRate(db);
+    const effectiveBcv = bcvData.rate > 0 ? bcvData.rate : settings.bcv_rate;
 
     // Get all products with their costs (include cost-only products)
     const { results: products } = await db.prepare(`
@@ -175,17 +168,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    // bcv_rate se lee de site_config en el GET; aquí guardamos la última conocida como referencia
-    const bcvRefRow = await db.prepare(
-      "SELECT value FROM site_config WHERE key = 'bcv_rate_auto'"
-    ).first<{ value: string }>();
-    const bcvRef = bcvRefRow ? parseFloat(bcvRefRow.value) : (body.bcvRate ?? 0);
-
     await db.prepare(`
       INSERT INTO cost_settings (bcv_rate, parallel_rate, iva_rate, debit_commission, credit_commission, notes)
-      VALUES (?, ?, ?, ?, ?, ?)
+      VALUES (0, ?, ?, ?, ?, ?)
     `).bind(
-      bcvRef,
       parallelRate,
       ivaRate ?? 0.08,
       debitCommission ?? 0.008,
