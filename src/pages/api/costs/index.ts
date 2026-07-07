@@ -36,6 +36,18 @@ export const GET: APIRoute = async ({ request, locals }) => {
       }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
+    // Leer tasa BCV live desde site_config (misma fuente que el resto del sitio)
+    const bcvRows = await db.prepare(
+      "SELECT key, value FROM site_config WHERE key IN ('bcv_rate', 'bcv_rate_auto', 'bcv_rate_manual')"
+    ).all<{ key: string; value: string }>();
+    const bcvCfg: Record<string, string> = {};
+    for (const row of bcvRows.results) bcvCfg[row.key] = row.value;
+    const isManualBcv = bcvCfg['bcv_rate_manual'] === 'true';
+    const liveBcv = isManualBcv
+      ? parseFloat(bcvCfg['bcv_rate'] || '0')
+      : parseFloat(bcvCfg['bcv_rate_auto'] || bcvCfg['bcv_rate'] || '0');
+    const effectiveBcv = liveBcv > 0 ? liveBcv : settings.bcv_rate;
+
     // Get all products with their costs (include cost-only products)
     const { results: products } = await db.prepare(`
       SELECT
@@ -47,7 +59,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
       ORDER BY p.solo_costos ASC, p.sort_order, p.nombre
     `).all();
 
-    const bcv = settings.bcv_rate;
+    const bcv = effectiveBcv;
     const parallel = settings.parallel_rate;
     const iva = settings.iva_rate;
     const debitComm = settings.debit_commission;
@@ -129,7 +141,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
       success: true,
       settings: {
         id: settings.id,
-        bcvRate: settings.bcv_rate,
+        bcvRate: effectiveBcv,
         parallelRate: settings.parallel_rate,
         ivaRate: settings.iva_rate,
         debitCommission: settings.debit_commission,
@@ -155,19 +167,25 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   try {
     const body = await request.json();
-    const { bcvRate, parallelRate, ivaRate, debitCommission, creditCommission, notes } = body;
+    const { parallelRate, ivaRate, debitCommission, creditCommission, notes } = body;
 
-    if (!bcvRate || !parallelRate) {
-      return new Response(JSON.stringify({ success: false, error: 'Tasa BCV y Paralela son requeridas' }), {
+    if (!parallelRate) {
+      return new Response(JSON.stringify({ success: false, error: 'Tasa Paralela es requerida' }), {
         status: 400, headers: { 'Content-Type': 'application/json' }
       });
     }
+
+    // bcv_rate se lee de site_config en el GET; aquí guardamos la última conocida como referencia
+    const bcvRefRow = await db.prepare(
+      "SELECT value FROM site_config WHERE key = 'bcv_rate_auto'"
+    ).first<{ value: string }>();
+    const bcvRef = bcvRefRow ? parseFloat(bcvRefRow.value) : (body.bcvRate ?? 0);
 
     await db.prepare(`
       INSERT INTO cost_settings (bcv_rate, parallel_rate, iva_rate, debit_commission, credit_commission, notes)
       VALUES (?, ?, ?, ?, ?, ?)
     `).bind(
-      bcvRate,
+      bcvRef,
       parallelRate,
       ivaRate ?? 0.08,
       debitCommission ?? 0.008,

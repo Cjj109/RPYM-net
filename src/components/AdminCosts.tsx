@@ -151,53 +151,24 @@ export default function AdminCosts() {
     setIsLoading(true);
     setError(null);
     try {
-      const [res, bcvRes] = await Promise.all([
-        fetch('/api/costs', { credentials: 'include' }),
-        fetch('/api/config/bcv-rate').then(r => r.json()).catch(() => null),
-      ]);
+      const res = await fetch('/api/costs', { credentials: 'include' });
       const data = await res.json();
-      if (bcvRes?.rate) setLiveBcvRate(bcvRes.rate);
       if (data.success) {
+        setSettings(data.settings);
         setProducts(data.products);
         setBags(data.bags);
         if (data.settings) {
-          const currentBcv = data.settings.bcvRate;
-          const liveBcv = bcvRes?.rate;
-          const effectiveBcv = (liveBcv && Math.abs(liveBcv - currentBcv) >= 0.01) ? liveBcv : currentBcv;
-          setSettings({ ...data.settings, bcvRate: effectiveBcv });
-
-          // Siempre inicializar el formulario antes de cualquier return/fetch
+          // El servidor ya resuelve la tasa BCV desde site_config
+          setLiveBcvRate(data.settings.bcvRate);
           setSettingsForm({
-            bcvRate: String(effectiveBcv),
+            bcvRate: String(data.settings.bcvRate),
             parallelRate: String(data.settings.parallelRate),
             ivaRate: String(data.settings.ivaRate * 100),
             debitCommission: String(data.settings.debitCommission * 100),
             creditCommission: String(data.settings.creditCommission * 100),
           });
-          setSimBcv(String(effectiveBcv));
+          setSimBcv(String(data.settings.bcvRate));
           setSimParallel(String(data.settings.parallelRate));
-
-          // Auto-sincronizar tasa BCV en background si hay diferencia
-          if (liveBcv && Math.abs(liveBcv - currentBcv) >= 0.01) {
-            fetch('/api/costs', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify({
-                bcvRate: liveBcv,
-                parallelRate: data.settings.parallelRate,
-                ivaRate: data.settings.ivaRate,
-                debitCommission: data.settings.debitCommission,
-                creditCommission: data.settings.creditCommission,
-              }),
-            }).then(r => r.json()).then(d => {
-              if (d.success) loadData();
-            }).catch(err => {
-              console.error('Error auto-sincronizando tasa BCV en costos:', err);
-            });
-          }
-        } else {
-          setSettings(null);
         }
       } else {
         setError(data.error);
@@ -368,7 +339,6 @@ export default function AdminCosts() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          bcvRate: parseFloat(settingsForm.bcvRate),
           parallelRate: parseFloat(settingsForm.parallelRate),
           ivaRate: parseFloat(settingsForm.ivaRate) / 100,
           debitCommission: parseFloat(settingsForm.debitCommission) / 100,
