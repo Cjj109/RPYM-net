@@ -1607,28 +1607,76 @@ export default function AdminCosts() {
                 </div>
               </div>
 
-              {/* Preview margin */}
+              {/* Preview costos y márgenes — reactivo a los precios escritos */}
               {costForm.costUsd && settings && (
-                <div className="bg-green-50 rounded-lg p-3 text-sm">
+                <div className="rounded-lg border border-ocean-100 overflow-hidden text-sm">
                   {(() => {
                     const cost = parseFloat(costForm.costUsd);
-                    const precioDivisa = editingProduct.solo_costos
-                      ? (parseFloat(costForm.precioUsdDivisa) || parseFloat(costForm.precioUsd) || 0)
-                      : (editingProduct.precio_usd_divisa ?? editingProduct.precio_usd);
-                    const realCost = costForm.rateType === 'BCV'
-                      ? cost * (settings.bcvRate / settings.parallelRate)
-                      : cost;
-                    const margin = realCost > 0 ? (precioDivisa - realCost) / realCost : 0;
+                    if (isNaN(cost) || cost <= 0) return null;
+                    const bcv = settings.bcvRate;
+                    const par = settings.parallelRate;
+                    const iva = settings.ivaRate;
+                    const deb = settings.debitCommission;
+
+                    // Costo real en $ paralelo (para comparar vs precio divisa)
+                    const realCostUsd = costForm.rateType === 'BCV' ? cost * (bcv / par) : cost;
+                    // Costo en $ BCV equiv (para comparar vs precio BCV/PM)
+                    const costBcvEq = costForm.rateType === 'PARALELO' ? cost * (par / bcv) : cost;
+
+                    // Precios del form (lo que el usuario está escribiendo)
+                    const precioUsd = parseFloat(costForm.precioUsd) || 0;
+                    const precioDivisaInput = parseFloat(costForm.precioUsdDivisa);
+                    const precioDivisa = !isNaN(precioDivisaInput) && precioDivisaInput > 0
+                      ? precioDivisaInput
+                      : precioUsd > 0 ? precioUsd * (bcv / par) : 0;
+
+                    const marginDivisa = realCostUsd > 0 && precioDivisa > 0
+                      ? (precioDivisa - realCostUsd) / realCostUsd : null;
+                    const marginBsPm = costBcvEq > 0 && precioUsd > 0
+                      ? (precioUsd - costBcvEq) / costBcvEq : null;
+                    const profitBsIva = precioUsd > 0
+                      ? precioUsd - costBcvEq - precioUsd * (iva + deb) : 0;
+                    const marginBsIva = costBcvEq > 0 && precioUsd > 0
+                      ? profitBsIva / (costBcvEq * (1 + iva + deb)) : null;
+
                     return (
                       <>
-                        <div className="flex justify-between">
-                          <span className="text-green-700">$ Real:</span>
-                          <span className="font-bold">{formatUSD(realCost)}</span>
+                        {/* Fila de costos */}
+                        <div className="bg-red-50 px-3 py-2 flex gap-4 flex-wrap">
+                          <div>
+                            <span className="text-red-500 text-xs">Costo $ real</span>
+                            <p className="font-bold text-red-700">{formatUSD(realCostUsd)}</p>
+                          </div>
+                          {costForm.rateType === 'PARALELO' && (
+                            <div>
+                              <span className="text-blue-500 text-xs">Costo BCV equiv</span>
+                              <p className="font-bold text-blue-700">{formatUSD(costBcvEq)}</p>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex justify-between mt-1">
-                          <span className="text-green-700">Margen $ (divisa):</span>
-                          <span className={`font-bold ${marginColor(margin).split(' ')[0]}`}>{pct(margin)}</span>
-                        </div>
+                        {/* Fila de márgenes */}
+                        {(marginDivisa !== null || marginBsPm !== null) && (
+                          <div className="bg-green-50 px-3 py-2 flex gap-4 flex-wrap">
+                            {marginDivisa !== null && (
+                              <div>
+                                <span className="text-green-600 text-xs">Margen $ divisa</span>
+                                <p className={`font-bold text-sm ${marginColor(marginDivisa).split(' ')[0]}`}>{pct(marginDivisa)}</p>
+                              </div>
+                            )}
+                            {marginBsPm !== null && (
+                              <div>
+                                <span className="text-green-600 text-xs">Margen Bs PM</span>
+                                <p className={`font-bold text-sm ${marginColor(marginBsPm).split(' ')[0]}`}>{pct(marginBsPm)}</p>
+                              </div>
+                            )}
+                            {marginBsIva !== null && (
+                              <div>
+                                <span className="text-green-600 text-xs">Margen Bs IVA</span>
+                                <p className={`font-bold text-sm ${marginColor(marginBsIva).split(' ')[0]}`}>{pct(marginBsIva)}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </>
                     );
                   })()}
