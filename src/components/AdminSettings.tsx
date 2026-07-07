@@ -251,7 +251,8 @@ export default function AdminSettings({ currentBcvRate }: Props) {
           'jueves-santo': '#b45309',
           'viernes-santo': '#374151',
           'sabado-santo': '#4b5563',
-          resurreccion: '#a16207'
+          resurreccion: '#a16207',
+          luto: '#495057'
         };
         document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColors[selectedTheme]);
 
