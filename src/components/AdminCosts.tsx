@@ -363,16 +363,31 @@ export default function AdminCosts() {
     if (!editingProduct) return;
     setIsSaving(true);
     try {
-      // Si es solo_costos, también actualizar precios de venta
+      // Actualizar precios de venta para todos los productos
+      const precioUsd = parseFloat(costForm.precioUsd);
+      const precioUsdDivisa = costForm.precioUsdDivisa ? parseFloat(costForm.precioUsdDivisa) : null;
+
       if (editingProduct.solo_costos) {
+        // solo_costos: usa su endpoint específico
         await fetch('/api/costs/cost-only-product', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
             productId: editingProduct.id,
-            precioUsd: parseFloat(costForm.precioUsd) || 0,
-            precioUsdDivisa: costForm.precioUsdDivisa ? parseFloat(costForm.precioUsdDivisa) : null,
+            precioUsd: precioUsd || 0,
+            precioUsdDivisa,
+          })
+        });
+      } else if (!isNaN(precioUsd) && precioUsd > 0) {
+        // Producto regular: actualiza precio_usd y precio_usd_divisa
+        await fetch(`/api/products/${editingProduct.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            precioUSD: precioUsd,
+            precioUSDDivisa: precioUsdDivisa,
           })
         });
       }
@@ -1523,59 +1538,43 @@ export default function AdminCosts() {
               </button>
             </div>
             <div className="p-4 space-y-4">
-              {editingProduct.solo_costos ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 mb-1">
+              {/* Precios de venta — editables para todos los productos */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-ocean-700">Precios de venta</span>
+                  {editingProduct.solo_costos && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold">SOLO COSTOS</span>
-                    <span className="text-xs text-ocean-500">Precios de venta editables</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-ocean-700 mb-1">Venta $ (BCV)</label>
-                      <input
-                        type="number" step="0.01" min="0"
-                        value={costForm.precioUsd}
-                        onChange={e => setCostForm(f => ({ ...f, precioUsd: e.target.value }))}
-                        className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-blue-50/50"
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-ocean-700 mb-1">Venta $ (divisa)</label>
-                      <input
-                        type="number" step="0.01" min="0"
-                        value={costForm.precioUsdDivisa}
-                        onChange={e => setCostForm(f => ({ ...f, precioUsdDivisa: e.target.value }))}
-                        className="w-full px-3 py-2 border border-green-200 rounded-lg text-sm focus:ring-1 focus:ring-green-500 outline-none bg-green-50/50"
-                        placeholder="0.00"
-                      />
-                    </div>
-                  </div>
-                  {editingProduct.cost_usd != null && (
-                    <div className="bg-ocean-50 rounded-lg p-2 text-sm flex justify-between">
-                      <span className="text-ocean-600">Costo actual:</span>
-                      <span className="font-bold text-red-700">{formatUSD(editingProduct.cost_usd)} ({editingProduct.purchase_rate_type})</span>
-                    </div>
                   )}
                 </div>
-              ) : (
-                <div className="bg-ocean-50 rounded-lg p-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-ocean-600">Venta $ (divisa):</span>
-                    <span className="font-bold text-green-700">{formatUSD(editingProduct.precio_usd_divisa ?? editingProduct.precio_usd)}</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-ocean-600 mb-1">$ BCV</label>
+                    <input
+                      type="number" step="0.01" min="0"
+                      value={costForm.precioUsd}
+                      onChange={e => setCostForm(f => ({ ...f, precioUsd: e.target.value }))}
+                      className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-blue-50/50"
+                      placeholder="0.00"
+                    />
                   </div>
-                  <div className="flex justify-between mt-1">
-                    <span className="text-ocean-600">Venta $ (BCV):</span>
-                    <span className="font-bold text-blue-700">{formatUSD(editingProduct.precio_usd)}</span>
+                  <div>
+                    <label className="block text-xs font-medium text-ocean-600 mb-1">$ Divisa</label>
+                    <input
+                      type="number" step="0.01" min="0"
+                      value={costForm.precioUsdDivisa}
+                      onChange={e => setCostForm(f => ({ ...f, precioUsdDivisa: e.target.value }))}
+                      className="w-full px-3 py-2 border border-green-200 rounded-lg text-sm focus:ring-1 focus:ring-green-500 outline-none bg-green-50/50"
+                      placeholder="0.00 (opcional)"
+                    />
                   </div>
-                  {editingProduct.cost_usd != null && (
-                    <div className="flex justify-between mt-1">
-                      <span className="text-ocean-600">Costo actual:</span>
-                      <span className="font-bold text-red-700">{formatUSD(editingProduct.cost_usd)} ({editingProduct.purchase_rate_type})</span>
-                    </div>
-                  )}
                 </div>
-              )}
+                {editingProduct.cost_usd != null && (
+                  <div className="bg-ocean-50 rounded-lg p-2 text-xs flex justify-between">
+                    <span className="text-ocean-600">Costo actual:</span>
+                    <span className="font-bold text-red-700">{formatUSD(editingProduct.cost_usd)} ({editingProduct.purchase_rate_type})</span>
+                  </div>
+                )}
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-ocean-700 mb-1">Costo de compra ($)</label>
