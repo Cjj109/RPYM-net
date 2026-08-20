@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { formatUSD, formatDateShort } from '../../lib/format';
 import { countProductsInText } from '../../lib/count-products-in-text';
+import { useSpeechInput } from './useSpeechInput';
 
 interface SimpleCustomer {
   id: number;
@@ -52,6 +53,9 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
   const [bcvRate, setBcvRate] = useState<number | null>(initialBcvRate ?? null);
 
   const [aiText, setAiText] = useState('');
+  // Texto que se envió a la IA. Se guarda aparte porque al dictar el envío
+  // ocurre antes de que el estado del textarea se actualice.
+  const [aiSubmittedText, setAiSubmittedText] = useState('');
   const [aiProcessing, setAiProcessing] = useState(false);
   const [aiActions, setAiActions] = useState<AIAction[]>([]);
   const [aiError, setAiError] = useState<string | null>(null);
@@ -121,8 +125,10 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
     };
   };
 
-  const handleAiSubmit = async () => {
-    if (!aiText.trim() || aiProcessing) return;
+  const handleAiSubmit = async (overrideText?: string) => {
+    const texto = (overrideText ?? aiText).trim();
+    if (!texto || aiProcessing) return;
+    setAiSubmittedText(texto);
     setAiProcessing(true);
     setAiError(null);
     setAiActions([]);
@@ -162,7 +168,7 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            text: aiText,
+            text: texto,
             products: productInfo,
             customers: customers.map(c => ({ id: c.id, name: c.name })),
             bcvRate: rate,
@@ -224,7 +230,7 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            text: aiText,
+            text: texto,
             customers: customers.map(c => ({ id: c.id, name: c.name })),
             recentPresupuestos
           }),
@@ -249,6 +255,16 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
       setAiProcessing(false);
     }
   };
+
+  // Dictado: el texto reconocido llena el campo y se procesa solo al callar.
+  const speech = useSpeechInput({
+    onInterim: (text) => setAiText(text),
+    onFinal: (text) => {
+      setAiText(text);
+      handleAiSubmit(text);
+    },
+    onError: (message) => setAiError(message),
+  });
 
   const handleAiConfirm = async (budgetOnly = false) => {
     setAiExecuting(true);
@@ -432,6 +448,8 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
     setAiResolvedMode(null);
   };
 
+  const escuchando = speech.state === 'listening';
+
   return (
     <div className="bg-white rounded-xl p-4 shadow-sm border border-purple-100">
       <div className="flex items-center justify-between gap-2 mb-3">
@@ -530,13 +548,54 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
           }}
         />
         <button
-          onClick={handleAiSubmit}
-          disabled={aiProcessing || !aiText.trim() || aiExecuting}
+            onClick={() => (escuchando ? speech.stop() : speech.start())}
+            disabled={aiProcessing || aiExecuting || speech.state === 'transcribing'}
+            title={escuchando ? 'Toca para terminar' : 'Dictar'}
+            aria-label={escuchando ? 'Terminar dictado' : 'Dictar anotación'}
+            className={`relative self-end w-10 h-10 rounded-lg flex items-center justify-center transition-colors disabled:opacity-40 shrink-0 ${
+              escuchando
+                ? 'bg-red-500 text-white'
+                : 'bg-purple-100 text-purple-600 hover:bg-purple-200'
+            }`}
+          >
+            {escuchando && (
+              <span className="absolute inset-0 rounded-lg bg-red-400 animate-ping opacity-60" />
+            )}
+            {speech.state === 'transcribing' ? (
+              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5 relative" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M19 11a7 7 0 01-14 0M12 15a3 3 0 01-3-3V5a3 3 0 016 0v7a3 3 0 01-3 3zm0 0v4m-3 0h6" />
+              </svg>
+            )}
+          </button>
+        <button
+          onClick={() => handleAiSubmit()}
+          disabled={aiProcessing || !aiText.trim() || aiExecuting || escuchando}
           className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-300 text-white rounded-lg text-sm font-medium transition-colors self-end whitespace-nowrap"
         >
           {aiProcessing ? '...' : 'Procesar'}
         </button>
       </div>
+
+      {escuchando && (
+        <div className="flex items-center justify-between gap-2 mt-2 text-xs text-purple-600">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+            {speech.usingFallback ? 'Grabando… se transcribe al terminar' : 'Escuchando…'}
+          </span>
+          <button onClick={speech.cancel} className="text-ocean-500 hover:text-ocean-700 underline">
+            cancelar
+          </button>
+        </div>
+      )}
+      {speech.state === 'transcribing' && (
+        <p className="text-xs text-purple-600 mt-2">Transcribiendo la nota de voz…</p>
+      )}
 
       {aiError && (
         <p className="text-xs text-red-600 mt-2">{aiError}</p>
@@ -555,7 +614,7 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
                 // Verificación de captura: compara lo que capturó la IA contra el
                 // conteo heurístico de productos en el texto y los no identificados
                 const captured = aiProductAction.items.length;
-                const expected = Math.max(countProductsInText(aiText), captured + aiUnmatched.length);
+                const expected = Math.max(countProductsInText(aiSubmittedText), captured + aiUnmatched.length);
                 if (expected === 0) return null;
                 const ok = captured >= expected;
                 return (

@@ -113,6 +113,9 @@ REGLAS DE INTERPRETACION:
 - "abona/pago/paga [cliente] $X" = payment (abono)
 - "cobra/cobro a [cliente] $X" = purchase (compra)
 - Ignorar acentos/mayusculas (ej: "deisy" = "Deisy", "garcia" = "García", "angel" = "Ángel")
+- TEXTO DICTADO: puede venir de una nota de voz, sin puntuacion y con los
+  montos en palabras. Convertirlos: "diez dolares" = 10, "veinte" tras un verbo
+  de pago = 20, "cien" = 100, "ciento cincuenta" = 150, "mil" = 1000.
 - PRIORIDAD de match: 1) coincidencia exacta, 2) coincidencia parcial única (solo un cliente posible)
 - Si el nombre escrito es AMBIGUO (varios clientes coinciden), devolver customerId: null
 - CORRECTO: "jose" con clientes ["Jose", "Jose Luis"] → usar "Jose" (exacto)

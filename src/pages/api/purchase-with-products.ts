@@ -159,6 +159,15 @@ CLIENTE:
 PRODUCTOS:
 - Identificar cada producto mencionado con su cantidad
 - Formatos de cantidad: "2kg", "1 kilo", "500g" (= 0.5kg), "medio kilo" (= 0.5kg), "1/2", "2 1/2" (= 2.5)
+- ⚠️ TEXTO DICTADO: el texto puede venir de una nota de voz, con los números
+  escritos en palabras. Convertirlos a cifras:
+  - "dos kilos" = 2, "tres kilos y medio" = 3.5, "kilo y medio" = 1.5
+  - "un kilo" / "una caja" = 1, "media caja" = 0.5, "docena" = 12
+  - "quinientos gramos" = 0.5kg, "doscientos cincuenta gramos" = 0.25kg
+  - Montos: "diez dólares" = 10, "veinte" tras un verbo de pago = 20
+  - El dictado no trae puntuación: separar los productos por el sentido de la
+    frase, no por comas. "dos kilos de calamar un kilo de camaron" son DOS
+    productos, no uno.
 - Si no hay unidad, asumir "kg" para productos por peso
 - ⚠️ UNIDAD EXPLÍCITA: Si el usuario dice "1kg", "2kg", etc., usar SIEMPRE "kg" aunque el catálogo diga "caja" u otra unidad
 - ⚠️ UNIDAD POR DEFECTO: NUNCA asignes unit "caja" a un producto a menos que el usuario lo diga EXPLÍCITAMENTE para ESE producto. Que otro producto anterior sea "caja" NO afecta a los siguientes. Sin unidad explícita, usar la unidad del catálogo.
