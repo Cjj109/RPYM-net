@@ -40,6 +40,9 @@ export const GET: APIRoute = async ({ request, locals }) => {
     // Obtener tasas BCV para todas las fechas de los reportes
     const fechas = results.results.map(r => r.fecha);
     let bcvRatesMap: Record<string, number> = {};
+    // Fecha real de la que proviene cada tasa (null = ninguna disponible).
+    // Si no coincide con la fecha del Z, la conversión a USD es aproximada.
+    const rateSourceDate: Record<string, string | null> = {};
 
     if (fechas.length > 0) {
       const minFecha = fechas.reduce((a, b) => a < b ? a : b);
@@ -59,6 +62,9 @@ export const GET: APIRoute = async ({ request, locals }) => {
       ).bind(minFecha).first<{ usd_rate: number }>();
       const fallback = fallbackRate?.usd_rate ?? null;
 
+      // Fechas con tasa publicada exacta (antes de interpolar)
+      for (const r of ratesResult.results) rateSourceDate[r.date] = r.date;
+
       // Interpolar en memoria: para cada fecha sin tasa exacta, usar la tasa inmediata anterior del rango o el fallback
       const sortedRateDates = ratesResult.results.map(r => r.date);
       for (const fecha of fechas) {
@@ -66,6 +72,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
           // Buscar la tasa más cercana anterior disponible en memoria
           const prev = sortedRateDates.filter(d => d <= fecha).pop();
           bcvRatesMap[fecha] = prev ? bcvRatesMap[prev] : (fallback ?? 0);
+          rateSourceDate[fecha] = prev ?? null;
         }
       }
     }
@@ -81,6 +88,11 @@ export const GET: APIRoute = async ({ request, locals }) => {
       r.bcvRate = rate;
       r.totalVentasUsd = rate ? r.totalVentas / rate : null;
       r.diaSemana = DIAS_SEMANA[getDayOfWeek(r.fecha)];
+      // Un override manual siempre cuenta como exacto; si no, la tasa es exacta
+      // solo cuando el historial tiene un registro de la misma fecha del Z.
+      const srcDate = rateSourceDate[r.fecha] ?? null;
+      r.bcvRateFecha = r.bcvRateOverride != null ? r.fecha : srcDate;
+      r.bcvRateExacta = r.bcvRateOverride != null || srcDate === r.fecha;
     }
 
     // Calcular variación vs mismo día de semana anterior
@@ -142,6 +154,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       imageKey,
       ocrVerified,
       ocrRawData,
+      bcvRateOverride,
       notes,
     } = body;
 
@@ -168,8 +181,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       INSERT INTO fiscal_reportes_z (
         fecha, subtotal_exento, subtotal_gravable, iva_cobrado,
         base_imponible_igtf, igtf_ventas, total_ventas,
-        numeracion_facturas, image_key, ocr_verified, ocr_raw_data, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        numeracion_facturas, image_key, ocr_verified, ocr_raw_data, bcv_rate_override, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       fecha,
       subtotalExento || 0,
@@ -182,6 +195,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       imageKey || null,
       ocrVerified ? 1 : 0,
       ocrRawData || null,
+      bcvRateOverride != null ? bcvRateOverride : null,
       notes || null
     ).run();
 

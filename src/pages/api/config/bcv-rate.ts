@@ -34,13 +34,33 @@ async function fetchFreshBCVRate(): Promise<{ rate: number; date: string; source
     });
     if (response.ok) {
       const data = await response.json();
-      if (data.precio) {
-        const rate = Math.round(parseFloat(data.precio) * 100) / 100;
-        return { rate, date: new Date().toLocaleDateString('es-VE'), source: 'BCV' };
+      if (data.tasa) {
+        const rate = Math.round(parseFloat(data.tasa) * 100) / 100;
+        const fecha = data.fecha || new Date().toLocaleDateString('es-VE');
+        return { rate, date: fecha, source: 'BCV' };
       }
     }
   } catch (error) {
     console.error('Error con bcvapi.tech:', error);
+  }
+
+  // API 3: ve.dolarapi.com (fallback)
+  try {
+    const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial', {
+      headers: { 'Accept': 'application/json' },
+    });
+    if (response.ok) {
+      const data = await response.json();
+      if (data.promedio) {
+        const rate = Math.round(parseFloat(data.promedio) * 100) / 100;
+        const fecha = data.fechaActualizacion
+          ? new Date(data.fechaActualizacion).toLocaleDateString('es-VE')
+          : new Date().toLocaleDateString('es-VE');
+        return { rate, date: fecha, source: 'BCV' };
+      }
+    }
+  } catch (error) {
+    console.error('Error con ve.dolarapi.com:', error);
   }
 
   return null;

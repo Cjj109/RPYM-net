@@ -191,6 +191,8 @@ export interface FiscalReporteZ {
   updatedAt: string;
   // Campos calculados (enriquecidos por el API)
   bcvRate?: number | null;        // Tasa BCV usada (override o sistema)
+  bcvRateFecha?: string | null;   // Fecha real de la tasa usada (null = sin tasa)
+  bcvRateExacta?: boolean;        // false = se usó la tasa de un día anterior
   totalVentasUsd?: number | null; // total_ventas / bcvRate
   diaSemana?: string | null;      // Día de la semana (lunes, martes, etc.)
   variacionSemana?: number | null; // % variación vs mismo día semana anterior
@@ -367,6 +369,7 @@ export interface FacturaFormData {
 
 export interface ReporteZFormData {
   fecha: string;
+  bcvRate: number | null;  // Tasa usada para convertir a USD (se guarda como bcv_rate_override)
   subtotalExento: number;
   subtotalGravable: number;
   ivaCobrado: number;

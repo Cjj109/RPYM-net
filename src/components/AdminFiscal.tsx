@@ -109,6 +109,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
   const [editingRateValue, setEditingRateValue] = useState('');
   const [zFormData, setZFormData] = useState<ReporteZFormData>({
     fecha: new Date().toISOString().split('T')[0],
+    bcvRate: null,
     subtotalExento: 0,
     subtotalGravable: 0,
     ivaCobrado: 0,
@@ -118,6 +119,11 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
     numeracionFacturas: '',
     notes: '',
   });
+
+  // Tasa del Z: se autocompleta con la del dia del reporte y queda editable.
+  // zRateTouched evita pisar un valor que el usuario escribio a mano.
+  const [zRateTouched, setZRateTouched] = useState(false);
+  const [zRateInfo, setZRateInfo] = useState<{ exact: boolean; date: string } | null>(null);
 
   // OCR state (Z reports)
   const [ocrData, setOcrData] = useState<OcrZReportData | null>(null);
@@ -249,6 +255,51 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
       return () => clearTimeout(timer);
     }
   }, [error, success]);
+
+  // Resolver la tasa BCV del dia del reporte Z.
+  // Prioridad: tasa publicada de esa fecha > tasa viva del sitio (si el Z es de hoy)
+  // > tasa del ultimo dia disponible (marcada como aproximada).
+  useEffect(() => {
+    if (!showZModal || !zFormData.fecha || zRateTouched) return;
+
+    let cancelled = false;
+    const fecha = zFormData.fecha;
+    const hoy = new Date().toISOString().split('T')[0];
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/config/bcv-rate-history?date=${fecha}`, { credentials: 'include' });
+        const data = await res.json();
+        if (cancelled) return;
+
+        if (data.success && data.found && data.exact) {
+          setZFormData(prev => ({ ...prev, bcvRate: data.usdRate }));
+          setZRateInfo({ exact: true, date: data.date });
+          return;
+        }
+        // Sin tasa publicada para esa fecha: si el Z es de hoy usamos la tasa viva del sitio
+        if (fecha === hoy && bcvRate?.rate) {
+          setZFormData(prev => ({ ...prev, bcvRate: bcvRate.rate }));
+          setZRateInfo({ exact: true, date: hoy });
+          return;
+        }
+        if (data.success && data.found) {
+          setZFormData(prev => ({ ...prev, bcvRate: data.usdRate }));
+          setZRateInfo({ exact: false, date: data.date });
+          return;
+        }
+        setZFormData(prev => ({ ...prev, bcvRate: bcvRate?.rate ?? null }));
+        setZRateInfo(null);
+      } catch {
+        if (!cancelled) {
+          setZFormData(prev => ({ ...prev, bcvRate: bcvRate?.rate ?? null }));
+          setZRateInfo(null);
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [showZModal, zFormData.fecha, zRateTouched, bcvRate?.rate]);
 
   // =====================
   // Dashboard Functions
@@ -705,6 +756,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
         if (data.ocrData) {
           setZFormData({
             fecha: data.ocrData.fecha || new Date().toISOString().split('T')[0],
+            bcvRate: null,
             subtotalExento: data.ocrData.subtotalExento || 0,
             subtotalGravable: data.ocrData.subtotalGravable || 0,
             ivaCobrado: data.ocrData.ivaCobrado || 0,
@@ -746,6 +798,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
         credentials: 'include',
         body: JSON.stringify({
           ...zFormData,
+          bcvRateOverride: zFormData.bcvRate,
           imageKey: ocrTempKey,
           ocrVerified: ocrStep === 'review',
           ocrRawData: ocrData ? JSON.stringify(ocrData) : null,
@@ -793,6 +846,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
   const resetZForm = () => {
     setZFormData({
       fecha: new Date().toISOString().split('T')[0],
+      bcvRate: null,
       subtotalExento: 0,
       subtotalGravable: 0,
       ivaCobrado: 0,
@@ -802,6 +856,8 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
       numeracionFacturas: '',
       notes: '',
     });
+    setZRateTouched(false);
+    setZRateInfo(null);
     setOcrData(null);
     setOcrTempKey(null);
     setOcrStep('manual');
@@ -2614,11 +2670,17 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
                             setEditingRateId(r.id);
                             setEditingRateValue(r.bcvRate ? r.bcvRate.toFixed(2) : '');
                           }}
-                          className={`hover:underline cursor-pointer ${r.bcvRateOverride ? 'text-amber-600 font-semibold' : 'text-ocean-400'}`}
-                          title={r.bcvRateOverride ? 'Tasa manual — click para editar' : 'Click para editar tasa'}
+                          className={`hover:underline cursor-pointer ${r.bcvRateOverride ? 'text-amber-600 font-semibold' : r.bcvRateExacta === false ? 'text-orange-500' : 'text-ocean-400'}`}
+                          title={
+                            r.bcvRateOverride
+                              ? 'Tasa manual — click para editar'
+                              : r.bcvRateExacta === false
+                                ? `Sin tasa publicada para ${r.fecha}: se usó la del ${r.bcvRateFecha ?? 'último día disponible'} — click para corregir`
+                                : 'Click para editar tasa'
+                          }
                         >
                           {r.bcvRate ? r.bcvRate.toFixed(2) : '—'}
-                          {r.bcvRateOverride ? ' *' : ''}
+                          {r.bcvRateOverride ? ' *' : r.bcvRateExacta === false ? ' ~' : ''}
                         </button>
                       )}
                     </td>
@@ -2663,6 +2725,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
                             setEditingReporteZ(r);
                             setZFormData({
                               fecha: r.fecha,
+                              bcvRate: r.bcvRate ?? null,
                               subtotalExento: r.subtotalExento,
                               subtotalGravable: r.subtotalGravable,
                               ivaCobrado: r.ivaCobrado,
@@ -2672,6 +2735,8 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
                               numeracionFacturas: r.numeracionFacturas || '',
                               notes: r.notes || '',
                             });
+                            setZRateTouched(r.bcvRateOverride != null);
+                            setZRateInfo(null);
                             setOcrStep('manual');
                             setShowZModal(true);
                           }}
@@ -3609,15 +3674,63 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-ocean-700 mb-1">Fecha *</label>
-            <input
-              type="date"
-              value={zFormData.fecha}
-              onChange={(e) => setZFormData({ ...zFormData, fecha: e.target.value })}
-              className="w-full px-3 py-2 border border-ocean-200 rounded-lg"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-ocean-700 mb-1">Fecha *</label>
+              <input
+                type="date"
+                value={zFormData.fecha}
+                onChange={(e) => setZFormData({ ...zFormData, fecha: e.target.value })}
+                className="w-full px-3 py-2 border border-ocean-200 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ocean-700 mb-1">
+                Tasa BCV (Bs./$)
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={zFormData.bcvRate ?? ''}
+                  onChange={(e) => {
+                    setZRateTouched(true);
+                    setZFormData({ ...zFormData, bcvRate: parseFloat(e.target.value) || null });
+                  }}
+                  className="w-full px-3 py-2 border border-ocean-200 rounded-lg"
+                  step="0.01"
+                  placeholder={bcvRate?.rate?.toFixed(2) || ''}
+                />
+                {zRateTouched && (
+                  <button
+                    type="button"
+                    onClick={() => setZRateTouched(false)}
+                    className="px-2 text-xs text-ocean-600 hover:text-ocean-800 whitespace-nowrap"
+                    title="Volver a la tasa automática de esta fecha"
+                  >
+                    Auto
+                  </button>
+                )}
+              </div>
+              <p className="text-xs mt-1 text-ocean-500">
+                {zRateTouched
+                  ? 'Tasa manual'
+                  : zRateInfo?.exact
+                    ? `Tasa del ${formatDateReadable(zRateInfo.date)}`
+                    : zRateInfo
+                      ? `Sin tasa del día — se usa la del ${formatDateReadable(zRateInfo.date)}`
+                      : 'Buscando tasa…'}
+              </p>
+            </div>
           </div>
+
+          {zFormData.bcvRate && zFormData.totalVentas > 0 && (
+            <div className="px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm">
+              <span className="text-ocean-600">Total en divisas: </span>
+              <span className="font-bold text-green-700">
+                {formatUSD(zFormData.totalVentas / zFormData.bcvRate)}
+              </span>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>

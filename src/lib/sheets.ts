@@ -797,13 +797,17 @@ export async function getBCVRate(db?: D1Database | null): Promise<BCVRate> {
   }
 
   // Helper: guardar tasa en D1 para futuro fallback
+  // Tambien alimenta bcv_rates (historial por fecha) que usan los reportes Z
+  // para convertir a USD con la tasa del dia, no con la ultima conocida.
   async function saveToD1(rate: number, source: string, date: string): Promise<void> {
     if (!db) return;
+    const today = new Date().toISOString().split('T')[0];
     try {
       await db.batch([
         db.prepare("INSERT OR REPLACE INTO site_config (key, value, updated_at) VALUES ('bcv_rate_auto', ?, datetime('now'))").bind(String(rate)),
         db.prepare("INSERT OR REPLACE INTO site_config (key, value, updated_at) VALUES ('bcv_rate_source', ?, datetime('now'))").bind(source),
         db.prepare("INSERT OR REPLACE INTO site_config (key, value, updated_at) VALUES ('bcv_rate_date', ?, datetime('now'))").bind(date),
+        db.prepare('INSERT OR REPLACE INTO bcv_rates (date, usd_rate) VALUES (?, ?)').bind(today, rate),
       ]);
     } catch (e) {
       console.error('[BCV] Error saving to D1:', e);
@@ -875,6 +879,31 @@ export async function getBCVRate(db?: D1Database | null): Promise<BCVRate> {
       console.warn('[BCV] Timeout con bcvapi.tech');
     } else {
       console.error('[BCV] Error con bcvapi.tech:', error);
+    }
+  }
+
+  // API 3: ve.dolarapi.com (fallback)
+  try {
+    const response = await fetchWithTimeout('https://ve.dolarapi.com/v1/dolares/oficial', {
+      headers: { 'Accept': 'application/json' },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.promedio) {
+        const rate = Math.round(parseFloat(data.promedio) * 100) / 100;
+        const fecha = data.fechaActualizacion
+          ? new Date(data.fechaActualizacion).toLocaleDateString('es-VE')
+          : new Date().toLocaleDateString('es-VE');
+        saveToD1(rate, 'BCV', fecha);
+        return { rate, date: fecha, source: 'BCV' };
+      }
+    }
+  } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      console.warn('[BCV] Timeout con ve.dolarapi.com');
+    } else {
+      console.error('[BCV] Error con ve.dolarapi.com:', error);
     }
   }
 
