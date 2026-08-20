@@ -593,14 +593,6 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
             <span className="whitespace-nowrap">
               {speech.isRecording ? 'Grabando…' : 'Escuchando…'}
             </span>
-            {speech.isLive && (
-              <span
-                className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700 whitespace-nowrap"
-                title="El audio viaja mientras hablas: al terminar el texto sale casi de inmediato"
-              >
-                en vivo
-              </span>
-            )}
             {/* Medidor: confirma que te está oyendo. Si no se mueve al hablar,
                 el problema es el micrófono y no el reconocimiento. */}
             <span className="flex items-end gap-0.5 h-4" aria-hidden="true">
