@@ -34,6 +34,8 @@ interface ParsedItem {
 
 interface PurchaseRequest {
   text: string;
+  /** El texto viene de una nota de voz: nombres fonéticos, sin puntuación */
+  dictado?: boolean;
   products: ProductInfo[];
   customers: CustomerInfo[];
   bcvRate: number;
@@ -103,7 +105,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const body: PurchaseRequest = await request.json();
-    const { text, products, customers, bcvRate, pricingMode } = body;
+    const { text, products, customers, bcvRate, pricingMode, dictado } = body;
 
     if (!text || !text.trim()) {
       return new Response(JSON.stringify({
@@ -141,7 +143,24 @@ ${customerList}
 PRODUCTOS DISPONIBLES:
 ${productList}
 
-REGLAS DE INTERPRETACION:
+${dictado ? `⚠️ ESTE TEXTO VIENE DE UNA NOTA DE VOZ, NO FUE ESCRITO.
+El reconocimiento de voz no conoce los nombres del negocio, así que los escribe
+como suenan. Por eso, y SOLO en este caso, aplica lo siguiente:
+
+- Los nombres de clientes y productos vienen deformados fonéticamente. Buscá el
+  que SUENE igual, aunque se escriba distinto: "delsi"/"del si"/"delci" = "Delcy",
+  "bibito"/"vivitos" = "Vivito", "calamares" = "Calamar", "pepitonas" = "Pepitona".
+- Ignorá la regla de "no matchear por parecido": aquí el parecido fonético SÍ es
+  la señal correcta. Preferí siempre el nombre del catálogo que suene más cerca
+  antes que dejarlo sin identificar o crear un cliente nuevo.
+- Si un producto del catálogo tiene paréntesis o palabras extra, el usuario no las
+  dice: "camaron vivito" = "Camaron Vivito (concha)".
+- El dictado no trae puntuación. Separá cliente y productos por el sentido de la
+  frase: lo primero suele ser el cliente, lo demás son productos con cantidades.
+- Si aun así dudás entre dos productos parecidos, elegí el más común y dejá el
+  resto en unmatched; es preferible acertar el cliente y la mayoría de productos.
+
+` : ''}REGLAS DE INTERPRETACION:
 
 CLIENTE:
 - Buscar el nombre del cliente en la lista de clientes registrados

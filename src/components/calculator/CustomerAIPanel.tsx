@@ -125,7 +125,9 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
     };
   };
 
-  const handleAiSubmit = async (overrideText?: string) => {
+  // fromVoice marca que el texto viene de dictado: los nombres llegan escritos
+  // como suenan y la IA necesita saberlo para matchearlos fonéticamente.
+  const handleAiSubmit = async (overrideText?: string, fromVoice = false) => {
     const texto = (overrideText ?? aiText).trim();
     if (!texto || aiProcessing) return;
     setAiSubmittedText(texto);
@@ -172,7 +174,8 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
             products: productInfo,
             customers: customers.map(c => ({ id: c.id, name: c.name })),
             bcvRate: rate,
-            pricingMode: aiPricingMode
+            pricingMode: aiPricingMode,
+            dictado: fromVoice
           }),
           credentials: 'include'
         });
@@ -232,7 +235,8 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
           body: JSON.stringify({
             text: texto,
             customers: customers.map(c => ({ id: c.id, name: c.name })),
-            recentPresupuestos
+            recentPresupuestos,
+            dictado: fromVoice
           }),
           credentials: 'include'
         });
@@ -261,7 +265,7 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
     onInterim: (text) => setAiText(text),
     onFinal: (text) => {
       setAiText(text);
-      handleAiSubmit(text);
+      handleAiSubmit(text, true);
     },
     onError: (message) => setAiError(message),
   });
@@ -586,7 +590,7 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
         <div className="flex items-center justify-between gap-2 mt-2 text-xs text-purple-600">
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            {speech.usingFallback ? 'Grabando… se transcribe al terminar' : 'Escuchando…'}
+            {speech.isRecording ? 'Grabando… toca el micrófono para terminar' : 'Escuchando…'}
           </span>
           <button onClick={speech.cancel} className="text-ocean-500 hover:text-ocean-700 underline">
             cancelar
