@@ -57,7 +57,12 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiConfirming, setAiConfirming] = useState(false);
   const [aiExecuting, setAiExecuting] = useState(false);
-  const [aiMode, setAiMode] = useState<'simple' | 'productos'>('productos');
+  // 'auto' resuelve solo: intenta con productos y cae a simple si no hay nada
+  // que desglosar. 'simple' / 'productos' quedan como override manual.
+  const [aiMode, setAiMode] = useState<'auto' | 'simple' | 'productos'>('auto');
+  const [showModeOverride, setShowModeOverride] = useState(false);
+  // Ruta que realmente se uso en la ultima corrida (para el aviso en el preview)
+  const [aiResolvedMode, setAiResolvedMode] = useState<'simple' | 'productos' | null>(null);
   const [aiPricingMode, setAiPricingMode] = useState<'bcv' | 'divisas' | 'dual'>('bcv');
   const [aiProductAction, setAiProductAction] = useState<AIProductAction | null>(null);
   const [aiUnmatched, setAiUnmatched] = useState<string[]>([]);
@@ -126,7 +131,7 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
     setAiConfirming(false);
 
     try {
-      if (aiMode === 'productos') {
+      if (aiMode !== 'simple') {
         const productsRes = await fetch('/api/products');
         const productsData = await productsRes.json();
         if (!productsData.success || !productsData.products) {
@@ -167,15 +172,39 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
         });
 
         const data = await response.json();
-        if (data.success && data.action) {
-          setAiProductAction(data.action);
+        const payments: AIAction[] = (data.payments || []).map((p: any) => ({
+          customerName: p.customerName,
+          customerId: p.customerId ?? null,
+          type: 'payment' as const,
+          amountUsd: p.amountUsd,
+          amountUsdDivisa: p.amountUsdDivisa ?? null,
+          description: p.description || 'Abono',
+          presupuestoId: null,
+          currencyType: p.currencyType || 'dolar_bcv',
+          paymentMethod: p.paymentMethod ?? null,
+          date: p.date ?? null,
+        }));
+
+        if (data.success && (data.action || payments.length > 0)) {
+          // Puede venir solo compra, solo abonos, o ambos (texto mixto)
+          setAiProductAction(data.action || null);
+          setAiActions(payments);
           setAiUnmatched(data.unmatched || []);
+          setAiResolvedMode('productos');
           setAiConfirming(true);
-        } else {
+          return;
+        }
+
+        // Nada que desglosar: en modo auto reintentamos como nota simple
+        // (ej. "mariscos varios $20" — no esta en catalogo pero es una compra)
+        if (aiMode === 'productos') {
           setAiError(data.error || 'No se identificaron productos.');
           setAiUnmatched(data.unmatched || []);
+          return;
         }
-      } else {
+      }
+
+      {
         let recentPresupuestos: Array<{ id: string; fecha: string; customerName: string; totalUSD: number; totalUSDDivisa: number | null }> = [];
         try {
           const pRes = await fetch('/api/presupuestos?limit=20', { credentials: 'include' });
@@ -205,6 +234,8 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
         const data = await response.json();
         if (data.success && data.actions.length > 0) {
           setAiActions(data.actions);
+          setAiProductAction(null);
+          setAiResolvedMode('simple');
           setAiConfirming(true);
         } else if (data.success && data.actions.length === 0) {
           setAiError('No se detectaron acciones. Reformula tu texto.');
@@ -224,7 +255,7 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
     let successCount = 0;
     let failCount = 0;
 
-    if (aiMode === 'productos' && aiProductAction) {
+    if (aiProductAction) {
       const action = aiProductAction;
       let customerId = action.customerId;
 
@@ -322,7 +353,9 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
         failCount++;
         alert(`Error: ${err instanceof Error ? err.message : 'Error desconocido'}`);
       }
-    } else {
+    }
+
+    if (aiActions.length > 0) {
       for (const action of aiActions) {
         let customerId = action.customerId;
         try {
@@ -381,6 +414,7 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
     setAiActions([]);
     setAiProductAction(null);
     setAiUnmatched([]);
+    setAiResolvedMode(null);
     setAiText('');
 
     if (failCount > 0) {
@@ -395,6 +429,7 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
     setAiActions([]);
     setAiProductAction(null);
     setAiUnmatched([]);
+    setAiResolvedMode(null);
   };
 
   return (
@@ -406,31 +441,45 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
           </svg>
           <span className="text-sm font-semibold text-purple-700">Anotacion rapida con IA</span>
         </div>
-        <div className="flex bg-purple-100 rounded-lg p-0.5">
+        <div className="flex items-center gap-2">
+          {aiMode !== 'auto' && (
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700">
+              {aiMode === 'simple' ? 'Simple' : 'Con Productos'}
+            </span>
+          )}
           <button
-            onClick={() => setAiMode('simple')}
-            className={`px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-              aiMode === 'simple'
-                ? 'bg-white text-purple-800 shadow-sm'
-                : 'text-purple-500 hover:text-purple-700'
-            }`}
+            onClick={() => setShowModeOverride(v => !v)}
+            className="text-[10px] text-purple-500 hover:text-purple-700 underline"
+            title="Forzar un modo en vez de dejar que se detecte solo"
           >
-            Simple
-          </button>
-          <button
-            onClick={() => setAiMode('productos')}
-            className={`px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-              aiMode === 'productos'
-                ? 'bg-white text-purple-800 shadow-sm'
-                : 'text-purple-500 hover:text-purple-700'
-            }`}
-          >
-            Con Productos
+            {showModeOverride ? 'ocultar' : 'modo'}
           </button>
         </div>
       </div>
 
-      {aiMode === 'productos' && (
+      {showModeOverride && (
+        <div className="flex bg-purple-100 rounded-lg p-0.5 mb-2 self-start w-fit">
+          {([
+            ['auto', 'Auto'],
+            ['simple', 'Simple'],
+            ['productos', 'Con Productos'],
+          ] as const).map(([mode, label]) => (
+            <button
+              key={mode}
+              onClick={() => setAiMode(mode)}
+              className={`px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+                aiMode === mode
+                  ? 'bg-white text-purple-800 shadow-sm'
+                  : 'text-purple-500 hover:text-purple-700'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {aiMode !== 'simple' && (
         <div className="flex gap-1 mb-2">
           <button
             onClick={() => setAiPricingMode('bcv')}
@@ -469,10 +518,7 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
         <textarea
           value={aiText}
           onChange={(e) => setAiText(e.target.value)}
-          placeholder={aiMode === 'productos'
-            ? 'Ej: "registra a Delcy 2kg calamar y 1kg camaron del 03 de febrero"'
-            : 'Ej: "anota a Deisy $100 de mariscos, abono de Jose $50 pago movil"'
-          }
+          placeholder={'Ej: "Delcy 2kg calamar y 1kg camaron" o "Friteria Chon abono $10"'}
           className="flex-1 px-3 py-2 border border-purple-200 rounded-lg text-sm focus:ring-1 focus:ring-purple-500 focus:border-transparent outline-none resize-none placeholder:text-ocean-400"
           rows={2}
           disabled={aiProcessing || aiExecuting}
@@ -763,6 +809,53 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
             </div>
           )}
 
+          {aiActions.length > 0 && (
+            <div className="mb-3 bg-green-50 border border-green-200 rounded-lg p-2">
+              <p className="text-xs font-semibold text-green-800 mb-1">
+                Ademas se registrara{aiActions.length > 1 ? 'n' : ''}:
+              </p>
+              {aiActions.map((a, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs flex-wrap">
+                  <span className="px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">Abono</span>
+                  <select
+                    className={`text-xs border rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 ${
+                      a.customerId
+                        ? 'border-ocean-200 bg-white text-ocean-700 focus:ring-ocean-400'
+                        : 'border-amber-300 bg-amber-50 focus:ring-amber-400'
+                    }`}
+                    value={a.customerId ?? 'new'}
+                    onChange={(e) => {
+                      const updated = [...aiActions];
+                      if (e.target.value === 'new') {
+                        updated[i] = { ...a, customerId: null };
+                      } else {
+                        const selectedId = Number(e.target.value);
+                        const selected = customers.find(c => c.id === selectedId);
+                        updated[i] = { ...a, customerId: selectedId, customerName: selected?.name || a.customerName };
+                      }
+                      setAiActions(updated);
+                    }}
+                  >
+                    <option value="new">+ Crear: "{a.customerName}"</option>
+                    {customers.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  <span className="font-semibold text-green-700">{formatUSD(a.amountUsd)}</span>
+                  <span className="text-ocean-400">{a.description}</span>
+                  {a.paymentMethod && <span className="text-ocean-400">({a.paymentMethod})</span>}
+                  <button
+                    onClick={() => setAiActions(prev => prev.filter((_, idx) => idx !== i))}
+                    className="text-red-500 hover:text-red-700 ml-auto"
+                    title="Quitar este abono"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => handleAiConfirm(false)}
@@ -789,10 +882,20 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
         </div>
       )}
 
-      {/* Simple mode preview */}
-      {aiConfirming && aiActions.length > 0 && (
+      {/* Simple mode preview (solo cuando no hay compra que mostrar) */}
+      {aiConfirming && aiActions.length > 0 && !aiProductAction && (
         <div className="mt-3 bg-purple-50 rounded-lg p-3 border border-purple-200">
-          <p className="text-xs font-semibold text-purple-700 mb-2">Acciones detectadas:</p>
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <p className="text-xs font-semibold text-purple-700">Acciones detectadas:</p>
+            {aiMode === 'auto' && aiResolvedMode === 'simple' && (
+              <span
+                className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700"
+                title="No se reconocieron productos del catalogo, se anota como nota simple"
+              >
+                nota simple
+              </span>
+            )}
+          </div>
           <div className="space-y-2">
             {aiActions.map((action, i) => (
               <div key={i} className="flex items-center gap-2 text-sm flex-wrap">
@@ -857,13 +960,22 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
                 {action.paymentMethod && (
                   <span className="text-xs text-ocean-400">({action.paymentMethod})</span>
                 )}
+                {!action.customerId && (
+                  <input
+                    type="text"
+                    value={action.customerName}
+                    onChange={(e) => setAiActions(prev => prev.map((a, idx) => idx === i ? { ...a, customerName: e.target.value } : a))}
+                    placeholder="Nombre del cliente a crear"
+                    className="text-xs border border-amber-300 bg-amber-50 rounded px-2 py-1 w-52 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                  />
+                )}
               </div>
             ))}
           </div>
           <div className="flex gap-2 mt-3">
             <button
               onClick={() => handleAiConfirm()}
-              disabled={aiExecuting || aiActions.every(a => !a.customerId)}
+              disabled={aiExecuting || aiActions.every(a => !a.customerId && !a.customerName.trim())}
               className="px-3 py-1.5 bg-green-600 hover:bg-green-500 disabled:bg-green-300 text-white rounded-lg text-xs font-medium transition-colors"
             >
               {aiExecuting ? 'Creando...' : 'Confirmar'}

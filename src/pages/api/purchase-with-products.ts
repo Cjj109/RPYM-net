@@ -61,6 +61,18 @@ interface ParsedAction {
   delivery: number | null;
 }
 
+/** Abono/pago detectado en el mismo texto que la compra */
+interface ParsedPayment {
+  customerName: string;
+  customerId: number | null;
+  amountUsd: number;
+  amountUsdDivisa: number | null;
+  description: string;
+  currencyType: 'divisas' | 'dolar_bcv';
+  paymentMethod: string | null;
+  date: string | null;
+}
+
 // Generate unique presupuesto ID (same as in presupuestos/index.ts)
 function generatePresupuestoId(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -119,6 +131,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 1. Un nombre de cliente
 2. Una lista de productos con cantidades
 3. Opcionalmente, una fecha
+4. Opcionalmente, uno o varios ABONOS/PAGOS de clientes
 
 FECHA ACTUAL: ${todayISO} (${todayName})
 
@@ -228,6 +241,20 @@ DELIVERY (OPCIONAL - cargo de envio):
 - Si NO menciona delivery, delivery sera null
 - Ejemplos: "2kg calamar y 1kg jumbo, mas $5 de delivery para Delcy" → delivery: 5
 
+ABONOS / PAGOS (array "payments"):
+- Un ABONO es dinero que el cliente ENTREGA, no una compra. Va en "payments", NUNCA en "items".
+- Verbos de abono: "abona", "abono", "abonó", "paga", "pagó", "pago", "cancela", "canceló", "deposita", "depositó", "entrega", "me dio", "me pasó"
+- Ejemplos: "Friteria Chon abono $10" → payments: [{"customerName":"Friteria Chon","amountUsd":10,...}]
+- Un mismo texto puede traer abonos Y productos a la vez. Ejemplo:
+  "Chon abonó $10 y llevó 2kg de camaron" → payments: [{...$10}] + items: [{camaron 2kg}]
+- Cada abono lleva su propio cliente. Si el texto nombra un solo cliente, todos usan ese nombre.
+- Aplicar a cada "customerName" de payments las MISMAS reglas de match de la seccion CLIENTE.
+- currencyType: "divisas" si el pago fue en efectivo USD, zelle, usdt, paypal, binance, cripto.
+  "dolar_bcv" si fue pago movil, transferencia, tarjeta, debito o no se especifica.
+- paymentMethod: "efectivo" | "pago_movil" | "transferencia" | "zelle" | "tarjeta" | null
+- description: texto corto de lo que dice el usuario (ej: "Abono", "Abono pago movil")
+- Si el texto NO menciona ningun abono, payments debe ser un array vacio [].
+
 Responde SOLO con un JSON valido:
 {
   "customerName": "nombre del cliente como aparece en la lista o como lo escribio",
@@ -248,6 +275,17 @@ Responde SOLO con un JSON valido:
   ],
   "date": "YYYY-MM-DD" o null,
   "delivery": numero o null (costo de delivery en USD si se menciono),
+  "payments": [
+    {
+      "customerName": "nombre del cliente que abona",
+      "customerId": numero o null,
+      "amountUsd": numero,
+      "description": "texto corto del abono",
+      "currencyType": "divisas" | "dolar_bcv",
+      "paymentMethod": "efectivo" | "pago_movil" | "transferencia" | "zelle" | "tarjeta" | null,
+      "date": "YYYY-MM-DD" o null
+    }
+  ],
   "unmatched": ["productos que no se pudieron identificar"]
 }`;
 
@@ -536,6 +574,43 @@ Responde SOLO con un JSON valido:
       delivery: delivery > 0 ? delivery : null
     };
 
+    // Abonos/pagos detectados en el mismo texto. Se resuelve el cliente de cada
+    // uno igual que el de la compra: exacto primero, parcial unico despues.
+    const resolvePaymentCustomer = (name: string): { id: number | null; name: string } => {
+      const raw = (name || '').trim();
+      if (!raw) return { id: resolvedCustomerId, name: resolvedCustomerName };
+      const norm = normalize(raw);
+      const exact = customers.find(c => normalize(c.name) === norm);
+      if (exact) return { id: exact.id, name: exact.name };
+      const partial = customers.filter(c => normalize(c.name).includes(norm));
+      if (partial.length === 1) return { id: partial[0].id, name: partial[0].name };
+      return { id: null, name: raw };
+    };
+
+    const payments: ParsedPayment[] = ((parsed.payments || []) as any[])
+      .map(p => {
+        const amountUsd = Math.round((Number(p?.amountUsd) || 0) * 100) / 100;
+        if (amountUsd <= 0) return null;
+        // La IA a veces devuelve un customerId que no existe; se revalida por nombre.
+        const byId = p?.customerId != null
+          ? customers.find(c => String(c.id) === String(p.customerId))
+          : null;
+        const resolved = byId
+          ? { id: byId.id, name: byId.name }
+          : resolvePaymentCustomer(String(p?.customerName || ''));
+        return {
+          customerName: resolved.name,
+          customerId: resolved.id,
+          amountUsd,
+          amountUsdDivisa: null,
+          description: String(p?.description || 'Abono').slice(0, 120),
+          currencyType: p?.currencyType === 'divisas' ? 'divisas' : 'dolar_bcv',
+          paymentMethod: p?.paymentMethod ? String(p.paymentMethod) : null,
+          date: typeof p?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(p.date) ? p.date : null,
+        } as ParsedPayment;
+      })
+      .filter((p): p is ParsedPayment => p !== null);
+
     // No reportar como "no identificados" productos que sí se agregaron:
     // la IA a veces lista en unmatched un producto que igual entró como
     // producto personalizado (suggestedName + customPrice), y eso infla
@@ -548,7 +623,10 @@ Responde SOLO con un JSON valido:
 
     return new Response(JSON.stringify({
       success: true,
-      action,
+      // action null = el texto no traia productos identificables; el cliente
+      // decide si cae al modo simple o si solo registra los abonos.
+      action: presupuestoItems.length > 0 ? action : null,
+      payments,
       unmatched
     }), {
       status: 200, headers: { 'Content-Type': 'application/json' }
