@@ -587,14 +587,34 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
       </div>
 
       {escuchando && (
-        <div className="flex items-center justify-between gap-2 mt-2 text-xs text-purple-600">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            {speech.isRecording ? 'Grabando… toca el micrófono para terminar' : 'Escuchando…'}
+        <div className="flex items-center justify-between gap-3 mt-2 text-xs text-purple-600">
+          <span className="flex items-center gap-2 min-w-0">
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+            <span className="whitespace-nowrap">
+              {speech.isRecording ? 'Grabando…' : 'Escuchando…'}
+            </span>
+            {/* Medidor: confirma que te está oyendo. Si no se mueve al hablar,
+                el problema es el micrófono y no el reconocimiento. */}
+            <span className="flex items-end gap-0.5 h-4" aria-hidden="true">
+              {[0.15, 0.35, 0.55, 0.75, 0.95].map((umbral, i) => (
+                <span
+                  key={i}
+                  className={`w-1 rounded-sm transition-all duration-100 ${
+                    speech.level >= umbral ? 'bg-red-500' : 'bg-purple-200'
+                  }`}
+                  style={{ height: `${5 + i * 2.5}px` }}
+                />
+              ))}
+            </span>
           </span>
-          <button onClick={speech.cancel} className="text-ocean-500 hover:text-ocean-700 underline">
-            cancelar
-          </button>
+          <span className="flex items-center gap-3 shrink-0">
+            <button onClick={speech.stop} className="text-purple-700 font-medium hover:underline">
+              listo
+            </button>
+            <button onClick={speech.cancel} className="text-ocean-500 hover:text-ocean-700 underline">
+              cancelar
+            </button>
+          </span>
         </div>
       )}
       {speech.state === 'transcribing' && (

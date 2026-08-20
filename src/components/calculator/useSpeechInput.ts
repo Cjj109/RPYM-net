@@ -20,15 +20,17 @@ import { blobToWavBase64 } from '../../lib/audio-to-wav';
 
 export type SpeechState = 'idle' | 'listening' | 'transcribing' | 'unsupported';
 
-/** Silencio tras el cual se da por terminado el dictado */
-const SILENCE_MS = 1800;
+/** Silencio tras el cual se da por terminado el dictado. Generoso a propósito:
+ *  al enumerar productos uno hace pausas de un segundo largo pensando el
+ *  siguiente, y cortar ahí parte la frase por la mitad. */
+const SILENCE_MS = 3000;
 /** Piso mínimo de voz. En sitios ruidosos el umbral real se calcula sobre el
  *  ruido ambiente medido, no sobre este valor. */
 const SILENCE_FLOOR = 8;
 /** Cuánto debe superar la voz al ruido de fondo para contar como habla */
 const VOICE_OVER_NOISE = 1.7;
-/** Ventana inicial que se usa para medir el ruido ambiente antes de escuchar */
-const NOISE_SAMPLE_MS = 500;
+/** Cuánto basta para dar por sostenida una voz ya empezada (histéresis) */
+const SUSTAIN_OVER_NOISE = 1.25;
 /** Corte duro para que una grabación olvidada no crezca sin límite */
 const MAX_RECORDING_MS = 60000;
 
@@ -44,6 +46,10 @@ export function useSpeechInput({ onInterim, onFinal, onError }: UseSpeechInputOp
   const [state, setState] = useState<SpeechState>('idle');
   /** true mientras se graba (camino normal); false si corrió el nativo */
   const [isRecording, setIsRecording] = useState(false);
+  /** Nivel de voz 0-1 para el medidor. Se actualiza ~8 veces por segundo, no
+   *  por frame, para no re-renderizar el panel 60 veces por segundo. */
+  const [level, setLevel] = useState(0);
+  const lastLevelPushRef = useRef(0);
 
   const recognitionRef = useRef<any>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -106,6 +112,7 @@ export function useSpeechInput({ onInterim, onFinal, onError }: UseSpeechInputOp
       recorder.onstop = async () => {
         clearTimers();
         releaseMic();
+        setLevel(0);
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType });
         chunksRef.current = [];
 
@@ -147,32 +154,46 @@ export function useSpeechInput({ onInterim, onFinal, onError }: UseSpeechInputOp
       const data = new Uint8Array(analyser.frequencyBinCount);
       let hablo = false;
 
-      // Calibración: los primeros milisegundos se usan para medir el ruido del
-      // lugar y fijar el umbral por encima de él. Con un umbral fijo, en un
-      // mercado el ruido de fondo ya lo supera y nunca se detecta el silencio,
-      // así que la grabación corría hasta el tope de 60s.
-      const inicio = performance.now();
-      let ruidoAmbiente = 0;
-      let muestras = 0;
-      let umbral = SILENCE_FLOOR;
-
+      // Detección de voz por energía, con el piso de ruido rastreado de forma
+      // continua en vez de calibrado al inicio.
+      //
+      // La primera versión medía el ambiente en el primer medio segundo, y si
+      // el usuario empezaba a hablar de una tomaba su propia voz como "ruido":
+      // el umbral quedaba altísimo y la primera pausa natural (antes de decir
+      // el siguiente producto) se leía como silencio y cortaba a mitad de frase.
+      //
+      // Ahora el piso baja rápido cuando hay calma y sube muy lento, así la voz
+      // nunca lo arrastra hacia arriba. Además hay histéresis: cuesta más
+      // empezar a considerar que hablás que dejar de considerarlo, para no
+      // cortar en las pausas cortas de una enumeración.
+      let pisoRuido = -1;
       const tick = () => {
         if (!audioCtxRef.current) return;
         analyser.getByteFrequencyData(data);
         const nivel = data.reduce((a, b) => a + b, 0) / data.length;
 
-        if (performance.now() - inicio < NOISE_SAMPLE_MS) {
-          ruidoAmbiente += nivel;
-          muestras++;
-          requestAnimationFrame(tick);
-          return;
-        }
-        if (muestras > 0) {
-          umbral = Math.max(SILENCE_FLOOR, (ruidoAmbiente / muestras) * VOICE_OVER_NOISE);
-          muestras = 0;
+        if (pisoRuido < 0) {
+          pisoRuido = nivel;
+        } else if (nivel < pisoRuido) {
+          pisoRuido = pisoRuido * 0.7 + nivel * 0.3;   // baja rápido
+        } else {
+          pisoRuido = pisoRuido * 0.999 + nivel * 0.001; // sube casi nada
         }
 
-        if (nivel > umbral) {
+        const base = Math.max(pisoRuido, 1);
+        const umbralVoz = Math.max(SILENCE_FLOOR, base * VOICE_OVER_NOISE);
+        // Para SEGUIR hablando basta con menos: evita cortar entre palabras.
+        const umbralSostener = Math.max(SILENCE_FLOOR * 0.6, base * SUSTAIN_OVER_NOISE);
+
+        const ahora = performance.now();
+        if (ahora - lastLevelPushRef.current > 125) {
+          lastLevelPushRef.current = ahora;
+          // Se muestra cuánto supera la voz al piso de ruido, no el volumen
+          // crudo: así el medidor no queda pegado arriba por el ruido del local.
+          setLevel(Math.min(1, Math.max(0, (nivel - base) / (base * 2 + 12))));
+        }
+
+        if (nivel > (hablo ? umbralSostener : umbralVoz)) {
           hablo = true;
           if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
         } else if (hablo && !silenceTimerRef.current) {
@@ -311,5 +332,5 @@ export function useSpeechInput({ onInterim, onFinal, onError }: UseSpeechInputOp
     setState('idle');
   }, [clearTimers, releaseMic]);
 
-  return { state, isRecording, start, stop, cancel };
+  return { state, isRecording, level, start, stop, cancel };
 }
