@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { blobToWavBase64 } from '../../lib/audio-to-wav';
+import { blobToBase64, blobToWavBase64 } from '../../lib/audio-to-wav';
 
 /**
  * Dictado para la anotación rápida.
@@ -123,14 +123,26 @@ export function useSpeechInput({ onInterim, onFinal, onError }: UseSpeechInputOp
 
         setState('transcribing');
         try {
-          const audioBase64 = await blobToWavBase64(blob);
-          const res = await fetch('/api/transcribe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ audioBase64 }),
-          });
-          const data = await res.json();
+          // Se manda el audio comprimido tal cual lo grabó el navegador: OpenAI
+          // acepta webm y mp4, así que convertir a WAV solo agregaba trabajo de
+          // CPU y multiplicaba por ~8 los bytes a subir. El WAV se arma solo si
+          // hace falta caer a Gemini, que sí exige un formato de su lista.
+          const enviar = async (audioBase64: string, mimeType: string) => {
+            const res = await fetch('/api/transcribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ audioBase64, mimeType }),
+            });
+            return res.json();
+          };
+
+          let data = await enviar(await blobToBase64(blob), blob.type || recorder.mimeType);
+
+          if (data?.needsWav) {
+            data = await enviar(await blobToWavBase64(blob), 'audio/wav');
+          }
+
           if (data.success && data.text?.trim()) {
             onFinal(data.text.trim());
           } else if (!data.success) {

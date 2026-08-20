@@ -107,3 +107,12 @@ export async function blobToWavBase64(blob: Blob): Promise<string> {
     ctx.close().catch(() => {});
   }
 }
+
+/**
+ * Base64 del blob tal cual, sin decodificar ni recomprimir.
+ * Es el camino rápido: OpenAI acepta webm y mp4 directo, así que no hace falta
+ * pasar por WAV salvo que haya que caer a Gemini.
+ */
+export async function blobToBase64(blob: Blob): Promise<string> {
+  return toBase64(await blob.arrayBuffer());
+}

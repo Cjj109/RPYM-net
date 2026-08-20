@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { requireAuth } from '../../lib/require-auth';
 import { getEnv } from '../../lib/env';
+import type { D1Database } from '../../lib/d1-types';
 
 export const prerender = false;
 
@@ -41,15 +42,32 @@ async function cargarVocabulario(db: D1Database): Promise<{ clientes: string[]; 
 }
 
 /** Decodifica base64 a bytes sin cargar el string entero en memoria dos veces */
-function base64ToBytes(base64: string): Uint8Array {
+function base64ToBytes(base64: string): ArrayBuffer {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
+  return bytes.buffer;
 }
 
+/** Extensión que espera OpenAI para cada formato que graba el navegador */
+const EXT_POR_MIME: Record<string, string> = {
+  'audio/webm': 'webm', 'audio/ogg': 'ogg', 'audio/mp4': 'mp4',
+  'audio/mpeg': 'mp3', 'audio/mp3': 'mp3', 'audio/m4a': 'm4a',
+  'audio/x-m4a': 'm4a', 'audio/wav': 'wav', 'audio/wave': 'wav',
+};
+
+/** Formatos que Gemini acepta en inline_data */
+const MIMES_GEMINI = new Set([
+  'audio/wav', 'audio/wave', 'audio/mp3', 'audio/mpeg',
+  'audio/aiff', 'audio/aac', 'audio/ogg', 'audio/flac',
+]);
+
+/** "audio/webm;codecs=opus" -> "audio/webm" */
+const mimeBase = (mime: string) => (mime || '').split(';')[0].trim().toLowerCase();
+
 async function transcribirConOpenAI(
-  audio: Uint8Array,
+  audio: ArrayBuffer,
+  mimeType: string,
   apiKey: string,
   vocabulario: { clientes: string[]; productos: string[] }
 ): Promise<string | null> {
@@ -63,8 +81,11 @@ async function transcribirConOpenAI(
     'Cantidades como "medio kilo", "dos kilos", "kilo y medio". Montos en dólares.',
   ].filter(Boolean).join(' ');
 
+  const base = mimeBase(mimeType);
+  const ext = EXT_POR_MIME[base] || 'webm';
+
   const form = new FormData();
-  form.append('file', new Blob([audio], { type: 'audio/wav' }), 'nota.wav');
+  form.append('file', new Blob([audio], { type: base || 'audio/webm' }), `nota.${ext}`);
   form.append('model', OPENAI_MODEL);
   form.append('prompt', prompt);
   form.append('languages', JSON.stringify(['es']));
@@ -87,6 +108,7 @@ async function transcribirConOpenAI(
 
 async function transcribirConGemini(
   audioBase64: string,
+  mimeType: string,
   apiKey: string,
   vocabulario: { clientes: string[]; productos: string[] }
 ): Promise<string | null> {
@@ -113,7 +135,7 @@ Reglas:
       contents: [{
         parts: [
           { text: prompt },
-          { inline_data: { mime_type: 'audio/wav', data: audioBase64 } },
+          { inline_data: { mime_type: mimeBase(mimeType), data: audioBase64 } },
         ],
       }],
       generationConfig: { temperature: 0, maxOutputTokens: 1024 },
@@ -148,6 +170,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     const body = await request.json();
     const audioBase64: string = body?.audioBase64 || '';
+    const mimeType: string = body?.mimeType || 'audio/wav';
 
     if (!audioBase64) {
       return new Response(JSON.stringify({ success: false, error: 'No se recibió audio' }), {
@@ -167,16 +190,26 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     if (openaiKey) {
       try {
-        text = await transcribirConOpenAI(base64ToBytes(audioBase64), openaiKey, vocabulario);
+        text = await transcribirConOpenAI(base64ToBytes(audioBase64), mimeType, openaiKey, vocabulario);
         if (text) proveedor = 'openai';
       } catch (e) {
         console.error('[transcribe] OpenAI falló:', e);
       }
     }
 
+    // Gemini solo acepta su lista de formatos. El cliente manda el audio
+    // comprimido tal cual porque es mucho más liviano de subir; si hay que caer
+    // a Gemini y el formato no le sirve, se le pide el WAV en un segundo intento
+    // en vez de convertir acá, que en un Worker no se puede.
+    if (!text && geminiKey && !MIMES_GEMINI.has(mimeBase(mimeType))) {
+      return new Response(JSON.stringify({ success: false, needsWav: true }), {
+        status: 200, headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     if (!text && geminiKey) {
       try {
-        text = await transcribirConGemini(audioBase64, geminiKey, vocabulario);
+        text = await transcribirConGemini(audioBase64, mimeType, geminiKey, vocabulario);
         if (text) proveedor = 'gemini';
       } catch (e) {
         console.error('[transcribe] Gemini falló:', e);
