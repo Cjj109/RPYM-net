@@ -659,7 +659,10 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
         )}
 
         {showAI && (
-          <CustomerAIPanel bcvRate={activeRate > 0 ? activeRate : undefined} />
+          <CustomerAIPanel
+            bcvRate={activeRate > 0 ? activeRate : undefined}
+            onSuccess={() => setShowAI(false)}
+          />
         )}
 
         {activeTab === 'calculator' && (

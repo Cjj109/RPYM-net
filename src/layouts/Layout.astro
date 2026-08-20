@@ -419,6 +419,19 @@ const ogImageUrl = new URL(ogImage, siteUrl).href;
       })();
     </script>
 
+    <!-- Evita que la rueda del mouse cambie el valor de los inputs numericos.
+         Un scroll minimo sobre un campo enfocado convertia 14.00 en 13.99 sin
+         que se notara. Al hacer scroll se quita el foco: la pagina sigue
+         desplazandose normal y el valor no se toca. -->
+    <script is:inline>
+      document.addEventListener('wheel', function (e) {
+        var el = document.activeElement;
+        if (el && el.tagName === 'INPUT' && el.type === 'number' && el === e.target) {
+          el.blur();
+        }
+      }, { passive: true });
+    </script>
+
     <!-- Service Worker Registration -->
     <script is:inline>
       if ('serviceWorker' in navigator) {
