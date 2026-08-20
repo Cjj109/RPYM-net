@@ -20,7 +20,7 @@ export interface ClaudeResponse {
   error?: string;
 }
 
-const DEFAULT_MODEL = 'claude-haiku-4-5-20251001';
+const DEFAULT_MODEL = 'claude-haiku-4-5';
 const ANTHROPIC_VERSION = '2023-06-01';
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 1000;

@@ -20,7 +20,7 @@ export interface GeminiResponse {
   error?: string;
 }
 
-const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
+const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 1000;
 
@@ -107,66 +107,6 @@ export async function callGeminiWithRetry(request: GeminiRequest): Promise<Gemin
       }
 
       console.error('[Gemini] Network error:', error);
-      return { success: false, content: '', error: 'Network error' };
-    }
-  }
-
-  return { success: false, content: '', error: 'Max retries exceeded' };
-}
-
-/**
- * Versión simplificada para llamadas con historial (WhatsApp)
- */
-export async function callGeminiChat(
-  systemPrompt: string,
-  contents: Array<{ role: string; parts: Array<{ text: string }> }>,
-  apiKey: string,
-  model: string = 'gemini-2.0-flash-lite'
-): Promise<GeminiResponse> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-  const body = {
-    system_instruction: { parts: [{ text: systemPrompt }] },
-    contents,
-    generationConfig: {
-      temperature: 0.7,
-      maxOutputTokens: 512,
-    },
-  };
-
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-
-        if (isRetryableError(response.status, errorText) && attempt < MAX_RETRIES) {
-          console.log(`[Gemini Chat] Retry ${attempt + 1}/${MAX_RETRIES}...`);
-          await sleep(RETRY_DELAY_MS * (attempt + 1));
-          continue;
-        }
-
-        console.error(`[Gemini Chat] Error ${response.status}`);
-        return { success: false, content: '', error: `API error: ${response.status}` };
-      }
-
-      const data = await response.json();
-      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-      return { success: true, content };
-    } catch (error) {
-      if (attempt < MAX_RETRIES) {
-        console.log(`[Gemini Chat] Retry ${attempt + 1}/${MAX_RETRIES} after error...`);
-        await sleep(RETRY_DELAY_MS * (attempt + 1));
-        continue;
-      }
-
-      console.error('[Gemini Chat] Error:', error);
       return { success: false, content: '', error: 'Network error' };
     }
   }

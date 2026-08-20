@@ -20,7 +20,17 @@ export interface OpenAIResponse {
   error?: string;
 }
 
-const DEFAULT_MODEL = 'gpt-4o-mini';
+const DEFAULT_MODEL = 'gpt-5.6-luna';
+
+/**
+ * La familia GPT-5 es "sustractiva": rechaza `temperature` con 400 y renombró
+ * `max_tokens` a `max_completion_tokens`. Se detecta por prefijo en vez de
+ * hardcodear el modelo, para que el cliente siga funcionando si se vuelve a
+ * fijar un gpt-4 desde el panel.
+ */
+function isReasoningModel(model: string): boolean {
+  return /^(gpt-5|o[1-9])/i.test(model);
+}
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 1000;
 
@@ -59,14 +69,27 @@ export async function callOpenAIWithRetry(request: OpenAIRequest): Promise<OpenA
 
   const url = 'https://api.openai.com/v1/chat/completions';
 
+  const reasoning = isReasoningModel(model);
+
   const body = {
     model,
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userMessage },
     ],
-    temperature,
-    max_tokens: maxOutputTokens,
+    ...(reasoning
+      ? {
+          // El presupuesto incluye los tokens de razonamiento, así que se le da
+          // holgura: si se agota razonando, la respuesta vuelve vacía. Con
+          // effort bajo el modelo casi no razona, que es lo que queremos para
+          // extracción de JSON.
+          max_completion_tokens: maxOutputTokens * 4,
+          reasoning_effort: 'low',
+        }
+      : {
+          temperature,
+          max_tokens: maxOutputTokens,
+        }),
     ...(jsonMode && { response_format: { type: 'json_object' } }),
   };
 
@@ -96,6 +119,15 @@ export async function callOpenAIWithRetry(request: OpenAIRequest): Promise<OpenA
 
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content || '';
+
+      // Un modelo de razonamiento puede agotar el presupuesto pensando y
+      // devolver contenido vacío con finish_reason 'length'. ai-fallback ya lo
+      // trata como fallo y pasa al siguiente proveedor; se registra para poder
+      // distinguirlo de una caída real de la API.
+      if (!content.trim()) {
+        const finish = data.choices?.[0]?.finish_reason ?? 'desconocido';
+        console.warn(`[OpenAI] Respuesta vacía (finish_reason: ${finish}, modelo: ${model})`);
+      }
 
       return { success: true, content };
     } catch (error) {
