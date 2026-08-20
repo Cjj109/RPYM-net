@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { blobToBase64, blobToWavBase64 } from '../../lib/audio-to-wav';
+import { openLiveTranscriber, type LiveTranscriber } from '../../lib/live-transcriber';
 
 /**
  * Dictado para la anotación rápida.
@@ -50,6 +51,8 @@ export function useSpeechInput({ onInterim, onFinal, onError }: UseSpeechInputOp
    *  por frame, para no re-renderizar el panel 60 veces por segundo. */
   const [level, setLevel] = useState(0);
   const lastLevelPushRef = useRef(0);
+  /** true cuando el audio está viajando en vivo: la espera al final es mínima */
+  const [isLive, setIsLive] = useState(false);
 
   const recognitionRef = useRef<any>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -58,6 +61,10 @@ export function useSpeechInput({ onInterim, onFinal, onError }: UseSpeechInputOp
   const silenceTimerRef = useRef<number | null>(null);
   const maxTimerRef = useRef<number | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const liveRef = useRef<LiveTranscriber | null>(null);
+  const workletRef = useRef<AudioWorkletNode | null>(null);
+  /** true cuando ya no tiene sentido usar la vía en vivo en esta grabación */
+  const liveDescartadoRef = useRef(false);
   const finalTextRef = useRef('');
   /** Evita que onFinal se dispare dos veces (p.ej. silencio + onend del navegador) */
   const settledRef = useRef(false);
@@ -68,6 +75,10 @@ export function useSpeechInput({ onInterim, onFinal, onError }: UseSpeechInputOp
   }, []);
 
   const releaseMic = useCallback(() => {
+    try { workletRef.current?.port.postMessage('stop'); } catch { /* ya cerrado */ }
+    try { workletRef.current?.disconnect(); } catch { /* ya desconectado */ }
+    workletRef.current = null;
+    liveDescartadoRef.current = true;
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
     audioCtxRef.current?.close().catch(() => {});
@@ -81,6 +92,9 @@ export function useSpeechInput({ onInterim, onFinal, onError }: UseSpeechInputOp
       clearTimers();
       try { recognitionRef.current?.abort(); } catch { /* ya estaba detenido */ }
       try { mediaRecorderRef.current?.stop(); } catch { /* ya estaba detenido */ }
+      liveDescartadoRef.current = true;
+      liveRef.current?.close();
+      liveRef.current = null;
       releaseMic();
     };
   }, [clearTimers, releaseMic]);
@@ -89,6 +103,8 @@ export function useSpeechInput({ onInterim, onFinal, onError }: UseSpeechInputOp
 
   const startRecording = useCallback(async () => {
     setIsRecording(true);
+    setIsLive(false);
+    liveDescartadoRef.current = false;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -123,6 +139,26 @@ export function useSpeechInput({ onInterim, onFinal, onError }: UseSpeechInputOp
 
         setState('transcribing');
         try {
+          // Camino en vivo: el audio ya viajó mientras se hablaba, así que solo
+          // falta cerrar el turno y recoger el texto. Si el socket se rompió o
+          // vuelve vacío, se cae al envío por lotes con lo que se grabó.
+          const live = liveRef.current;
+          liveRef.current = null;
+          if (live) {
+            let texto = '';
+            try {
+              texto = await live.finish();
+            } catch {
+              texto = '';
+            }
+            if (texto) {
+              onFinal(texto);
+              setState('idle');
+              return;
+            }
+            console.warn('[dictado] La vía en vivo no devolvió texto, se reintenta por lotes');
+          }
+
           // Se manda el audio comprimido tal cual lo grabó el navegador: OpenAI
           // acepta webm y mp4, así que convertir a WAV solo agregaba trabajo de
           // CPU y multiplicaba por ~8 los bytes a subir. El WAV se arma solo si
@@ -156,13 +192,58 @@ export function useSpeechInput({ onInterim, onFinal, onError }: UseSpeechInputOp
       };
 
       // Detección de silencio sobre el nivel del micrófono
+      // 24 kHz es la tasa que exige la transcripción en vivo. Pedirla al crear
+      // el contexto evita tener que remuestrear a mano, y al medidor de nivel
+      // le da igual la tasa.
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      const ctx: AudioContext = new AudioCtx();
+      const ctx: AudioContext = new AudioCtx({ sampleRate: 24000 });
       audioCtxRef.current = ctx;
       const source = ctx.createMediaStreamSource(stream);
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 512;
       source.connect(analyser);
+
+      // El audio se transmite mientras se habla, pero abrir el socket toma unos
+      // cientos de milisegundos. Grabar se empieza YA y el PCM se guarda hasta
+      // que el socket esté listo: si se esperara, se perderían las primeras
+      // palabras, que suelen ser el nombre del cliente.
+      // La grabación local sigue corriendo en paralelo pase lo que pase: es lo
+      // que salva la nota si la señal se cae a mitad de frase.
+      const pendientes: Int16Array[] = [];
+      let muestrasPendientes = 0;
+      const MAX_PENDIENTES = 24000 * 12; // 12s: si no abrió para entonces, no abre
+
+      try {
+        await ctx.audioWorklet.addModule('/pcm-worklet.js');
+        const worklet = new AudioWorkletNode(ctx, 'pcm-processor');
+        worklet.port.onmessage = (e) => {
+          const pcm = e.data as Int16Array;
+          const live = liveRef.current;
+          if (live && !live.broken) {
+            live.sendPcm(pcm);
+          } else if (!liveDescartadoRef.current && muestrasPendientes < MAX_PENDIENTES) {
+            pendientes.push(pcm);
+            muestrasPendientes += pcm.length;
+          }
+        };
+        source.connect(worklet);
+        workletRef.current = worklet;
+
+        // Abrir el socket en paralelo, sin bloquear la grabación
+        openLiveTranscriber().then((live) => {
+          if (!live) { liveDescartadoRef.current = true; pendientes.length = 0; return; }
+          if (liveDescartadoRef.current || !audioCtxRef.current) { live.close(); return; }
+          liveRef.current = live;
+          setIsLive(true);
+          for (const bloque of pendientes) live.sendPcm(bloque);
+          pendientes.length = 0;
+        }).catch(() => { liveDescartadoRef.current = true; pendientes.length = 0; });
+      } catch (e) {
+        // Sin captura cruda no hay vía en vivo, pero la grabación ya está en
+        // marcha, así que simplemente se sigue por el camino por lotes.
+        console.warn('[dictado] AudioWorklet no disponible, se usa el flujo por lotes:', e);
+        liveDescartadoRef.current = true;
+      }
       const data = new Uint8Array(analyser.frequencyBinCount);
       let hablo = false;
 
@@ -334,6 +415,9 @@ export function useSpeechInput({ onInterim, onFinal, onError }: UseSpeechInputOp
   const cancel = useCallback(() => {
     settledRef.current = true;
     finalTextRef.current = '';
+    liveDescartadoRef.current = true;
+    liveRef.current?.close();
+    liveRef.current = null;
     clearTimers();
     try { recognitionRef.current?.abort(); } catch { /* ya detenido */ }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
@@ -344,5 +428,5 @@ export function useSpeechInput({ onInterim, onFinal, onError }: UseSpeechInputOp
     setState('idle');
   }, [clearTimers, releaseMic]);
 
-  return { state, isRecording, level, start, stop, cancel };
+  return { state, isRecording, isLive, level, start, stop, cancel };
 }
