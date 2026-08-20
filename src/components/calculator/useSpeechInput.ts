@@ -65,6 +65,9 @@ export function useSpeechInput({ onInterim, onFinal, onError }: UseSpeechInputOp
   const workletRef = useRef<AudioWorkletNode | null>(null);
   /** true cuando ya no tiene sentido usar la vía en vivo en esta grabación */
   const liveDescartadoRef = useRef(false);
+  /** Voz presente en este instante. `hablo` recuerda que YA hubo voz; esta
+   *  refleja el momento actual, que es lo que decide si se transmite. */
+  const vozDetectadaRef = useRef(false);
   const finalTextRef = useRef('');
   /** Evita que onFinal se dispare dos veces (p.ej. silencio + onend del navegador) */
   const settledRef = useRef(false);
@@ -104,6 +107,7 @@ export function useSpeechInput({ onInterim, onFinal, onError }: UseSpeechInputOp
   const startRecording = useCallback(async () => {
     setIsRecording(true);
     setIsLive(false);
+    vozDetectadaRef.current = false;
     liveDescartadoRef.current = false;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -146,11 +150,13 @@ export function useSpeechInput({ onInterim, onFinal, onError }: UseSpeechInputOp
           liveRef.current = null;
           if (live) {
             let texto = '';
+            const t0 = performance.now();
             try {
               texto = await live.finish();
             } catch {
               texto = '';
             }
+            console.log(`[dictado] cierre de turno en vivo: ${Math.round(performance.now() - t0)}ms`);
             if (texto) {
               onFinal(texto);
               setState('idle');
@@ -216,12 +222,29 @@ export function useSpeechInput({ onInterim, onFinal, onError }: UseSpeechInputOp
       try {
         await ctx.audioWorklet.addModule('/pcm-worklet.js');
         const worklet = new AudioWorkletNode(ctx, 'pcm-processor');
+        // Reserva corta de audio previo. Transmitir el silencio anterior a que
+        // el usuario hable es banda desperdiciada —PCM crudo son ~48KB/s— pero
+        // arrancar justo al detectar voz corta el primer fonema. Se guardan los
+        // últimos ~350ms y se sueltan de golpe cuando empieza la voz.
+        const reserva: Int16Array[] = [];
+        const MAX_RESERVA = 4; // 4 bloques de 2048 muestras ≈ 340ms
+
         worklet.port.onmessage = (e) => {
           const pcm = e.data as Int16Array;
           const live = liveRef.current;
+
           if (live && !live.broken) {
-            live.sendPcm(pcm);
-          } else if (!liveDescartadoRef.current && muestrasPendientes < MAX_PENDIENTES) {
+            if (vozDetectadaRef.current) {
+              while (reserva.length) live.sendPcm(reserva.shift()!);
+              live.sendPcm(pcm);
+            } else {
+              reserva.push(pcm);
+              if (reserva.length > MAX_RESERVA) reserva.shift();
+            }
+            return;
+          }
+
+          if (!liveDescartadoRef.current && muestrasPendientes < MAX_PENDIENTES) {
             pendientes.push(pcm);
             muestrasPendientes += pcm.length;
           }
@@ -286,7 +309,9 @@ export function useSpeechInput({ onInterim, onFinal, onError }: UseSpeechInputOp
           setLevel(Math.min(1, Math.max(0, (nivel - base) / (base * 2 + 12))));
         }
 
-        if (nivel > (hablo ? umbralSostener : umbralVoz)) {
+        vozDetectadaRef.current = nivel > (hablo ? umbralSostener : umbralVoz);
+
+        if (vozDetectadaRef.current) {
           hablo = true;
           if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
         } else if (hablo && !silenceTimerRef.current) {

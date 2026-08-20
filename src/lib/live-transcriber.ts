@@ -14,8 +14,14 @@
  * cae, y para eso existe la grabación local en paralelo.
  */
 
-/** Si el evento final no llega en este tiempo, se usa lo acumulado de los parciales */
-const ESPERA_FINAL_MS = 4000;
+/** Cuánto se espera el evento final ANTES de conformarse con los parciales.
+ *  Corto a propósito: con turn_detection en null los parciales van llegando
+ *  mientras se habla, así que al cerrar el turno el texto ya suele estar
+ *  completo y esperar el evento final solo agrega demora. */
+const ESPERA_FINAL_MS = 700;
+/** Si no hubo ningún parcial, sí vale la pena esperar más: no hay con qué
+ *  responder todavía. */
+const ESPERA_SIN_PARCIALES_MS = 5000;
 /** Margen para abrir el socket antes de darlo por perdido */
 const ESPERA_APERTURA_MS = 6000;
 
@@ -145,8 +151,9 @@ export async function openLiveTranscriber(): Promise<LiveTranscriber | null> {
         return (final ?? acumulado).trim();
       }
 
+      const espera = acumulado.trim() ? ESPERA_FINAL_MS : ESPERA_SIN_PARCIALES_MS;
       await new Promise<void>((resolve) => {
-        const t = setTimeout(resolve, ESPERA_FINAL_MS);
+        const t = setTimeout(resolve, espera);
         avisarFinal = () => { clearTimeout(t); resolve(); };
         if (final !== null || roto) { clearTimeout(t); resolve(); }
       });
