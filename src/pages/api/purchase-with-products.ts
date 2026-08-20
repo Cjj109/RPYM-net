@@ -3,6 +3,7 @@ import { requireAuth } from '../../lib/require-auth';
 import { getEnv } from '../../lib/env';
 import { callAIWithFallback } from '../../lib/ai-fallback';
 import { getProviderOrder } from '../../lib/ai-config';
+import { normalizeDictatedText } from '../../lib/normalize-dictated';
 import { detectExplicitUnit } from '../../lib/detect-explicit-unit';
 
 export const prerender = false;
@@ -105,7 +106,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const body: PurchaseRequest = await request.json();
-    const { text, products, customers, bcvRate, pricingMode, dictado } = body;
+    const { text: textoCrudo, products, customers, bcvRate, pricingMode, dictado } = body;
+    // "medio kilo" -> "0.5kg" antes de que lo vea el modelo. La conversión en
+    // código acierta siempre; pedírsela al prompt acierta casi siempre.
+    const text: string = dictado ? normalizeDictatedText(textoCrudo || '') : textoCrudo;
 
     if (!text || !text.trim()) {
       return new Response(JSON.stringify({

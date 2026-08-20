@@ -3,6 +3,7 @@ import { requireAuth } from '../../lib/require-auth';
 import { getEnv } from '../../lib/env';
 import { callAIWithFallback } from '../../lib/ai-fallback';
 import { getProviderOrder } from '../../lib/ai-config';
+import { normalizeDictatedText } from '../../lib/normalize-dictated';
 
 export const prerender = false;
 
@@ -33,6 +34,8 @@ interface AIAction {
 }
 
 interface AIRequest {
+  /** El texto viene de una nota de voz: montos en palabras, sin puntuación */
+  dictado?: boolean;
   text: string;
   customers: CustomerInfo[];
   recentPresupuestos: PresupuestoInfo[];
@@ -58,7 +61,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const body: AIRequest = await request.json();
-    const { text, customers, recentPresupuestos } = body;
+    const { text: textoCrudo, customers, recentPresupuestos, dictado } = body;
+    // Los montos dictados ("diez dólares") pasan a cifra antes del modelo.
+    const text: string = dictado ? normalizeDictatedText(textoCrudo || '') : textoCrudo;
 
     if (!text || !text.trim()) {
       return new Response(JSON.stringify({
