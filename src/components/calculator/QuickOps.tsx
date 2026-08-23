@@ -769,6 +769,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
           <button
             onClick={addAmount}
             disabled={parsedAmount === 0 || !activeRate}
+            aria-label="Agregar monto"
             className="shrink-0 px-3 py-2.5 bg-ocean-600 text-white rounded-lg disabled:opacity-40 hover:bg-ocean-500 transition-colors"
           >
             <PlusIcon className="w-5 h-5" />
@@ -883,6 +884,7 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
                 {editingEntryId !== entry.id && (
                   <button
                     onClick={() => setCurrentEntries(prev => prev.filter(e => e.id !== entry.id))}
+                    aria-label="Quitar monto"
                     className="text-ocean-200 hover:text-red-400 transition-colors shrink-0 p-0.5"
                   >
                     <CloseIcon className="w-3.5 h-3.5" />
@@ -1264,9 +1266,10 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
             </button>
             <button
               onClick={dismissPaid}
+              aria-label="Descartar aviso"
               className="opacity-50 hover:opacity-100 transition-opacity ml-1"
             >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -1288,9 +1291,10 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
             </button>
             <button
               onClick={dismissDiscard}
+              aria-label="Descartar aviso"
               className="opacity-50 hover:opacity-100 transition-opacity ml-1"
             >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>

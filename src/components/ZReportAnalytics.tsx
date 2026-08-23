@@ -163,8 +163,8 @@ export default function ZReportAnalytics({ reportes, onClose }: Props) {
         {/* Header */}
         <div className="px-6 py-4 border-b border-ocean-100 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-ocean-900">Analytics - Reportes Z</h2>
-          <button onClick={onClose} className="text-ocean-400 hover:text-ocean-600">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <button onClick={onClose} aria-label="Cerrar" className="text-ocean-400 hover:text-ocean-600">
+            <svg aria-hidden="true" className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>

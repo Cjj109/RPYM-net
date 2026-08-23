@@ -28,9 +28,10 @@ export function UndoToast({ action, onUndo, onDismiss }: UndoToastProps) {
       </button>
       <button
         onClick={onDismiss}
+        aria-label="Descartar aviso"
         className="text-ocean-400 hover:text-white transition-colors ml-1"
       >
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>

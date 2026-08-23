@@ -255,9 +255,10 @@ export default function CuentaPublica() {
             </div>
             <button
               onClick={() => { setShowPresupuestoModal(false); setViewingPresupuesto(null); }}
+              aria-label="Cerrar"
               className="p-1.5 text-ocean-400 hover:text-ocean-600 hover:bg-ocean-50 rounded-lg transition-colors"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
