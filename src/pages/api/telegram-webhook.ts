@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { getBCVRate } from '../../lib/sheets';
 import { getD1, getR2 } from '../../lib/d1-types';
+import { requireAuth } from '../../lib/require-auth';
 import { detectIntent, parseCustomerActions, type CustomerAction, type AlternativeIntent, type RouterResult } from '../../lib/telegram-ai';
 import { AUTHORIZED_CHAT_IDS, ADMIN_NAMES } from '../../lib/services/telegram/config';
 import {
