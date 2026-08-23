@@ -544,6 +544,10 @@ export function QuickOps({ activeRate, queue, onQueueChange, onAddSession, onRem
       // Si el foco está en cualquier input/textarea, el handler del input se encarga
       if (tagName === 'TEXTAREA') return;
       if (tagName === 'INPUT') return;
+      // El editor de notas es un div contentEditable y no entra por las guardas de
+      // arriba: escribir "/" (p. ej. una fecha "10/06") marcaba un pedido como
+      // pagado, y "\" descartaba el primero de la cola, sin aviso.
+      if (target.isContentEditable) return;
 
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         // Hacer blur de elementos que podrían robar las flechas (botones, selects, links)

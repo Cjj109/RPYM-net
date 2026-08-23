@@ -449,6 +449,9 @@ export default function AdminCalculator({ bcvRate: initialBcv }: AdminCalculator
       const target = e.target as HTMLElement;
       if (target.tagName === 'TEXTAREA') return;
       if (target.tagName === 'INPUT' && target !== amountRef.current) return;
+      // El editor de notas es un div contentEditable: sin esta guarda, escribir
+      // "\" dentro de una nota borraba todo el cálculo, y "'" cambiaba la moneda.
+      if (target.isContentEditable) return;
 
       if (e.key === 'ArrowDown') {
         e.preventDefault();

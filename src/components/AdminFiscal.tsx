@@ -221,6 +221,12 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
   });
   const [newPagoImage, setNewPagoImage] = useState<File | null>(null);
   const [savingNewPago, setSavingNewPago] = useState(false);
+  // Evitan el doble envío en los formularios fiscales: un segundo clic creaba
+  // proveedores, facturas, reportes Z o retenciones duplicados ante el SENIAT.
+  const [savingProveedor, setSavingProveedor] = useState(false);
+  const [savingReporteZ, setSavingReporteZ] = useState(false);
+  const [savingFactura, setSavingFactura] = useState(false);
+  const [savingRetencion, setSavingRetencion] = useState(false);
   const newPagoFileRef = useRef<HTMLInputElement>(null);
 
   // Simulador state
@@ -561,6 +567,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
       return;
     }
 
+    setSavingProveedor(true);
     try {
       const url = editingProveedor
         ? `/api/fiscal/proveedores/${editingProveedor.id}`
@@ -590,6 +597,8 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
     } catch (err) {
       console.error('Error saving proveedor:', err);
       setError('Error de conexión');
+    } finally {
+      setSavingProveedor(false);
     }
   };
 
@@ -786,6 +795,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
       return;
     }
 
+    setSavingReporteZ(true);
     try {
       const url = editingReporteZ
         ? `/api/fiscal/reportes-z/${editingReporteZ.id}`
@@ -818,6 +828,8 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
     } catch (err) {
       console.error('Error saving reporte Z:', err);
       setError('Error de conexión');
+    } finally {
+      setSavingReporteZ(false);
     }
   };
 
@@ -909,6 +921,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
       facturaFormData.paymentCurrency
     );
 
+    setSavingFactura(true);
     try {
       const url = editingFactura
         ? `/api/fiscal/facturas/${editingFactura.id}`
@@ -982,6 +995,8 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
     } catch (err) {
       console.error('Error saving factura:', err);
       setError('Error de conexión');
+    } finally {
+      setSavingFactura(false);
     }
   };
 
@@ -1785,6 +1800,7 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
       return;
     }
 
+    setSavingRetencion(true);
     try {
       const url = editingRetencion
         ? `/api/fiscal/retenciones/${editingRetencion.id}`
@@ -1811,6 +1827,8 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
     } catch (err) {
       console.error('Error saving retencion:', err);
       setError('Error de conexión');
+    } finally {
+      setSavingRetencion(false);
     }
   };
 
@@ -3574,9 +3592,10 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
           </button>
           <button
             onClick={handleSaveProveedor}
-            className="px-4 py-2 bg-ocean-600 text-white rounded-lg hover:bg-ocean-500"
+            disabled={savingProveedor}
+            className="px-4 py-2 bg-ocean-600 text-white rounded-lg hover:bg-ocean-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {editingProveedor ? 'Actualizar' : 'Guardar'}
+            {savingProveedor ? 'Guardando...' : editingProveedor ? 'Actualizar' : 'Guardar'}
           </button>
         </div>
       </div>
@@ -3841,9 +3860,10 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
           </button>
           <button
             onClick={handleSaveReporteZ}
-            className="px-4 py-2 bg-ocean-600 text-white rounded-lg hover:bg-ocean-500"
+            disabled={savingReporteZ}
+            className="px-4 py-2 bg-ocean-600 text-white rounded-lg hover:bg-ocean-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {editingReporteZ ? 'Actualizar' : 'Guardar'}
+            {savingReporteZ ? 'Guardando...' : editingReporteZ ? 'Actualizar' : 'Guardar'}
           </button>
         </div>
       </div>
@@ -4146,9 +4166,10 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
           </button>
           <button
             onClick={handleSaveFactura}
-            className="px-4 py-2 bg-ocean-600 text-white rounded-lg hover:bg-ocean-500"
+            disabled={savingFactura}
+            className="px-4 py-2 bg-ocean-600 text-white rounded-lg hover:bg-ocean-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {editingFactura ? 'Actualizar' : 'Registrar'}
+            {savingFactura ? 'Guardando...' : editingFactura ? 'Actualizar' : 'Registrar'}
           </button>
         </div>
       </div>
@@ -4245,9 +4266,10 @@ export default function AdminFiscal({ bcvRate }: AdminFiscalProps) {
           </button>
           <button
             onClick={handleSaveRetencion}
-            className="px-4 py-2 bg-ocean-600 text-white rounded-lg hover:bg-ocean-500"
+            disabled={savingRetencion}
+            className="px-4 py-2 bg-ocean-600 text-white rounded-lg hover:bg-ocean-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {editingRetencion ? 'Actualizar' : 'Guardar'}
+            {savingRetencion ? 'Guardando...' : editingRetencion ? 'Actualizar' : 'Guardar'}
           </button>
         </div>
       </div>
