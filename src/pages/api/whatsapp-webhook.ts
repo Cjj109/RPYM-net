@@ -30,6 +30,39 @@ import {
 export const prerender = false;
 
 /**
+ * Verifica la firma HMAC-SHA256 que Meta envía en X-Hub-Signature-256.
+ * La comparación es en tiempo constante para no filtrar la firma esperada
+ * byte a byte mediante medición de tiempos.
+ */
+async function isValidMetaSignature(
+  rawBody: string,
+  signatureHeader: string,
+  appSecret: string
+): Promise<boolean> {
+  if (!signatureHeader.startsWith('sha256=')) return false;
+  const received = signatureHeader.slice('sha256='.length).toLowerCase();
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(appSecret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signed = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(rawBody));
+  const expected = Array.from(new Uint8Array(signed))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  if (received.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) {
+    diff |= received.charCodeAt(i) ^ expected.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+/**
  * Webhook verification (GET) - Required by Meta for webhook setup
  */
 export const GET: APIRoute = async ({ request }) => {
@@ -54,7 +87,28 @@ export const GET: APIRoute = async ({ request }) => {
  */
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
-    const body = await request.json();
+    const runtimeEarly = (locals as any).runtime;
+
+    // Verificación de origen: Meta firma cada webhook con HMAC-SHA256 sobre el
+    // cuerpo crudo, usando el App Secret. Sin esto, el campo `from` del JSON
+    // era confiable a ciegas y permitía suplantar al admin o a cualquier cliente.
+    const appSecret = runtimeEarly?.env?.WHATSAPP_APP_SECRET
+      || import.meta.env.WHATSAPP_APP_SECRET;
+    if (!appSecret) {
+      console.error('[WhatsApp] WHATSAPP_APP_SECRET no configurado — se rechaza la petición');
+      return new Response('Forbidden', { status: 403 });
+    }
+
+    // Hay que leer el cuerpo CRUDO: la firma se calcula sobre los bytes exactos,
+    // así que no se puede usar request.json() antes de verificar.
+    const rawBody = await request.text();
+    const signatureHeader = request.headers.get('X-Hub-Signature-256') || '';
+    if (!(await isValidMetaSignature(rawBody, signatureHeader, appSecret))) {
+      console.warn('[WhatsApp] Firma inválida — petición rechazada');
+      return new Response('Forbidden', { status: 403 });
+    }
+
+    const body = JSON.parse(rawBody);
 
     const entry = body.entry?.[0];
     const changes = entry?.changes?.[0];
