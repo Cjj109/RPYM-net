@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getD1, type D1Presupuesto } from '../../../lib/d1-types';
+import { requireAuth } from '../../../lib/require-auth';
 import { linkBudgetToCustomer } from '../../../lib/services/telegram/budget-handlers';
 
 export const prerender = false;
@@ -28,6 +29,9 @@ function transformPresupuesto(row: D1Presupuesto) {
 }
 
 // GET: Get single presupuesto
+// PÚBLICO a propósito: el cliente abre su presupuesto por el enlace que se le
+// comparte por WhatsApp, sin cuenta. Solo se sirve el presupuesto de ese ID;
+// el listado completo (index.ts) sí exige autenticación.
 export const GET: APIRoute = async ({ params, locals }) => {
   try {
     const db = getD1(locals);
@@ -86,7 +90,12 @@ export const GET: APIRoute = async ({ params, locals }) => {
 };
 
 // PUT: Update presupuesto
+// Protegido: sin auth cualquiera podía reescribir montos o marcar 'pagado'
+// (lo que además propaga is_paid a la transacción del cliente).
 export const PUT: APIRoute = async ({ params, request, locals }) => {
+  const auth = await requireAuth(request, locals);
+  if (auth instanceof Response) return auth;
+
   try {
     const db = getD1(locals);
     const { id } = params;
@@ -271,7 +280,11 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
 };
 
 // DELETE: Delete presupuesto
-export const DELETE: APIRoute = async ({ params, locals }) => {
+// Protegido: sin auth cualquiera podía borrar presupuestos por fuerza bruta de ID.
+export const DELETE: APIRoute = async ({ params, request, locals }) => {
+  const auth = await requireAuth(request, locals);
+  if (auth instanceof Response) return auth;
+
   try {
     const db = getD1(locals);
     const { id } = params;

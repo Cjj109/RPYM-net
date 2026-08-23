@@ -374,6 +374,23 @@ async function sendTelegramMessage(
 
 export const POST: APIRoute = async ({ request, locals, url }) => {
   try {
+    const runtimeEarly = (locals as any).runtime;
+
+    // Verificación de origen: Telegram reenvía el secreto configurado en
+    // setWebhook como cabecera. Sin esto, la autorización dependía solo del
+    // chat.id que venía DENTRO del cuerpo — es decir, cualquiera que hiciera
+    // POST con el chat.id correcto era tratado como admin.
+    const webhookSecret = runtimeEarly?.env?.TELEGRAM_WEBHOOK_SECRET
+      || import.meta.env.TELEGRAM_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      console.error('[Telegram] TELEGRAM_WEBHOOK_SECRET no configurado — se rechaza la petición');
+      return new Response('Forbidden', { status: 403 });
+    }
+    if (request.headers.get('X-Telegram-Bot-Api-Secret-Token') !== webhookSecret) {
+      console.warn('[Telegram] Webhook con secreto inválido — petición rechazada');
+      return new Response('Forbidden', { status: 403 });
+    }
+
     const body = await request.json();
     const message = body.message;
     const hasPhoto = Array.isArray(message?.photo) && message.photo.length > 0;
@@ -383,9 +400,15 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     const runtime = (locals as any).runtime;
     const botToken = runtime?.env?.TELEGRAM_BOT_TOKEN || import.meta.env.TELEGRAM_BOT_TOKEN;
     const geminiApiKey = runtime?.env?.GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY;
-    const adminSecret = runtime?.env?.ADMIN_SECRET || 'rpym-default-secret-2024';
+    // Sin fallback: un secreto por defecto en el código es público (el repo lo es)
+    // y permitiría a cualquiera calcular tokens de administración válidos.
+    const adminSecret = runtime?.env?.ADMIN_SECRET;
 
     if (!botToken) return new Response('OK', { status: 200 });
+    if (!adminSecret) {
+      console.error('[Telegram] ADMIN_SECRET no configurado');
+      return new Response('OK', { status: 200 });
+    }
     if (!AUTHORIZED_CHAT_IDS.includes(chatId)) {
       await sendTelegramMessage(chatId, `🚫 No autorizado.\nTu chat ID: \`${chatId}\``, botToken);
       return new Response('OK', { status: 200 });
@@ -1030,13 +1053,27 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
   }
 };
 
-export const GET: APIRoute = async ({ url, locals }) => {
+/**
+ * Endpoint de diagnóstico. `?simulate=` recorre el MISMO flujo que el webhook
+ * y ejecuta acciones reales sobre la base de datos (crear compras, presupuestos,
+ * modificar clientes), así que exige autenticación igual que el panel admin.
+ * Estaba abierto: bastaba abrir la URL en un navegador para operar como admin.
+ */
+export const GET: APIRoute = async ({ request, url, locals }) => {
+  const auth = await requireAuth(request, locals);
+  if (auth instanceof Response) return auth;
+
   const testText = url.searchParams.get('test');
   const simulate = url.searchParams.get('simulate');
 
   const runtime = (locals as any).runtime;
   const geminiApiKey = runtime?.env?.GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY;
-  const adminSecret = runtime?.env?.ADMIN_SECRET || 'rpym-default-secret-2024';
+  const adminSecret = runtime?.env?.ADMIN_SECRET;
+  if (!adminSecret) {
+    return new Response(JSON.stringify({ error: 'ADMIN_SECRET no configurado' }), {
+      status: 500, headers: { 'Content-Type': 'application/json' }
+    });
+  }
   const db = getD1(locals);
 
   // Simulación completa del flujo POST

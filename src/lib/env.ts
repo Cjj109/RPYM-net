@@ -9,8 +9,14 @@ export interface EnvVars {
   OPENAI_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
   TELEGRAM_BOT_TOKEN?: string;
+  /** Secreto que Telegram reenvía como cabecera para probar el origen del webhook */
+  TELEGRAM_WEBHOOK_SECRET?: string;
   WHATSAPP_ACCESS_TOKEN?: string;
   WHATSAPP_PHONE_NUMBER_ID?: string;
+  /** App Secret de Meta — valida la firma X-Hub-Signature-256 del webhook */
+  WHATSAPP_APP_SECRET?: string;
+  /** Clave para firmar los tokens HMAC de administración de presupuestos */
+  ADMIN_SECRET?: string;
   PUBLIC_SHEET_ID?: string;
 }
 
@@ -28,8 +34,11 @@ export function getEnv(locals?: App.Locals): EnvVars {
     OPENAI_API_KEY: env.OPENAI_API_KEY,
     OPENROUTER_API_KEY: env.OPENROUTER_API_KEY,
     TELEGRAM_BOT_TOKEN: env.TELEGRAM_BOT_TOKEN,
+    TELEGRAM_WEBHOOK_SECRET: env.TELEGRAM_WEBHOOK_SECRET,
     WHATSAPP_ACCESS_TOKEN: env.WHATSAPP_ACCESS_TOKEN,
     WHATSAPP_PHONE_NUMBER_ID: env.WHATSAPP_PHONE_NUMBER_ID,
+    WHATSAPP_APP_SECRET: env.WHATSAPP_APP_SECRET,
+    ADMIN_SECRET: env.ADMIN_SECRET,
     PUBLIC_SHEET_ID: env.PUBLIC_SHEET_ID
   };
 }

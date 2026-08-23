@@ -19,9 +19,18 @@ export const GET: APIRoute = async ({ params, request, locals }) => {
     });
   }
 
-  // Get secret from environment
+  // Get secret from environment.
+  // Sin fallback a propósito: un valor por defecto en el código es público
+  // (el repo lo es) y permitiría a cualquiera calcular tokens válidos.
   const runtime = locals.runtime as { env?: { ADMIN_SECRET?: string } } | undefined;
-  const secret = runtime?.env?.ADMIN_SECRET || 'rpym-default-secret-2024';
+  const secret = runtime?.env?.ADMIN_SECRET;
+  if (!secret) {
+    console.error('[presupuesto-admin] ADMIN_SECRET no configurado');
+    return new Response(JSON.stringify({ success: false, error: 'Configuración incompleta' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
 
   // Validate token
   const isValid = await validateAdminToken(id, token, secret);

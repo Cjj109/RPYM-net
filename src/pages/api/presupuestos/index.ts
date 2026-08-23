@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getD1, type D1Presupuesto } from '../../../lib/d1-types';
+import { requireAuth } from '../../../lib/require-auth';
 import { linkBudgetToCustomer } from '../../../lib/services/telegram/budget-handlers';
 
 export const prerender = false;
@@ -34,7 +35,13 @@ function transformPresupuesto(row: D1Presupuesto) {
 }
 
 // GET: List presupuestos
+// Protegido: el listado completo expone datos de todos los clientes (nombre,
+// dirección, montos). Ver UN presupuesto por su ID sigue siendo público, en
+// [id].ts, porque los enlaces se comparten con el cliente por WhatsApp.
 export const GET: APIRoute = async ({ request, locals }) => {
+  const auth = await requireAuth(request, locals);
+  if (auth instanceof Response) return auth;
+
   try {
     const db = getD1(locals);
 
@@ -109,7 +116,11 @@ export const GET: APIRoute = async ({ request, locals }) => {
 };
 
 // POST: Create presupuesto
+// Protegido: solo lo usa AdminBudgetBuilder. Los bots insertan en D1 directo.
 export const POST: APIRoute = async ({ request, locals }) => {
+  const auth = await requireAuth(request, locals);
+  if (auth instanceof Response) return auth;
+
   try {
     const db = getD1(locals);
 

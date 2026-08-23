@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getAdminPresupuestoUrl } from '../../../../../lib/admin-token';
+import { requireBot2Auth } from '../../../../../lib/require-bot2-auth';
 import { getEnv } from '../../../../../lib/env';
 import { getD1 } from '../../../../../lib/d1-types';
 
@@ -7,10 +8,13 @@ export const prerender = false;
 
 /**
  * Genera la URL admin para ver un presupuesto.
- * NO requiere auth — los endpoints de presupuestos ya son publicos
- * y este solo genera una URL con token HMAC.
+ * Requiere auth de Bot 2: devuelve un token HMAC de administración, así que
+ * servirlo abierto equivalía a regalar el token que protege /presupuesto/admin.
  */
-export const GET: APIRoute = async ({ locals, params }) => {
+export const GET: APIRoute = async ({ request, locals, params }) => {
+  const auth = requireBot2Auth(request, locals);
+  if (auth instanceof Response) return auth;
+
   const presupuestoId = params.id;
   if (!presupuestoId) {
     return new Response(JSON.stringify({ success: false, error: 'ID requerido' }), {
@@ -33,7 +37,14 @@ export const GET: APIRoute = async ({ locals, params }) => {
 
   try {
     const env = getEnv(locals);
-    const adminSecret = env.ADMIN_SECRET || 'rpym-default-secret-2024';
+    const adminSecret = env.ADMIN_SECRET;
+    if (!adminSecret) {
+      console.error('[Bot2 Admin URL] ADMIN_SECRET no configurado');
+      return new Response(JSON.stringify({ success: false, error: 'Configuración incompleta' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
     const adminUrl = await getAdminPresupuestoUrl(presupuestoId, adminSecret, 'https://rpym.net');
 
     return new Response(JSON.stringify({
