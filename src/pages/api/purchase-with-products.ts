@@ -97,9 +97,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
       gemini: env.GEMINI_API_KEY,
       claude: env.CLAUDE_API_KEY,
       openai: env.OPENAI_API_KEY,
+      openrouter: env.OPENROUTER_API_KEY,
     };
 
-    if (!apiKeys.gemini && !apiKeys.claude && !apiKeys.openai) {
+    if (!apiKeys.gemini && !apiKeys.claude && !apiKeys.openai && !apiKeys.openrouter) {
       return new Response(JSON.stringify({
         success: false, error: 'API key de IA no configurada'
       }), { status: 500, headers: { 'Content-Type': 'application/json' } });

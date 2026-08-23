@@ -28,6 +28,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
       gemini: !!env.GEMINI_API_KEY,
       claude: !!env.CLAUDE_API_KEY,
       openai: !!env.OPENAI_API_KEY,
+      openrouter: !!env.OPENROUTER_API_KEY,
     };
 
     const { primary, fallback } = await getAIPreference(db);

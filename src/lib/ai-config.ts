@@ -8,23 +8,24 @@
 import type { D1Database } from './d1-types';
 
 /** Proveedores de IA soportados */
-export type AIProvider = 'gemini' | 'claude' | 'openai';
+export type AIProvider = 'gemini' | 'claude' | 'openai' | 'openrouter';
 
 /** Todos los proveedores, en orden de relleno por defecto */
-export const ALL_PROVIDERS: AIProvider[] = ['gemini', 'claude', 'openai'];
+export const ALL_PROVIDERS: AIProvider[] = ['gemini', 'claude', 'openai', 'openrouter'];
 
 export interface ProviderMeta {
   id: AIProvider;
   /** Nombre legible para mostrar en la UI */
   label: string;
   /** Nombre de la env var con la API key */
-  envKey: 'GEMINI_API_KEY' | 'CLAUDE_API_KEY' | 'OPENAI_API_KEY';
+  envKey: 'GEMINI_API_KEY' | 'CLAUDE_API_KEY' | 'OPENAI_API_KEY' | 'OPENROUTER_API_KEY';
 }
 
 export const PROVIDER_META: Record<AIProvider, ProviderMeta> = {
   gemini: { id: 'gemini', label: 'Google Gemini', envKey: 'GEMINI_API_KEY' },
   claude: { id: 'claude', label: 'Claude Haiku (Anthropic)', envKey: 'CLAUDE_API_KEY' },
   openai: { id: 'openai', label: 'ChatGPT (OpenAI)', envKey: 'OPENAI_API_KEY' },
+  openrouter: { id: 'openrouter', label: 'DeepSeek Flash (OpenRouter)', envKey: 'OPENROUTER_API_KEY' },
 };
 
 const DEFAULT_PRIMARY: AIProvider = 'gemini';
@@ -32,7 +33,7 @@ const DEFAULT_FALLBACK: AIProvider = 'claude';
 
 /** Type guard: verifica que un string sea un proveedor válido */
 export function isAIProvider(value: unknown): value is AIProvider {
-  return value === 'gemini' || value === 'claude' || value === 'openai';
+  return value === 'gemini' || value === 'claude' || value === 'openai' || value === 'openrouter';
 }
 
 /**

@@ -7,6 +7,7 @@ export interface EnvVars {
   GEMINI_API_KEY?: string;
   CLAUDE_API_KEY?: string;
   OPENAI_API_KEY?: string;
+  OPENROUTER_API_KEY?: string;
   TELEGRAM_BOT_TOKEN?: string;
   WHATSAPP_ACCESS_TOKEN?: string;
   WHATSAPP_PHONE_NUMBER_ID?: string;
@@ -25,6 +26,7 @@ export function getEnv(locals?: App.Locals): EnvVars {
     GEMINI_API_KEY: env.GEMINI_API_KEY,
     CLAUDE_API_KEY: env.CLAUDE_API_KEY,
     OPENAI_API_KEY: env.OPENAI_API_KEY,
+    OPENROUTER_API_KEY: env.OPENROUTER_API_KEY,
     TELEGRAM_BOT_TOKEN: env.TELEGRAM_BOT_TOKEN,
     WHATSAPP_ACCESS_TOKEN: env.WHATSAPP_ACCESS_TOKEN,
     WHATSAPP_PHONE_NUMBER_ID: env.WHATSAPP_PHONE_NUMBER_ID,
@@ -51,6 +53,13 @@ export function getClaudeApiKey(locals?: App.Locals): string | undefined {
  */
 export function getOpenaiApiKey(locals?: App.Locals): string | undefined {
   return getEnv(locals).OPENAI_API_KEY;
+}
+
+/**
+ * Obtiene OPENROUTER_API_KEY (DeepSeek vía OpenRouter — proveedor de IA intercambiable)
+ */
+export function getOpenrouterApiKey(locals?: App.Locals): string | undefined {
+  return getEnv(locals).OPENROUTER_API_KEY;
 }
 
 /**

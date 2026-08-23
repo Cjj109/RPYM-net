@@ -8,6 +8,7 @@
 import { callGeminiWithRetry } from './gemini-client';
 import { callClaudeWithRetry } from './claude-client';
 import { callOpenAIWithRetry } from './openai-client';
+import { callOpenRouterWithRetry } from './openrouter-client';
 import type { AIProvider } from './ai-config';
 
 export interface AIFallbackRequest {
@@ -59,8 +60,10 @@ export async function callAIWithFallback(request: AIFallbackRequest): Promise<AI
       result = await callGeminiWithRetry(args);
     } else if (provider === 'claude') {
       result = await callClaudeWithRetry(args);
-    } else {
+    } else if (provider === 'openai') {
       result = await callOpenAIWithRetry(args);
+    } else {
+      result = await callOpenRouterWithRetry(args);
     }
 
     if (result.success && result.content.trim()) {
