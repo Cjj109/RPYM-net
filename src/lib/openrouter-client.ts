@@ -1,9 +1,11 @@
 /**
  * Cliente de OpenRouter (DeepSeek Flash) con retry automático.
  * OpenRouter expone una API compatible con OpenAI Chat Completions, así que
- * la forma del request/response es la misma que openai-client.ts — solo
- * cambia la URL base, el modelo por defecto y no hay lógica de modelos de
- * razonamiento (DeepSeek Flash usa temperature/max_tokens normales).
+ * la forma del request/response es la misma que openai-client.ts. DeepSeek
+ * V4 Flash SÍ es un modelo de razonamiento (soporta `reasoning.effort`): se
+ * fuerza a 'low' y se amplía el presupuesto de tokens, igual que
+ * openai-client.ts hace con GPT-5, para que el razonamiento no se coma todo
+ * el `max_tokens` y devuelva contenido vacío.
  */
 
 export interface OpenRouterRequest {
@@ -63,7 +65,12 @@ export async function callOpenRouterWithRetry(request: OpenRouterRequest): Promi
       { role: 'user', content: userMessage },
     ],
     temperature,
-    max_tokens: maxOutputTokens,
+    // El presupuesto incluye los tokens de razonamiento, así que se le da
+    // holgura (x4): con effort bajo el modelo casi no razona, que es lo que
+    // queremos para extracción de JSON, pero si razona más de lo esperado
+    // igual queda espacio para la respuesta final.
+    max_tokens: maxOutputTokens * 4,
+    reasoning: { effort: 'low' },
     ...(jsonMode && { response_format: { type: 'json_object' } }),
   };
 
