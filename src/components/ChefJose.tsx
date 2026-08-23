@@ -1,5 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import type { Product } from '../lib/sheets';
+import {
+  matchRecommendationsToProducts,
+  type JoseProductRec,
+  type MatchedProduct,
+} from '../lib/jose-product-match';
 
 // --- Cache ---
 const CACHE_KEY = 'rpym_chef_jose_cache';
@@ -87,11 +92,6 @@ function normalize(text: string): string {
 }
 
 // --- Types ---
-interface MatchedProduct {
-  product: Product;
-  quantity?: number; // in kg (from José's JSON recommendation)
-}
-
 interface Message {
   role: 'user' | 'jose';
   text: string;
@@ -99,11 +99,6 @@ interface Message {
 }
 
 // Parse José's JSON product recommendations from his response
-interface JoseProductRec {
-  nombre: string;
-  kg: number;
-}
-
 function parseJoseRecommendations(text: string): { cleanText: string; recommendations: JoseProductRec[] } {
   // Look for ALL JSON blocks: |||PRODUCTOS|||[...]|||FIN|||
   const regex = /\|\|\|PRODUCTOS\|\|\|(\[[\s\S]*?\])\|\|\|FIN\|\|\|/g;
@@ -217,59 +212,10 @@ function extractQuantityNearProduct(text: string, productName: string): number |
 
 // --- Component ---
 export default function ChefJose({ products, selectedItems, onAddItem }: Props) {
-  // Convert José's JSON recommendations to MatchedProduct array
-  const matchRecommendationsToProducts = (recommendations: JoseProductRec[]): MatchedProduct[] => {
-    const matched: MatchedProduct[] = [];
+  // El emparejamiento vive en lib/jose-product-match.ts, con pruebas propias.
+  const matchProducts = (recommendations: JoseProductRec[]): MatchedProduct[] =>
+    matchRecommendationsToProducts(recommendations, products);
 
-    for (const rec of recommendations) {
-      const normalizedRecName = normalize(rec.nombre);
-
-      // Find best matching product
-      let bestProduct: Product | null = null;
-      let bestScore = 0;
-
-      for (const product of products) {
-        if (!product.disponible || product.esCaja) continue;
-
-        const normalizedProductName = normalize(product.nombre);
-
-        // Exact match
-        if (normalizedProductName === normalizedRecName) {
-          bestProduct = product;
-          bestScore = 100;
-          break;
-        }
-
-        // Product name contains recommendation name
-        if (normalizedProductName.includes(normalizedRecName)) {
-          const score = 50 + normalizedRecName.length;
-          if (score > bestScore) {
-            bestProduct = product;
-            bestScore = score;
-          }
-        }
-
-        // Recommendation name contains product name (cleaned)
-        const cleanProductName = normalize(product.nombre.replace(/\(.*?\)/g, '').replace(/\d+[\/\d]*/g, '').trim());
-        if (normalizedRecName.includes(cleanProductName) && cleanProductName.length > 5) {
-          const score = 40 + cleanProductName.length;
-          if (score > bestScore) {
-            bestProduct = product;
-            bestScore = score;
-          }
-        }
-      }
-
-      if (bestProduct) {
-        matched.push({
-          product: bestProduct,
-          quantity: rec.kg > 0 ? rec.kg : undefined
-        });
-      }
-    }
-
-    return matched;
-  };
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -430,7 +376,7 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
       if (cached) {
         const { cleanText, recommendations } = parseJoseRecommendations(cached);
         const matchedProducts = recommendations.length > 0
-          ? matchRecommendationsToProducts(recommendations)
+          ? matchProducts(recommendations)
           : findMentionedProducts(cleanText);
         setMessages(prev => [...prev, { role: 'jose', text: cleanText, matchedProducts }]);
         return;
@@ -454,7 +400,7 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
 
         // Use JSON recommendations if available, otherwise fallback to text matching
         const matchedProducts = recommendations.length > 0
-          ? matchRecommendationsToProducts(recommendations)
+          ? matchProducts(recommendations)
           : findMentionedProducts(cleanText);
 
         setMessages(prev => [...prev, { role: 'jose', text: cleanText, matchedProducts }]);
