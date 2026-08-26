@@ -97,6 +97,15 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
 
   // Limpiar selección
   const clearSelection = () => {
+    // Borra el pedido entero de un toque y no hay deshacer, asi que se confirma.
+    if (selectedItems.size > 0) {
+      const cuantos = selectedItems.size;
+      const mensaje = cuantos === 1
+        ? 'Vas a quitar el producto de tu pedido. Seguro?'
+        : `Vas a borrar los ${cuantos} productos de tu pedido. Seguro?`;
+      if (!window.confirm(mensaje)) return;
+    }
+
     setSelectedItems(new Map());
     setIsCartExpanded(false);
     // Nota: aquí había un setPresupuestoId(null) huérfano. El estado se eliminó
@@ -868,7 +877,12 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
               <h3 className="text-lg font-semibold text-ocean-800 mb-3 flex items-center gap-2 sticky top-28 bg-ocean-50/95 backdrop-blur-sm py-2 -mx-4 px-4 z-30">
                 <span className="text-xl">{categoryIcons[category.name] || '🐠'}</span>
                 {category.name}
-                <span className="text-sm font-normal text-ocean-600">({category.products.length})</span>
+                {/* Solo los disponibles: es lo que se lista debajo. Antes se
+                    contaba category.products.length e incluia los agotados,
+                    asi que el numero no cuadraba con los productos visibles. */}
+                <span className="text-sm font-normal text-ocean-600">
+                  ({category.products.filter(p => p.disponible).length})
+                </span>
               </h3>
 
               {/* Micro-guía de tallas - solo para Camarones */}

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { formatUSD, formatBs } from '../lib/format';
 
 interface Product {
   id: string;
@@ -29,13 +30,9 @@ interface Props {
 
 type SortOrder = 'default' | 'price-asc' | 'price-desc' | 'popular';
 
-function formatPriceUSD(price: number): string {
-  return `$${price.toFixed(2)}`;
-}
-
-function formatPriceBs(price: number): string {
-  return `Bs. ${price.toFixed(2)}`;
-}
+// El formateo vive en lib/format.ts. Aqui habia una copia propia que imprimia
+// los bolivares sin separador de miles ("Bs. 22386.35" en vez de
+// "Bs. 22.386,35"), distinto al resto del sitio.
 
 export default function PriceListSearch({ categories, bcvRate }: Props) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -103,15 +100,17 @@ export default function PriceListSearch({ categories, bcvRate }: Props) {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            aria-label="Buscar producto"
             placeholder="Buscar producto... ej: camarón, pulpo, calamar"
             className="w-full pl-12 pr-10 py-3 bg-white border border-ocean-200 rounded-xl text-ocean-900 placeholder:text-ocean-400 focus:outline-none focus:ring-2 focus:ring-ocean-500 focus:border-transparent shadow-sm"
           />
           {searchTerm && (
             <button
               onClick={() => setSearchTerm('')}
+              aria-label="Limpiar búsqueda"
               className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-ocean-400 hover:text-ocean-600 transition-colors"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -147,6 +146,7 @@ export default function PriceListSearch({ categories, bcvRate }: Props) {
             <select
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value as SortOrder)}
+              aria-label="Ordenar productos"
               className="text-sm border border-ocean-200 rounded-lg px-3 py-1.5 bg-white text-ocean-900 focus:outline-none focus:ring-2 focus:ring-ocean-500 cursor-pointer"
             >
               <option value="default">Ordenar por defecto</option>
@@ -204,10 +204,10 @@ export default function PriceListSearch({ categories, bcvRate }: Props) {
                     </div>
                     <div className="text-right flex-shrink-0">
                       <div className="text-coral-600 font-bold">
-                        {formatPriceUSD(product.precioUSD)}
+                        {formatUSD(product.precioUSD)}
                       </div>
                       <div className="text-ocean-700 text-xs">
-                        {formatPriceBs(product.precioBs)}
+                        {formatBs(product.precioBs)}
                       </div>
                       <div className="text-ocean-700 text-[10px]">
                         /{product.unidad}

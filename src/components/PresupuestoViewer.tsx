@@ -365,8 +365,10 @@ export default function PresupuestoViewer() {
             </div>
           )}
 
-          {/* Tabla de productos */}
-          <div className="px-4 mt-4">
+          {/* Tabla de productos.
+              overflow-x-auto: con nombres largos la tabla no cabe en pantallas
+              estrechas y desbordaba la pagina entera en vez de desplazarse. */}
+          <div className="px-4 mt-4 overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-ocean-100">

@@ -43,6 +43,8 @@ export default function CuentaPublica() {
   const [showPresupuestoModal, setShowPresupuestoModal] = useState(false);
   const [viewingPresupuesto, setViewingPresupuesto] = useState<any | null>(null);
   const [loadingPresupuesto, setLoadingPresupuesto] = useState(false);
+  // Error propio del modal: el `error` de arriba reemplaza la pagina entera.
+  const [presupuestoError, setPresupuestoError] = useState<string | null>(null);
   const [dualView, setDualView] = useState<'bcv' | 'divisas'>('bcv');
   const [txFilter, setTxFilter] = useState<'all' | 'purchases' | 'payments' | 'paid'>('all');
   const [txSearch, setTxSearch] = useState('');
@@ -90,18 +92,20 @@ export default function CuentaPublica() {
 
     setLoadingPresupuesto(true);
     setShowPresupuestoModal(true);
+    setPresupuestoError(null);
     try {
       const res = await fetch(`/api/cuenta/presupuesto/${encodeURIComponent(presupuestoId)}?token=${encodeURIComponent(urlToken)}`);
       const data = await res.json();
       if (data.success && data.presupuesto) {
         setViewingPresupuesto(data.presupuesto);
       } else {
+        // Antes se cerraba el modal en silencio y parecia que no habia pasado nada.
         setViewingPresupuesto(null);
-        setShowPresupuestoModal(false);
+        setPresupuestoError('No pudimos cargar este presupuesto. Intenta de nuevo.');
       }
     } catch {
       setViewingPresupuesto(null);
-      setShowPresupuestoModal(false);
+      setPresupuestoError('Sin conexion. Revisa tu internet e intenta de nuevo.');
     } finally {
       setLoadingPresupuesto(false);
     }
@@ -268,6 +272,19 @@ export default function CuentaPublica() {
             <div className="p-12 text-center">
               <div className="w-8 h-8 border-2 border-ocean-200 border-t-ocean-600 rounded-full animate-spin mx-auto mb-3"></div>
               <p className="text-ocean-500 text-sm">Cargando...</p>
+            </div>
+          )}
+
+          {presupuestoError && !p && !loadingPresupuesto && (
+            <div className="p-10 text-center" role="alert">
+              <p className="text-3xl mb-3">😕</p>
+              <p className="text-ocean-900 font-medium text-sm">{presupuestoError}</p>
+              <button
+                onClick={() => { setShowPresupuestoModal(false); setPresupuestoError(null); }}
+                className="mt-4 px-4 py-2 bg-ocean-600 hover:bg-ocean-500 text-white text-sm font-medium rounded-xl transition-colors"
+              >
+                Cerrar
+              </button>
             </div>
           )}
 

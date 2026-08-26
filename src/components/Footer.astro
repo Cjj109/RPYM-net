@@ -69,9 +69,15 @@ import WaveDecoration from './WaveDecoration.astro';
 
     <!-- Linea divisoria con peces decorativos -->
     <div class="border-t border-ocean-700 mt-8 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-      <p class="text-ocean-400 text-sm">
-        &copy; {new Date().getFullYear()} RPYM - El Rey de los Pescados y Mariscos. Todos los derechos reservados.
-      </p>
+      <div class="text-center md:text-left">
+        <p class="text-ocean-400 text-sm">
+          &copy; {new Date().getFullYear()} RPYM - El Rey de los Pescados y Mariscos. Todos los derechos reservados.
+        </p>
+        <!-- El RIF debe figurar en el material publicitario (providencia SENIAT). -->
+        <p class="text-ocean-400 text-sm mt-1">
+          RIF: E-81600056-7
+        </p>
+      </div>
 
       <!-- Peces decorativos -->
       <div class="flex items-center gap-2 text-ocean-600">

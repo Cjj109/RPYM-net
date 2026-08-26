@@ -496,7 +496,15 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
       </div>
 
       {/* Messages area */}
-      <div ref={containerRef} className="overflow-y-auto p-4 space-y-3 min-h-[200px] max-h-[350px]">
+      {/* aria-live: sin esto un lector de pantalla no anuncia las respuestas de
+          Jose, que llegan de forma asincrona y sin cambiar el foco. */}
+      <div
+        ref={containerRef}
+        role="log"
+        aria-live="polite"
+        aria-label="Conversacion con Chef Jose"
+        className="overflow-y-auto p-4 space-y-3 min-h-[200px] max-h-[350px]"
+      >
         {messages.length === 0 && !isLoading && (
           <div className="text-center py-6 px-2">
             <div className="w-16 h-16 rounded-full mx-auto mb-3 border-2 border-coral-200 overflow-hidden">
