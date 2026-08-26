@@ -3,6 +3,12 @@
  * Maneja errores temporales (503, 429, high demand) silenciosamente
  */
 
+/** Un turno previo de la conversación ('model' es la respuesta del asistente). */
+export interface GeminiHistoryTurn {
+  role: 'user' | 'model';
+  text: string;
+}
+
 export interface GeminiRequest {
   systemPrompt: string;
   userMessage: string;
@@ -12,6 +18,8 @@ export interface GeminiRequest {
   maxOutputTokens?: number;
   jsonMode?: boolean;
   inlineData?: { mimeType: string; data: string }; // Para imágenes
+  /** Turnos anteriores, en orden cronológico. Sin esto el modelo no recuerda nada. */
+  history?: GeminiHistoryTurn[];
 }
 
 export interface GeminiResponse {
@@ -53,7 +61,8 @@ export async function callGeminiWithRetry(request: GeminiRequest): Promise<Gemin
     temperature = 0.1,
     maxOutputTokens = 1024,
     jsonMode = false,
-    inlineData
+    inlineData,
+    history = []
   } = request;
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -64,9 +73,15 @@ export async function callGeminiWithRetry(request: GeminiRequest): Promise<Gemin
     userParts.unshift({ inline_data: inlineData });
   }
 
+  // Los turnos previos van antes del mensaje actual, en orden cronológico.
+  const historyContents = history.map(turn => ({
+    role: turn.role,
+    parts: [{ text: turn.text }],
+  }));
+
   const body = {
     system_instruction: { parts: [{ text: systemPrompt }] },
-    contents: [{ role: 'user', parts: userParts }],
+    contents: [...historyContents, { role: 'user', parts: userParts }],
     generationConfig: {
       temperature,
       maxOutputTokens,

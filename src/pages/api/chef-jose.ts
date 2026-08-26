@@ -1,7 +1,12 @@
 import type { APIRoute } from 'astro';
-import { callGeminiWithRetry } from '../../lib/gemini-client';
+import { callGeminiWithRetry, type GeminiHistoryTurn } from '../../lib/gemini-client';
 
 export const prerender = false;
+
+/** Cuántos turnos previos se conservan (3 idas y vueltas). */
+const MAX_HISTORY_TURNS = 6;
+/** Recorte por turno, para acotar el tamaño del prompt. */
+const MAX_HISTORY_CHARS = 1000;
 
 const FOOD_KEYWORDS = [
   // Cocina y preparación
@@ -85,7 +90,22 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const body = await request.json();
-    const { question } = body as { question: string };
+    const { question, history: rawHistory } = body as {
+      question: string;
+      history?: { role: string; text: string }[];
+    };
+
+    // El historial lo manda el cliente, así que se acota y se valida: solo los
+    // últimos turnos, con roles conocidos y texto recortado.
+    const history: GeminiHistoryTurn[] = Array.isArray(rawHistory)
+      ? rawHistory
+          .filter(t => t && (t.role === 'user' || t.role === 'model') && typeof t.text === 'string')
+          .slice(-MAX_HISTORY_TURNS)
+          .map(t => ({
+            role: t.role as 'user' | 'model',
+            text: t.text.slice(0, MAX_HISTORY_CHARS),
+          }))
+      : [];
 
     if (!question || typeof question !== 'string' || question.trim().length < 3) {
       return new Response(JSON.stringify({
@@ -97,8 +117,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    // Validación de contenido relacionado con comida
-    if (!isFoodRelated(question)) {
+    // Validación de contenido relacionado con comida.
+    // Se mira también la conversación previa: un seguimiento natural como
+    // "¿qué más puedo agregar?" no contiene ninguna palabra de comida y antes
+    // quedaba bloqueado, rompiendo el hilo con la respuesta enlatada.
+    const conversacionEsDeComida =
+      isFoodRelated(question) || history.some(turn => isFoodRelated(turn.text));
+
+    if (!conversacionEsDeComida) {
       return new Response(JSON.stringify({
         success: true,
         answer: '¡Epa! Yo soy chef de mariscos, mi fuerte es la cocina. Pregúntame sobre recetas, preparaciones o cualquier duda con pescados y mariscos y con gusto te ayudo. 🦐'
@@ -115,6 +141,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       apiKey,
       temperature: 0.85,
       maxOutputTokens: 400,
+      history,
     });
 
     if (!geminiResult.success) {

@@ -7,6 +7,9 @@ import {
 } from '../lib/jose-product-match';
 
 // --- Cache ---
+/** Turnos previos que se mandan al API para que José recuerde el hilo. */
+const HISTORY_TURNS = 6;
+
 const CACHE_KEY = 'rpym_chef_jose_cache';
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -369,9 +372,19 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
     setMessages(prev => [...prev, { role: 'user', text: question }]);
     if (!overrideQuestion) setInput('');
 
-    // Check cache (skip for review questions that include order data)
+    // Turnos previos para que José recuerde el hilo. `messages` todavía no
+    // incluye la pregunta actual (setMessages es asíncrono), que es justo lo
+    // que queremos: el historial es la conversación ANTES de esta pregunta.
+    const history = messages.slice(-HISTORY_TURNS).map(m => ({
+      role: m.role === 'user' ? ('user' as const) : ('model' as const),
+      text: m.text,
+    }));
+
+    // La caché es por texto de pregunta, así que solo sirve para el primer
+    // turno: un seguimiento como "¿y qué más?" depende del contexto y
+    // devolvería la respuesta de otra conversación.
     const isReview = question.includes('Tengo en mi pedido:');
-    if (!isReview) {
+    if (!isReview && history.length === 0) {
       const cached = getCachedAnswer(question);
       if (cached) {
         const { cleanText, recommendations } = parseJoseRecommendations(cached);
@@ -389,7 +402,7 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
       const response = await fetch('/api/chef-jose', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question })
+        body: JSON.stringify({ question, history })
       });
 
       const data = await response.json();
@@ -404,7 +417,9 @@ export default function ChefJose({ products, selectedItems, onAddItem }: Props) 
           : findMentionedProducts(cleanText);
 
         setMessages(prev => [...prev, { role: 'jose', text: cleanText, matchedProducts }]);
-        if (!isReview) setCachedAnswer(question, data.answer); // Cache original with JSON
+        // Solo se cachea el primer turno: la respuesta a un seguimiento depende
+        // del hilo, y guardarla por texto de pregunta la reutilizaría fuera de contexto.
+        if (!isReview && history.length === 0) setCachedAnswer(question, data.answer);
         trackUsage();
       } else {
         setMessages(prev => [...prev, {
