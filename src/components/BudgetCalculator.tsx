@@ -43,6 +43,7 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
   const [isCartExpanded, setIsCartExpanded] = useState(false);
   const [showInlineSummary, setShowInlineSummary] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>(categories[0]?.name || '');
+  const [searchQuery, setSearchQuery] = useState('');
   // Estado para inputs que están siendo editados (evita que se cierre al borrar)
   const [editingInputs, setEditingInputs] = useState<Map<string, string>>(new Map());
 
@@ -98,7 +99,8 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
   const clearSelection = () => {
     setSelectedItems(new Map());
     setIsCartExpanded(false);
-    setPresupuestoId(null); // Resetear ID para nuevo presupuesto
+    // Nota: aquí había un setPresupuestoId(null) huérfano. El estado se eliminó
+    // en 1b76857 pero la llamada quedó, y lanzaba ReferenceError al limpiar.
   };
 
   // Generar mensaje de WhatsApp con el pedido detallado
@@ -211,6 +213,27 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
     return categories.flatMap(cat => cat.products);
   }, [categories]);
 
+  // Categorías filtradas por el buscador. Se conserva el agrupado por categoría
+  // y se ocultan las que quedan vacías, para no perder la referencia visual.
+  const filteredCategories = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    if (!query) return categories;
+
+    const matches = (text: string) =>
+      text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(query);
+
+    return categories
+      .map(cat => ({
+        ...cat,
+        products: cat.products.filter(
+          p => matches(p.nombre) || matches(p.descripcionCorta || '') || matches(cat.name)
+        ),
+      }))
+      .filter(cat => cat.products.length > 0);
+  }, [categories, searchQuery]);
+
+  const isSearching = searchQuery.trim().length > 0;
+
   // Procesar texto con IA
   const parseTextWithAI = async () => {
     if (!pastedText.trim()) return;
@@ -294,6 +317,37 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
     setParseResult({
       ...parseResult,
       items: updatedItems
+    });
+  };
+
+  // Asignar manualmente un producto a una línea que la IA no reconoció, sin
+  // tener que reescribir toda la lista. Antes la única salida era borrarla.
+  const assignProductToParseItem = (indexToAssign: number, productId: string) => {
+    if (!parseResult) return;
+
+    const product = allProducts.find(p => String(p.id) === String(productId));
+    if (!product) return;
+
+    const updatedItems = parseResult.items.map((item, index) =>
+      index === indexToAssign
+        ? {
+            ...item,
+            productId: String(product.id),
+            productName: product.nombre,
+            unit: product.unidad,
+            matched: true,
+            confidence: 'high' as const,
+          }
+        : item
+    );
+
+    setParseResult({
+      ...parseResult,
+      items: updatedItems,
+      // La línea deja de estar sin identificar.
+      unmatched: parseResult.unmatched.filter(
+        name => name !== parseResult.items[indexToAssign]?.requestedName
+      ),
     });
   };
 
@@ -443,8 +497,43 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
           </button>
         </div>
 
-        {/* Navegación de categorías - Solo visible en modo manual */}
+        {/* Buscador - Solo en modo manual */}
         {inputMode === 'manual' && (
+          <div className="mt-3 relative">
+            <svg
+              aria-hidden="true"
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-ocean-400 pointer-events-none"
+              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Buscar producto"
+              placeholder="Buscar producto... ej: camarón, pulpo, calamar"
+              className="w-full pl-11 pr-10 py-2.5 bg-white border border-ocean-200 rounded-xl text-sm text-ocean-900
+                placeholder:text-ocean-400 focus:outline-none focus:ring-2 focus:ring-ocean-500 focus:border-transparent"
+            />
+            {isSearching && (
+              <button
+                onClick={() => setSearchQuery('')}
+                aria-label="Limpiar búsqueda"
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-ocean-100
+                  hover:bg-ocean-200 text-ocean-600 flex items-center justify-center transition-colors"
+              >
+                <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Navegación de categorías - Solo en modo manual y sin búsqueda activa:
+            saltar a una categoría filtrada llevaría a una sección oculta. */}
+        {inputMode === 'manual' && !isSearching && (
           <div className="mt-3 -mx-4 px-4">
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
               {categories.map((category) => (
@@ -583,9 +672,34 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
                           </p>
                         )}
                         {!item.matched && (
-                          <p className="text-xs text-orange-700 mt-1 ml-6">
-                            No encontrado en el catálogo
-                          </p>
+                          <div className="mt-1 ml-6">
+                            <p className="text-xs text-orange-700">
+                              No encontrado en el catálogo
+                            </p>
+                            <label className="sr-only" htmlFor={`asignar-${index}`}>
+                              Elegir producto para "{item.requestedName}"
+                            </label>
+                            <select
+                              id={`asignar-${index}`}
+                              value=""
+                              onChange={(e) => {
+                                if (e.target.value) assignProductToParseItem(index, e.target.value);
+                              }}
+                              className="mt-1.5 w-full max-w-xs text-xs py-1.5 px-2 bg-white border border-orange-300
+                                rounded-lg text-ocean-900 focus:outline-none focus:ring-2 focus:ring-coral-500"
+                            >
+                              <option value="">Elegir el producto correcto...</option>
+                              {categories.map(cat => (
+                                <optgroup key={cat.name} label={cat.name}>
+                                  {cat.products.filter(p => p.disponible).map(p => (
+                                    <option key={p.id} value={String(p.id)}>
+                                      {p.nombre}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              ))}
+                            </select>
+                          </div>
                         )}
                       </div>
                       <div className="flex items-start gap-2">
@@ -731,7 +845,25 @@ export default function BudgetCalculator({ categories, bcvRate }: Props) {
       <div className="grid lg:grid-cols-3 gap-4 md:gap-8">
         {/* Lista de productos */}
         <div className={`lg:col-span-2 space-y-6 ${selectedItems.size > 0 ? 'pb-44 lg:pb-0' : ''}`}>
-          {categories.map((category) => (
+          {isSearching && filteredCategories.length === 0 && (
+            <div className="bg-white rounded-2xl p-8 text-center border border-ocean-100">
+              <p className="text-4xl mb-3">🔍</p>
+              <p className="font-medium text-ocean-900">
+                No encontramos "{searchQuery.trim()}"
+              </p>
+              <p className="text-sm text-ocean-600 mt-1">
+                Prueba con otro nombre, o revisa la lista completa.
+              </p>
+              <button
+                onClick={() => setSearchQuery('')}
+                className="mt-4 px-4 py-2 bg-ocean-600 hover:bg-ocean-500 text-white text-sm font-medium rounded-xl transition-colors"
+              >
+                Ver todos los productos
+              </button>
+            </div>
+          )}
+
+          {filteredCategories.map((category) => (
             <div key={category.name} id={`cat-${category.name}`} className="scroll-mt-32">
               <h3 className="text-lg font-semibold text-ocean-800 mb-3 flex items-center gap-2 sticky top-28 bg-ocean-50/95 backdrop-blur-sm py-2 -mx-4 px-4 z-30">
                 <span className="text-xl">{categoryIcons[category.name] || '🐠'}</span>
