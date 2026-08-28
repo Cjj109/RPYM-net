@@ -643,10 +643,39 @@ export interface BudgetEdit {
   direccion?: string;
 }
 
+/**
+ * Fila de la tabla `presupuestos` tal como la devuelve D1.
+ * Sin este tipo, `.first()` devuelve `{}` y TypeScript no puede comprobar
+ * ningún acceso: una errata como `customer_nombre` pasaría desapercibida y
+ * daría `undefined` en tiempo de ejecución.
+ */
+interface PresupuestoRow {
+  id: string;
+  fecha: string;
+  /** JSON serializado con los items del presupuesto. */
+  items: string;
+  total_usd: number;
+  total_bs: number;
+  total_usd_divisa: number | null;
+  /** 0 / 1 (SQLite no tiene boolean). */
+  hide_rate: number;
+  delivery: number;
+  modo_precio: string;
+  estado: string;
+  customer_name: string | null;
+  customer_address: string | null;
+  client_ip: string | null;
+  source: string;
+  payment_method: string | null;
+  fecha_pago: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export async function getBudget(db: D1Database | null, budgetId: string, adminSecret: string): Promise<string> {
   if (!db) return '❌ No hay conexión a la base de datos';
   try {
-    const budget = await db.prepare(`SELECT * FROM presupuestos WHERE id = ?`).bind(budgetId).first();
+    const budget = await db.prepare(`SELECT * FROM presupuestos WHERE id = ?`).bind(budgetId).first<PresupuestoRow>();
     if (!budget) return `❌ No encontré presupuesto #${budgetId}`;
     const items = JSON.parse(budget.items);
     const estado = budget.estado === 'pagado' ? '✅ PAGADO' : '⏳ PENDIENTE';
@@ -703,7 +732,7 @@ export async function searchBudgetsByCustomer(db: D1Database | null, customerNam
 export async function deleteBudget(db: D1Database | null, budgetId: string): Promise<string> {
   if (!db) return '❌ No hay conexión a la base de datos';
   try {
-    const budget = await db.prepare(`SELECT id, customer_name, total_usd FROM presupuestos WHERE id = ?`).bind(budgetId).first();
+    const budget = await db.prepare(`SELECT id, customer_name, total_usd FROM presupuestos WHERE id = ?`).bind(budgetId).first<Pick<PresupuestoRow, 'id' | 'customer_name' | 'total_usd'>>();
     if (!budget) return `❌ No encontré presupuesto #${budgetId}`;
     await db.prepare(`DELETE FROM presupuestos WHERE id = ?`).bind(budgetId).run();
     return `🗑️ *Presupuesto #${budgetId} eliminado*\n${budget.customer_name ? `👤 ${budget.customer_name}\n` : ''}💵 ${formatUSD(budget.total_usd)}`;
@@ -715,7 +744,7 @@ export async function deleteBudget(db: D1Database | null, budgetId: string): Pro
 export async function markBudgetPaid(db: D1Database | null, budgetId: string, paymentMethod?: string): Promise<string> {
   if (!db) return '❌ No hay conexión a la base de datos';
   try {
-    const budget = await db.prepare(`SELECT id, estado, customer_name, total_usd FROM presupuestos WHERE id = ?`).bind(budgetId).first();
+    const budget = await db.prepare(`SELECT id, estado, customer_name, total_usd FROM presupuestos WHERE id = ?`).bind(budgetId).first<Pick<PresupuestoRow, 'id' | 'estado' | 'customer_name' | 'total_usd'>>();
     if (!budget) return `❌ No encontré presupuesto #${budgetId}`;
     if (budget.estado === 'pagado' && !paymentMethod) return `ℹ️ Presupuesto #${budgetId} ya está pagado`;
 
@@ -750,7 +779,7 @@ export async function markBudgetPaid(db: D1Database | null, budgetId: string, pa
 export async function updatePaymentMethod(db: D1Database | null, budgetId: string, paymentMethod: string): Promise<string> {
   if (!db) return '❌ No hay conexión a la base de datos';
   try {
-    const budget = await db.prepare(`SELECT id, estado, customer_name FROM presupuestos WHERE id = ?`).bind(budgetId).first();
+    const budget = await db.prepare(`SELECT id, estado, customer_name FROM presupuestos WHERE id = ?`).bind(budgetId).first<Pick<PresupuestoRow, 'id' | 'estado' | 'customer_name'>>();
     if (!budget) return `❌ No encontré presupuesto #${budgetId}`;
 
     await db.prepare(`UPDATE presupuestos SET payment_method = ? WHERE id = ?`).bind(paymentMethod, budgetId).run();
@@ -765,7 +794,7 @@ export async function updatePaymentMethod(db: D1Database | null, budgetId: strin
 export async function updateBudgetProperty(db: D1Database | null, budgetId: string, change: string): Promise<string> {
   if (!db) return '❌ No hay conexión a la base de datos';
   try {
-    const budget = await db.prepare(`SELECT id, customer_name, hide_rate FROM presupuestos WHERE id = ?`).bind(budgetId).first();
+    const budget = await db.prepare(`SELECT id, customer_name, hide_rate FROM presupuestos WHERE id = ?`).bind(budgetId).first<Pick<PresupuestoRow, 'id' | 'customer_name' | 'hide_rate'>>();
     if (!budget) return `❌ No encontré presupuesto #${budgetId}`;
 
     if (change === 'ocultar_bs') {
@@ -788,7 +817,7 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
     const budget = await db.prepare(`
       SELECT id, items, total_usd, total_bs, total_usd_divisa, customer_name, fecha, modo_precio, delivery
       FROM presupuestos WHERE id = ?
-    `).bind(budgetId).first();
+    `).bind(budgetId).first<Pick<PresupuestoRow, 'id' | 'items' | 'total_usd' | 'total_bs' | 'total_usd_divisa' | 'customer_name' | 'fecha' | 'modo_precio' | 'delivery'>>();
 
     if (!budget) return `❌ No encontré presupuesto #${budgetId}`;
 
@@ -1019,7 +1048,11 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
         mensaje += `\n\n📋 *Presupuesto #${budgetId}*`;
         if (budget.customer_name) mensaje += `\n👤 ${budget.customer_name}`;
         mensaje += `\n💵 Total: ${formatUSD(newTotalUSD)}`;
-        if (budget.modo_precio !== 'bcv') mensaje += ` / DIV: ${formatUSD(newTotalDivisa)}`;
+        // newTotalDivisa solo es null cuando el modo es 'bcv'; se comprueba de
+        // forma explicita para que quede claro y el tipo lo refleje.
+        if (budget.modo_precio !== 'bcv' && newTotalDivisa !== null) {
+          mensaje += ` / DIV: ${formatUSD(newTotalDivisa)}`;
+        }
 
         return mensaje;
       }
@@ -1123,7 +1156,7 @@ export async function editBudget(db: D1Database | null, budgetId: string, edicio
 export async function sendBudgetWhatsApp(db: D1Database | null, budgetId: string, phone: string, baseUrl: string): Promise<string> {
   if (!db) return '❌ No hay conexión a la base de datos';
   try {
-    const budget = await db.prepare(`SELECT * FROM presupuestos WHERE id = ?`).bind(budgetId).first();
+    const budget = await db.prepare(`SELECT * FROM presupuestos WHERE id = ?`).bind(budgetId).first<PresupuestoRow>();
     if (!budget) return `❌ No encontré presupuesto #${budgetId}`;
     const items = JSON.parse(budget.items);
     const digits = phone.replace(/\D/g, '');
@@ -1178,7 +1211,7 @@ export async function linkBudgetToCustomer(db: D1Database | null, budgetId: stri
 
   try {
     console.log('[linkBudgetToCustomer] Checking budget...');
-    const budget = await db.prepare(`SELECT * FROM presupuestos WHERE id = ?`).bind(budgetId).first();
+    const budget = await db.prepare(`SELECT * FROM presupuestos WHERE id = ?`).bind(budgetId).first<PresupuestoRow>();
     if (!budget) return { success: false, message: `❌ No encontré presupuesto #${budgetId}` };
     console.log('[linkBudgetToCustomer] Budget found');
 
@@ -1187,7 +1220,7 @@ export async function linkBudgetToCustomer(db: D1Database | null, budgetId: stri
 
     let customer: any;
     if (typeof customerNameOrId === 'number') {
-      customer = await db.prepare(`SELECT id, name FROM customers WHERE id = ? AND is_active = 1`).bind(customerNameOrId).first();
+      customer = await db.prepare(`SELECT id, name FROM customers WHERE id = ? AND is_active = 1`).bind(customerNameOrId).first<{ id: number; name: string }>();
     } else {
       console.log('[linkBudgetToCustomer] Finding customer by name:', customerNameOrId);
       customer = await findCustomerByName(db, customerNameOrId);
@@ -1324,7 +1357,10 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
         // "$20 de camarón" → BCV: 20/precioBCV kg = $20, Divisa: 20/precioDivisa kg = $20
         let subtotalDivisa: number;
         let cantidadDivisa: number;
-        if (pricingMode === 'dual' && hasDollarAmount && precioDivisa > 0) {
+        // Se comprueba item.dollarAmount aqui en vez de a traves de
+        // hasDollarAmount: el resultado es el mismo, pero asi queda visible que
+        // no puede ser null en las dos lineas siguientes.
+        if (pricingMode === 'dual' && item.dollarAmount && item.dollarAmount > 0 && precioDivisa > 0) {
           cantidadDivisa = Math.round((item.dollarAmount / precioDivisa) * 1000) / 1000;
           subtotalDivisa = item.dollarAmount;
         } else {
@@ -1488,7 +1524,11 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
     presupuestoItems.forEach(item => {
       responseText += `• ${item.nombre} x ${item.cantidad}: ${formatUSD(item.subtotalUSD)}\n`;
     });
-    if (result.delivery > 0) responseText += `• 🚗 Delivery: ${formatUSD(result.delivery)}\n`;
+    // result.delivery puede venir null; comparar null > 0 ya daba false, pero
+    // asi el tipo lo refleja y no se pasa null a formatUSD.
+    if (result.delivery && result.delivery > 0) {
+      responseText += `• 🚗 Delivery: ${formatUSD(result.delivery)}\n`;
+    }
     responseText += `\n*Total: ${formatUSD(totalUSD)}*`;
     if (pricingMode === 'dual') responseText += ` / DIV: ${formatUSD(totalUSDDivisa)}`;
 
@@ -1675,7 +1715,7 @@ export async function createCustomerPurchaseWithProducts(
     const balanceQuery = currencyType === 'divisas'
       ? `SELECT COALESCE(SUM(CASE WHEN type='purchase' AND COALESCE(is_paid,0)=0 THEN amount_usd ELSE 0 END), 0) - COALESCE(SUM(CASE WHEN type='payment' THEN amount_usd ELSE 0 END), 0) AS balance FROM customer_transactions WHERE customer_id = ? AND currency_type = 'divisas'`
       : `SELECT COALESCE(SUM(CASE WHEN type='purchase' AND COALESCE(is_paid,0)=0 THEN amount_usd ELSE 0 END), 0) - COALESCE(SUM(CASE WHEN type='payment' THEN amount_usd ELSE 0 END), 0) AS balance FROM customer_transactions WHERE customer_id = ? AND currency_type = 'dolar_bcv'`;
-    const balanceResult = await db.prepare(balanceQuery).bind(customer.id).first();
+    const balanceResult = await db.prepare(balanceQuery).bind(customer.id).first<{ balance: number }>();
     const newBalance = Number(balanceResult?.balance || 0);
 
     const curr = currencyType === 'divisas' ? 'DIV' : 'BCV';
