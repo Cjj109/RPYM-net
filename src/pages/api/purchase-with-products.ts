@@ -76,15 +76,9 @@ interface ParsedPayment {
   date: string | null;
 }
 
-// Generate unique presupuesto ID (same as in presupuestos/index.ts)
-function generatePresupuestoId(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let id = '';
-  for (let i = 0; i < 5; i++) {
-    id += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return id;
-}
+// Nota: aqui habia un generador de id de presupuesto sin usar (y con otro
+// formato, alfanumerico). Los presupuestos se crean via POST /api/presupuestos,
+// que busca un id libre — ver lib/presupuesto-id.ts.
 
 export const POST: APIRoute = async ({ request, locals }) => {
   const auth = await requireAuth(request, locals);

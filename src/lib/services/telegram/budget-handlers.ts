@@ -9,6 +9,7 @@ import { getAdminPresupuestoUrl } from '../../admin-token';
 import { findCustomerByName, findCustomerSuggestions } from '../../repositories/customers';
 import { callGeminiWithRetry } from '../../gemini-client';
 import { formatUSD } from '../../format';
+import { generateUniquePresupuestoId } from '../../presupuesto-id';
 
 /** Normaliza texto para comparación: minúsculas y sin acentos */
 function normalize(s: string): string {
@@ -1445,7 +1446,9 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
       totalBs += result.delivery * bcvRate.rate;
     }
 
-    const id = String(Math.floor(10000 + Math.random() * 90000));
+    // Busca un id libre: el aleatorio de 5 cifras chocaba con uno existente en
+    // una parte de las creaciones y el INSERT fallaba por clave duplicada.
+    const id = await generateUniquePresupuestoId(db);
     // Consistent date format: YYYY-MM-DDT12:00:00.000Z (noon UTC avoids timezone day shift)
     let fechaPresupuesto: string;
     if (result.date) {
@@ -1631,7 +1634,9 @@ export async function createCustomerPurchaseWithProducts(
 
     const description = presupuestoItems.map(i => `${i.nombre} ${i.cantidad}${i.unidad}`).join(', ');
 
-    const presupuestoId = String(Math.floor(10000 + Math.random() * 90000));
+    // Busca un id libre (ver generateUniquePresupuestoId): el aleatorio de 5
+    // cifras chocaba con uno existente en una parte de las creaciones.
+    const presupuestoId = await generateUniquePresupuestoId(db);
     const fechaPresupuesto = result.date ? `${result.date} 12:00:00` : null;
     const fechaSql = fechaPresupuesto ? `'${fechaPresupuesto}'` : `datetime('now', '-4 hours')`;
 

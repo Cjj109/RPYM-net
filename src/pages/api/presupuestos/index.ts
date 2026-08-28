@@ -1,15 +1,15 @@
 import type { APIRoute } from 'astro';
 import { getD1, type D1Presupuesto } from '../../../lib/d1-types';
 import { requireAuth } from '../../../lib/require-auth';
+import {
+  generatePresupuestoId,
+  isDuplicateIdError,
+  MAX_ID_ATTEMPTS,
+} from '../../../lib/presupuesto-id';
 import { linkBudgetToCustomer } from '../../../lib/services/telegram/budget-handlers';
 
 export const prerender = false;
 
-// Generate presupuesto ID: 5-digit number
-function generatePresupuestoId(): string {
-  const num = Math.floor(10000 + Math.random() * 90000);
-  return String(num);
-}
 
 // Transform D1 row to API response format
 function transformPresupuesto(row: D1Presupuesto) {
@@ -158,29 +158,55 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    const id = generatePresupuestoId();
     // Allow custom date for admin-created presupuestos (past purchases)
     const fecha = customDate ? `${customDate}T12:00:00.000Z` : new Date().toISOString();
 
-    await db.prepare(`
-      INSERT INTO presupuestos (id, fecha, items, total_usd, total_bs, total_usd_divisa, hide_rate, delivery, modo_precio, estado, customer_name, customer_address, client_ip, source, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-    `).bind(
-      id,
-      fecha,
-      JSON.stringify(items),
-      totalUSD,
-      totalBs,
-      totalUSDDivisa || null,
-      hideRate ? 1 : 0,
-      delivery || 0,
-      modoPrecio || 'bcv',
-      status || 'pendiente',
-      customerName || null,
-      customerAddress || null,
-      clientIP || null,
-      source || 'cliente'
-    ).run();
+    // El id es un aleatorio de 5 cifras (90.000 posibles) y es la clave
+    // primaria. Con el volumen actual de presupuestos, una parte de las
+    // creaciones chocaba con un id ya existente: el INSERT fallaba con UNIQUE
+    // constraint y el usuario veia "Error al crear presupuesto" sin motivo
+    // aparente. Se reintenta con un id nuevo, que resuelve la colision.
+    let id = '';
+    let inserted = false;
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt < MAX_ID_ATTEMPTS; attempt++) {
+      id = generatePresupuestoId();
+      try {
+        await db.prepare(`
+          INSERT INTO presupuestos (id, fecha, items, total_usd, total_bs, total_usd_divisa, hide_rate, delivery, modo_precio, estado, customer_name, customer_address, client_ip, source, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+        `).bind(
+          id,
+          fecha,
+          JSON.stringify(items),
+          totalUSD,
+          totalBs,
+          totalUSDDivisa || null,
+          hideRate ? 1 : 0,
+          delivery || 0,
+          modoPrecio || 'bcv',
+          status || 'pendiente',
+          customerName || null,
+          customerAddress || null,
+          clientIP || null,
+          source || 'cliente'
+        ).run();
+        inserted = true;
+        break;
+      } catch (e) {
+        // Solo se reintenta si el choque fue por id repetido; cualquier otro
+        // fallo (datos invalidos, base caida) debe propagarse tal cual.
+        if (!isDuplicateIdError(e)) throw e;
+        lastError = e;
+        console.warn(`[presupuestos] id ${id} ya existe, reintentando (${attempt + 1}/${MAX_ID_ATTEMPTS})`);
+      }
+    }
+
+    if (!inserted) {
+      console.error('[presupuestos] No se encontro un id libre:', lastError);
+      throw lastError;
+    }
 
     // Auto-link to customer if customerName matches an existing customer
     let linked = false;
