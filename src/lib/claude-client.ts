@@ -105,6 +105,15 @@ export async function callClaudeWithRetry(request: ClaudeRequest): Promise<Claud
       const data = await response.json();
       let content = data.content?.[0]?.text || '';
 
+      // Si se agotó el presupuesto de tokens, el JSON queda sin cerrar y el
+      // llamador no puede parsearlo. Antes se devolvía success:true con ese
+      // JSON roto, así que ai-fallback NO probaba otro proveedor y el usuario
+      // veía "Error interpretando la respuesta". Se trata como fallo.
+      if (data.stop_reason === 'max_tokens') {
+        console.warn(`[Claude] Respuesta truncada por max_tokens (${maxOutputTokens}), se pasa al siguiente proveedor`);
+        return { success: false, content: '', error: 'Respuesta truncada (max_tokens)' };
+      }
+
       // Con prefill, Claude no repite el "{" inicial: lo anteponemos
       if (jsonMode && content) {
         content = '{' + content;

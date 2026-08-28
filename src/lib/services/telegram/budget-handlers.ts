@@ -1344,8 +1344,10 @@ export async function createBudgetFromText(db: D1Database | null, text: string, 
         totalBs += subtotalMain * bcvRate.rate;
         totalUSDDivisa += subtotalDivisa;
       }
-      else if (!item.matched && item.suggestedName && item.customPrice) {
-        const precioBCV = item.customPrice;
+      // Acepta precio en cualquiera de los dos campos: "a $X en divisas" deja
+      // customPrice en null y antes descartaba el producto en silencio.
+      else if (!item.matched && item.suggestedName && (item.customPrice || item.customPriceDivisa)) {
+        const precioBCV = item.customPrice ?? item.customPriceDivisa!;
         const precioDivisa = item.customPriceDivisa ?? precioBCV;
 
         const precioMain = pricingMode === 'divisa' ? precioDivisa : precioBCV;
@@ -1596,8 +1598,10 @@ export async function createCustomerPurchaseWithProducts(
         totalBs += subtotalMain * bcvRate.rate;
         totalUSDDivisa += subtotalUSDDivisa;
       }
-      else if (!item.matched && item.suggestedName && item.customPrice) {
-        const precioUSD = item.customPrice;
+      // Acepta precio en cualquiera de los dos campos: "a $X en divisas" deja
+      // customPrice en null y antes descartaba el producto en silencio.
+      else if (!item.matched && item.suggestedName && (item.customPrice || item.customPriceDivisa)) {
+        const precioUSD = item.customPrice ?? item.customPriceDivisa!;
         const precioUSDDivisa = item.customPriceDivisa ?? precioUSD;
         const precioMain = pricingMode === 'divisa' ? precioUSDDivisa : precioUSD;
         const subtotalMain = precioMain * item.quantity;

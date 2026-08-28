@@ -500,10 +500,14 @@ Responde SOLO con un JSON valido:
 
           presupuestoItems.push(itemData);
         }
-      } else if (!item.matched && item.suggestedName && item.customPrice) {
-        // Custom product
-        const precioBcv = item.customPrice;
-        const precioDivisa = item.customPriceDivisa || precioBcv;
+      } else if (!item.matched && item.suggestedName && (item.customPrice || item.customPriceDivisa)) {
+        // Custom product.
+        // Se acepta con precio en CUALQUIERA de los dos campos: el prompt indica
+        // que "a $X en divisas" debe dar customPrice: null y solo
+        // customPriceDivisa, y antes se exigia customPrice, asi que esos
+        // productos se descartaban en silencio.
+        const precioBcv = item.customPrice ?? item.customPriceDivisa!;
+        const precioDivisa = item.customPriceDivisa ?? precioBcv;
         const precioMain = pricingMode === 'divisas' ? precioDivisa : precioBcv;
 
         const itemData: any = {
