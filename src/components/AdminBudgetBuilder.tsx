@@ -804,7 +804,20 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
   };
 
   // Build items array for printing
-  const buildPrintItems = () => {
+  /**
+   * Los precios en divisa solo se añaden en modo dual, así que se declaran
+   * opcionales: sin este tipo el resultado era una union y leer
+   * subtotalUSDDivisa fallaba aunque en ejecución diera undefined sin más.
+   */
+  const buildPrintItems = (): Array<{
+    nombre: string;
+    cantidad: number;
+    unidad: string;
+    precioUSD: number;
+    subtotalUSD: number;
+    precioUSDDivisa?: number;
+    subtotalUSDDivisa?: number;
+  }> => {
     return Array.from(selectedItems.values()).map(item => {
       const base = {
         nombre: item.product.nombre,

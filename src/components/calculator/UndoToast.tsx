@@ -11,7 +11,8 @@ function getLabel(action: UndoAction): string {
   switch (action.type) {
     case 'delete_entry': return 'Entrada eliminada';
     case 'clear_all': return 'Operaciones limpiadas';
-    case 'toggle_sign': return 'Signo cambiado';
+    // Aqui habia un caso 'toggle_sign' que UndoAction ya no contempla: la
+    // accion se elimino y quedo el case huerfano, inalcanzable.
   }
 }
 

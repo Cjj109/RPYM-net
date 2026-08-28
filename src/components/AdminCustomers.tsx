@@ -1813,7 +1813,7 @@ export default function AdminCustomers() {
                             </>
                           );
                         })()}
-                        {bcvRate > 0 && tx.currencyType !== 'divisas' && !(dualView === 'divisas' && tx.amountUsdDivisa != null && tx.amountUsdDivisa > 0) && (
+                        {bcvRate != null && bcvRate > 0 && tx.currencyType !== 'divisas' && !(dualView === 'divisas' && tx.amountUsdDivisa != null && tx.amountUsdDivisa > 0) && (
                           <p className={`text-xs ${tx.type === 'purchase' ? ((tx.isPaid || tx.isCrossed) ? 'text-ocean-400 line-through' : 'text-red-500') : 'text-green-500'}`}>
                             {tx.type === 'purchase' ? '+' : '-'}{formatBs(tx.amountUsd * bcvRate)}
                             <span className="text-ocean-400 ml-1">@{bcvRate.toFixed(2)}</span>
@@ -2566,7 +2566,7 @@ export default function AdminCustomers() {
               </div>
             )}
 
-            {bcvRate > 0 && detailTx.currencyType !== 'divisas' && (
+            {bcvRate != null && bcvRate > 0 && detailTx.currencyType !== 'divisas' && (
               <div>
                 <p className="text-xs text-ocean-500">Monto Bs</p>
                 <p className={`text-lg font-bold ${isPurchase ? 'text-red-600' : 'text-green-600'}`}>
@@ -3013,7 +3013,7 @@ export default function AdminCustomers() {
                   <span className="text-sm font-semibold text-ocean-700">Total USD</span>
                   <span className="text-lg font-bold text-ocean-900">{formatUSD(p.totalUSD)}</span>
                 </div>
-                {bcvRate > 0 && p.totalBs !== 0 && !isDivisasOnly && (
+                {bcvRate != null && bcvRate > 0 && p.totalBs !== 0 && !isDivisasOnly && (
                   <div className="flex justify-between items-center px-1">
                     <span className="text-xs text-ocean-500">Total Bs @{bcvRate.toFixed(2)}</span>
                     <span className="text-sm font-semibold text-orange-600">Bs {(p.totalUSD * bcvRate).toFixed(2)}</span>

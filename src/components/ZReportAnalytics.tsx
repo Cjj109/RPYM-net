@@ -235,8 +235,8 @@ export default function ZReportAnalytics({ reportes, onClose }: Props) {
                     <XAxis dataKey="fecha" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
                     <YAxis tickFormatter={formatTick} tick={{ fontSize: 10 }} />
                     <Tooltip
-                      formatter={(value: number, name: string) => [formatUSD(value), name]}
-                      labelFormatter={(label: string, payload: any[]) => {
+                      formatter={(value, name) => [formatUSD(Number(value)), String(name)]}
+                      labelFormatter={(label, payload) => {
                         const d = payload?.[0]?.payload;
                         return d ? `${d.fechaFull} (${d.dia})` : label;
                       }}
@@ -259,8 +259,8 @@ export default function ZReportAnalytics({ reportes, onClose }: Props) {
                     <XAxis dataKey="fecha" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
                     <YAxis tick={{ fontSize: 10 }} domain={['auto', 'auto']} />
                     <Tooltip
-                      formatter={(value: number) => [value.toFixed(2), 'Tasa BCV']}
-                      labelFormatter={(label: string, payload: any[]) => payload?.[0]?.payload?.fechaFull || label}
+                      formatter={(value) => [Number(value).toFixed(2), 'Tasa BCV']}
+                      labelFormatter={(label, payload) => payload?.[0]?.payload?.fechaFull || label}
                     />
                     <Line type="monotone" dataKey="tasa" name="Tasa BCV" stroke="#f59e0b" strokeWidth={2} dot={false} />
                   </LineChart>
@@ -276,7 +276,7 @@ export default function ZReportAnalytics({ reportes, onClose }: Props) {
                   <XAxis dataKey="dia" tick={{ fontSize: 12 }} />
                   <YAxis tickFormatter={formatTick} tick={{ fontSize: 10 }} />
                   <Tooltip
-                    formatter={(value: number, name: string) => [formatUSD(value), name]}
+                    formatter={(value, name) => [formatUSD(Number(value)), String(name)]}
                   />
                   <Legend />
                   <Bar dataKey="promedioUsd" name="Prom. Total USD" fill="#3b82f6" radius={[4, 4, 0, 0]} />
@@ -322,8 +322,8 @@ export default function ZReportAnalytics({ reportes, onClose }: Props) {
                     <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
                     <YAxis tickFormatter={formatTick} tick={{ fontSize: 10 }} />
                     <Tooltip
-                      formatter={(value: number, name: string) => [formatUSD(value), name]}
-                      labelFormatter={(label: string, payload: any[]) => payload?.[0]?.payload?.mesFull || label}
+                      formatter={(value, name) => [formatUSD(Number(value)), String(name)]}
+                      labelFormatter={(label, payload) => payload?.[0]?.payload?.mesFull || label}
                     />
                     <Legend />
                     <Bar dataKey="totalUsd" name="Total USD" fill="#3b82f6" radius={[4, 4, 0, 0]} />
@@ -341,7 +341,7 @@ export default function ZReportAnalytics({ reportes, onClose }: Props) {
                     <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
                     <YAxis tickFormatter={formatTick} tick={{ fontSize: 10 }} />
                     <Tooltip
-                      formatter={(value: number, name: string) => [formatUSD(value), name]}
+                      formatter={(value, name) => [formatUSD(Number(value)), String(name)]}
                     />
                     <Legend />
                     <Line type="monotone" dataKey="promedioDiario" name="Prom. diario USD" stroke="#3b82f6" strokeWidth={2} />
