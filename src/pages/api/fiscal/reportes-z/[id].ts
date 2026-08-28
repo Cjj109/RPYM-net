@@ -145,29 +145,13 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
 
 // DELETE /api/fiscal/reportes-z/:id - Delete Z report
 export const DELETE: APIRoute = async ({ params, request, locals }) => {
-  const db = getD1(locals);
-  if (!db) {
-    return new Response(JSON.stringify({ success: false, error: 'Database no disponible' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  const sessionId = getSessionFromCookie(request.headers.get('Cookie'));
-  if (!sessionId) {
-    return new Response(JSON.stringify({ success: false, error: 'No autenticado' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  const user = await validateSession(db, sessionId);
-  if (!user) {
-    return new Response(JSON.stringify({ success: false, error: 'Sesión inválida' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
+  // Antes reimplementaba la autenticacion a mano con getD1,
+  // getSessionFromCookie y validateSession, ninguna de las cuales estaba
+  // importada: en ejecucion lanzaba ReferenceError y borrar un reporte Z
+  // siempre devolvia 500. Se usa requireAuth, como GET y PUT en este archivo.
+  const auth = await requireAuth(request, locals);
+  if (auth instanceof Response) return auth;
+  const { db } = auth;
 
   try {
     const id = params.id;

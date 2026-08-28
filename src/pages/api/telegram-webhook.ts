@@ -908,7 +908,8 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
               m.role === 'assistant' && m.content.includes('Presupuesto #')
             );
             const idMatch = lastBudgetMatch?.content.match(/#(\d+)/);
-            budgetId = idMatch?.[1];
+            // match() da undefined si no encuentra; budgetId es string | null.
+            budgetId = idMatch?.[1] ?? null;
           }
           console.log('[Telegram] budget_action editar: budgetId=', budgetId, 'edicion=', JSON.stringify(intent.params.edicion));
           if (budgetId) {
@@ -963,7 +964,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
           // Si no hay cliente, buscar el último cliente mencionado o el del presupuesto
           if (!customerName && budgetId) {
             // Primero intentar obtener el nombre del cliente del presupuesto
-            const budget = await db?.prepare(`SELECT customer_name FROM presupuestos WHERE id = ?`).bind(budgetId).first();
+            const budget = await db?.prepare(`SELECT customer_name FROM presupuestos WHERE id = ?`).bind(budgetId).first<{ customer_name: string | null }>();
             if (budget?.customer_name) {
               customerName = budget.customer_name;
             } else {

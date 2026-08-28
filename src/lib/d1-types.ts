@@ -102,6 +102,9 @@ export interface R2Object {
   size: number;
   etag: string;
   uploaded: Date;
+  /** Metadatos HTTP guardados al subir (p. ej. contentType). */
+  httpMetadata?: { contentType?: string };
+  customMetadata?: Record<string, string>;
 }
 
 export interface R2ObjectBody extends R2Object {

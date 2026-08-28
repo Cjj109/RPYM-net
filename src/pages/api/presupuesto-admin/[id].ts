@@ -4,6 +4,8 @@
  */
 import type { APIRoute } from 'astro';
 import { validateAdminToken } from '../../../lib/admin-token';
+import { getD1, type D1Presupuesto } from '../../../lib/d1-types';
+import { getEnv } from '../../../lib/env';
 
 export const prerender = false;
 
@@ -22,8 +24,7 @@ export const GET: APIRoute = async ({ params, request, locals }) => {
   // Get secret from environment.
   // Sin fallback a propósito: un valor por defecto en el código es público
   // (el repo lo es) y permitiría a cualquiera calcular tokens válidos.
-  const runtime = locals.runtime as { env?: { ADMIN_SECRET?: string } } | undefined;
-  const secret = runtime?.env?.ADMIN_SECRET;
+  const secret = getEnv(locals).ADMIN_SECRET;
   if (!secret) {
     console.error('[presupuesto-admin] ADMIN_SECRET no configurado');
     return new Response(JSON.stringify({ success: false, error: 'Configuración incompleta' }), {
@@ -42,7 +43,7 @@ export const GET: APIRoute = async ({ params, request, locals }) => {
   }
 
   // Get presupuesto from D1
-  const db = runtime?.env?.DB as any;
+  const db = getD1(locals);
   if (!db) {
     return new Response(JSON.stringify({ success: false, error: 'Database not available' }), {
       status: 500,
@@ -55,7 +56,7 @@ export const GET: APIRoute = async ({ params, request, locals }) => {
       SELECT id, fecha, items, total_usd, total_bs, total_usd_divisa, hide_rate, delivery, modo_precio,
              estado, customer_name, customer_address, fecha_pago, source
       FROM presupuestos WHERE id = ?
-    `).bind(id).first();
+    `).bind(id).first<D1Presupuesto>();
 
     if (!row) {
       return new Response(JSON.stringify({ success: false, error: 'Presupuesto not found' }), {

@@ -56,7 +56,13 @@ export const GET: APIRoute = async ({ request, params, locals }) => {
       WHERE customer_id = ? AND is_crossed = 0
       ORDER BY date DESC
       LIMIT 100
-    `).bind(customerId).all();
+    `).bind(customerId).all<{
+      type: string;
+      date: string;
+      amount_usd: number;
+      is_paid: number | null;
+      days_to_pay: number | null;
+    }>();
 
     // Calcular estadisticas de patron
     const purchases = transactions.results.filter((t: any) => t.type === 'purchase');

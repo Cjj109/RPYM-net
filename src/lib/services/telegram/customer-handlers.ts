@@ -156,7 +156,7 @@ export async function getCustomerMovements(db: D1Database | null, customerName: 
       WHERE t.customer_id = ?
       ORDER BY t.date DESC, t.created_at DESC, t.id DESC
       LIMIT 20
-    `).bind(customer.id).all();
+    `).bind(customer.id).all<TxRow>();
 
     if (!transactions?.results?.length) {
       return `👤 *${customer.name}*\n\n📋 No hay movimientos registrados`;
@@ -173,7 +173,12 @@ export async function getCustomerMovements(db: D1Database | null, customerName: 
         COALESCE(SUM(CASE WHEN type='purchase' AND currency_type='dolar_bcv' AND COALESCE(is_paid,0)=0 AND amount_usd_divisa IS NOT NULL THEN amount_usd_divisa ELSE 0 END), 0)
         - COALESCE(SUM(CASE WHEN type='payment' AND currency_type='dolar_bcv' AND amount_usd_divisa IS NOT NULL THEN amount_usd_divisa ELSE 0 END), 0) AS balance_dual_divisa
       FROM customer_transactions WHERE customer_id = ?
-    `).bind(customer.id).first();
+    `).bind(customer.id).first<{
+      balance_divisas_puro: number;
+      balance_bcv_puro: number;
+      balance_dual_bcv: number;
+      balance_dual_divisa: number;
+    }>();
 
     const divisasPuro = Number(balances?.balance_divisas_puro || 0);
     const bcvPuro = Number(balances?.balance_bcv_puro || 0);
@@ -208,13 +213,14 @@ export async function getCustomerMovements(db: D1Database | null, customerName: 
       for (const t of txs) {
         const isPurchase = t.type === 'purchase';
         const isPaid = t.is_paid === 1;
-        const isDual = t.modo_precio === 'dual' && t.amount_usd_divisa;
         let emoji = isPurchase ? '🛒' : '💰';
         if (isPurchase && isPaid) emoji = '✅';
         let desc = t.description || (isPurchase ? 'Compra' : 'Abono');
         if (desc.length > 30) desc = desc.substring(0, 27) + '...';
         let montoStr = '';
-        if (isDual) {
+        // La comprobacion va aqui y no via `isDual`: TypeScript no sigue la
+        // garantia a traves de una variable intermedia.
+        if (t.modo_precio === 'dual' && t.amount_usd_divisa != null) {
           montoStr = `💰 ${formatUSD(t.amount_usd)} (BCV) ó ${formatUSD(t.amount_usd_divisa)} (DIV)`;
         } else {
           const currLabel = t.currency_type === 'divisas' ? 'DIV' : 'BCV';
