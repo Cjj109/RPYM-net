@@ -114,6 +114,28 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const changes = entry?.changes?.[0];
     const value = changes?.value;
 
+    // Meta reporta aquí el estado de cada mensaje que enviamos:
+    // sent → delivered → read, o failed con el motivo real.
+    // Sin esto, un envío que Meta acepta con 200 pero luego descarta desaparece
+    // sin dejar rastro y en el panel queda como "enviado exitosamente".
+    if (value?.messaging_product === 'whatsapp' && value?.statuses?.length) {
+      for (const status of value.statuses) {
+        if (status.status === 'failed') {
+          const err = status.errors?.[0];
+          console.error('[WhatsApp] Entrega FALLIDA ' + JSON.stringify({
+            destinatario: status.recipient_id,
+            messageId: status.id,
+            codigo: err?.code,
+            titulo: err?.title,
+            detalle: err?.error_data?.details || err?.message || null,
+          }));
+        } else {
+          console.log(`[WhatsApp] Estado ${status.status} -> ${status.recipient_id} (${status.id})`);
+        }
+      }
+      return new Response('OK', { status: 200 });
+    }
+
     if (value?.messaging_product !== 'whatsapp' || !value?.messages) {
       return new Response('OK', { status: 200 });
     }
