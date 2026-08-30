@@ -416,8 +416,10 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
       await new Promise(resolve => setTimeout(resolve, 400));
 
       // 3. Capturar con html2canvas
+      // scale 3: la tarjeta mide 380px, así llega a WhatsApp a 1140px y el
+      // texto se ve tan nítido como en la vista de la página.
       const canvas = await html2canvas(captureDiv.firstElementChild as HTMLElement, {
-        scale: 2,
+        scale: 3,
         useCORS: true,
         backgroundColor: '#ffffff',
         width: 380,
@@ -432,7 +434,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
         canvas.toBlob(
           (b) => b ? resolve(b) : reject(new Error('Error al crear imagen')),
           'image/jpeg',
-          0.85
+          0.95
         );
       });
 

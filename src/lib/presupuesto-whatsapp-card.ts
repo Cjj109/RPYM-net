@@ -3,7 +3,7 @@
  * Soporta modos BCV, divisa y dual (burbujas separadas)
  * Usado por AdminPanel, AdminBudgetBuilder y PresupuestoAdminViewer
  */
-import { formatUSD, formatBs, formatQuantity } from './format';
+import { formatUSD, formatBs, formatQuantity, formatUSDCompact } from './format';
 
 export interface WhatsAppCardItem {
   nombre: string;
@@ -32,6 +32,16 @@ export interface WhatsAppCardOpts {
 }
 
 
+/**
+ * Etiqueta de precio unitario que va junto al nombre: " ($12/kg)".
+ * Se deriva del subtotal para no depender de que el item traiga precioUSD.
+ * Devuelve '' cuando no hay cantidad con la que dividir.
+ */
+function unitPriceLabel(subtotal: number, cantidad: number, unidad: string): string {
+  if (!(cantidad > 0) || !(subtotal > 0)) return '';
+  return ` (${formatUSDCompact(subtotal / cantidad)}/${unidad})`;
+}
+
 function getThemeColors(isDivisasOnly: boolean) {
   return isDivisasOnly ? {
     bg: '#fffbeb', border: '#fde68a', borderDark: '#92400e', text: '#713f12', textLight: '#92400e', accent: '#d97706'
@@ -57,7 +67,7 @@ function generateBubbles(data: WhatsAppCardData, opts: WhatsAppCardOpts): string
 
   const productRows = data.items.map(item => `
       <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid ${colors.border};">
-        <div style="flex:1;font-size:13px;color:${colors.text};">${item.nombre}</div>
+        <div style="flex:1;font-size:13px;color:${colors.text};">${item.nombre}<span style="color:${colors.textLight};font-size:12px;">${unitPriceLabel(item.subtotalUSD, item.cantidad, item.unidad)}</span></div>
         <div style="font-size:12px;color:${colors.textLight};margin:0 8px;white-space:nowrap;">${formatQuantity(item.cantidad)} ${item.unidad}</div>
         <div style="font-size:13px;font-weight:600;color:${colors.text};white-space:nowrap;">${formatUSD(item.subtotalUSD)}</div>
       </div>
@@ -107,7 +117,7 @@ function generateBubbles(data: WhatsAppCardData, opts: WhatsAppCardOpts): string
   const divisaBubble = (isDual && data.totalUSDDivisa) ? (() => {
     const divisaProductRows = data.items.map(item => `
       <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid #fefce8;">
-        <div style="flex:1;font-size:13px;color:#713f12;">${item.nombre}</div>
+        <div style="flex:1;font-size:13px;color:#713f12;">${item.nombre}<span style="color:#92400e;font-size:12px;">${unitPriceLabel(item.subtotalUSDDivisa ?? item.subtotalUSD, item.cantidad, item.unidad)}</span></div>
         <div style="font-size:12px;color:#92400e;margin:0 8px;white-space:nowrap;">${formatQuantity(item.cantidad)} ${item.unidad}</div>
         <div style="font-size:13px;font-weight:600;color:#713f12;white-space:nowrap;">${formatUSD(item.subtotalUSDDivisa ?? item.subtotalUSD)}</div>
       </div>

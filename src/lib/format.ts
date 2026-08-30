@@ -14,6 +14,13 @@ export const formatBs = (amount: number): string =>
 export const formatEUR = (amount: number): string =>
   `€${Number(amount).toFixed(2)}`;
 
+/**
+ * Precio compacto para etiquetas secundarias: "$9" en vez de "$9.00",
+ * pero conserva los decimales cuando importan ("$4.50").
+ */
+export const formatUSDCompact = (amount: number): string =>
+  `$${Number(amount).toFixed(2).replace(/\.00$/, '')}`;
+
 // ── Cantidades ──────────────────────────────────────────
 
 /** Hasta 3 decimales, trim trailing zeros. '' para qty === 0 */
