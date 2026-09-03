@@ -260,7 +260,7 @@ function generateFacturaCard(data: WhatsAppCardData, opts: WhatsAppCardOpts, var
         <div style="display:flex;justify-content:space-between;font-size:12px;color:${colors.textLight};margin-bottom:8px;">
           <span>Delivery</span><span style="font-weight:600;color:${colors.text};">${formatUSD(delivery)}</span>
         </div>` : ''}
-        <div style="font-size:34px;font-weight:900;color:${colors.text};">${formatUSD(totalUSD)}</div>
+        <div style="font-size:34px;font-weight:900;line-height:1.1;color:${colors.text};${delivery > 0 ? 'margin-top:12px;' : ''}">${formatUSD(totalUSD)}</div>
         ${(showBcvBlocks) ? `
         <div class="bs-toggle-row">
           <div style="border-top:1px dashed ${colors.border};margin:12px 0 10px;"></div>
