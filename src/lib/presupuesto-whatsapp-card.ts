@@ -254,13 +254,12 @@ function generateFacturaCard(data: WhatsAppCardData, opts: WhatsAppCardOpts, var
       <div style="background:${colors.dark};color:white;text-align:center;padding:8px;font-size:12px;font-weight:700;letter-spacing:0.5px;">TOTAL A PAGAR</div>
       <div style="padding:16px;text-align:center;">
         ${delivery > 0 ? `
-        <div style="display:flex;justify-content:space-between;font-size:12px;color:${colors.textLight};margin-bottom:4px;">
-          <span>Subtotal</span><span style="font-weight:600;color:${colors.text};">${formatUSD(subtotalUSD)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;color:${colors.textLight};margin-bottom:8px;">
-          <span>Delivery</span><span style="font-weight:600;color:${colors.text};">${formatUSD(delivery)}</span>
+        <div style="display:flex;justify-content:center;align-items:baseline;gap:6px;font-size:12px;color:${colors.textLight};">
+          <span>Subtotal <strong style="color:${colors.text};">${formatUSD(subtotalUSD)}</strong></span>
+          <span>+</span>
+          <span>Delivery <strong style="color:${colors.text};">${formatUSD(delivery)}</strong></span>
         </div>` : ''}
-        <div style="font-size:34px;font-weight:900;line-height:1.1;color:${colors.text};${delivery > 0 ? 'margin-top:12px;' : ''}">${formatUSD(totalUSD)}</div>
+        <div style="font-size:34px;font-weight:900;line-height:1.1;color:${colors.text};${delivery > 0 ? 'margin-top:8px;' : ''}">${formatUSD(totalUSD)}</div>
         ${(showBcvBlocks) ? `
         <div class="bs-toggle-row">
           <div style="border-top:1px dashed ${colors.border};margin:12px 0 10px;"></div>
