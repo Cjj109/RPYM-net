@@ -87,7 +87,7 @@ function generateBubbles(data: WhatsAppCardData, opts: WhatsAppCardOpts): string
   const mainBubble = `
   <div style="width:320px;background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:2px solid ${colors.borderDark};">
     <div style="text-align:center;margin-bottom:12px;">
-      <img src="${baseUrl}/camaronlogo-sm.webp" alt="RPYM" style="display:block;width:140px;height:auto;object-fit:contain;margin:0 auto;" />
+      <img src="${baseUrl}/camaronlogo-lg.webp" alt="RPYM" style="display:block;width:140px;height:auto;object-fit:contain;margin:0 auto;" />
       <div style="font-size:12px;color:${colors.textLight};margin-top:4px;">Presupuesto</div>
       ${isDivisasOnly ? '<div style="background:#fef3c7;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#92400e;margin-top:4px;">Precios Divisa</div>' : '<div style="background:#e0f2fe;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#075985;margin-top:4px;">Precios BCV</div>'}
       ${isPaid ? '<div style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:9999px;margin-top:6px;">PAGADO</div>' : ''}
@@ -135,7 +135,7 @@ function generateBubbles(data: WhatsAppCardData, opts: WhatsAppCardOpts): string
     return `
     <div style="width:320px;background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-top:16px;border:2px solid #fde68a;">
       <div style="text-align:center;margin-bottom:12px;">
-        <img src="${baseUrl}/camaronlogo-sm.webp" alt="RPYM" style="display:block;width:140px;height:auto;object-fit:contain;margin:0 auto;" />
+        <img src="${baseUrl}/camaronlogo-lg.webp" alt="RPYM" style="display:block;width:140px;height:auto;object-fit:contain;margin:0 auto;" />
         <div style="background:#fef3c7;display:inline-block;padding:3px 12px;border-radius:6px;font-size:12px;font-weight:700;color:#92400e;margin-top:4px;">Precios Divisa</div>
         ${isPaid ? '<div style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:9999px;margin-top:6px;">PAGADO</div>' : ''}
       </div>
@@ -342,6 +342,7 @@ export function openWhatsAppCardWindow(data: WhatsAppCardData, opts: WhatsAppCar
   waWindow.document.write(`<!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8" />
   <title>Presupuesto RPYM</title>
   <base href="${origin}" />
   <meta name="viewport" content="width=480, viewport-fit=cover" />
@@ -439,7 +440,7 @@ export function openWhatsAppCardWindow(data: WhatsAppCardData, opts: WhatsAppCar
       var el = document.getElementById(elementId);
       if (!el) return;
       var canvas = await html2canvas(el, {
-        scale: 2,
+        scale: 3,
         useCORS: true,
         backgroundColor: null,
         logging: false
