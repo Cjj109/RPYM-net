@@ -218,7 +218,7 @@ function generateFacturaCard(data: WhatsAppCardData, opts: WhatsAppCardOpts, var
   return `
   <div style="width:440px;background:white;border-radius:20px;padding:22px;box-shadow:0 4px 16px rgba(0,0,0,0.1);border:2px solid ${colors.dark};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
     <div style="text-align:center;">
-      <img src="${baseUrl}/camaronlogo-trim.webp" alt="RPYM" style="display:block;width:280px;height:auto;object-fit:contain;margin:0 auto;" />
+      <img src="${baseUrl}/camaronlogo-trim.webp?v=2" alt="RPYM" style="display:block;width:280px;height:auto;object-fit:contain;margin:0 auto;" />
     </div>
 
     <div style="text-align:center;margin:16px 0;">
