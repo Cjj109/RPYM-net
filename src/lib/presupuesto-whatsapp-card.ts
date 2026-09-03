@@ -340,7 +340,7 @@ export function openWhatsAppCardWindow(data: WhatsAppCardData, opts: WhatsAppCar
     * { margin:0; padding:0; box-sizing:border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: ${colors.bg};
+      background: #f1f5f9;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -381,18 +381,18 @@ export function openWhatsAppCardWindow(data: WhatsAppCardData, opts: WhatsAppCar
 <body>
   <div class="no-print" id="dl-toolbar">
     ${bsToggleBtn}
-    <button id="btn-design-toggle" onclick="toggleDesign()" style="background:#7c3aed;">Ver diseño nuevo</button>
+    <button id="btn-design-toggle" onclick="toggleDesign()" style="background:#7c3aed;">Ver diseño clásico</button>
     <button onclick="downloadCurrent()" style="background:#16a34a;">&#11015; Descargar imagen</button>
     <button onclick="window.close()" style="background:#dc2626;">Cerrar</button>
   </div>
-  <div id="card-content" style="padding:16px;background:${colors.bg};display:flex;flex-direction:column;align-items:center;">
+  <div id="card-content" style="display:none;padding:16px;background:${colors.bg};flex-direction:column;align-items:center;">
     ${bubbles}
   </div>
-  <div id="card-content-new" style="display:none;padding:16px;background:#f1f5f9;flex-direction:column;align-items:center;">
+  <div id="card-content-new" style="padding:16px;background:#f1f5f9;display:flex;flex-direction:column;align-items:center;">
     ${facturaBubbles}
   </div>
   <script>
-  var currentDesign = 'old';
+  var currentDesign = 'new';
   function toggleDesign() {
     currentDesign = currentDesign === 'old' ? 'new' : 'old';
     var oldEl = document.getElementById('card-content');
@@ -415,7 +415,7 @@ export function openWhatsAppCardWindow(data: WhatsAppCardData, opts: WhatsAppCar
   }
   function downloadCurrent() {
     var elementId = currentDesign === 'new' ? 'card-content-new' : 'card-content';
-    var filename = 'presupuesto-' + (currentDesign === 'new' ? 'v2-' : '') + '${data.id}.png';
+    var filename = 'presupuesto-' + (currentDesign === 'old' ? 'clasico-' : '') + '${data.id}.png';
     downloadImage(elementId, filename);
   }
   async function downloadImage(elementId, filename) {
