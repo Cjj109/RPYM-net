@@ -212,7 +212,7 @@ function generateFacturaCard(data: WhatsAppCardData, opts: WhatsAppCardOpts, var
 
     <div style="text-align:center;margin:16px 0;">
       <span style="display:inline-flex;align-items:center;gap:6px;background:${colors.dark};color:white;padding:8px 22px;border-radius:8px;font-weight:700;font-size:13px;letter-spacing:0.5px;white-space:nowrap;">
-        ${iconDoc('white')} PRESUPUESTO
+        ${iconDoc('white')} PRESUPUESTO <span style="width:14px;flex-shrink:0;"></span>
       </span>
     </div>
 
