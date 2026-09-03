@@ -42,6 +42,15 @@ function unitPriceLabel(subtotal: number, cantidad: number, unidad: string): str
   return ` (${formatUSDCompact(subtotal / cantidad)}/${unidad})`;
 }
 
+/**
+ * "Cliente" es el nombre genérico que se usa cuando no se identificó a nadie:
+ * en ese caso no se muestra la línea de cliente.
+ */
+function displayCustomerName(name?: string): string {
+  const trimmed = (name || '').trim();
+  return trimmed.toLowerCase() === 'cliente' ? '' : trimmed;
+}
+
 function getThemeColors(isDivisasOnly: boolean) {
   return isDivisasOnly ? {
     bg: '#fffbeb', border: '#fde68a', borderDark: '#92400e', text: '#713f12', textLight: '#92400e', accent: '#d97706'
@@ -58,6 +67,7 @@ function generateBubbles(data: WhatsAppCardData, opts: WhatsAppCardOpts): string
   const isDivisasOnly = ['divisa', 'divisas'].includes(data.modoPrecio || '');
   const isDual = data.modoPrecio === 'dual';
   const isPaid = data.estado === 'pagado';
+  const customerName = displayCustomerName(data.customerName);
   const colors = getThemeColors(isDivisasOnly);
   const baseUrl = opts.baseUrl || '';
   const bcvRate = opts.bcvRate || 0;
@@ -82,7 +92,7 @@ function generateBubbles(data: WhatsAppCardData, opts: WhatsAppCardOpts): string
       ${isDivisasOnly ? '<div style="background:#fef3c7;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#92400e;margin-top:4px;">Precios Divisa</div>' : '<div style="background:#e0f2fe;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#075985;margin-top:4px;">Precios BCV</div>'}
       ${isPaid ? '<div style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:9999px;margin-top:6px;">PAGADO</div>' : ''}
     </div>
-    ${data.customerName ? '<div style="font-size:12px;color:' + colors.textLight + ';text-align:center;margin-bottom:10px;">Cliente: <strong style="color:' + colors.text + ';">' + data.customerName + '</strong></div>' : ''}
+    ${customerName ? '<div style="font-size:12px;color:' + colors.textLight + ';text-align:center;margin-bottom:10px;">Cliente: <strong style="color:' + colors.text + ';">' + customerName + '</strong></div>' : ''}
     <div style="margin-bottom:12px;">
       ${productRows}
     </div>
@@ -129,7 +139,7 @@ function generateBubbles(data: WhatsAppCardData, opts: WhatsAppCardOpts): string
         <div style="background:#fef3c7;display:inline-block;padding:3px 12px;border-radius:6px;font-size:12px;font-weight:700;color:#92400e;margin-top:4px;">Precios Divisa</div>
         ${isPaid ? '<div style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:9999px;margin-top:6px;">PAGADO</div>' : ''}
       </div>
-      ${data.customerName ? '<div style="font-size:12px;color:#92400e;text-align:center;margin-bottom:10px;">Cliente: <strong style="color:#713f12;">' + data.customerName + '</strong></div>' : ''}
+      ${customerName ? '<div style="font-size:12px;color:#92400e;text-align:center;margin-bottom:10px;">Cliente: <strong style="color:#713f12;">' + customerName + '</strong></div>' : ''}
       <div style="margin-bottom:12px;">
         ${divisaProductRows}
       </div>
@@ -184,6 +194,7 @@ function generateFacturaCard(data: WhatsAppCardData, opts: WhatsAppCardOpts, var
   const isAmber = variant === 'divisa';
   const colors = getFacturaColors(isAmber);
   const isPaid = data.estado === 'pagado';
+  const customerName = displayCustomerName(data.customerName);
   const baseUrl = opts.baseUrl || '';
   const bcvRate = opts.bcvRate || 0;
   const delivery = data.delivery || 0;
@@ -218,14 +229,14 @@ function generateFacturaCard(data: WhatsAppCardData, opts: WhatsAppCardOpts, var
 
     ${isPaid ? `<div style="text-align:center;margin-bottom:12px;"><span style="display:inline-block;background:#dcfce7;color:#166534;font-size:11px;font-weight:700;padding:3px 12px;border-radius:9999px;">PAGADO</span></div>` : ''}
 
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
-      <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+    <div style="display:flex;justify-content:${customerName ? 'space-between' : 'flex-end'};align-items:flex-start;margin-bottom:14px;">
+      ${customerName ? `<div style="display:flex;align-items:center;gap:8px;min-width:0;">
         <div style="width:30px;height:30px;border-radius:50%;background:${colors.dark};display:flex;align-items:center;justify-content:center;flex-shrink:0;">${iconPerson('white')}</div>
         <div style="min-width:0;">
           <div style="font-size:11px;color:${colors.textLight};">Cliente</div>
-          <div style="font-size:15px;font-weight:800;color:${colors.text};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${data.customerName || '—'}</div>
+          <div style="font-size:15px;font-weight:800;color:${colors.text};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${customerName}</div>
         </div>
-      </div>
+      </div>` : ''}
       <div style="text-align:right;flex-shrink:0;padding-left:8px;">
         <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end;font-size:11px;color:${colors.text};margin-bottom:4px;">${iconCalendar(colors.text)} ${fechaStr}</div>
         <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end;font-size:11px;color:${colors.text};">${iconTag(colors.text)} Ref. ${data.id}</div>
