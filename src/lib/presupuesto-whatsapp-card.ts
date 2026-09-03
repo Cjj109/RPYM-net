@@ -196,28 +196,24 @@ function generateFacturaCard(data: WhatsAppCardData, opts: WhatsAppCardOpts, var
     const itemTotal = variant === 'divisa' ? (item.subtotalUSDDivisa ?? item.subtotalUSD) : item.subtotalUSD;
     const unitLabel = (item.cantidad > 0 && itemTotal > 0) ? formatUSDCompact(itemTotal / item.cantidad) : '—';
     return `
-      <div style="display:flex;align-items:center;padding:10px 12px;border-bottom:1px solid ${colors.ribbonBg};">
-        <div style="flex:2;min-width:0;">
-          <div style="font-size:13px;font-weight:700;color:${colors.text};">${item.nombre}</div>
-          <div style="font-size:11px;color:${colors.textLight};">(${unitLabel}/${item.unidad})</div>
-        </div>
+      <div style="display:flex;align-items:center;padding:11px 12px;border-bottom:1px solid ${colors.ribbonBg};">
+        <div style="flex:2;min-width:0;font-size:13px;font-weight:700;color:${colors.text};">${item.nombre}</div>
         <div style="flex:1;text-align:center;font-size:12px;color:${colors.textLight};white-space:nowrap;">${formatQuantity(item.cantidad)} ${item.unidad}</div>
-        <div style="flex:1;text-align:right;font-size:12px;color:${colors.textLight};white-space:nowrap;">${unitLabel}</div>
+        <div style="flex:1;text-align:right;font-size:12px;color:${colors.textLight};white-space:nowrap;">${unitLabel} / ${item.unidad}</div>
         <div style="flex:1;text-align:right;font-size:13px;font-weight:800;color:${colors.text};white-space:nowrap;">${formatUSD(itemTotal)}</div>
       </div>`;
   }).join('');
 
   return `
-  <div style="width:360px;background:white;border-radius:20px;padding:20px;box-shadow:0 4px 16px rgba(0,0,0,0.1);border:2px solid ${colors.dark};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="width:440px;background:white;border-radius:20px;padding:22px;box-shadow:0 4px 16px rgba(0,0,0,0.1);border:2px solid ${colors.dark};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
     <div style="text-align:center;">
-      <img src="${baseUrl}/camaronlogo.webp" alt="RPYM" style="display:block;width:200px;height:auto;object-fit:contain;margin:0 auto;" />
+      <img src="${baseUrl}/camaronlogo.webp" alt="RPYM" style="display:block;width:280px;height:auto;object-fit:contain;margin:-18px auto -14px;" />
     </div>
 
-    <div style="position:relative;height:20px;margin:14px 0 18px;">
-      <div style="position:absolute;top:2px;left:0;right:0;height:16px;background:${colors.ribbonBg};"></div>
-      <div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:${colors.dark};color:white;padding:8px 20px;border-radius:8px;font-weight:700;font-size:13px;letter-spacing:0.5px;display:flex;align-items:center;gap:6px;white-space:nowrap;">
+    <div style="text-align:center;margin:10px 0 16px;">
+      <span style="display:inline-flex;align-items:center;gap:6px;background:${colors.dark};color:white;padding:8px 22px;border-radius:8px;font-weight:700;font-size:13px;letter-spacing:0.5px;white-space:nowrap;">
         ${iconDoc('white')} PRESUPUESTO
-      </div>
+      </span>
     </div>
 
     ${isPaid ? `<div style="text-align:center;margin-bottom:12px;"><span style="display:inline-block;background:#dcfce7;color:#166534;font-size:11px;font-weight:700;padding:3px 12px;border-radius:9999px;">PAGADO</span></div>` : ''}
@@ -327,7 +323,7 @@ export function openWhatsAppCardWindow(data: WhatsAppCardData, opts: WhatsAppCar
     ? `<button id="btn-bs-toggle" onclick="toggleBs()" style="background:#ea580c;">Ocultar Bs.</button>`
     : '';
 
-  const waWindow = window.open('', '_blank', 'width=420,height=760,scrollbars=yes');
+  const waWindow = window.open('', '_blank', 'width=520,height=780,scrollbars=yes');
   if (!waWindow) {
     alert('No se pudo abrir la ventana. Verifica que no estén bloqueados los popups.');
     return;
@@ -338,7 +334,7 @@ export function openWhatsAppCardWindow(data: WhatsAppCardData, opts: WhatsAppCar
 <head>
   <title>Presupuesto RPYM</title>
   <base href="${origin}" />
-  <meta name="viewport" content="width=380, viewport-fit=cover" />
+  <meta name="viewport" content="width=480, viewport-fit=cover" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
