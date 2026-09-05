@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getD1 } from '../../../lib/d1-types';
+import { fetchTasaBCVOficial } from '../../../lib/bcv-oficial';
 
 export const prerender = false;
 
@@ -7,42 +8,9 @@ export const prerender = false;
  * Obtiene la tasa BCV fresca de APIs externas
  */
 async function fetchFreshBCVRate(): Promise<{ rate: number; date: string; source: string } | null> {
-  // API 1: exchangedyn.com (más rápida en actualizar)
-  try {
-    const response = await fetch('https://api.exchangedyn.com/markets/quotes/usdves/bcv', {
-      headers: { 'Accept': 'application/json' },
-    });
-    if (response.ok) {
-      const data = await response.json();
-      const bcvData = data.sources?.BCV;
-      if (bcvData?.quote) {
-        const rate = Math.round(parseFloat(bcvData.quote) * 100) / 100;
-        const fecha = bcvData.last_retrieved
-          ? new Date(bcvData.last_retrieved).toLocaleDateString('es-VE')
-          : new Date().toLocaleDateString('es-VE');
-        return { rate, date: fecha, source: 'BCV' };
-      }
-    }
-  } catch (error) {
-    console.error('Error con exchangedyn.com:', error);
-  }
-
-  // API 2: bcvapi.tech (fallback)
-  try {
-    const response = await fetch('https://bcvapi.tech/api/v1/dolar/public', {
-      headers: { 'Accept': 'application/json' },
-    });
-    if (response.ok) {
-      const data = await response.json();
-      if (data.tasa) {
-        const rate = Math.round(parseFloat(data.tasa) * 100) / 100;
-        const fecha = data.fecha || new Date().toLocaleDateString('es-VE');
-        return { rate, date: fecha, source: 'BCV' };
-      }
-    }
-  } catch (error) {
-    console.error('Error con bcvapi.tech:', error);
-  }
+  // Fuente oficial primero: es la unica que tiene la tasa el mismo dia
+  const oficial = await fetchTasaBCVOficial();
+  if (oficial) return oficial;
 
   // API 3: ve.dolarapi.com (fallback)
   try {

@@ -5,6 +5,7 @@
 // IMPORTANTE: El Sheet debe estar compartido como "Cualquier persona con el enlace puede ver"
 
 import type { D1Database } from './d1-types';
+import { fetchTasaBCVOficial } from './bcv-oficial';
 
 const SHEET_ID = import.meta.env.PUBLIC_SHEET_ID || 'TU_SHEET_ID_AQUI';
 
@@ -831,55 +832,13 @@ export async function getBCVRate(db?: D1Database | null): Promise<BCVRate> {
     return null;
   }
 
-  // API 1: exchangedyn.com (más rápida en actualizar la tasa BCV)
-  try {
-    const response = await fetchWithTimeout('https://api.exchangedyn.com/markets/quotes/usdves/bcv', {
-      headers: { 'Accept': 'application/json' },
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      const bcvData = data.sources?.BCV;
-      if (bcvData?.quote) {
-        const rate = Math.round(parseFloat(bcvData.quote) * 100) / 100;
-        const fecha = bcvData.last_retrieved
-          ? new Date(bcvData.last_retrieved).toLocaleDateString('es-VE')
-          : new Date().toLocaleDateString('es-VE');
-        // Guardar en D1 para futuro fallback
-        saveToD1(rate, 'BCV', fecha);
-        return { rate, date: fecha, source: 'BCV' };
-      }
-    }
-  } catch (error: any) {
-    if (error?.name === 'AbortError') {
-      console.warn('[BCV] Timeout con exchangedyn.com');
-    } else {
-      console.error('[BCV] Error con exchangedyn.com:', error);
-    }
-  }
-
-  // API 2: bcvapi.tech (fallback)
-  try {
-    const response = await fetchWithTimeout('https://bcvapi.tech/api/v1/dolar/public', {
-      headers: { 'Accept': 'application/json' },
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      if (data.tasa) {
-        const rate = Math.round(data.tasa * 100) / 100;
-        const fecha = data.fecha || new Date().toLocaleDateString('es-VE');
-        // Guardar en D1 para futuro fallback
-        saveToD1(rate, 'BCV', fecha);
-        return { rate, date: fecha, source: 'BCV' };
-      }
-    }
-  } catch (error: any) {
-    if (error?.name === 'AbortError') {
-      console.warn('[BCV] Timeout con bcvapi.tech');
-    } else {
-      console.error('[BCV] Error con bcvapi.tech:', error);
-    }
+  // Fuente oficial primero: bcv.org.ve es la unica que publica la tasa el
+  // mismo dia. Aqui vivian dos APIs mas (exchangedyn y bcvapi.tech) que el
+  // 5 de septiembre de 2026 ya no resolvian, asi que se quitaron.
+  const oficial = await fetchTasaBCVOficial();
+  if (oficial) {
+    saveToD1(oficial.rate, oficial.source, oficial.date);
+    return oficial;
   }
 
   // API 3: ve.dolarapi.com (fallback)
