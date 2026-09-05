@@ -5,7 +5,7 @@
 // IMPORTANTE: El Sheet debe estar compartido como "Cualquier persona con el enlace puede ver"
 
 import type { D1Database } from './d1-types';
-import { fetchTasaBCVOficial } from './bcv-oficial';
+import { obtenerTasaSegunPreferencia } from './bcv-fuentes';
 
 const SHEET_ID = import.meta.env.PUBLIC_SHEET_ID || 'TU_SHEET_ID_AQUI';
 
@@ -781,22 +781,6 @@ const SAMPLE_DATA: Omit<Product, 'precioBs' | 'descripcionCorta' | 'descripcionH
  * @param db - Opcional: D1 database para cache/fallback
  */
 export async function getBCVRate(db?: D1Database | null): Promise<BCVRate> {
-  const TIMEOUT_MS = 8000;
-
-  // Helper: fetch con timeout usando AbortController
-  async function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
-    try {
-      const response = await fetch(url, { ...options, signal: controller.signal });
-      clearTimeout(timeoutId);
-      return response;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      throw error;
-    }
-  }
-
   // Helper: guardar tasa en D1 para futuro fallback
   // Tambien alimenta bcv_rates (historial por fecha) que usan los reportes Z
   // para convertir a USD con la tasa del dia, no con la ultima conocida.
@@ -832,38 +816,12 @@ export async function getBCVRate(db?: D1Database | null): Promise<BCVRate> {
     return null;
   }
 
-  // Fuente oficial primero: bcv.org.ve es la unica que publica la tasa el
-  // mismo dia. Aqui vivian dos APIs mas (exchangedyn y bcvapi.tech) que el
-  // 5 de septiembre de 2026 ya no resolvian, asi que se quitaron.
-  const oficial = await fetchTasaBCVOficial();
-  if (oficial) {
-    saveToD1(oficial.rate, oficial.source, oficial.date);
-    return oficial;
-  }
-
-  // API 3: ve.dolarapi.com (fallback)
-  try {
-    const response = await fetchWithTimeout('https://ve.dolarapi.com/v1/dolares/oficial', {
-      headers: { 'Accept': 'application/json' },
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      if (data.promedio) {
-        const rate = Math.round(parseFloat(data.promedio) * 100) / 100;
-        const fecha = data.fechaActualizacion
-          ? new Date(data.fechaActualizacion).toLocaleDateString('es-VE')
-          : new Date().toLocaleDateString('es-VE');
-        saveToD1(rate, 'BCV', fecha);
-        return { rate, date: fecha, source: 'BCV' };
-      }
-    }
-  } catch (error: any) {
-    if (error?.name === 'AbortError') {
-      console.warn('[BCV] Timeout con ve.dolarapi.com');
-    } else {
-      console.error('[BCV] Error con ve.dolarapi.com:', error);
-    }
+  // Se consulta la fuente elegida en el panel y, si falla, el resto. El
+  // registro de fuentes vive en bcv-fuentes.ts.
+  const tasa = await obtenerTasaSegunPreferencia(db);
+  if (tasa) {
+    saveToD1(tasa.rate, tasa.source, tasa.date);
+    return tasa;
   }
 
   // Fallback: leer última tasa de D1

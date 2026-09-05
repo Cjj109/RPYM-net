@@ -145,6 +145,15 @@ const THEMES: ThemeConfig[] = [
 
 const SS_IDS: ThemeName[] = ['ramos', 'cuaresma', 'jueves-santo', 'viernes-santo', 'sabado-santo', 'resurreccion'];
 
+interface FuenteTasa {
+  id: string;
+  label: string;
+  detalle: string;
+  disponible: boolean;
+  rate: number | null;
+  date: string | null;
+}
+
 export default function AdminSettings({ currentBcvRate }: Props) {
   const [selectedTheme, setSelectedTheme] = useState<ThemeName>('ocean');
   const [showSemanaSanta, setShowSemanaSanta] = useState(false);
@@ -161,6 +170,14 @@ export default function AdminSettings({ currentBcvRate }: Props) {
   const [manualRate, setManualRate] = useState('');
   const [isSavingRate, setIsSavingRate] = useState(false);
   const [rateMessage, setRateMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Fuentes de la tasa: cuál manda, cuál es el respaldo y qué da cada una
+  const [fuentes, setFuentes] = useState<FuenteTasa[]>([]);
+  const [fuentePrincipal, setFuentePrincipal] = useState('oficial');
+  const [fuenteRespaldo, setFuenteRespaldo] = useState('dolarapi');
+  const [isLoadingFuentes, setIsLoadingFuentes] = useState(true);
+  const [isSavingFuentes, setIsSavingFuentes] = useState(false);
+  const [fuentesMessage, setFuentesMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Password change state
   const [passwordForm, setPasswordForm] = useState<PasswordFormState>({
@@ -344,6 +361,51 @@ export default function AdminSettings({ currentBcvRate }: Props) {
       setRateMessage({ type: 'error', text: 'Error de conexion' });
     } finally {
       setIsSavingRate(false);
+    }
+  };
+
+  // Consulta todas las fuentes a la vez para poder compararlas
+  const cargarFuentes = async () => {
+    setIsLoadingFuentes(true);
+    try {
+      const response = await fetch('/api/config/bcv-fuentes');
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setFuentes(data.fuentes);
+        setFuentePrincipal(data.principal);
+        setFuenteRespaldo(data.respaldo);
+      }
+    } catch (error) {
+      console.error('Error al consultar las fuentes:', error);
+    } finally {
+      setIsLoadingFuentes(false);
+    }
+  };
+
+  useEffect(() => {
+    cargarFuentes();
+  }, []);
+
+  const handleSaveFuentes = async () => {
+    setIsSavingFuentes(true);
+    setFuentesMessage(null);
+    try {
+      const response = await fetch('/api/config/bcv-fuentes', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ principal: fuentePrincipal, respaldo: fuenteRespaldo }),
+      });
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setFuentesMessage({ type: 'success', text: 'Fuente guardada. La tasa se tomara de ahi de ahora en adelante.' });
+      } else {
+        setFuentesMessage({ type: 'error', text: data.error || 'Error al guardar la fuente' });
+      }
+    } catch (error) {
+      setFuentesMessage({ type: 'error', text: 'Error de conexion' });
+    } finally {
+      setIsSavingFuentes(false);
     }
   };
 
@@ -653,6 +715,124 @@ export default function AdminSettings({ currentBcvRate }: Props) {
               <p>{currentBcvRate.date}</p>
             </div>
           </div>
+        </div>
+
+        {/* De donde sale la tasa */}
+        <div className="border border-ocean-100 rounded-lg p-4 mb-4">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <h3 className="text-sm font-semibold text-ocean-900">De donde se saca la tasa</h3>
+              <p className="text-xs text-ocean-600 mt-0.5">
+                Las fuentes se caen y se retrasan. Aqui ves lo que da cada una ahora mismo y eliges cual manda.
+              </p>
+            </div>
+            <button
+              onClick={cargarFuentes}
+              disabled={isLoadingFuentes}
+              className="text-xs px-3 py-1.5 rounded-lg border border-ocean-200 text-ocean-700
+                hover:bg-ocean-50 disabled:opacity-50 whitespace-nowrap"
+            >
+              {isLoadingFuentes ? 'Consultando...' : 'Actualizar'}
+            </button>
+          </div>
+
+          {/* Lo que da cada fuente */}
+          <div className="space-y-2 mb-4">
+            {isLoadingFuentes && fuentes.length === 0 && (
+              <p className="text-sm text-ocean-500">Consultando las fuentes...</p>
+            )}
+            {fuentes.map((f) => (
+              <div
+                key={f.id}
+                className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg border ${
+                  f.id === fuentePrincipal ? 'border-ocean-300 bg-ocean-50' : 'border-ocean-100'
+                }`}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-ocean-900 flex items-center gap-2">
+                    {f.label}
+                    {f.id === fuentePrincipal && (
+                      <span className="text-[10px] uppercase tracking-wide bg-ocean-600 text-white px-1.5 py-0.5 rounded">
+                        en uso
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-ocean-500 truncate">{f.detalle}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  {f.rate !== null ? (
+                    <>
+                      <p className="text-sm font-bold text-ocean-900">Bs. {f.rate.toFixed(2)}</p>
+                      <p className="text-xs text-ocean-500">{f.date}</p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-red-600">
+                      {f.disponible ? 'sin respuesta' : 'sin clave'}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
+            <div>
+              <label className="block text-sm font-medium text-ocean-700 mb-1">Fuente principal</label>
+              <select
+                value={fuentePrincipal}
+                onChange={(e) => setFuentePrincipal(e.target.value)}
+                className="w-full px-3 py-2.5 border border-ocean-200 rounded-lg
+                  focus:ring-2 focus:ring-ocean-500 focus:border-transparent bg-white text-ocean-900"
+              >
+                {fuentes.map((f) => (
+                  <option key={f.id} value={f.id} disabled={!f.disponible}>
+                    {f.label}{f.disponible ? '' : ' — sin clave'}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-ocean-700 mb-1">Si esa falla</label>
+              <select
+                value={fuenteRespaldo}
+                onChange={(e) => setFuenteRespaldo(e.target.value)}
+                className="w-full px-3 py-2.5 border border-ocean-200 rounded-lg
+                  focus:ring-2 focus:ring-ocean-500 focus:border-transparent bg-white text-ocean-900"
+              >
+                {fuentes.map((f) => (
+                  <option key={f.id} value={f.id} disabled={!f.disponible}>
+                    {f.label}{f.disponible ? '' : ' — sin clave'}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {fuentePrincipal === fuenteRespaldo && (
+            <div className="text-sm p-3 rounded-lg mb-3 bg-amber-50 text-amber-700 border border-amber-200">
+              La principal y el respaldo son la misma, asi que no hay respaldo real. Elige dos distintas.
+            </div>
+          )}
+
+          {fuentesMessage && (
+            <div className={`text-sm p-3 rounded-lg mb-3 ${
+              fuentesMessage.type === 'error'
+                ? 'bg-red-50 text-red-700 border border-red-200'
+                : 'bg-green-50 text-green-700 border border-green-200'
+            }`}>
+              {fuentesMessage.text}
+            </div>
+          )}
+
+          <button
+            onClick={handleSaveFuentes}
+            disabled={isSavingFuentes}
+            className="px-4 py-2 bg-ocean-600 text-white rounded-lg text-sm font-medium
+              hover:bg-ocean-700 disabled:opacity-50"
+          >
+            {isSavingFuentes ? 'Guardando...' : 'Guardar fuente'}
+          </button>
         </div>
 
         {/* Manual rate toggle */}

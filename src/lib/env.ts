@@ -8,6 +8,8 @@ export interface EnvVars {
   CLAUDE_API_KEY?: string;
   OPENAI_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
+  /** Clave de Cotizave, una de las fuentes de la tasa BCV (ver bcv-fuentes.ts) */
+  COTIZAVE_API_KEY?: string;
   TELEGRAM_BOT_TOKEN?: string;
   /** Secreto que Telegram reenvía como cabecera para probar el origen del webhook */
   TELEGRAM_WEBHOOK_SECRET?: string;
@@ -33,6 +35,7 @@ export function getEnv(locals?: App.Locals): EnvVars {
     CLAUDE_API_KEY: env.CLAUDE_API_KEY,
     OPENAI_API_KEY: env.OPENAI_API_KEY,
     OPENROUTER_API_KEY: env.OPENROUTER_API_KEY,
+    COTIZAVE_API_KEY: env.COTIZAVE_API_KEY,
     TELEGRAM_BOT_TOKEN: env.TELEGRAM_BOT_TOKEN,
     TELEGRAM_WEBHOOK_SECRET: env.TELEGRAM_WEBHOOK_SECRET,
     WHATSAPP_ACCESS_TOKEN: env.WHATSAPP_ACCESS_TOKEN,

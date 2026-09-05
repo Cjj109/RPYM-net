@@ -1,37 +1,17 @@
 import type { APIRoute } from 'astro';
 import { getD1 } from '../../../lib/d1-types';
-import { fetchTasaBCVOficial } from '../../../lib/bcv-oficial';
+import { obtenerTasaSegunPreferencia } from '../../../lib/bcv-fuentes';
+import { getEnv } from '../../../lib/env';
 
 export const prerender = false;
 
 /**
- * Obtiene la tasa BCV fresca de APIs externas
+ * Obtiene la tasa fresca respetando la fuente elegida en el panel.
+ * El orden y las fuentes viven en lib/bcv-fuentes.ts.
  */
-async function fetchFreshBCVRate(): Promise<{ rate: number; date: string; source: string } | null> {
-  // Fuente oficial primero: es la unica que tiene la tasa el mismo dia
-  const oficial = await fetchTasaBCVOficial();
-  if (oficial) return oficial;
-
-  // API 3: ve.dolarapi.com (fallback)
-  try {
-    const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial', {
-      headers: { 'Accept': 'application/json' },
-    });
-    if (response.ok) {
-      const data = await response.json();
-      if (data.promedio) {
-        const rate = Math.round(parseFloat(data.promedio) * 100) / 100;
-        const fecha = data.fechaActualizacion
-          ? new Date(data.fechaActualizacion).toLocaleDateString('es-VE')
-          : new Date().toLocaleDateString('es-VE');
-        return { rate, date: fecha, source: 'BCV' };
-      }
-    }
-  } catch (error) {
-    console.error('Error con ve.dolarapi.com:', error);
-  }
-
-  return null;
+async function fetchFreshBCVRate(db: any, locals: any) {
+  const env = getEnv(locals) as Record<string, string | undefined>;
+  return obtenerTasaSegunPreferencia(db, env.COTIZAVE_API_KEY);
 }
 
 export const GET: APIRoute = async ({ locals }) => {
@@ -40,7 +20,7 @@ export const GET: APIRoute = async ({ locals }) => {
 
     if (!db) {
       // Sin DB, intentar obtener tasa fresca
-      const freshRate = await fetchFreshBCVRate();
+      const freshRate = await fetchFreshBCVRate(null, locals);
       return new Response(JSON.stringify({
         rate: freshRate?.rate || 70.00,
         manual: false,
@@ -90,8 +70,9 @@ export const GET: APIRoute = async ({ locals }) => {
       });
     }
 
-    // Modo automático: obtener tasa fresca de API externa
-    const freshRate = await fetchFreshBCVRate();
+    // Modo automático: se consulta la fuente elegida en el panel (se pasa db
+    // para poder leer esa preferencia)
+    const freshRate = await fetchFreshBCVRate(db, locals);
 
     if (freshRate) {
       // Actualizar la tasa en D1 para mantenerla sincronizada (fire and forget)
@@ -148,7 +129,7 @@ export const GET: APIRoute = async ({ locals }) => {
   } catch (error) {
     console.error('Error getting BCV rate config:', error);
     // Intentar obtener tasa fresca como último recurso
-    const freshRate = await fetchFreshBCVRate();
+    const freshRate = await fetchFreshBCVRate(null, locals);
     return new Response(JSON.stringify({
       rate: freshRate?.rate || 70.00,
       manual: false,
