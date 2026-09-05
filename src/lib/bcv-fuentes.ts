@@ -112,14 +112,37 @@ export interface EstadoFuente {
   disponible: boolean;
   rate: number | null;
   date: string | null;
+  /** true cuando no respondio ahora y se muestra la ultima lectura guardada */
+  guardada?: boolean;
 }
 
 /** Consulta todas las fuentes a la vez, para poder compararlas en el panel. */
-export async function leerTodasLasFuentes(claveCotizave?: string): Promise<EstadoFuente[]> {
-  const lecturas = await Promise.all(
+export async function leerTodasLasFuentes(
+  claveCotizave?: string,
+  db?: D1Database | null
+): Promise<EstadoFuente[]> {
+  return Promise.all(
     TODAS_LAS_FUENTES.map(async (id) => {
       const disponible = !FUENTE_META[id].requiereClave || !!claveCotizave;
       const tasa = disponible ? await leerFuente(id, claveCotizave) : null;
+
+      // Si la oficial no responde ahora, se enseña la última que se le leyó,
+      // que es la que el sitio está usando de verdad.
+      if (!tasa && id === 'oficial') {
+        const guardada = await leerUltimaOficial(db);
+        if (guardada) {
+          return {
+            id,
+            label: FUENTE_META[id].label,
+            detalle: FUENTE_META[id].detalle,
+            disponible,
+            rate: guardada.rate,
+            date: guardada.date,
+            guardada: true,
+          };
+        }
+      }
+
       return {
         id,
         label: FUENTE_META[id].label,
@@ -130,7 +153,59 @@ export async function leerTodasLasFuentes(claveCotizave?: string): Promise<Estad
       };
     })
   );
-  return lecturas;
+}
+
+/**
+ * Memoria de la ultima tasa oficial leida.
+ *
+ * Hace falta porque la pagina del BCV solo se alcanza a traves de un proxy
+ * que a veces limita las peticiones desde Cloudflare. Sin esto, un tropiezo
+ * del proxy tiraba el sitio a la tasa de las otras fuentes, que van un dia
+ * por detras: el cliente veia 807 despues de haber visto 813,74.
+ */
+const CLAVE_OFICIAL_TASA = 'bcv_oficial_rate';
+const CLAVE_OFICIAL_FECHA = 'bcv_oficial_fecha';
+
+/** "07/09/2026" -> numero comparable; 0 si no se entiende */
+function fechaComparable(fecha: string): number {
+  const p = fecha.split('/');
+  if (p.length !== 3) return 0;
+  const [dia, mes, ano] = p.map((n) => parseInt(n, 10));
+  if (!dia || !mes || !ano) return 0;
+  return ano * 10000 + mes * 100 + dia;
+}
+
+async function guardarUltimaOficial(db: D1Database | null | undefined, tasa: TasaBCV): Promise<void> {
+  if (!db) return;
+  try {
+    await db.batch([
+      db.prepare("INSERT OR REPLACE INTO site_config (key, value, updated_at) VALUES (?, ?, datetime('now'))").bind(CLAVE_OFICIAL_TASA, String(tasa.rate)),
+      db.prepare("INSERT OR REPLACE INTO site_config (key, value, updated_at) VALUES (?, ?, datetime('now'))").bind(CLAVE_OFICIAL_FECHA, tasa.date),
+    ]);
+  } catch (error) {
+    console.error('[BCV] Error guardando la ultima tasa oficial:', error);
+  }
+}
+
+export async function leerUltimaOficial(db?: D1Database | null): Promise<TasaBCV | null> {
+  if (!db) return null;
+  try {
+    const filas = await db
+      .prepare('SELECT key, value FROM site_config WHERE key IN (?, ?)')
+      .bind(CLAVE_OFICIAL_TASA, CLAVE_OFICIAL_FECHA)
+      .all<{ key: string; value: string }>();
+
+    const config: Record<string, string> = {};
+    for (const fila of filas.results ?? []) config[fila.key] = fila.value;
+
+    const rate = parseFloat(config[CLAVE_OFICIAL_TASA] ?? '');
+    if (!Number.isFinite(rate) || rate <= 0) return null;
+
+    return { rate, date: config[CLAVE_OFICIAL_FECHA] ?? '', source: 'BCV' };
+  } catch (error) {
+    console.error('[BCV] Error leyendo la ultima tasa oficial:', error);
+    return null;
+  }
 }
 
 const CLAVE_PRINCIPAL = 'bcv_fuente_principal';
@@ -187,7 +262,23 @@ export async function obtenerTasaSegunPreferencia(
 
   for (const fuente of orden) {
     const tasa = await leerFuente(fuente, claveCotizave);
-    if (tasa) return tasa;
+    if (!tasa) continue;
+
+    if (fuente === 'oficial') {
+      await guardarUltimaOficial(db, tasa);
+      return tasa;
+    }
+
+    // Esta fuente respondio, pero puede ir por detras de la ultima oficial
+    // que ya conocemos. En ese caso manda la que tenga la fecha mas nueva:
+    // nunca se retrocede a una tasa mas vieja de la que ya se mostro.
+    const guardada = await leerUltimaOficial(db);
+    if (guardada && fechaComparable(guardada.date) > fechaComparable(tasa.date)) {
+      return guardada;
+    }
+    return tasa;
   }
-  return null;
+
+  // Ninguna fuente respondio: al menos la ultima oficial conocida
+  return leerUltimaOficial(db);
 }

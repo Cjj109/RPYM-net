@@ -44,7 +44,19 @@ function aFecha(texto: string | undefined): string {
   return `${encontrado[1].padStart(2, '0')}/${mes}/${encontrado[3]}`;
 }
 
+/**
+ * El proxy limita por IP y las de Cloudflare estan muy usadas, asi que a
+ * veces responde 429 a la primera. Se reintenta una vez antes de rendirse.
+ */
 export async function fetchTasaBCVOficial(): Promise<TasaBCV | null> {
+  const primera = await intentarLectura();
+  if (primera) return primera;
+
+  await new Promise((r) => setTimeout(r, 600));
+  return intentarLectura();
+}
+
+async function intentarLectura(): Promise<TasaBCV | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 

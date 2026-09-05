@@ -152,6 +152,7 @@ interface FuenteTasa {
   disponible: boolean;
   rate: number | null;
   date: string | null;
+  guardada?: boolean;
 }
 
 export default function AdminSettings({ currentBcvRate }: Props) {
@@ -763,7 +764,9 @@ export default function AdminSettings({ currentBcvRate }: Props) {
                   {f.rate !== null ? (
                     <>
                       <p className="text-sm font-bold text-ocean-900">Bs. {f.rate.toFixed(2)}</p>
-                      <p className="text-xs text-ocean-500">{f.date}</p>
+                      <p className="text-xs text-ocean-500">
+                        {f.date}{f.guardada ? ' · última leída' : ''}
+                      </p>
                     </>
                   ) : (
                     <p className="text-xs text-red-600">
