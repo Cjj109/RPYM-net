@@ -24,7 +24,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
   try {
     const env = getEnv(locals) as Record<string, string | undefined>;
     const [fuentes, preferencia] = await Promise.all([
-      leerTodasLasFuentes(env.COTIZAVE_API_KEY, db),
+      leerTodasLasFuentes(env.COTIZAVE_API_KEY, db, env.JINA_API_KEY),
       getPreferenciaFuentes(db),
     ]);
 

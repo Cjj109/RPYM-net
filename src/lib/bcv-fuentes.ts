@@ -96,9 +96,13 @@ async function leerDolarApi(): Promise<TasaBCV | null> {
 }
 
 /** Lee una fuente concreta. Devuelve null si falla o no da un valor usable. */
-export async function leerFuente(fuente: FuenteBCV, claveCotizave?: string): Promise<TasaBCV | null> {
+export async function leerFuente(
+  fuente: FuenteBCV,
+  claveCotizave?: string,
+  claveJina?: string
+): Promise<TasaBCV | null> {
   switch (fuente) {
-    case 'oficial': return fetchTasaBCVOficial();
+    case 'oficial': return fetchTasaBCVOficial(claveJina);
     case 'cotizave': return leerCotizave(claveCotizave);
     case 'dolarapi': return leerDolarApi();
     default: return null;
@@ -119,12 +123,13 @@ export interface EstadoFuente {
 /** Consulta todas las fuentes a la vez, para poder compararlas en el panel. */
 export async function leerTodasLasFuentes(
   claveCotizave?: string,
-  db?: D1Database | null
+  db?: D1Database | null,
+  claveJina?: string
 ): Promise<EstadoFuente[]> {
   return Promise.all(
     TODAS_LAS_FUENTES.map(async (id) => {
       const disponible = !FUENTE_META[id].requiereClave || !!claveCotizave;
-      const tasa = disponible ? await leerFuente(id, claveCotizave) : null;
+      const tasa = disponible ? await leerFuente(id, claveCotizave, claveJina) : null;
 
       // Si la oficial no responde ahora, se enseña la última que se le leyó,
       // que es la que el sitio está usando de verdad.
@@ -253,7 +258,8 @@ export async function guardarPreferenciaFuentes(
  */
 export async function obtenerTasaSegunPreferencia(
   db?: D1Database | null,
-  claveCotizave?: string
+  claveCotizave?: string,
+  claveJina?: string
 ): Promise<TasaBCV | null> {
   const { principal, respaldo } = await getPreferenciaFuentes(db);
   const orden = [principal, respaldo, ...TODAS_LAS_FUENTES].filter(
@@ -261,7 +267,7 @@ export async function obtenerTasaSegunPreferencia(
   );
 
   for (const fuente of orden) {
-    const tasa = await leerFuente(fuente, claveCotizave);
+    const tasa = await leerFuente(fuente, claveCotizave, claveJina);
     if (!tasa) continue;
 
     if (fuente === 'oficial') {

@@ -52,24 +52,39 @@ function aFecha(texto: string | undefined): string {
  * dependencia del proxy. Si no, se cae al proxy, que a veces limita las
  * peticiones desde Cloudflare, y por eso se reintenta una vez.
  */
+/**
+ * La fecha de vigencia. En el HTML del BCV viene exacta en un atributo
+ * (content="2026-09-07T00:00:00-04:00"); en el texto del proxy solo queda
+ * escrita como "Fecha Valor: Lunes, 07 Septiembre 2026".
+ */
+function extraerFecha(texto: string): string {
+  const iso = texto.match(/date-display-single[^>]*content="(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+
+  return aFecha(
+    texto.match(/Fecha Valor:\s*([^\n<]+)/)?.[1] ??
+      texto.match(/date-display-single[^>]*>([^<]+)</)?.[1]
+  );
+}
+
 function buscarEnHtml(html: string): RegExpMatchArray | null {
   const inicio = html.indexOf('id="dolar"');
   if (inicio === -1) return null;
   return html.slice(inicio, inicio + 600).match(/<strong[^>]*>\s*([\d.,]+)\s*<\/strong>/);
 }
 
-export async function fetchTasaBCVOficial(): Promise<TasaBCV | null> {
+export async function fetchTasaBCVOficial(claveJina?: string): Promise<TasaBCV | null> {
   const directa = await intentarLectura(URL_DIRECTA);
   if (directa) return directa;
 
-  const porProxy = await intentarLectura(URL_PROXY);
+  const porProxy = await intentarLectura(URL_PROXY, claveJina);
   if (porProxy) return porProxy;
 
   await new Promise((r) => setTimeout(r, 600));
-  return intentarLectura(URL_PROXY);
+  return intentarLectura(URL_PROXY, claveJina);
 }
 
-async function intentarLectura(url: string): Promise<TasaBCV | null> {
+async function intentarLectura(url: string, claveJina?: string): Promise<TasaBCV | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -79,6 +94,8 @@ async function intentarLectura(url: string): Promise<TasaBCV | null> {
       headers: {
         Accept: 'text/html, text/plain, text/markdown',
         'User-Agent': 'Mozilla/5.0 (compatible; RPYM/1.0; +https://rpym.net)',
+        // Sin clave, el proxy limita por IP y rechaza a Cloudflare
+        ...(claveJina ? { Authorization: `Bearer ${claveJina}` } : {}),
       },
       // La pagina del BCV cambia una vez al dia: se cachea en el borde para
       // no descargarla en cada visita.
@@ -106,10 +123,7 @@ async function intentarLectura(url: string): Promise<TasaBCV | null> {
 
     return {
       rate: Math.round(valor * 100) / 100,
-      date: aFecha(
-        texto.match(/Fecha Valor:\s*([^\n<]+)/)?.[1] ??
-          texto.match(/date-display-single[^>]*>([^<]+)</)?.[1]
-      ),
+      date: extraerFecha(texto),
       source: 'BCV',
     };
   } catch (error) {

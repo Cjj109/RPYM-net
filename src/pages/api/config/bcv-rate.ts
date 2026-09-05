@@ -11,7 +11,7 @@ export const prerender = false;
  */
 async function fetchFreshBCVRate(db: any, locals: any) {
   const env = getEnv(locals) as Record<string, string | undefined>;
-  return obtenerTasaSegunPreferencia(db, env.COTIZAVE_API_KEY);
+  return obtenerTasaSegunPreferencia(db, env.COTIZAVE_API_KEY, env.JINA_API_KEY);
 }
 
 export const GET: APIRoute = async ({ locals }) => {
