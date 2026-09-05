@@ -1,6 +1,10 @@
 import type { APIRoute } from 'astro';
 import { getD1 } from '../../../lib/d1-types';
-import { obtenerTasaSegunPreferencia } from '../../../lib/bcv-fuentes';
+import {
+  obtenerTasaSegunPreferencia,
+  sincronizarTasaManual,
+  marcarSobrescrituraManual,
+} from '../../../lib/bcv-fuentes';
 import { getEnv } from '../../../lib/env';
 
 export const prerender = false;
@@ -92,6 +96,8 @@ export const GET: APIRoute = async ({ locals }) => {
             'INSERT OR REPLACE INTO bcv_rates (date, usd_rate) VALUES (?, ?)'
           ).bind(today, freshRate.rate),
         ]);
+        // La casilla manual sigue a la tasa real mientras no se sobrescriba
+        await sincronizarTasaManual(db, freshRate.rate);
       } catch (_) { /* ignore errors */ }
 
       return new Response(JSON.stringify({
@@ -191,6 +197,17 @@ export const PUT: APIRoute = async ({ request, locals }) => {
     }
 
     await db.batch(statements);
+
+    // Escribir una tasa a mano fija el valor: deja de seguir a la del BCV.
+    // Volver al modo automático suelta esa marca y la casilla vuelve a
+    // actualizarse sola con la última tasa conocida.
+    if (manual && rate) {
+      await marcarSobrescrituraManual(db, true);
+    } else if (!manual) {
+      await marcarSobrescrituraManual(db, false);
+      const tasa = await obtenerTasaSegunPreferencia(db);
+      if (tasa) await sincronizarTasaManual(db, tasa.rate);
+    }
 
     return new Response(JSON.stringify({
       success: true,

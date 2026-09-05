@@ -213,6 +213,48 @@ export async function leerUltimaOficial(db?: D1Database | null): Promise<TasaBCV
   }
 }
 
+/**
+ * La casilla de tasa manual sigue a la última tasa conocida mientras nadie
+ * escriba un valor a mano. Sin esto se quedaba congelada en lo último que se
+ * hubiera tecleado — habia un 70 de una prueba vieja esperando a que alguien
+ * activara el modo manual sin mirar.
+ */
+const CLAVE_MANUAL_OVERRIDE = 'bcv_rate_manual_override';
+
+export async function haySobrescrituraManual(db?: D1Database | null): Promise<boolean> {
+  if (!db) return false;
+  try {
+    const fila = await db
+      .prepare('SELECT value FROM site_config WHERE key = ?')
+      .bind(CLAVE_MANUAL_OVERRIDE)
+      .first<{ value: string }>();
+    return fila?.value === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export async function marcarSobrescrituraManual(db: D1Database, activa: boolean): Promise<void> {
+  await db
+    .prepare("INSERT OR REPLACE INTO site_config (key, value, updated_at) VALUES (?, ?, datetime('now'))")
+    .bind(CLAVE_MANUAL_OVERRIDE, activa ? 'true' : 'false')
+    .run();
+}
+
+/** Pone la casilla manual al dia con la tasa recien leida, si no hay override */
+export async function sincronizarTasaManual(db: D1Database | null | undefined, rate: number): Promise<void> {
+  if (!db || rate <= 0) return;
+  try {
+    if (await haySobrescrituraManual(db)) return;
+    await db
+      .prepare("INSERT OR REPLACE INTO site_config (key, value, updated_at) VALUES ('bcv_rate', ?, datetime('now'))")
+      .bind(rate.toFixed(2))
+      .run();
+  } catch (error) {
+    console.error('[BCV] Error sincronizando la tasa manual:', error);
+  }
+}
+
 const CLAVE_PRINCIPAL = 'bcv_fuente_principal';
 const CLAVE_RESPALDO = 'bcv_fuente_respaldo';
 

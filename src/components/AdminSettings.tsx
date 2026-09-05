@@ -877,7 +877,9 @@ export default function AdminSettings({ currentBcvRate }: Props) {
               />
             </div>
             <p className="text-xs text-amber-700 mt-2">
-              Esta tasa se usara en lugar de la tasa automatica del BCV.
+              Esta tasa se usara en lugar de la del BCV. Mientras no escribas un valor aqui, la
+              casilla se mantiene sola con la ultima tasa del BCV; al guardar una tuya se queda
+              fija hasta que vuelvas al modo automatico.
             </p>
           </div>
         )}

@@ -5,7 +5,7 @@
 // IMPORTANTE: El Sheet debe estar compartido como "Cualquier persona con el enlace puede ver"
 
 import type { D1Database } from './d1-types';
-import { obtenerTasaSegunPreferencia } from './bcv-fuentes';
+import { obtenerTasaSegunPreferencia, sincronizarTasaManual } from './bcv-fuentes';
 
 const SHEET_ID = import.meta.env.PUBLIC_SHEET_ID || 'TU_SHEET_ID_AQUI';
 
@@ -794,6 +794,7 @@ export async function getBCVRate(db?: D1Database | null): Promise<BCVRate> {
         db.prepare("INSERT OR REPLACE INTO site_config (key, value, updated_at) VALUES ('bcv_rate_date', ?, datetime('now'))").bind(date),
         db.prepare('INSERT OR REPLACE INTO bcv_rates (date, usd_rate) VALUES (?, ?)').bind(today, rate),
       ]);
+      await sincronizarTasaManual(db, rate);
     } catch (e) {
       console.error('[BCV] Error saving to D1:', e);
     }
