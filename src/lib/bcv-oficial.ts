@@ -21,7 +21,8 @@ export interface TasaBCV {
   source: string;
 }
 
-const URL_BCV = 'https://r.jina.ai/https://www.bcv.org.ve/';
+const URL_DIRECTA = 'https://www.bcv.org.ve/';
+const URL_PROXY = 'https://r.jina.ai/https://www.bcv.org.ve/';
 const TIMEOUT_MS = 8000;
 
 const MESES: Record<string, string> = {
@@ -45,25 +46,40 @@ function aFecha(texto: string | undefined): string {
 }
 
 /**
- * El proxy limita por IP y las de Cloudflare estan muy usadas, asi que a
- * veces responde 429 a la primera. Se reintenta una vez antes de rendirse.
+ * Se intenta primero la pagina del BCV directamente. En local falla por la
+ * cadena de certificados incompleta, pero la red de Cloudflare tiene otro
+ * almacen de confianza y puede que si la acepte; si funciona, se acaba la
+ * dependencia del proxy. Si no, se cae al proxy, que a veces limita las
+ * peticiones desde Cloudflare, y por eso se reintenta una vez.
  */
-export async function fetchTasaBCVOficial(): Promise<TasaBCV | null> {
-  const primera = await intentarLectura();
-  if (primera) return primera;
-
-  await new Promise((r) => setTimeout(r, 600));
-  return intentarLectura();
+function buscarEnHtml(html: string): RegExpMatchArray | null {
+  const inicio = html.indexOf('id="dolar"');
+  if (inicio === -1) return null;
+  return html.slice(inicio, inicio + 600).match(/<strong[^>]*>\s*([\d.,]+)\s*<\/strong>/);
 }
 
-async function intentarLectura(): Promise<TasaBCV | null> {
+export async function fetchTasaBCVOficial(): Promise<TasaBCV | null> {
+  const directa = await intentarLectura(URL_DIRECTA);
+  if (directa) return directa;
+
+  const porProxy = await intentarLectura(URL_PROXY);
+  if (porProxy) return porProxy;
+
+  await new Promise((r) => setTimeout(r, 600));
+  return intentarLectura(URL_PROXY);
+}
+
+async function intentarLectura(url: string): Promise<TasaBCV | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
-    const respuesta = await fetch(URL_BCV, {
+    const respuesta = await fetch(url, {
       signal: controller.signal,
-      headers: { Accept: 'text/plain, text/markdown' },
+      headers: {
+        Accept: 'text/html, text/plain, text/markdown',
+        'User-Agent': 'Mozilla/5.0 (compatible; RPYM/1.0; +https://rpym.net)',
+      },
       // La pagina del BCV cambia una vez al dia: se cachea en el borde para
       // no descargarla en cada visita.
       cf: { cacheTtl: 900, cacheEverything: true },
@@ -74,8 +90,11 @@ async function intentarLectura(): Promise<TasaBCV | null> {
 
     const texto = await respuesta.text();
 
-    // El bloque del dolar viene como:  ) USD\n\n**813,73610000**
-    const encontrado = texto.match(/USD\s*\*\*\s*([\d.,]+)\s*\*\*/);
+    // Dos formatos posibles:
+    //   proxy (texto):  ) USD\n\n**813,73610000**
+    //   BCV (HTML):     <div id="dolar"> ... <strong>813,73610000</strong>
+    const encontrado =
+      texto.match(/USD\s*\*\*\s*([\d.,]+)\s*\*\*/) ?? buscarEnHtml(texto);
     if (!encontrado) return null;
 
     // "813,73610000" -> 813.7361
@@ -87,7 +106,10 @@ async function intentarLectura(): Promise<TasaBCV | null> {
 
     return {
       rate: Math.round(valor * 100) / 100,
-      date: aFecha(texto.match(/Fecha Valor:\s*([^\n]+)/)?.[1]),
+      date: aFecha(
+        texto.match(/Fecha Valor:\s*([^\n<]+)/)?.[1] ??
+          texto.match(/date-display-single[^>]*>([^<]+)</)?.[1]
+      ),
       source: 'BCV',
     };
   } catch (error) {
