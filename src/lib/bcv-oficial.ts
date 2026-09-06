@@ -6,13 +6,40 @@
  * api.exchangedyn.com y bcvapi.tech ya no resolvian, pydolarve.org habia
  * desaparecido y ve.dolarapi.com seguia sirviendo la tasa del dia anterior.
  *
- * Por que no se lee bcv.org.ve directamente: su servidor entrega la cadena
- * de certificados incompleta (le falta el intermedio). curl en macOS lo
- * tolera, pero ni Node ni el motor de Cloudflare lo aceptan — comprobado en
- * workerd, que es lo que corre en produccion. Por eso se lee a traves del
- * lector de Jina, que si presenta un certificado valido y devuelve el
- * contenido del BCV en texto. Si algun dia el BCV arregla su cadena, basta
- * con apuntar URL_BCV a https://www.bcv.org.ve/ y ajustar el parseo al HTML.
+ * EL CERTIFICADO DE bcv.org.ve
+ *
+ * Aqui decia que el servidor "entrega la cadena de certificados incompleta
+ * (le falta el intermedio)". Dos cosas mal, y las dos importan:
+ *
+ * 1. No falta un eslabon: el que manda es EQUIVOCADO. El certificado de
+ *    *.bcv.org.ve lo emite "Sectigo Public Server Authentication CA DV R36",
+ *    pero el servidor entrega "Sectigo RSA Domain Validation Secure Server
+ *    CA", que es otra CA — un sobrante de un certificado anterior. El
+ *    intermedio bueno no viaja en la conexion.
+ *
+ * 2. "Ni Node ni el motor de Cloudflare lo aceptan — comprobado en workerd,
+ *    que es lo que corre en produccion." Esto es falso, y por eso hubo que
+ *    montar el proxy. Lo que se probo fue workerd EN LOCAL, que usa otro
+ *    almacen de confianza que la red real de Cloudflare. La red de
+ *    Cloudflare SI lo acepta, porque hace AIA fetching: lee la extension
+ *    "CA Issuers" del certificado, se baja el intermedio que falta y cierra
+ *    la cadena sola. Comprobado en produccion.
+ *
+ * Node no hace AIA fetching, y de ahi el UNABLE_TO_VERIFY_LEAF_SIGNATURE que
+ * se ve en local.
+ *
+ * En consecuencia, el orden de intentos:
+ *
+ *   1. bcv.org.ve directo. En produccion funciona; en local falla.
+ *   2. El puente de Vercel, que completa la cadena a mano con el intermedio
+ *      empotrado. Es nuestro, no tiene limite de peticiones y lee el mismo
+ *      HTML. Reemplaza a Jina como primer respaldo.
+ *   3. El lector de Jina, ya solo como ultimo recurso. Es un tercero
+ *      gratuito que limita por IP y necesita clave para no rechazar a
+ *      Cloudflare.
+ *
+ * El certificado del BCV caduca el 20/11/2026: al renovarlo puede que
+ * arreglen la cadena, o que la rompan de otra forma.
  */
 
 export interface TasaBCV {
@@ -22,6 +49,7 @@ export interface TasaBCV {
 }
 
 const URL_DIRECTA = 'https://www.bcv.org.ve/';
+const URL_PUENTE = 'https://bcv-puente.vercel.app/api/bcv';
 const URL_PROXY = 'https://r.jina.ai/https://www.bcv.org.ve/';
 const TIMEOUT_MS = 8000;
 
@@ -73,10 +101,60 @@ function buscarEnHtml(html: string): RegExpMatchArray | null {
   return html.slice(inicio, inicio + 600).match(/<strong[^>]*>\s*([\d.,]+)\s*<\/strong>/);
 }
 
+/**
+ * Lee la tasa del BCV por el puente de Vercel.
+ *
+ * Devuelve JSON, no HTML, asi que no pasa por intentarLectura: ese parsea
+ * paginas. El puente ya hizo el trabajo sucio de completar la cadena de
+ * certificados y sacar el numero.
+ */
+async function intentarPuente(): Promise<TasaBCV | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+  try {
+    const respuesta = await fetch(URL_PUENTE, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+      cf: { cacheTtl: 900, cacheEverything: true },
+    } as RequestInit);
+
+    clearTimeout(timeout);
+    if (!respuesta.ok) return null;
+
+    const datos = await respuesta.json() as { usd?: number | null; fecha?: string | null };
+    const valor = Number(datos.usd);
+    if (!Number.isFinite(valor) || valor <= 0 || valor > 1_000_000) return null;
+
+    // El puente da la fecha en ISO (2026-09-07); aqui se usa dd/mm/aaaa
+    const iso = datos.fecha?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+    return {
+      rate: Math.round(valor * 100) / 100,
+      date: iso
+        ? `${iso[3]}/${iso[2]}/${iso[1]}`
+        : new Date().toLocaleDateString('es-VE', { timeZone: 'America/Caracas' }),
+      source: 'BCV',
+    };
+  } catch (error) {
+    clearTimeout(timeout);
+    console.error('[BCV] Error leyendo por el puente:', error);
+    return null;
+  }
+}
+
 export async function fetchTasaBCVOficial(claveJina?: string): Promise<TasaBCV | null> {
+  // 1. El BCV directo. En produccion funciona; en local falla por el
+  //    certificado, y ahi entra el puente.
   const directa = await intentarLectura(URL_DIRECTA);
   if (directa) return directa;
 
+  // 2. El puente propio: mismo HTML, sin limites de peticiones ni clave.
+  const porPuente = await intentarPuente();
+  if (porPuente) return porPuente;
+
+  // 3. Jina, ya solo como ultimo recurso. Limita por IP, y sin clave rechaza
+  //    a Cloudflare; por eso el reintento.
   const porProxy = await intentarLectura(URL_PROXY, claveJina);
   if (porProxy) return porProxy;
 
