@@ -8,16 +8,24 @@
  * cuál manda.
  */
 import type { D1Database } from './d1-types';
-import { fetchTasaBCVOficial, type TasaBCV } from './bcv-oficial';
+import { fetchTasaBCVOficial, intentarPuente, type TasaBCV } from './bcv-oficial';
 
-export type FuenteBCV = 'oficial' | 'cotizave' | 'dolarapi';
+export type FuenteBCV = 'oficial' | 'puente' | 'cotizave' | 'dolarapi';
 
-export const TODAS_LAS_FUENTES: FuenteBCV[] = ['oficial', 'cotizave', 'dolarapi'];
+// El puente va detras de la oficial: leen la MISMA pagina, asi que dan el
+// mismo numero. Se lista aparte para poder ver si esta vivo, que es justo
+// para lo que existe este panel.
+export const TODAS_LAS_FUENTES: FuenteBCV[] = ['oficial', 'puente', 'cotizave', 'dolarapi'];
 
 export const FUENTE_META: Record<FuenteBCV, { label: string; detalle: string; requiereClave: boolean }> = {
   oficial: {
     label: 'BCV (página oficial)',
     detalle: 'Publica la tasa nueva el mismo día, apenas el BCV la cuelga.',
+    requiereClave: false,
+  },
+  puente: {
+    label: 'BCV (via puente propio)',
+    detalle: 'La misma pagina del BCV, leida desde Vercel. Mismo numero, otro camino: sirve cuando el directo no valida el certificado.',
     requiereClave: false,
   },
   cotizave: {
@@ -103,6 +111,7 @@ export async function leerFuente(
 ): Promise<TasaBCV | null> {
   switch (fuente) {
     case 'oficial': return fetchTasaBCVOficial(claveJina);
+    case 'puente': return intentarPuente();
     case 'cotizave': return leerCotizave(claveCotizave);
     case 'dolarapi': return leerDolarApi();
     default: return null;

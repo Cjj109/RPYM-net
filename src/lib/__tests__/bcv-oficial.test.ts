@@ -91,3 +91,28 @@ describe('fetchTasaBCVOficial', () => {
     expect((await fetchTasaBCVOficial('clave'))?.rate).toBe(799.5);
   });
 });
+
+describe('el puente como fuente visible del panel', () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('aparece en la lista de fuentes, detrás de la oficial', async () => {
+    const { TODAS_LAS_FUENTES, FUENTE_META } = await import('../bcv-fuentes');
+
+    expect(TODAS_LAS_FUENTES).toContain('puente');
+    // Detrás de la oficial: leen la misma página, así que la directa manda
+    expect(TODAS_LAS_FUENTES.indexOf('puente')).toBe(TODAS_LAS_FUENTES.indexOf('oficial') + 1);
+    // Sin clave: es lo que la hace útil como respaldo frente a Jina o Cotizave
+    expect(FUENTE_META.puente.requiereClave).toBe(false);
+  });
+
+  it('leerFuente("puente") lee el puente y nada más', async () => {
+    const { leerFuente } = await import('../bcv-fuentes');
+    const fetch = fetchFingido({
+      puente: () => ok('{"usd":813.7361,"eur":945.65085917,"fecha":"2026-09-07"}'),
+    });
+    vi.stubGlobal('fetch', fetch);
+
+    expect(await leerFuente('puente')).toEqual({ rate: 813.74, date: '07/09/2026', source: 'BCV' });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});

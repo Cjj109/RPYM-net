@@ -108,7 +108,7 @@ function buscarEnHtml(html: string): RegExpMatchArray | null {
  * paginas. El puente ya hizo el trabajo sucio de completar la cadena de
  * certificados y sacar el numero.
  */
-async function intentarPuente(): Promise<TasaBCV | null> {
+export async function intentarPuente(): Promise<TasaBCV | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
