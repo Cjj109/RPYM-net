@@ -306,24 +306,37 @@ export async function guardarPreferenciaFuentes(
   ]);
 }
 
-/* ── Desde cuándo rige cada tasa ──────────────────────────
+/* ── Desde cuándo se cobra cada tasa ──────────────────────
 
-   El BCV publica por la tarde la tasa del día SIGUIENTE, y su fecha valor
-   viene en la propia página. Hasta ahora se cobraba con ella desde el momento
-   en que aparecía: el 7 de septiembre por la noche el sitio ya facturaba a
-   814,69, que no regía hasta el 8, y lo que regía ese día seguía siendo
-   813,7361.
+   Dos fechas distintas, y confundirlas es lo que estaba roto:
 
-   La memoria no hace falta inventarla: bcv_rates ya es una tabla de tasa por
-   fecha, la que usan los reportes Z para convertir con la tasa del día. Lo
-   que estaba mal era la clave. Se guardaba bajo `toISOString()` —el día en
-   que se leyó, y encima en UTC— en vez de bajo la fecha valor, así que cada
-   fila acababa con la tasa que empezaba a regir al día siguiente. El
-   historial fiscal iba corrido un día entero.
+     fecha valor  desde cuándo rige para el BCV. Viene en su página.
+     desde        desde cuándo la cobramos aquí.
 
-   Ahora se guarda bajo la fecha valor y se sirve la fila más reciente que ya
-   haya llegado. Al pasar la medianoche de Caracas la de mañana pasa a ser la
-   de hoy sola, sin releer ni desplegar nada.                                */
+   El fallo original era no tener ninguna de las dos. Se guardaba la tasa bajo
+   `toISOString()` —el día en que se leía, y encima en UTC— así que cada fila
+   acababa con la tasa que empezaba a regir al día siguiente, y el sitio
+   cobraba con la nueva desde el momento en que el BCV la colgaba: el 7 de
+   septiembre por la noche rpym.net facturaba a 814,69 cuando lo que regía ese
+   día era 813,74.
+
+   Y las dos fechas no coinciden los fines de semana. El BCV publica el
+   viernes por la tarde con fecha valor del LUNES —o del martes, si el lunes
+   es feriado—, pero en el negocio esa tasa se cobra desde el día siguiente a
+   que se publica, o sea el SÁBADO: no se pasa el fin de semana entero
+   cobrando la tasa de la semana pasada cuando el BCV ya la movió.
+
+   De ahí la regla:
+
+     desde = min(fecha valor, día siguiente al primer avistamiento)
+
+   El min() es la red de seguridad. Lo normal es verla la misma tarde en que
+   sale, y entonces manda "mañana"; si el sitio estuvo caído y la vemos dos
+   días tarde, manda la fecha valor y la tasa no se retrasa más allá de lo que
+   dice el BCV. Nunca más tarde que lo oficial.
+
+   `date` sigue siendo la fecha valor, intacta: es la que consulta
+   bcv-rate-history.ts para los reportes Z, y ese significado no cambia.     */
 
 /** "2026-09-07" -> "07/09/2026" */
 function isoADmy(iso: string): string {
@@ -331,13 +344,35 @@ function isoADmy(iso: string): string {
   return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : iso;
 }
 
+/** "2026-09-11" -> "2026-09-12"; suma días de calendario, sin zonas de por medio */
+function diaSiguiente(iso: string): string {
+  return new Date(new Date(`${iso}T00:00:00Z`).getTime() + 86_400_000).toISOString().slice(0, 10);
+}
+
 /**
- * Apunta la tasa bajo SU fecha valor.
+ * La regla del negocio: min(fecha valor, día siguiente a hoy).
  *
- * Solo para lo que se lee de la página del BCV (directa o por el puente):
- * es la única fuente que publica la fecha desde la que rige. Las demás datan
- * con el día en que se actualizaron, que no es lo mismo, y meter eso en la
- * tabla que usan los reportes Z corrompería el histórico.
+ * Suelta y exportada porque es LA regla, y conviene poder mirarla y probarla
+ * sin una base de datos delante. `hoyISO` es el día en que se ve la tasa por
+ * primera vez.
+ */
+export function desdeCuandoSeCobra(fechaValorISO: string, hoyISO: string): string {
+  const manana = diaSiguiente(hoyISO);
+  return fechaValorISO < manana ? fechaValorISO : manana;
+}
+
+/**
+ * Apunta la tasa con su fecha valor y desde cuándo se cobra.
+ *
+ * Solo para lo que se lee de la página del BCV (directa o por el puente): es
+ * la única fuente que publica la fecha valor. Las demás datan con el día en
+ * que se actualizaron, que no es lo mismo, y meter eso en la tabla que usan
+ * los reportes Z corrompería el histórico.
+ *
+ * Al reencontrar una fila ya conocida se actualiza la tasa pero NO `desde`:
+ * ese se calculó la primera vez que se vio, y recalcularlo cada día lo
+ * empujaría hacia adelante para siempre —el sábado daría "domingo", el
+ * domingo "lunes"— y la tasa no entraría nunca.
  *
  * El upsert conserva eur_rate: update-bcv.ts escribe el euro en la misma
  * fila, y un INSERT OR REPLACE lo habría borrado en cada lectura del dólar.
@@ -346,60 +381,106 @@ async function guardarVigencia(db: D1Database | null | undefined, tasa: TasaBCV)
   const iso = dmyAIso(tasa.date);
   if (!db || !iso || !(tasa.rate > 0)) return;
 
+  const desde = desdeCuandoSeCobra(iso, hoyEnCaracas());
+
   try {
     await db
       .prepare(
-        `INSERT INTO bcv_rates (date, usd_rate) VALUES (?, ?)
-         ON CONFLICT(date) DO UPDATE SET usd_rate = excluded.usd_rate`
+        `INSERT INTO bcv_rates (date, usd_rate, desde) VALUES (?, ?, ?)
+         ON CONFLICT(date) DO UPDATE SET
+           usd_rate = excluded.usd_rate,
+           desde = COALESCE(bcv_rates.desde, excluded.desde)`
       )
-      .bind(iso, tasa.rate)
+      .bind(iso, tasa.rate, desde)
       .run();
   } catch (error) {
     console.error('[BCV] Error guardando la vigencia:', error);
   }
 }
 
-/** La tasa apuntada más reciente que ya haya entrado en vigor */
-async function vigenteEn(db: D1Database | null | undefined, hoyISO: string): Promise<TasaBCV | null> {
+/*  COALESCE(desde, date) en las dos consultas: las filas anteriores a la
+    migración 0038, y las que escribe update-bcv.ts desde fuera, no traen
+    `desde`. Para esas la fecha valor es lo único que hay.                   */
+
+/** La tasa apuntada más reciente que ya se esté cobrando */
+async function vigenteEn(
+  db: D1Database | null | undefined,
+  hoyISO: string
+): Promise<{ rate: number; desde: string } | null> {
   if (!db) return null;
   try {
     const fila = await db
-      .prepare('SELECT date, usd_rate FROM bcv_rates WHERE date <= ? ORDER BY date DESC LIMIT 1')
+      .prepare(
+        `SELECT usd_rate, COALESCE(desde, date) AS desde FROM bcv_rates
+         WHERE COALESCE(desde, date) <= ? ORDER BY COALESCE(desde, date) DESC LIMIT 1`
+      )
       .bind(hoyISO)
-      .first<{ date: string; usd_rate: number }>();
+      .first<{ usd_rate: number; desde: string }>();
 
-    return fila && fila.usd_rate > 0
-      ? { rate: fila.usd_rate, date: isoADmy(fila.date), source: 'BCV' }
-      : null;
+    return fila && fila.usd_rate > 0 ? { rate: fila.usd_rate, desde: fila.desde } : null;
   } catch (error) {
     console.error('[BCV] Error leyendo la vigencia:', error);
     return null;
   }
 }
 
+/** La siguiente que entrará, con el día en que empieza a cobrarse */
+async function proximaTras(
+  db: D1Database | null | undefined,
+  hoyISO: string
+): Promise<{ rate: number; date: string } | null> {
+  if (!db) return null;
+  try {
+    const fila = await db
+      .prepare(
+        `SELECT usd_rate, COALESCE(desde, date) AS desde FROM bcv_rates
+         WHERE COALESCE(desde, date) > ? ORDER BY COALESCE(desde, date) ASC LIMIT 1`
+      )
+      .bind(hoyISO)
+      .first<{ usd_rate: number; desde: string }>();
+
+    return fila && fila.usd_rate > 0 ? { rate: fila.usd_rate, date: isoADmy(fila.desde) } : null;
+  } catch (error) {
+    console.error('[BCV] Error leyendo la próxima tasa:', error);
+    return null;
+  }
+}
+
 /**
- * Cambia una tasa adelantada por la que rige, y anuncia la otra en `proxima`.
+ * Devuelve la tasa que se cobra hoy, y aparte la que ya viene.
+ *
+ * Manda la tabla, no la lectura de ahora: lo que el BCV enseña un sábado
+ * sigue siendo la fecha valor del lunes, pero aquí esa tasa ya se cobra desde
+ * el sábado porque así quedó apuntada el viernes. Preguntar a la tabla es lo
+ * único que sabe eso.
  *
  * Se aplica al final y a TODA tasa, venga de donde venga: si no, la del BCV
- * se colaba igual por la puerta de al lado —leerUltimaOficial guarda lo
- * último leído, y esa comparación de "no retroceder" habría devuelto la
- * adelantada aunque dolarapi trajera la correcta.
- *
- * Si no hay memoria de la anterior se sigue con la publicada: es lo único que
- * hay, y es lo que se hacía antes. `date` sigue delatando que es futura.
+ * se colaba por la puerta de al lado —leerUltimaOficial guarda lo último
+ * leído, y esa comparación de "no retroceder" habría devuelto la adelantada
+ * aunque dolarapi trajera la correcta.
  */
 export async function aplicarVigencia(
   db: D1Database | null | undefined,
   tasa: TasaBCV
 ): Promise<TasaBCV> {
   const hoyISO = hoyEnCaracas();
-  const iso = dmyAIso(tasa.date);
-  if (!iso || iso <= hoyISO) return { ...tasa, proxima: null };
-
   const vigente = await vigenteEn(db, hoyISO);
+
+  // Sin memoria se sigue con lo leído: es lo único que hay.
   if (!vigente) return { ...tasa, proxima: null };
 
-  return { ...vigente, source: tasa.source, proxima: { rate: tasa.rate, date: tasa.date } };
+  // Una fuente que no sea la página del BCV puede ir por delante de lo último
+  // apuntado, si el BCV lleva días sin responder. Entonces manda ella: no
+  // tiene sentido servir una tasa vieja teniendo una más nueva y ya vigente.
+  const suya = dmyAIso(tasa.date);
+  if (suya && suya > vigente.desde && suya <= hoyISO) return { ...tasa, proxima: null };
+
+  return {
+    rate: vigente.rate,
+    date: isoADmy(vigente.desde),
+    source: tasa.source,
+    proxima: await proximaTras(db, hoyISO),
+  };
 }
 
 /**

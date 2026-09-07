@@ -1,28 +1,45 @@
 /**
- * Desde cuándo rige una tasa del BCV.
+ * Desde cuándo se cobra una tasa del BCV.
  *
- * El BCV publica por la tarde la del día SIGUIENTE, y el sitio cobraba con
- * ella desde el momento en que aparecía: el 7 de septiembre de 2026, de
- * noche, rpym.net facturaba a 814,69 cuando lo que regía ese día era
- * 813,7361. Aquí se fija la regla, que es la que dio el dueño: la tasa
- * publicada un día aplica a partir del siguiente, sea hábil o fin de semana.
+ * Dos fechas que no son la misma:
+ *
+ *   fecha valor  desde cuándo rige para el BCV
+ *   desde        desde cuándo la cobramos aquí
+ *
+ * El sitio no tenía ninguna de las dos: cobraba con la tasa nueva desde el
+ * momento en que el BCV la colgaba. El 7 de septiembre de 2026, de noche,
+ * rpym.net facturaba a 814,69 cuando lo que regía ese día era 813,74.
+ *
+ * Y las dos fechas se separan los fines de semana. El BCV publica el viernes
+ * por la tarde con fecha valor del LUNES, pero la regla del negocio —la dio
+ * el dueño— es que se cobra desde el día siguiente a que se publica, o sea el
+ * SÁBADO. Ese es el caso que estos tests protegen, porque es el que un
+ * arreglo "a ojo" se salta.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { aplicarVigencia } from '../bcv-fuentes';
+import { aplicarVigencia, desdeCuandoSeCobra } from '../bcv-fuentes';
 import { hoyEnCaracas, dmyAIso } from '../format';
 import type { TasaBCV } from '../bcv-oficial';
 
-/** D1 de mentira: solo sabe responder la consulta de la tasa vigente */
-function dbCon(filas: Array<{ date: string; usd_rate: number }>) {
+interface Fila { date: string; usd_rate: number; desde?: string }
+
+/** D1 de mentira: entiende las dos consultas de vigencia */
+function dbCon(filas: Fila[]) {
+  const desdeDe = (f: Fila) => f.desde ?? f.date;
+
   return {
     prepare: (sql: string) => ({
-      bind: (hasta: string) => ({
+      bind: (hoy: string) => ({
         first: async () => {
           if (!sql.includes('FROM bcv_rates')) return null;
+          const haciaAtras = sql.includes('<= ?');
           const candidatas = filas
-            .filter((f) => f.date <= hasta)
-            .sort((a, b) => (a.date < b.date ? 1 : -1));
-          return candidatas[0] ?? null;
+            .filter((f) => (haciaAtras ? desdeDe(f) <= hoy : desdeDe(f) > hoy))
+            .sort((a, b) =>
+              haciaAtras ? desdeDe(b).localeCompare(desdeDe(a)) : desdeDe(a).localeCompare(desdeDe(b))
+            );
+          const f = candidatas[0];
+          return f ? { usd_rate: f.usd_rate, desde: desdeDe(f) } : null;
         },
         run: async () => ({}),
       }),
@@ -30,19 +47,42 @@ function dbCon(filas: Array<{ date: string; usd_rate: number }>) {
   } as any;
 }
 
-const publicada = (rate: number, date: string): TasaBCV => ({ rate, date, source: 'BCV' });
+const leida = (rate: number, date: string): TasaBCV => ({ rate, date, source: 'BCV' });
+
+describe('desdeCuandoSeCobra', () => {
+  it('el viernes: fecha valor del lunes, pero se cobra desde el sábado', () => {
+    // El BCV publica el viernes 11 con fecha valor del lunes 14
+    expect(desdeCuandoSeCobra('2026-09-14', '2026-09-11')).toBe('2026-09-12');
+  });
+
+  it('con el lunes feriado tampoco espera: sigue siendo el sábado', () => {
+    // Fecha valor del martes 15 porque el lunes 14 es feriado
+    expect(desdeCuandoSeCobra('2026-09-15', '2026-09-11')).toBe('2026-09-12');
+  });
+
+  it('entre semana coincide con la fecha valor', () => {
+    expect(desdeCuandoSeCobra('2026-09-08', '2026-09-07')).toBe('2026-09-08');
+  });
+
+  it('si se ve tarde manda la fecha valor: nunca más tarde que lo oficial', () => {
+    // El sitio estuvo caído el viernes y el sábado; se ve el lunes 14
+    expect(desdeCuandoSeCobra('2026-09-14', '2026-09-14')).toBe('2026-09-14');
+    // Y si se ve aún más tarde, tampoco se adelanta a mañana
+    expect(desdeCuandoSeCobra('2026-09-14', '2026-09-16')).toBe('2026-09-14');
+  });
+});
 
 describe('aplicarVigencia', () => {
   afterEach(() => vi.useRealTimers());
 
-  it('sirve la anterior mientras la publicada no haya entrado en vigor', async () => {
+  it('la publicada esta tarde no se cobra hasta mañana', async () => {
     vi.setSystemTime(new Date('2026-09-07T21:30:00Z')); // 17:30 en Caracas
     const db = dbCon([
-      { date: '2026-09-07', usd_rate: 813.74 },
-      { date: '2026-09-08', usd_rate: 814.69 },
+      { date: '2026-09-07', usd_rate: 813.74, desde: '2026-09-07' },
+      { date: '2026-09-08', usd_rate: 814.69, desde: '2026-09-08' },
     ]);
 
-    expect(await aplicarVigencia(db, publicada(814.69, '08/09/2026'))).toEqual({
+    expect(await aplicarVigencia(db, leida(814.69, '08/09/2026'))).toEqual({
       rate: 813.74,
       date: '07/09/2026',
       source: 'BCV',
@@ -50,102 +90,109 @@ describe('aplicarVigencia', () => {
     });
   });
 
-  it('al día siguiente la nueva pasa a regir sola, sin releer nada', async () => {
-    vi.setSystemTime(new Date('2026-09-08T12:00:00Z')); // ya es 8 en Caracas
+  it('al día siguiente entra sola, sin releer ni desplegar nada', async () => {
+    vi.setSystemTime(new Date('2026-09-08T12:00:00Z'));
     const db = dbCon([
-      { date: '2026-09-07', usd_rate: 813.74 },
-      { date: '2026-09-08', usd_rate: 814.69 },
+      { date: '2026-09-07', usd_rate: 813.74, desde: '2026-09-07' },
+      { date: '2026-09-08', usd_rate: 814.69, desde: '2026-09-08' },
     ]);
 
-    const tasa = await aplicarVigencia(db, publicada(814.69, '08/09/2026'));
-    expect(tasa).toEqual({ rate: 814.69, date: '08/09/2026', source: 'BCV', proxima: null });
+    expect(await aplicarVigencia(db, leida(814.69, '08/09/2026'))).toEqual({
+      rate: 814.69, date: '08/09/2026', source: 'BCV', proxima: null,
+    });
+  });
+
+  it('el sábado ya se cobra la del viernes, aunque el BCV siga diciendo "lunes"', async () => {
+    /* El caso que importa. El viernes 11 se apuntó 830 con fecha valor del
+       lunes 14 y desde el sábado 12. El sábado la página del BCV sigue
+       enseñando exactamente lo mismo —fecha valor 14—, así que la lectura de
+       ese día no basta: quien sabe que ya se cobra es la tabla. */
+    const db = dbCon([
+      { date: '2026-09-11', usd_rate: 820.0, desde: '2026-09-11' },
+      { date: '2026-09-14', usd_rate: 830.0, desde: '2026-09-12' },
+    ]);
+
+    // Viernes 11 por la tarde: todavía la vieja, y se anuncia la del sábado
+    vi.setSystemTime(new Date('2026-09-11T20:00:00Z'));
+    const viernes = await aplicarVigencia(db, leida(830.0, '14/09/2026'));
+    expect(viernes.rate).toBe(820.0);
+    expect(viernes.proxima).toEqual({ rate: 830.0, date: '12/09/2026' });
+
+    // Sábado 12 y domingo 13: ya la nueva
+    for (const dia of ['2026-09-12T16:00:00Z', '2026-09-13T16:00:00Z']) {
+      vi.setSystemTime(new Date(dia));
+      const tasa = await aplicarVigencia(db, leida(830.0, '14/09/2026'));
+      expect(tasa.rate).toBe(830.0);
+      expect(tasa.proxima).toBeNull();
+    }
+  });
+
+  it('el salto por feriado tampoco espera a la fecha valor', async () => {
+    // Viernes 11, fecha valor martes 15 porque el lunes 14 es feriado.
+    // Se cobra igual desde el sábado 12.
+    const db = dbCon([
+      { date: '2026-09-11', usd_rate: 820.0, desde: '2026-09-11' },
+      { date: '2026-09-15', usd_rate: 830.0, desde: '2026-09-12' },
+    ]);
+
+    vi.setSystemTime(new Date('2026-09-12T16:00:00Z'));
+    expect((await aplicarVigencia(db, leida(830.0, '15/09/2026'))).rate).toBe(830.0);
   });
 
   it('el salto ocurre a medianoche de Caracas, no de UTC', async () => {
-    // 22:00 UTC del 7 son las 18:00 en Caracas: todavía es día 7 allá, y la
-    // tasa del 8 no debe entrar. Con toISOString() aquí ya se leía "2026-09-08".
+    // 22:00 UTC del 7 son las 18:00 en Caracas: todavía es día 7 allá.
+    // Con toISOString() aquí ya se leía "2026-09-08".
     vi.setSystemTime(new Date('2026-09-07T22:00:00Z'));
     expect(hoyEnCaracas()).toBe('2026-09-07');
 
-    const db = dbCon([{ date: '2026-09-07', usd_rate: 813.74 }]);
-    const tasa = await aplicarVigencia(db, publicada(814.69, '08/09/2026'));
-    expect(tasa.rate).toBe(813.74);
-  });
-
-  it('el fin de semana no es excepción: la del viernes rige el sábado', async () => {
-    // El BCV publica el viernes 11 por la tarde con fecha valor del lunes 14;
-    // el sábado 12 y el domingo 13 sigue rigiendo la del viernes.
-    vi.setSystemTime(new Date('2026-09-12T16:00:00Z')); // sábado, mediodía en Caracas
     const db = dbCon([
-      { date: '2026-09-11', usd_rate: 820.00 },
-      { date: '2026-09-14', usd_rate: 825.00 },
+      { date: '2026-09-07', usd_rate: 813.74, desde: '2026-09-07' },
+      { date: '2026-09-08', usd_rate: 814.69, desde: '2026-09-08' },
     ]);
-
-    const tasa = await aplicarVigencia(db, publicada(825.0, '14/09/2026'));
-    expect(tasa.rate).toBe(820.0);
-    expect(tasa.proxima).toEqual({ rate: 825.0, date: '14/09/2026' });
+    expect((await aplicarVigencia(db, leida(814.69, '08/09/2026'))).rate).toBe(813.74);
   });
 
-  it('si la fecha valor salta un feriado, la anterior aguanta los días de en medio', async () => {
-    /* El caso que no se puede resolver sumando un día: el BCV publica el
-       lunes 7 por la tarde y su fecha valor NO es el 8 —feriado— sino el 9.
-       Aquí no se suma nada: se lee la fecha valor que trae la página y se
-       sirve la fila más reciente que ya haya llegado, así que el 8 sigue
-       rigiendo la del 7 y el 9 entra la nueva. Da igual cuántos días salte. */
+  it('no hacen falta filas para los días de en medio', async () => {
+    // Semana santa: del 1 al 6 de abril no hay nada apuntado, y da igual.
+    // La consulta mira hacia atrás, no día a día.
     const db = dbCon([
-      { date: '2026-09-07', usd_rate: 813.74 },
-      { date: '2026-09-09', usd_rate: 830.00 },
-    ]);
-
-    // Lunes 7 por la noche, ya publicada la del miércoles
-    vi.setSystemTime(new Date('2026-09-07T22:00:00Z'));
-    expect((await aplicarVigencia(db, publicada(830.0, '09/09/2026'))).rate).toBe(813.74);
-
-    // Martes 8, el feriado: sigue la del 7, y lo que viene se anuncia con SU
-    // fecha, no como "mañana"
-    vi.setSystemTime(new Date('2026-09-08T16:00:00Z'));
-    const enFeriado = await aplicarVigencia(db, publicada(830.0, '09/09/2026'));
-    expect(enFeriado.rate).toBe(813.74);
-    expect(enFeriado.proxima).toEqual({ rate: 830.0, date: '09/09/2026' });
-
-    // Miércoles 9: ahora sí
-    vi.setSystemTime(new Date('2026-09-09T16:00:00Z'));
-    expect((await aplicarVigencia(db, publicada(830.0, '09/09/2026'))).rate).toBe(830.0);
-  });
-
-  it('un salto largo tampoco necesita filas para los días de en medio', async () => {
-    // Semana santa: se publica el miércoles con fecha valor del lunes
-    // siguiente. Los cinco días de en medio no tienen fila y no hace falta:
-    // la consulta mira hacia atrás, no día a día.
-    const db = dbCon([
-      { date: '2026-04-01', usd_rate: 500.0 },
-      { date: '2026-04-06', usd_rate: 510.0 },
+      { date: '2026-04-01', usd_rate: 500.0, desde: '2026-04-01' },
+      { date: '2026-04-06', usd_rate: 510.0, desde: '2026-04-02' },
     ]);
 
     for (const dia of ['2026-04-02', '2026-04-03', '2026-04-04', '2026-04-05']) {
       vi.setSystemTime(new Date(`${dia}T16:00:00Z`));
-      expect((await aplicarVigencia(db, publicada(510.0, '06/04/2026'))).rate).toBe(500.0);
+      expect((await aplicarVigencia(db, leida(510.0, '06/04/2026'))).rate).toBe(510.0);
     }
-
-    vi.setSystemTime(new Date('2026-04-06T16:00:00Z'));
-    expect((await aplicarVigencia(db, publicada(510.0, '06/04/2026'))).rate).toBe(510.0);
   });
 
-  it('sin memoria de la anterior se sigue con la publicada, que es lo único que hay', async () => {
+  it('sin memoria se sigue con lo leído, que es lo único que hay', async () => {
     vi.setSystemTime(new Date('2026-09-07T21:30:00Z'));
-    const tasa = await aplicarVigencia(dbCon([]), publicada(814.69, '08/09/2026'));
-    expect(tasa).toEqual({ rate: 814.69, date: '08/09/2026', source: 'BCV', proxima: null });
+    expect(await aplicarVigencia(dbCon([]), leida(814.69, '08/09/2026'))).toEqual({
+      rate: 814.69, date: '08/09/2026', source: 'BCV', proxima: null,
+    });
   });
 
-  it('una tasa que ya rige pasa tal cual, sin tocar la base', async () => {
+  it('sin base de datos tampoco se cae', async () => {
     vi.setSystemTime(new Date('2026-09-07T14:00:00Z'));
-    const tasa = await aplicarVigencia(null, publicada(813.74, '07/09/2026'));
-    expect(tasa).toEqual({ rate: 813.74, date: '07/09/2026', source: 'BCV', proxima: null });
+    expect(await aplicarVigencia(null, leida(813.74, '07/09/2026'))).toEqual({
+      rate: 813.74, date: '07/09/2026', source: 'BCV', proxima: null,
+    });
+  });
+
+  it('si el BCV lleva días caído, manda la fuente que va por delante', async () => {
+    // Lo último apuntado es del día 7; dolarapi trae ya la del 20, que es
+    // vigente. Servir la vieja teniendo esa sería peor.
+    vi.setSystemTime(new Date('2026-09-20T16:00:00Z'));
+    const db = dbCon([{ date: '2026-09-07', usd_rate: 813.74, desde: '2026-09-07' }]);
+
+    const tasa = await aplicarVigencia(db, { rate: 900.0, date: '20/09/2026', source: 'BCV' });
+    expect(tasa.rate).toBe(900.0);
   });
 
   it('conserva la fuente de la que se leyó, no la de la fila guardada', async () => {
     vi.setSystemTime(new Date('2026-09-07T21:30:00Z'));
-    const db = dbCon([{ date: '2026-09-07', usd_rate: 813.74 }]);
+    const db = dbCon([{ date: '2026-09-07', usd_rate: 813.74, desde: '2026-09-07' }]);
     const tasa = await aplicarVigencia(db, { rate: 814.69, date: '08/09/2026', source: 'BCV (puente)' });
     expect(tasa.source).toBe('BCV (puente)');
   });
