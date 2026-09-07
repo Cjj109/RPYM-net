@@ -55,6 +55,15 @@ interface BCVRateData {
   proxima?: { rate: number; date: string } | null;
 }
 
+interface AdelantoInfo {
+  /** true si se está cobrando una tasa antes de su día de entrada */
+  adelantada: boolean;
+  /** El día en que esa tasa iba a entrar por su cuenta */
+  entrabaEl: string | null;
+  /** La siguiente publicada que todavía no se cobra */
+  proxima: { rate: number; entra: string } | null;
+}
+
 interface Props {
   currentBcvRate: BCVRateData;
 }
@@ -172,6 +181,12 @@ export default function AdminSettings({ currentBcvRate }: Props) {
   const [useManualRate, setUseManualRate] = useState(false);
   const [manualRate, setManualRate] = useState('');
   const [isSavingRate, setIsSavingRate] = useState(false);
+  const [isSavingAdelanto, setIsSavingAdelanto] = useState(false);
+  /* El estado del adelanto se pide aparte y no viaja con la tasa.
+     La tasa la calcula aplicarVigencia en cada renderizado del catálogo, y
+     colgarle ahí un dato que solo mira este panel era una consulta a D1 de
+     más en la página que ve el cliente. */
+  const [adelanto, setAdelanto] = useState<AdelantoInfo | null>(null);
   const [rateMessage, setRateMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Fuentes de la tasa: cuál manda, cuál es el respaldo y qué da cada una
@@ -220,6 +235,13 @@ export default function AdminSettings({ currentBcvRate }: Props) {
           if (data.manual && data.rate) {
             setManualRate(data.rate.toString());
           }
+        }
+
+        // Estado del adelanto de la tasa
+        const adelantoRes = await fetch('/api/config/bcv-adelanto', { credentials: 'include' });
+        if (adelantoRes.ok) {
+          const data = await adelantoRes.json();
+          if (data.success) setAdelanto(data);
         }
 
         // Load AI provider config
@@ -364,6 +386,38 @@ export default function AdminSettings({ currentBcvRate }: Props) {
       setRateMessage({ type: 'error', text: 'Error de conexion' });
     } finally {
       setIsSavingRate(false);
+    }
+  };
+
+  /**
+   * Adelanta la tasa nueva, o vuelve a la que rige.
+   *
+   * Se recarga la página en vez de tocar el estado: la tasa llega por SSR
+   * —la calcula presupuestos.astro antes de pintar—, así que cambiarla solo
+   * en React dejaría el resto del panel enseñando la anterior.
+   */
+  const cambiarAdelanto = async (adelantar: boolean) => {
+    setIsSavingAdelanto(true);
+    setRateMessage(null);
+
+    try {
+      const response = await fetch('/api/config/bcv-adelanto', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ adelantar }),
+      });
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        window.location.reload();
+        return;
+      }
+      setRateMessage({ type: 'error', text: data.error || 'No se pudo cambiar la tasa' });
+    } catch (error) {
+      setRateMessage({ type: 'error', text: 'Error de conexion' });
+    } finally {
+      setIsSavingAdelanto(false);
     }
   };
 
@@ -701,30 +755,79 @@ export default function AdminSettings({ currentBcvRate }: Props) {
           Configura la tasa de cambio para calcular precios en Bolivares.
         </p>
 
-        {/* Current auto rate display */}
+        {/* Las dos tasas, lado a lado.
+
+            El BCV publica por la tarde una tasa que no entra hasta el dia
+            siguiente, asi que en todo momento hay dos cifras distintas y las
+            dos son ciertas. Ensenar solo una obligaba a adivinar cual. */}
         <div className="bg-gradient-to-r from-ocean-50 to-ocean-100 rounded-lg p-4 mb-4">
-          <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <p className="text-sm text-ocean-600 mb-1">Tasa que rige hoy</p>
+              <p className="text-sm text-ocean-600 mb-1">
+                {adelanto?.adelantada ? 'Cobrando (adelantada)' : 'Tasa en vigor'}
+              </p>
               <p className="text-2xl font-bold text-ocean-900">
                 Bs. {currentBcvRate.rate.toFixed(2)}
               </p>
-              {/* El BCV publica por la tarde la del dia siguiente. Se anuncia,
-                  pero no se cobra con ella hasta que llegue su fecha. */}
-              {currentBcvRate.proxima && (
-                <p className="text-xs text-ocean-600 mt-1">
-                  Desde el {currentBcvRate.proxima.date}: Bs. {currentBcvRate.proxima.rate.toFixed(2)}
-                </p>
+              <p className="text-xs text-ocean-600 mt-1">Desde el {currentBcvRate.date}</p>
+            </div>
+
+            <div className="sm:border-l sm:border-ocean-200 sm:pl-4">
+              {adelanto?.adelantada ? (
+                <>
+                  <p className="text-sm text-ocean-600 mb-1">Adelantada a mano</p>
+                  <p className="text-xs text-ocean-600">
+                    Se esta cobrando con una tasa que no entraba hasta el{' '}
+                    {adelanto.entrabaEl}. Al llegar ese dia esto deja de tener efecto solo.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => cambiarAdelanto(false)}
+                    disabled={isSavingAdelanto}
+                    className="mt-2 px-3 py-1.5 text-xs font-medium rounded-md border border-ocean-300 text-ocean-700 hover:bg-ocean-50 disabled:opacity-50"
+                  >
+                    {isSavingAdelanto ? 'Cambiando...' : 'Volver a la que rige'}
+                  </button>
+                </>
+              ) : adelanto?.proxima ? (
+                <>
+                  <p className="text-sm text-ocean-600 mb-1">Nueva publicada</p>
+                  <p className="text-2xl font-bold text-ocean-900">
+                    Bs. {adelanto.proxima.rate.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-ocean-600 mt-1">Entra el {adelanto.proxima.entra}</p>
+                  <button
+                    type="button"
+                    onClick={() => cambiarAdelanto(true)}
+                    disabled={isSavingAdelanto}
+                    className="mt-2 px-3 py-1.5 text-xs font-medium rounded-md bg-ocean-600 text-white hover:bg-ocean-700 disabled:opacity-50"
+                  >
+                    {isSavingAdelanto ? 'Cambiando...' : 'Cobrar con esta ya'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-ocean-600 mb-1">Nueva publicada</p>
+                  <p className="text-xs text-ocean-600">
+                    {isLoadingConfig
+                      ? 'Consultando...'
+                      : 'El BCV no ha publicado ninguna todavia. Suele hacerlo por la tarde.'}
+                  </p>
+                </>
               )}
             </div>
-            <div className="text-right text-sm text-ocean-600">
-              <p className="flex items-center gap-1 justify-end">
-                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                Fuente: {currentBcvRate.source}
-              </p>
-              <p>Rige desde el {currentBcvRate.date}</p>
-            </div>
           </div>
+
+          <p className="flex items-center gap-1 mt-3 text-xs text-ocean-600">
+            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+            Fuente: {currentBcvRate.source}
+          </p>
+          {adelanto?.proxima && (
+            <p className="mt-1 text-xs text-ocean-600">
+              Cobrar con la nueva antes de tiempo cambia los precios de todo el sitio —y la
+              tasa de los reportes Z de hoy—, no solo los de ese pago.
+            </p>
+          )}
         </div>
 
         {/* De donde sale la tasa */}

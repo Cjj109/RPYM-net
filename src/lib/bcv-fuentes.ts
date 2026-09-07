@@ -466,6 +466,116 @@ async function proximaTras(
   }
 }
 
+/* ── Adelantar la tasa que viene ──────────────────────────
+
+   A veces hay que pagarle a un proveedor que ya cobra a la tasa que entra
+   mañana. El panel tiene un botón para eso.
+
+   POR QUÉ ESTO CAMBIA EL DATO Y NO PONE UN INTERRUPTOR
+
+   El primer intento fue una llave en site_config y un `limite` que
+   aplicarVigencia miraba en vez de hoy. Funcionaba para el catálogo y estaba
+   mal, porque la tasa que se cobra no la lee solo el catálogo: los reportes Z
+   y el histórico de tasas la consultan por su cuenta contra bcv_rates. Con el
+   interruptor puesto, la caja cobraba 830 y el Z de ese día convertía a 820
+   —exactamente el descuadre contra los tickets que se acababa de arreglar—, y
+   cada consumidor nuevo habría tenido que acordarse del interruptor.
+
+   Así que adelantar es lo que de verdad significa: esa tasa empieza a
+   cobrarse HOY. Se escribe en `desde`, que es el campo que quiere decir eso,
+   y entonces todo el sistema ve la misma verdad sin que nadie propague nada.
+
+   Lo único que se guarda aparte es cómo deshacerlo: qué fila se tocó y qué
+   `desde` tenía antes.                                                      */
+
+const CLAVE_ADELANTO = 'bcv_adelanto';
+
+export interface Adelanto {
+  /** La fecha valor de la fila adelantada */
+  date: string;
+  /** El `desde` que tenía antes, para poder devolverlo */
+  desdeAnterior: string;
+}
+
+async function leerRegistroAdelanto(db?: D1Database | null): Promise<Adelanto | null> {
+  if (!db) return null;
+  try {
+    const fila = await db
+      .prepare('SELECT value FROM site_config WHERE key = ?')
+      .bind(CLAVE_ADELANTO)
+      .first<{ value: string }>();
+    if (!fila?.value) return null;
+
+    const datos = JSON.parse(fila.value) as Partial<Adelanto>;
+    return datos.date && datos.desdeAnterior
+      ? { date: datos.date, desdeAnterior: datos.desdeAnterior }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * El adelanto en curso, o null.
+ *
+ * Se considera terminado cuando el día en que la tasa iba a entrar por su
+ * cuenta ya llegó: a partir de ahí adelantarla no significa nada, y dejar el
+ * panel diciendo "adelantada" para siempre sería mentir. No hace falta
+ * borrarlo: deshacerlo entonces devolvería un `desde` que ya pasó, que es
+ * exactamente lo mismo que hay.
+ */
+export async function adelantoEnCurso(db?: D1Database | null): Promise<Adelanto | null> {
+  const registro = await leerRegistroAdelanto(db);
+  return registro && registro.desdeAnterior > hoyEnCaracas() ? registro : null;
+}
+
+/** La siguiente tasa apuntada que todavía no se cobra */
+export async function proximaSinEntrar(
+  db: D1Database
+): Promise<{ rate: number; date: string; desde: string } | null> {
+  const hoyISO = hoyEnCaracas();
+  try {
+    const fila = await db
+      .prepare(
+        `SELECT date, usd_rate, COALESCE(desde, date) AS desde FROM bcv_rates
+         WHERE COALESCE(desde, date) > ? ORDER BY COALESCE(desde, date) ASC LIMIT 1`
+      )
+      .bind(hoyISO)
+      .first<{ date: string; usd_rate: number; desde: string }>();
+
+    return fila && fila.usd_rate > 0
+      ? { rate: fila.usd_rate, date: fila.date, desde: fila.desde }
+      : null;
+  } catch (error) {
+    console.error('[BCV] Error buscando la próxima tasa:', error);
+    return null;
+  }
+}
+
+/** Adelanta esa fila a hoy y apunta cómo deshacerlo */
+export async function adelantar(db: D1Database, fila: { date: string; desde: string }): Promise<void> {
+  const registro: Adelanto = { date: fila.date, desdeAnterior: fila.desde };
+  await db.batch([
+    db.prepare('UPDATE bcv_rates SET desde = ? WHERE date = ?').bind(hoyEnCaracas(), fila.date),
+    db
+      .prepare("INSERT OR REPLACE INTO site_config (key, value, updated_at) VALUES (?, ?, datetime('now'))")
+      .bind(CLAVE_ADELANTO, JSON.stringify(registro)),
+  ]);
+}
+
+/** Devuelve la fila adelantada a su día de entrada */
+export async function deshacerAdelanto(db: D1Database): Promise<void> {
+  const registro = await leerRegistroAdelanto(db);
+  if (!registro) return;
+
+  await db.batch([
+    db.prepare('UPDATE bcv_rates SET desde = ? WHERE date = ?').bind(registro.desdeAnterior, registro.date),
+    db
+      .prepare("INSERT OR REPLACE INTO site_config (key, value, updated_at) VALUES (?, ?, datetime('now'))")
+      .bind(CLAVE_ADELANTO, ''),
+  ]);
+}
+
 /** La fecha valor más alta apuntada, incluidas las que aún no han entrado */
 async function ultimaFechaValor(db: D1Database | null | undefined): Promise<string | null> {
   if (!db) return null;
@@ -573,3 +683,4 @@ export async function obtenerTasaSegunPreferencia(
   const ultima = await leerUltimaOficial(db);
   return ultima ? aplicarVigencia(db, ultima) : null;
 }
+
