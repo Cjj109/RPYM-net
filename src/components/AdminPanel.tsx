@@ -39,6 +39,8 @@ interface BCVRateData {
   rate: number;
   date: string;
   source: string;
+  /** La que el BCV ya publicó y todavía no rige (empieza al día siguiente) */
+  proxima?: { rate: number; date: string } | null;
 }
 
 interface AdminUser {

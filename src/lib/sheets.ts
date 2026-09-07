@@ -6,6 +6,7 @@
 
 import type { D1Database } from './d1-types';
 import { obtenerTasaSegunPreferencia, sincronizarTasaManual } from './bcv-fuentes';
+import { getCurrentDateDisplay } from './format';
 
 const SHEET_ID = import.meta.env.PUBLIC_SHEET_ID || 'TU_SHEET_ID_AQUI';
 
@@ -782,17 +783,19 @@ const SAMPLE_DATA: Omit<Product, 'precioBs' | 'descripcionCorta' | 'descripcionH
  */
 export async function getBCVRate(db?: D1Database | null): Promise<BCVRate> {
   // Helper: guardar tasa en D1 para futuro fallback
-  // Tambien alimenta bcv_rates (historial por fecha) que usan los reportes Z
-  // para convertir a USD con la tasa del dia, no con la ultima conocida.
+  //
+  // El historial por fecha (bcv_rates) lo escribe ahora obtenerTasaSegunPreferencia,
+  // bajo la FECHA VALOR de la tasa. Aquí se hacía bajo `toISOString()`, o sea
+  // el día en que se leía y en UTC: cada fila guardaba la tasa que empezaba a
+  // regir al día siguiente, y los reportes Z convertían con una tasa corrida
+  // un día justamente por eso.
   async function saveToD1(rate: number, source: string, date: string): Promise<void> {
     if (!db) return;
-    const today = new Date().toISOString().split('T')[0];
     try {
       await db.batch([
         db.prepare("INSERT OR REPLACE INTO site_config (key, value, updated_at) VALUES ('bcv_rate_auto', ?, datetime('now'))").bind(String(rate)),
         db.prepare("INSERT OR REPLACE INTO site_config (key, value, updated_at) VALUES ('bcv_rate_source', ?, datetime('now'))").bind(source),
         db.prepare("INSERT OR REPLACE INTO site_config (key, value, updated_at) VALUES ('bcv_rate_date', ?, datetime('now'))").bind(date),
-        db.prepare('INSERT OR REPLACE INTO bcv_rates (date, usd_rate) VALUES (?, ?)').bind(today, rate),
       ]);
       await sincronizarTasaManual(db, rate);
     } catch (e) {
@@ -808,7 +811,7 @@ export async function getBCVRate(db?: D1Database | null): Promise<BCVRate> {
       if (result?.value) {
         const rate = parseFloat(result.value);
         if (rate > 0) {
-          return { rate, date: new Date().toLocaleDateString('es-VE'), source: 'BCV (cache)' };
+          return { rate, date: getCurrentDateDisplay(), source: 'BCV (cache)' };
         }
       }
     } catch (e) {
@@ -836,7 +839,7 @@ export async function getBCVRate(db?: D1Database | null): Promise<BCVRate> {
   console.warn('[BCV] Usando tasa de respaldo - APIs y D1 no disponibles');
   return {
     rate: 70.00,
-    date: new Date().toLocaleDateString('es-VE'),
+    date: getCurrentDateDisplay(),
     source: 'Referencial',
   };
 }

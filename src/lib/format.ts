@@ -95,6 +95,36 @@ export const formatMonthYear = (dateStr: string): string => {
 export const getCurrentDateDisplay = (): string => {
   const now = new Date();
   return now.toLocaleDateString('es-VE', {
+    // El servidor corre en UTC: sin la zona, entre las 8 de la noche y la
+    // medianoche de Caracas esto ya decía mañana.
+    timeZone: 'America/Caracas',
     day: '2-digit', month: '2-digit', year: 'numeric',
   });
+};
+
+/**
+ * Hoy en Caracas, "AAAA-MM-DD".
+ *
+ * El código estaba lleno de `new Date().toISOString().split('T')[0]`, que es
+ * hoy en UTC: a partir de las 8 de la noche hora de Venezuela ya devuelve el
+ * día siguiente. En la tasa del BCV eso importaba especialmente, porque las 8
+ * de la noche es justo después de que el BCV publique.
+ *
+ * Venezuela no cambia la hora, así que el respaldo a mano (UTC-4) es exacto
+ * si el runtime viniera sin datos de zonas horarias.
+ */
+export const hoyEnCaracas = (ahora: Date = new Date()): string => {
+  const iso = ahora.toLocaleDateString('en-CA', { timeZone: 'America/Caracas' });
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  return new Date(ahora.getTime() - 4 * 60 * 60 * 1000).toISOString().slice(0, 10);
+};
+
+/** "07/09/2026" -> "2026-09-07"; null si no encaja */
+export const dmyAIso = (fecha: string | null | undefined): string | null => {
+  const p = String(fecha ?? '').split('/');
+  if (p.length !== 3) return null;
+  const [dia, mes, ano] = p;
+  if (dia.length > 2 || mes.length > 2 || ano.length !== 4) return null;
+  const iso = `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+  return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : null;
 };

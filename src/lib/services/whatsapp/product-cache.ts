@@ -56,7 +56,8 @@ export async function getCachedProducts(db: any): Promise<{ products: Product[];
     };
   }
 
-  const bcvRateData = await getBCVRate();
+  // Con db, que es la que sabe qué tasa rige hoy y cuál es solo de mañana
+  const bcvRateData = await getBCVRate(db);
   const products = await getProducts(bcvRateData.rate, db || undefined);
   const productosTexto = formatProductsForAI(products, bcvRateData.rate);
 

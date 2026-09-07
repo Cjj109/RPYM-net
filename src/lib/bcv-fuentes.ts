@@ -9,6 +9,7 @@
  */
 import type { D1Database } from './d1-types';
 import { fetchTasaBCVOficial, intentarPuente, type TasaBCV } from './bcv-oficial';
+import { hoyEnCaracas, dmyAIso } from './format';
 
 export type FuenteBCV = 'oficial' | 'puente' | 'cotizave' | 'dolarapi';
 
@@ -140,8 +141,10 @@ export async function leerTodasLasFuentes(
       const disponible = !FUENTE_META[id].requiereClave || !!claveCotizave;
       const tasa = disponible ? await leerFuente(id, claveCotizave, claveJina) : null;
 
-      // Si la oficial no responde ahora, se enseña la última que se le leyó,
-      // que es la que el sitio está usando de verdad.
+      // Si la oficial no responde ahora, se enseña la última que se le leyó.
+      // Ojo: es lo último PUBLICADO, que no siempre es lo que se está
+      // cobrando — si el BCV ya colgó la de mañana, el sitio sigue con la
+      // anterior (aplicarVigencia). La fecha de la ficha lo delata.
       if (!tasa && id === 'oficial') {
         const guardada = await leerUltimaOficial(db);
         if (guardada) {
@@ -303,6 +306,102 @@ export async function guardarPreferenciaFuentes(
   ]);
 }
 
+/* ── Desde cuándo rige cada tasa ──────────────────────────
+
+   El BCV publica por la tarde la tasa del día SIGUIENTE, y su fecha valor
+   viene en la propia página. Hasta ahora se cobraba con ella desde el momento
+   en que aparecía: el 7 de septiembre por la noche el sitio ya facturaba a
+   814,69, que no regía hasta el 8, y lo que regía ese día seguía siendo
+   813,7361.
+
+   La memoria no hace falta inventarla: bcv_rates ya es una tabla de tasa por
+   fecha, la que usan los reportes Z para convertir con la tasa del día. Lo
+   que estaba mal era la clave. Se guardaba bajo `toISOString()` —el día en
+   que se leyó, y encima en UTC— en vez de bajo la fecha valor, así que cada
+   fila acababa con la tasa que empezaba a regir al día siguiente. El
+   historial fiscal iba corrido un día entero.
+
+   Ahora se guarda bajo la fecha valor y se sirve la fila más reciente que ya
+   haya llegado. Al pasar la medianoche de Caracas la de mañana pasa a ser la
+   de hoy sola, sin releer ni desplegar nada.                                */
+
+/** "2026-09-07" -> "07/09/2026" */
+function isoADmy(iso: string): string {
+  const p = iso.split('-');
+  return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : iso;
+}
+
+/**
+ * Apunta la tasa bajo SU fecha valor.
+ *
+ * Solo para lo que se lee de la página del BCV (directa o por el puente):
+ * es la única fuente que publica la fecha desde la que rige. Las demás datan
+ * con el día en que se actualizaron, que no es lo mismo, y meter eso en la
+ * tabla que usan los reportes Z corrompería el histórico.
+ *
+ * El upsert conserva eur_rate: update-bcv.ts escribe el euro en la misma
+ * fila, y un INSERT OR REPLACE lo habría borrado en cada lectura del dólar.
+ */
+async function guardarVigencia(db: D1Database | null | undefined, tasa: TasaBCV): Promise<void> {
+  const iso = dmyAIso(tasa.date);
+  if (!db || !iso || !(tasa.rate > 0)) return;
+
+  try {
+    await db
+      .prepare(
+        `INSERT INTO bcv_rates (date, usd_rate) VALUES (?, ?)
+         ON CONFLICT(date) DO UPDATE SET usd_rate = excluded.usd_rate`
+      )
+      .bind(iso, tasa.rate)
+      .run();
+  } catch (error) {
+    console.error('[BCV] Error guardando la vigencia:', error);
+  }
+}
+
+/** La tasa apuntada más reciente que ya haya entrado en vigor */
+async function vigenteEn(db: D1Database | null | undefined, hoyISO: string): Promise<TasaBCV | null> {
+  if (!db) return null;
+  try {
+    const fila = await db
+      .prepare('SELECT date, usd_rate FROM bcv_rates WHERE date <= ? ORDER BY date DESC LIMIT 1')
+      .bind(hoyISO)
+      .first<{ date: string; usd_rate: number }>();
+
+    return fila && fila.usd_rate > 0
+      ? { rate: fila.usd_rate, date: isoADmy(fila.date), source: 'BCV' }
+      : null;
+  } catch (error) {
+    console.error('[BCV] Error leyendo la vigencia:', error);
+    return null;
+  }
+}
+
+/**
+ * Cambia una tasa adelantada por la que rige, y anuncia la otra en `proxima`.
+ *
+ * Se aplica al final y a TODA tasa, venga de donde venga: si no, la del BCV
+ * se colaba igual por la puerta de al lado —leerUltimaOficial guarda lo
+ * último leído, y esa comparación de "no retroceder" habría devuelto la
+ * adelantada aunque dolarapi trajera la correcta.
+ *
+ * Si no hay memoria de la anterior se sigue con la publicada: es lo único que
+ * hay, y es lo que se hacía antes. `date` sigue delatando que es futura.
+ */
+export async function aplicarVigencia(
+  db: D1Database | null | undefined,
+  tasa: TasaBCV
+): Promise<TasaBCV> {
+  const hoyISO = hoyEnCaracas();
+  const iso = dmyAIso(tasa.date);
+  if (!iso || iso <= hoyISO) return { ...tasa, proxima: null };
+
+  const vigente = await vigenteEn(db, hoyISO);
+  if (!vigente) return { ...tasa, proxima: null };
+
+  return { ...vigente, source: tasa.source, proxima: { rate: tasa.rate, date: tasa.date } };
+}
+
 /**
  * Obtiene la tasa respetando la preferencia: primero la principal, luego la
  * de respaldo, y si las dos fallan se recorre el resto antes de rendirse.
@@ -321,9 +420,15 @@ export async function obtenerTasaSegunPreferencia(
     const tasa = await leerFuente(fuente, claveCotizave, claveJina);
     if (!tasa) continue;
 
+    // La pagina del BCV es la unica que trae fecha valor: solo de ahi se
+    // apunta desde cuando rige cada tasa.
+    if (fuente === 'oficial' || fuente === 'puente') {
+      await guardarVigencia(db, tasa);
+    }
+
     if (fuente === 'oficial') {
       await guardarUltimaOficial(db, tasa);
-      return tasa;
+      return aplicarVigencia(db, tasa);
     }
 
     // Esta fuente respondio, pero puede ir por detras de la ultima oficial
@@ -331,11 +436,12 @@ export async function obtenerTasaSegunPreferencia(
     // nunca se retrocede a una tasa mas vieja de la que ya se mostro.
     const guardada = await leerUltimaOficial(db);
     if (guardada && fechaComparable(guardada.date) > fechaComparable(tasa.date)) {
-      return guardada;
+      return aplicarVigencia(db, guardada);
     }
-    return tasa;
+    return aplicarVigencia(db, tasa);
   }
 
   // Ninguna fuente respondio: al menos la ultima oficial conocida
-  return leerUltimaOficial(db);
+  const ultima = await leerUltimaOficial(db);
+  return ultima ? aplicarVigencia(db, ultima) : null;
 }

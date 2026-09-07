@@ -11,7 +11,10 @@ export const prerender = false;
 const db = getD1(Astro.locals);
 
 // Obtener tasa BCV y productos (D1 primary, Google Sheets fallback)
-const bcvRate = await getBCVRate();
+// Con db: sin ella no hay ni fuente preferida ni memoria de cuál tasa rige
+// hoy, así que esta página se quedaba con la que el BCV acaba de publicar
+// para mañana. Es la página que le enseña los precios en bolívares al cliente.
+const bcvRate = await getBCVRate(db);
 const products = await getProducts(bcvRate.rate, db || undefined);
 const categories = groupByCategory(products);
 ---

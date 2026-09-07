@@ -58,7 +58,8 @@ export const GET: APIRoute = async ({ params, locals }) => {
     // Get current BCV rate
     let bcvRate = 0;
     try {
-      const rateData = await getBCVRate();
+      // Con db: es lo que distingue la tasa que rige hoy de la de mañana
+      const rateData = await getBCVRate(db);
       bcvRate = rateData.rate;
     } catch {
       // Fallback if rate fetch fails

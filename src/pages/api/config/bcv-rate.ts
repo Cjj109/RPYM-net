@@ -80,7 +80,13 @@ export const GET: APIRoute = async ({ locals }) => {
 
     if (freshRate) {
       // Actualizar la tasa en D1 para mantenerla sincronizada (fire and forget)
-      const today = new Date().toISOString().split('T')[0];
+      //
+      // El historial por fecha (bcv_rates) ya no se escribe aquí. Se escribía
+      // bajo `toISOString()`, o sea el día en que se leía y encima en UTC,
+      // cuando lo que hay que guardar es la FECHA VALOR de la tasa: así cada
+      // fila acababa con la tasa que empezaba a regir al día siguiente y el
+      // historial que usan los reportes Z iba corrido un día. Ahora lo hace
+      // bcv-fuentes.ts, que es quien tiene esa fecha en la mano.
       try {
         await db.batch([
           db.prepare(
@@ -92,11 +98,9 @@ export const GET: APIRoute = async ({ locals }) => {
           db.prepare(
             "INSERT OR REPLACE INTO site_config (key, value, updated_at) VALUES ('bcv_rate_date', ?, datetime('now'))"
           ).bind(freshRate.date),
-          db.prepare(
-            'INSERT OR REPLACE INTO bcv_rates (date, usd_rate) VALUES (?, ?)'
-          ).bind(today, freshRate.rate),
         ]);
-        // La casilla manual sigue a la tasa real mientras no se sobrescriba
+        // La casilla manual sigue a la tasa real mientras no se sobrescriba.
+        // Es la VIGENTE: si no, escribir a mano heredaba la de mañana.
         await sincronizarTasaManual(db, freshRate.rate);
       } catch (_) { /* ignore errors */ }
 
@@ -107,6 +111,9 @@ export const GET: APIRoute = async ({ locals }) => {
         autoRate: freshRate.rate,
         manualRate: manualRate > 0 ? manualRate : null,
         rateDate: freshRate.date,
+        // La que el BCV ya publicó y todavía no rige, para poder anunciarla
+        // sin cobrar con ella
+        proxima: freshRate.proxima ?? null,
         updatedAt: new Date().toISOString()
       }), {
         headers: {

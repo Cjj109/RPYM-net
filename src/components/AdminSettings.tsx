@@ -51,6 +51,8 @@ interface BCVRateData {
   rate: number;
   date: string;
   source: string;
+  /** La que el BCV ya publicó y todavía no rige (empieza al día siguiente) */
+  proxima?: { rate: number; date: string } | null;
 }
 
 interface Props {
@@ -703,17 +705,24 @@ export default function AdminSettings({ currentBcvRate }: Props) {
         <div className="bg-gradient-to-r from-ocean-50 to-ocean-100 rounded-lg p-4 mb-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
-              <p className="text-sm text-ocean-600 mb-1">Tasa automatica actual</p>
+              <p className="text-sm text-ocean-600 mb-1">Tasa que rige hoy</p>
               <p className="text-2xl font-bold text-ocean-900">
                 Bs. {currentBcvRate.rate.toFixed(2)}
               </p>
+              {/* El BCV publica por la tarde la del dia siguiente. Se anuncia,
+                  pero no se cobra con ella hasta que llegue su fecha. */}
+              {currentBcvRate.proxima && (
+                <p className="text-xs text-ocean-600 mt-1">
+                  Desde el {currentBcvRate.proxima.date}: Bs. {currentBcvRate.proxima.rate.toFixed(2)}
+                </p>
+              )}
             </div>
             <div className="text-right text-sm text-ocean-600">
               <p className="flex items-center gap-1 justify-end">
                 <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
                 Fuente: {currentBcvRate.source}
               </p>
-              <p>{currentBcvRate.date}</p>
+              <p>Rige desde el {currentBcvRate.date}</p>
             </div>
           </div>
         </div>

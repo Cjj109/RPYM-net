@@ -44,8 +44,18 @@
 
 export interface TasaBCV {
   rate: number;
+  /** Fecha VALOR, dd/mm/aaaa: desde cuándo rige, no cuándo se leyó */
   date: string;
   source: string;
+  /**
+   * La tasa que el BCV ya publicó y que todavía no rige.
+   *
+   * El BCV cuelga por la tarde la del día siguiente. Quien consume esto
+   * cobra con `rate` y, si quiere, anuncia `proxima`; convertir con ella
+   * antes de tiempo es el fallo que esto vino a cerrar. La rellena
+   * bcv-fuentes.ts, que es quien tiene la base para saber cuál regía antes.
+   */
+  proxima?: { rate: number; date: string } | null;
 }
 
 const URL_DIRECTA = 'https://www.bcv.org.ve/';

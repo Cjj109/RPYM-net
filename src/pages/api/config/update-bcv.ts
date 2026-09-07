@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getD1 } from '../../../lib/d1-types';
+import { hoyEnCaracas } from '../../../lib/format';
 
 export const prerender = false;
 
@@ -75,7 +76,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    const rateDate = date || new Date().toISOString().split('T')[0];
+    // Sin fecha explícita, hoy en Caracas: con toISOString() era hoy en UTC,
+    // que a partir de las 8 de la noche de Venezuela ya es mañana.
+    const rateDate = date || hoyEnCaracas();
     const eurRate = body.eurRate ? parseFloat(body.eurRate) : null;
 
     // Update the BCV rate in site_config
