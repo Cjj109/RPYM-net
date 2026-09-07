@@ -192,8 +192,26 @@ function fechaComparable(fecha: string): number {
   return ano * 10000 + mes * 100 + dia;
 }
 
+/**
+ * Guarda lo último leído de la página oficial, sin retroceder.
+ *
+ * El BCV parpadea al publicar: la página enseña la nueva, vuelve a la vieja,
+ * otra vez la nueva. Sin la guarda, un parpadeo dejaba aquí apuntada la vieja
+ * como si fuera lo último, y esta clave es justo la que usa la comparación de
+ * "no retroceder" contra las otras fuentes. La tasa que se cobra ya no
+ * depende de esto —manda bcv_rates, indexada por fecha valor, donde cada
+ * lectura cae en SU fila y un parpadeo no puede confundirlas—, pero dejar un
+ * dato malo puesto es dejar una trampa armada.
+ *
+ * Solo se rechaza una fecha valor ESTRICTAMENTE más vieja: si el BCV corrige
+ * la cifra de la misma fecha, esa corrección sí tiene que entrar.
+ */
 async function guardarUltimaOficial(db: D1Database | null | undefined, tasa: TasaBCV): Promise<void> {
   if (!db) return;
+
+  const previa = await leerUltimaOficial(db);
+  if (previa && fechaComparable(previa.date) > fechaComparable(tasa.date)) return;
+
   try {
     await db.batch([
       db.prepare("INSERT OR REPLACE INTO site_config (key, value, updated_at) VALUES (?, ?, datetime('now'))").bind(CLAVE_OFICIAL_TASA, String(tasa.rate)),
@@ -446,6 +464,19 @@ async function proximaTras(
   }
 }
 
+/** La fecha valor más alta apuntada, incluidas las que aún no han entrado */
+async function ultimaFechaValor(db: D1Database | null | undefined): Promise<string | null> {
+  if (!db) return null;
+  try {
+    const fila = await db
+      .prepare('SELECT MAX(date) AS date FROM bcv_rates')
+      .first<{ date: string | null }>();
+    return fila?.date ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Devuelve la tasa que se cobra hoy, y aparte la que ya viene.
  *
@@ -469,11 +500,25 @@ export async function aplicarVigencia(
   // Sin memoria se sigue con lo leído: es lo único que hay.
   if (!vigente) return { ...tasa, proxima: null };
 
-  // Una fuente que no sea la página del BCV puede ir por delante de lo último
-  // apuntado, si el BCV lleva días sin responder. Entonces manda ella: no
-  // tiene sentido servir una tasa vieja teniendo una más nueva y ya vigente.
+  /* Si el BCV lleva días sin responder, otra fuente puede traer una tasa más
+     nueva que todo lo apuntado. Entonces manda ella: servir una vieja
+     teniendo una más nueva y ya vigente sería el fallo que este archivo dice
+     en su cabecera que vino a evitar.
+
+     Se compara contra la última FECHA VALOR, no contra `desde`. Son dos
+     magnitudes distintas y mezclarlas rompía el fin de semana: el sábado
+     `desde` vale 12/09 mientras dolarapi data su tasa el 11 o el 12, y bastaba
+     que la datara un día más adelante para tumbar la del sábado y volver a la
+     de la semana pasada. La fecha valor del BCV y la fecha de dolarapi sí son
+     lo mismo —desde cuándo rige oficialmente—, así que compararlas es legítimo.  */
   const suya = dmyAIso(tasa.date);
-  if (suya && suya > vigente.desde && suya <= hoyISO) return { ...tasa, proxima: null };
+  if (suya && suya <= hoyISO) {
+    // La consulta va aquí dentro y no fuera: por el camino normal —la página
+    // del BCV, cuya fecha valor casi siempre es futura— esto ni se ejecuta,
+    // y esta función corre en cada renderizado del catálogo.
+    const ultimaOficial = await ultimaFechaValor(db);
+    if (!ultimaOficial || suya > ultimaOficial) return { ...tasa, proxima: null };
+  }
 
   return {
     rate: vigente.rate,

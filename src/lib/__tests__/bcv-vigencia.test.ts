@@ -29,6 +29,12 @@ function dbCon(filas: Fila[]) {
 
   return {
     prepare: (sql: string) => ({
+      // MAX(date) no lleva parámetros: el .first() cuelga del prepare
+      first: async () => {
+        if (!sql.includes('MAX(date)')) return null;
+        const fechas = filas.map((f) => f.date).sort();
+        return { date: fechas.length ? fechas[fechas.length - 1] : null };
+      },
       bind: (hoy: string) => ({
         first: async () => {
           if (!sql.includes('FROM bcv_rates')) return null;
@@ -188,6 +194,47 @@ describe('aplicarVigencia', () => {
 
     const tasa = await aplicarVigencia(db, { rate: 900.0, date: '20/09/2026', source: 'BCV' });
     expect(tasa.rate).toBe(900.0);
+  });
+
+  it('pero el fin de semana esa puerta queda cerrada', async () => {
+    /* El domingo se cobra 830 —fecha valor del lunes 14, apuntada el viernes
+       y en vigor aquí desde el sábado 12—. DolarAPI sigue con la oficial del
+       viernes, 820, y la data el día en que responde: el domingo 13.
+
+       Comparar eso contra `desde` (12/09) daba 13 > 12 y tumbaba la del
+       sábado para volver a la de la semana pasada. Son dos magnitudes
+       distintas. Comparando fecha valor contra fecha valor —13 contra el 14
+       que ya tenemos apuntado— no entra, que es lo correcto. */
+    vi.setSystemTime(new Date('2026-09-13T16:00:00Z'));
+    const db = dbCon([
+      { date: '2026-09-11', usd_rate: 820.0, desde: '2026-09-11' },
+      { date: '2026-09-14', usd_rate: 830.0, desde: '2026-09-12' },
+    ]);
+
+    const porDolarapi = await aplicarVigencia(db, { rate: 820.0, date: '13/09/2026', source: 'BCV' });
+    expect(porDolarapi.rate).toBe(830.0);
+  });
+
+  it('el parpadeo del BCV no confunde la vieja con la nueva', async () => {
+    /* Al publicar, la página del BCV va y viene entre la vieja y la nueva.
+       Como cada lectura se guarda en la fila de SU fecha valor, un parpadeo
+       reescribe la fila que le toca y nunca la otra: la vieja cae en la fila
+       del 11 y la nueva en la del 14. Lo que se cobra sale de la tabla, así
+       que da igual cuál de las dos se leyó en el último instante. */
+    const db = dbCon([
+      { date: '2026-09-11', usd_rate: 820.0, desde: '2026-09-11' },
+      { date: '2026-09-14', usd_rate: 830.0, desde: '2026-09-12' },
+    ]);
+
+    // Viernes: se lea la nueva o la vieja, hoy se cobra 820
+    vi.setSystemTime(new Date('2026-09-11T20:00:00Z'));
+    expect((await aplicarVigencia(db, leida(830.0, '14/09/2026'))).rate).toBe(820.0);
+    expect((await aplicarVigencia(db, leida(820.0, '11/09/2026'))).rate).toBe(820.0);
+
+    // Sábado: se lea la que se lea, se cobra 830
+    vi.setSystemTime(new Date('2026-09-12T16:00:00Z'));
+    expect((await aplicarVigencia(db, leida(830.0, '14/09/2026'))).rate).toBe(830.0);
+    expect((await aplicarVigencia(db, leida(820.0, '11/09/2026'))).rate).toBe(830.0);
   });
 
   it('conserva la fuente de la que se leyó, no la de la fila guardada', async () => {
