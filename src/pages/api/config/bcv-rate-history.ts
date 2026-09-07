@@ -4,7 +4,16 @@ import { getD1 } from '../../../lib/d1-types';
 export const prerender = false;
 
 // GET /api/config/bcv-rate-history?date=YYYY-MM-DD
-// Returns the BCV rate for a specific date (or the closest previous date)
+// Devuelve la tasa que se estaba COBRANDO ese dia (o la del dia anterior mas
+// cercano).
+//
+// Se busca por `desde`, no por la fecha valor del BCV, y la diferencia
+// aparece los fines de semana: el BCV publica el viernes con fecha valor del
+// lunes, pero aqui esa tasa entra el sabado. Buscando por fecha valor, un
+// sabado devolvia la tasa de la semana pasada mientras el negocio cobraba la
+// nueva, y el importe en USD no cuadraba con los tickets de ese dia.
+//
+// Lo consultan el panel fiscal y el de clientes para convertir a USD.
 export const GET: APIRoute = async ({ url, locals }) => {
   const db = getD1(locals);
   if (!db) {
@@ -21,11 +30,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
   }
 
   try {
-    // Try exact date first, then fallback to the closest previous date
+    // COALESCE por las filas anteriores a la migracion 0038 y por las que
+    // escribe update-bcv.ts desde fuera: para esas la fecha valor es lo unico
+    // que hay.
     const row = await db.prepare(`
-      SELECT date, usd_rate, eur_rate FROM bcv_rates
-      WHERE date <= ?
-      ORDER BY date DESC
+      SELECT COALESCE(desde, date) AS date, usd_rate, eur_rate FROM bcv_rates
+      WHERE COALESCE(desde, date) <= ?
+      ORDER BY COALESCE(desde, date) DESC
       LIMIT 1
     `).bind(date).first<{ date: string; usd_rate: number; eur_rate: number | null }>();
 

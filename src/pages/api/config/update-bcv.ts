@@ -96,11 +96,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
         INSERT OR REPLACE INTO site_config (key, value, updated_at)
         VALUES ('bcv_rate_date', ?, datetime('now'))
       `).bind(rateDate),
-      // Save to bcv_rates history table
+      // Save to bcv_rates history table.
+      //
+      // `desde` va con el mismo valor: quien llama a esta API esta diciendo
+      // "esta tasa rige desde esta fecha", que es justamente lo que significa
+      // esa columna. Dejarla en NULL obligaria a los COALESCE de siempre y,
+      // peor, escondia una fila sin la unica fecha que usan los reportes Z.
       db.prepare(`
-        INSERT OR REPLACE INTO bcv_rates (date, usd_rate, eur_rate)
-        VALUES (?, ?, ?)
-      `).bind(rateDate, rate, eurRate),
+        INSERT OR REPLACE INTO bcv_rates (date, usd_rate, eur_rate, desde)
+        VALUES (?, ?, ?, ?)
+      `).bind(rateDate, rate, eurRate, rateDate),
     ];
 
     await db.batch(statements);

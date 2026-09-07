@@ -353,8 +353,10 @@ export async function guardarPreferenciaFuentes(
    días tarde, manda la fecha valor y la tasa no se retrasa más allá de lo que
    dice el BCV. Nunca más tarde que lo oficial.
 
-   `date` sigue siendo la fecha valor, intacta: es la que consulta
-   bcv-rate-history.ts para los reportes Z, y ese significado no cambia.     */
+   `date` sigue siendo la fecha valor, intacta, porque es el dato oficial y
+   conviene no perderlo. Pero lo que convierte a USD —bcv-rate-history.ts y
+   los reportes Z— busca por `desde`: tiene que usar la tasa que se COBRÓ ese
+   día, o el total en USD no cuadra con los tickets de la caja.             */
 
 /** "2026-09-07" -> "07/09/2026" */
 function isoADmy(iso: string): string {

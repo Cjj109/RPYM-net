@@ -48,9 +48,21 @@ export const GET: APIRoute = async ({ request, locals }) => {
       const minFecha = fechas.reduce((a, b) => a < b ? a : b);
       const maxFecha = fechas.reduce((a, b) => a > b ? a : b);
 
+      /* Por `desde` —el dia en que la tasa se empezo a cobrar— y no por la
+         fecha valor del BCV. Se separan los fines de semana: el BCV publica
+         el viernes con fecha valor del lunes, pero aqui esa tasa entra el
+         sabado. Convirtiendo por fecha valor, un Z del sabado usaba la tasa
+         de la semana pasada mientras la caja habia cobrado la nueva, y el
+         total en USD no cuadraba con los tickets.
+
+         El COALESCE cubre las filas anteriores a la migracion 0038 y las que
+         escribe update-bcv.ts desde fuera, que no traen `desde`. Se le pone
+         el alias `date` porque es lo que el resto de esta funcion entiende
+         por "la fecha de esa tasa", que ahora es esta. */
       // Una sola query para todas las tasas del rango (evita N queries y el límite de params D1)
       const ratesResult = await db.prepare(
-        `SELECT date, usd_rate FROM bcv_rates WHERE date BETWEEN ? AND ? ORDER BY date`
+        `SELECT COALESCE(desde, date) AS date, usd_rate FROM bcv_rates
+         WHERE COALESCE(desde, date) BETWEEN ? AND ? ORDER BY COALESCE(desde, date)`
       ).bind(minFecha, maxFecha).all<{ date: string; usd_rate: number }>();
       for (const r of ratesResult.results) {
         bcvRatesMap[r.date] = r.usd_rate;
@@ -58,7 +70,8 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
       // Una segunda query para la tasa más reciente anterior al rango (fallback para fechas sin tasa exacta)
       const fallbackRate = await db.prepare(
-        `SELECT usd_rate FROM bcv_rates WHERE date < ? ORDER BY date DESC LIMIT 1`
+        `SELECT usd_rate FROM bcv_rates WHERE COALESCE(desde, date) < ?
+         ORDER BY COALESCE(desde, date) DESC LIMIT 1`
       ).bind(minFecha).first<{ usd_rate: number }>();
       const fallback = fallbackRate?.usd_rate ?? null;
 
