@@ -86,6 +86,51 @@ describe('aplicarVigencia', () => {
     expect(tasa.proxima).toEqual({ rate: 825.0, date: '14/09/2026' });
   });
 
+  it('si la fecha valor salta un feriado, la anterior aguanta los días de en medio', async () => {
+    /* El caso que no se puede resolver sumando un día: el BCV publica el
+       lunes 7 por la tarde y su fecha valor NO es el 8 —feriado— sino el 9.
+       Aquí no se suma nada: se lee la fecha valor que trae la página y se
+       sirve la fila más reciente que ya haya llegado, así que el 8 sigue
+       rigiendo la del 7 y el 9 entra la nueva. Da igual cuántos días salte. */
+    const db = dbCon([
+      { date: '2026-09-07', usd_rate: 813.74 },
+      { date: '2026-09-09', usd_rate: 830.00 },
+    ]);
+
+    // Lunes 7 por la noche, ya publicada la del miércoles
+    vi.setSystemTime(new Date('2026-09-07T22:00:00Z'));
+    expect((await aplicarVigencia(db, publicada(830.0, '09/09/2026'))).rate).toBe(813.74);
+
+    // Martes 8, el feriado: sigue la del 7, y lo que viene se anuncia con SU
+    // fecha, no como "mañana"
+    vi.setSystemTime(new Date('2026-09-08T16:00:00Z'));
+    const enFeriado = await aplicarVigencia(db, publicada(830.0, '09/09/2026'));
+    expect(enFeriado.rate).toBe(813.74);
+    expect(enFeriado.proxima).toEqual({ rate: 830.0, date: '09/09/2026' });
+
+    // Miércoles 9: ahora sí
+    vi.setSystemTime(new Date('2026-09-09T16:00:00Z'));
+    expect((await aplicarVigencia(db, publicada(830.0, '09/09/2026'))).rate).toBe(830.0);
+  });
+
+  it('un salto largo tampoco necesita filas para los días de en medio', async () => {
+    // Semana santa: se publica el miércoles con fecha valor del lunes
+    // siguiente. Los cinco días de en medio no tienen fila y no hace falta:
+    // la consulta mira hacia atrás, no día a día.
+    const db = dbCon([
+      { date: '2026-04-01', usd_rate: 500.0 },
+      { date: '2026-04-06', usd_rate: 510.0 },
+    ]);
+
+    for (const dia of ['2026-04-02', '2026-04-03', '2026-04-04', '2026-04-05']) {
+      vi.setSystemTime(new Date(`${dia}T16:00:00Z`));
+      expect((await aplicarVigencia(db, publicada(510.0, '06/04/2026'))).rate).toBe(500.0);
+    }
+
+    vi.setSystemTime(new Date('2026-04-06T16:00:00Z'));
+    expect((await aplicarVigencia(db, publicada(510.0, '06/04/2026'))).rate).toBe(510.0);
+  });
+
   it('sin memoria de la anterior se sigue con la publicada, que es lo único que hay', async () => {
     vi.setSystemTime(new Date('2026-09-07T21:30:00Z'));
     const tasa = await aplicarVigencia(dbCon([]), publicada(814.69, '08/09/2026'));
