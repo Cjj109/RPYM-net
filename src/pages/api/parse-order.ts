@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { callGeminiWithRetry } from '../../lib/gemini-client';
 import { detectExplicitUnit } from '../../lib/detect-explicit-unit';
+import { resolveProductAlias } from '../../lib/product-aliases';
 
 // Este endpoint NO se prerenderiza (se ejecuta en el servidor)
 export const prerender = false;
@@ -200,8 +201,9 @@ CONOCIMIENTO DE PRODUCTOS (TU EXPERIENCIA EN RPYM):
 CAMARONES (producto estrella):
 - "camaron", "camarones" → buscar por talla si la mencionan (41/50, 61/70, 71/90, etc.)
 - "camaron jumbo", "jumbo", "camarones jumbo" = Camarón Jumbo (en concha) - ES EL PRODUCTO JUMBO POR DEFECTO
-- "camaron pelado" = camarón pelado (sin concha, puede ser desvenado o no)
+- "camaron pelado", "camarones pelados" = Camarón Desvenado (en RPYM pelado y desvenado son lo mismo)
 - "camaron desvenado", "pelado y desvenado", "P&D" = Camarón Desvenado (NORMAL, talla 41/50, $17/kg)
+- "caja de camaron desvenado", "caja de camarones pelados" (sin talla) = Camaron 41/50, que se vende por caja. El Camarón Desvenado se vende por kg: NUNCA ponerle unidad "caja"
 - "camaron desvenado jumbo", "desvenado jumbo", "jumbo desvenado" = Camarón Desvenado Jumbo (talla 31/35-36/40, $22/kg)
 - ⚠️⚠️⚠️ REGLA CRITICA "jumbo" vs "desvenado jumbo" - LEE CON CUIDADO:
   * "jumbo" o "camaron jumbo" SIN la palabra "desvenado" → SIEMPRE es Camarón Jumbo (en concha). NUNCA lo interpretes como Desvenado Jumbo
@@ -237,7 +239,7 @@ MOLUSCOS:
 - ⚠️⚠️ CRITICO "pepitona": Si el usuario dice "pepitona" SIN la palabra "caja", SIEMPRE matchear el producto "Pepitona" (vendido por kg/unidad), NUNCA "Caja de Pepitona". Solo usar "Caja de Pepitona" si dice EXPLICITAMENTE "caja de pepitona" o "X cajas de pepitona".
 - "mejillon", "mejillones" = Mejillón
 - "almeja", "almejas" = Almeja
-- "vieira", "vieras" = Vieira (verificar ortografía en catálogo)
+- "vieira", "vieras", "botones", "boton" = Vieras (en RPYM "botones" son vieras)
 - "guacuco", "guacucos" = Guacuco
 
 LANGOSTINOS:
@@ -507,10 +509,14 @@ INSTRUCCIONES:
     const dollarDeRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|en\s|d\s)/i;
 
     const items = (parsedResult.items || []).map((item: any) => {
+      // Sinónimos del negocio (botones = vieras, pelado = desvenado, caja de desvenado = 41/50)
+      const saysBox = item.unit === 'caja' || detectExplicitUnit(item, text) === 'caja';
+      const alias = resolveProductAlias(item.requestedName || '', products, { unit: saysBox ? 'caja' : item.unit });
+      if (alias) item = { ...item, matched: true, productId: alias.id, productName: alias.nombre, unit: alias.unidad };
       if (!item.matched || !item.productId) return item;
 
       // Corregir matches incorrectos del AI
-      const matchCorrection = correctProductMatch(item.requestedName || '', String(item.productId));
+      const matchCorrection = alias ? null : correctProductMatch(item.requestedName || '', String(item.productId));
       if (matchCorrection) {
         item = { ...item, productId: matchCorrection.id, productName: matchCorrection.nombre, unit: matchCorrection.unidad };
       }

@@ -6,6 +6,7 @@ import { getProviderOrder } from '../../lib/ai-config';
 import { normalizeDictatedText } from '../../lib/normalize-dictated';
 import { detectExplicitUnit } from '../../lib/detect-explicit-unit';
 import { resolveCustomer, type CustomerResolution, type MatchCustomer } from '../../lib/customer-match';
+import { resolveProductAlias } from '../../lib/product-aliases';
 
 export const prerender = false;
 
@@ -207,11 +208,13 @@ MOLUSCOS (unidad crítica):
 - ⚠️⚠️ CRITICO "pepitona": "pepitona" SIN "caja" → SIEMPRE usar producto "Pepitona" (kg/unidad), NUNCA "Caja de Pepitona". Solo "Caja de Pepitona" si dice EXPLICITAMENTE "caja de pepitona" o "X cajas de pepitona".
 - "mejillon", "mejillones" = Mejillón
 - "almeja", "almejas" = Almeja
+- "botones", "boton" = Vieras (en RPYM "botones" son vieras)
 
 CAMARONES - REGLA CRITICA DE DISAMBIGUATION:
 - "camaron jumbo", "jumbo", "camarones jumbo" = SIEMPRE Camarón Jumbo (en concha) - ES EL PRODUCTO JUMBO POR DEFECTO
-- "camaron pelado" = Camarón Pelado (sin concha)
+- "camaron pelado", "camarones pelados" = Camarón Desvenado (en RPYM pelado y desvenado son lo mismo)
 - "camaron desvenado", "pelado y desvenado", "P&D" = Camarón Desvenado (NORMAL, talla 41/50)
+- "caja de camaron desvenado", "caja de camarones pelados" (sin talla) = Camaron 41/50, que se vende por caja. El Camarón Desvenado se vende por kg: NUNCA ponerle unidad "caja"
 - "camaron desvenado jumbo", "desvenado jumbo", "jumbo desvenado" = Camarón Desvenado Jumbo (talla 31/35-36/40)
 - ⚠️ REGLA MAS IMPORTANTE: "jumbo" SOLO o "camaron jumbo" SIN la palabra "desvenado" = Camarón Jumbo (en concha). NUNCA lo interpretes como Camarón Desvenado Jumbo a menos que EXPLICITAMENTE digan "desvenado"
 - "camaron vivito", "vivitos" = Camarón Vivito
@@ -430,9 +433,18 @@ Responde SOLO con un JSON valido:
     const dollarDeRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|en\s|d\s)/i;
 
     for (const item of parsed.items || []) {
+      // Sinónimos del negocio (botones = vieras, pelado = desvenado, caja de desvenado = 41/50)
+      const saysBox = item.unit === 'caja' || detectExplicitUnit(item, text) === 'caja';
+      const alias = resolveProductAlias(item.requestedName || '', products, { unit: saysBox ? 'caja' : item.unit });
+      if (alias) {
+        item.matched = true;
+        item.productId = alias.id;
+        item.productName = alias.nombre;
+        item.unit = alias.unidad;
+      }
       if (item.matched && item.productId) {
         // Corregir matches incorrectos del AI
-        const matchCorrection = correctProductMatch(item.requestedName || '', String(item.productId));
+        const matchCorrection = alias ? null : correctProductMatch(item.requestedName || '', String(item.productId));
         if (matchCorrection) {
           item.productId = matchCorrection.id;
           item.productName = matchCorrection.nombre;
@@ -624,6 +636,9 @@ Responde SOLO con un JSON valido:
     // el conteo del badge de verificación (ej: 5/6 cuando capturó 5/5)
     const itemNames = presupuestoItems.map(i => normalize(i.nombre));
     const unmatched = ((parsed.unmatched || []) as unknown[]).map(u => String(u)).filter(u => {
+      // "botones" en unmatched no cuenta si entró como Vieras por sinónimo
+      const viaAlias = resolveProductAlias(u, products);
+      if (viaAlias && presupuestoItems.some(i => i.nombre === viaAlias.nombre)) return false;
       const nu = normalize(u);
       return !itemNames.some(n => n.includes(nu) || nu.includes(n));
     });

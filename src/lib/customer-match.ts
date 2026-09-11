@@ -168,6 +168,17 @@ function resolveByWrittenName(
     return { id: null, name: written, suggestion };
   }
 
+  // El nombre completo de un cliente está dentro de lo escrito ("friteria chon centro")
+  const contained = customers.filter(c => {
+    const ct = tokens(c.name);
+    return ct.length > 0 && ct.every(t => wt.some(x => tokenMatches(x, t)));
+  });
+  if (contained.length === 1) {
+    return isGenericFirstName(contained[0].name)
+      ? { id: null, name: written, suggestion: contained[0] }
+      : found(contained[0]);
+  }
+
   // Ninguno se parece por nombre: la IA pudo reconocerlo por el texto completo
   if (chosen) {
     const r = resolveByText(chosen, text, written);

@@ -7,6 +7,7 @@ import type { D1Database } from '../../d1-types';
 import { getProducts, getBCVRate } from '../../sheets';
 import { getAdminPresupuestoUrl } from '../../admin-token';
 import { findCustomerByName, findCustomerSuggestions } from '../../repositories/customers';
+import { resolveProductAlias } from '../../product-aliases';
 import { callGeminiWithRetry } from '../../gemini-client';
 import { formatUSD } from '../../format';
 import { generateUniquePresupuestoId } from '../../presupuesto-id';
@@ -249,8 +250,9 @@ CONOCIMIENTO DE PRODUCTOS (TU EXPERIENCIA EN RPYM):
 CAMARONES (producto estrella):
 - "camaron", "camarones" → buscar por talla si la mencionan (41/50, 61/70, 71/90, etc.)
 - "camaron jumbo", "jumbo", "camarones jumbo" = Camarón Jumbo (en concha) - ES EL PRODUCTO JUMBO POR DEFECTO
-- "camaron pelado" = camarón pelado (sin concha, puede ser desvenado o no)
+- "camaron pelado", "camarones pelados" = Camarón Desvenado (en RPYM pelado y desvenado son lo mismo)
 - "camaron desvenado", "pelado y desvenado", "P&D" = Camarón Desvenado (NORMAL, talla 41/50, $17/kg)
+- "caja de camaron desvenado", "caja de camarones pelados" (sin talla) = Camaron 41/50, que se vende por caja. El Camarón Desvenado se vende por kg: NUNCA ponerle unidad "caja"
 - "camaron desvenado jumbo", "desvenado jumbo", "jumbo desvenado" = Camarón Desvenado Jumbo (talla 31/35-36/40, $22/kg)
 - ⚠️⚠️⚠️ REGLA CRITICA "jumbo" vs "desvenado jumbo" - LEE CON CUIDADO:
   * "jumbo" o "camaron jumbo" SIN la palabra "desvenado" → SIEMPRE es Camarón Jumbo (en concha). NUNCA lo interpretes como Desvenado Jumbo
@@ -284,7 +286,7 @@ MOLUSCOS:
 - "pepitona", "pepitonas" = Pepitona (no caja a menos que diga "caja")
 - "mejillon", "mejillones" = Mejillón
 - "almeja", "almejas" = Almeja
-- "vieira", "vieras" = Vieira (verificar ortografía en catálogo)
+- "vieira", "vieras", "botones", "boton" = Vieras (en RPYM "botones" son vieras)
 - "guacuco", "guacucos" = Guacuco
 
 LANGOSTINOS:
@@ -507,6 +509,10 @@ INSTRUCCIONES:
 
     // Post-procesamiento: corregir matches ambiguos de Gemini
     const correctedItems = (parsedResult.items || []).map((item: any) => {
+      // Sinónimos del negocio (botones = vieras, pelado = desvenado, caja de desvenado = 41/50)
+      const saysBox = item.unit === 'caja' || detectExplicitUnit(item, originalText || text) === 'caja';
+      const alias = resolveProductAlias(item.requestedName || '', products, { unit: saysBox ? 'caja' : item.unit });
+      if (alias) return { ...item, matched: true, productId: String(alias.id), productName: alias.nombre, unit: alias.unidad };
       if (!item.matched || !item.productId) return item;
       const matchedProduct = products.find(p => String(p.id) === String(item.productId));
       if (!matchedProduct) return item;

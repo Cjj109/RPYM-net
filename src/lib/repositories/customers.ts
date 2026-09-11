@@ -4,6 +4,7 @@
  */
 
 import type { D1Database } from '../d1-types';
+import { resolveCustomer } from '../customer-match';
 
 /**
  * Normaliza texto removiendo acentos/tildes para búsqueda fuzzy
@@ -17,37 +18,20 @@ export function normalizeText(text: string): string {
 }
 
 /**
- * Busca un cliente por nombre con normalización de acentos
- * Primero intenta con LIKE normal, si falla busca con normalización
+ * Busca un cliente por nombre con las reglas de resolveCustomer: exacto, o
+ * parcial único con un nombre distintivo ("canastas" → "Canastas del Mar").
+ * Un nombre de pila común que solo coincide en parte ("jose" → "José Luis")
+ * devuelve null, y el bot muestra sugerencias en vez de elegir a otra persona.
  */
 export async function findCustomerByName(
   db: D1Database,
   searchName: string
 ): Promise<{ id: number; name: string } | null> {
-  if (!db) return null;
+  if (!db || !searchName?.trim()) return null;
 
-  // Primero intentar búsqueda normal con LIKE
-  const customer = await db.prepare(`
-    SELECT id, name FROM customers
-    WHERE LOWER(name) LIKE ? AND is_active = 1
-    ORDER BY CASE WHEN LOWER(name) = ? THEN 0 ELSE 1 END
-    LIMIT 1
-  `).bind(`%${searchName.toLowerCase()}%`, searchName.toLowerCase()).first<{ id: number; name: string }>();
-
-  if (customer) return customer;
-
-  // Si no encontró, buscar todos los clientes y comparar con normalización
-  const allCustomers = await db.prepare(`SELECT id, name FROM customers WHERE is_active = 1`).all<{ id: number; name: string }>();
-  const normalizedSearch = normalizeText(searchName);
-
-  for (const c of allCustomers?.results || []) {
-    const normalizedName = normalizeText(c.name);
-    if (normalizedName.includes(normalizedSearch) || normalizedSearch.includes(normalizedName)) {
-      return { id: c.id, name: c.name };
-    }
-  }
-
-  return null;
+  const all = await db.prepare(`SELECT id, name FROM customers WHERE is_active = 1`).all<{ id: number; name: string }>();
+  const match = resolveCustomer({ text: searchName, writtenName: searchName }, all?.results || []);
+  return match.id !== null ? { id: match.id, name: match.name } : null;
 }
 
 /**

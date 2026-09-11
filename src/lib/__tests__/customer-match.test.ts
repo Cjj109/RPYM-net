@@ -87,6 +87,13 @@ describe('resolveCustomer', () => {
     expect(resolve([JOSE], { text: '1kg pulpo', aiCustomerName: '' })).toEqual({ id: null, name: 'Cliente', suggestion: null });
   });
 
+  it('el nombre completo del cliente dentro de lo escrito también sirve', () => {
+    const CHON = { id: 20, name: 'Friteria Chon' };
+    expect(resolve([CHON], { text: 'friteria chon centro 2kg', writtenName: 'friteria chon centro' }).id).toBe(20);
+    // pero un cliente que se llama solo "José" no se asigna a "jose luis"
+    expect(resolve([JOSE], { text: 'jose luis 1kg', writtenName: 'jose luis' })).toEqual({ id: null, name: 'jose luis', suggestion: JOSE });
+  });
+
   it('un id inventado por la IA se ignora y se usa el nombre escrito', () => {
     const r = resolve([JOSE], { text: 'Pedro 1kg', writtenName: 'Pedro', aiCustomerId: 999 });
     expect(r).toEqual({ id: null, name: 'Pedro', suggestion: null });
