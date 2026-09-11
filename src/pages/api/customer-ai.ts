@@ -4,6 +4,7 @@ import { getEnv } from '../../lib/env';
 import { callAIWithFallback } from '../../lib/ai-fallback';
 import { getProviderOrder } from '../../lib/ai-config';
 import { normalizeDictatedText } from '../../lib/normalize-dictated';
+import { resolveCustomer } from '../../lib/customer-match';
 
 export const prerender = false;
 
@@ -122,11 +123,15 @@ REGLAS DE INTERPRETACION:
 - TEXTO DICTADO: puede venir de una nota de voz, sin puntuacion y con los
   montos en palabras. Convertirlos: "diez dolares" = 10, "veinte" tras un verbo
   de pago = 20, "cien" = 100, "ciento cincuenta" = 150, "mil" = 1000.
-- PRIORIDAD de match: 1) coincidencia exacta, 2) coincidencia parcial única (solo un cliente posible)
+- PRIORIDAD de match: 1) coincidencia exacta, 2) coincidencia parcial única con un nombre DISTINTIVO (solo un cliente posible)
 - Si el nombre escrito es AMBIGUO (varios clientes coinciden), devolver customerId: null
+- Un nombre de pila común solo ("jose", "maria", "luis", "carlos") NO es distintivo: si ningún cliente se llama exactamente así, customerId: null (puede ser otra persona con el mismo nombre)
 - CORRECTO: "jose" con clientes ["Jose", "Jose Luis"] → usar "Jose" (exacto)
 - CORRECTO: "garcia" con clientes ["Jose Garcia"] → usar "Jose Garcia" (único parcial)
+- CORRECTO: "canastas" con clientes ["Canastas del Mar"] → usar "Canastas del Mar" (único parcial distintivo)
 - INCORRECTO: "jose" con clientes ["Jose", "Jose Luis"] → NO auto-asignar "Jose Luis"
+- INCORRECTO: "jose" con clientes ["Jose Luis"] → NO asignar "Jose Luis": customerId null y customerName "jose"
+- Devolver SIEMPRE "writtenName" con el nombre del cliente TAL CUAL lo escribió o dictó el usuario (sin corregirlo ni completarlo)
 - Si el usuario dice "cliente" sin apellido ni nombre → customerId: null, customerName: "Cliente" (es un nombre genérico válido, no inventar uno)
 - Si no hay nombre en absoluto (frase sin sujeto) → customerId: null, customerName: ""
 - NO usar términos como "desconocido", "sin nombre", etc. — solo "Cliente" o cadena vacía
@@ -165,6 +170,7 @@ Responde SOLO con un JSON valido:
   "actions": [
     {
       "customerName": "nombre del cliente como aparece en la lista",
+      "writtenName": "nombre del cliente tal cual lo escribio el usuario",
       "customerId": numero o null,
       "type": "purchase" | "payment",
       "amountUsd": numero,
@@ -215,10 +221,17 @@ Responde SOLO con un JSON valido:
       }), { status: 500, headers: { 'Content-Type': 'application/json' } });
     }
 
-    const actions = (parsedResult.actions || []).map((action: AIAction) => ({
-      ...action,
-      customerName: action.customerName?.trim() || 'Cliente',
-    }));
+    // La IA propone el cliente; resolveCustomer lo valida (ej: "jose" no se
+    // asigna solo a "Jose Luis", puede ser otro José) y deja la sugerencia
+    const actions = (parsedResult.actions || []).map((action: AIAction & { writtenName?: string }) => {
+      const match = resolveCustomer({
+        text,
+        writtenName: action.writtenName,
+        aiCustomerId: action.customerId,
+        aiCustomerName: action.customerName,
+      }, customers || []);
+      return { ...action, customerId: match.id, customerName: match.name, suggestedCustomer: match.suggestion };
+    });
 
     return new Response(JSON.stringify({
       success: true,

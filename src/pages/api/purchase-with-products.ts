@@ -5,6 +5,7 @@ import { callAIWithFallback } from '../../lib/ai-fallback';
 import { getProviderOrder } from '../../lib/ai-config';
 import { normalizeDictatedText } from '../../lib/normalize-dictated';
 import { detectExplicitUnit } from '../../lib/detect-explicit-unit';
+import { resolveCustomer, type CustomerResolution, type MatchCustomer } from '../../lib/customer-match';
 
 export const prerender = false;
 
@@ -46,6 +47,8 @@ interface PurchaseRequest {
 interface ParsedAction {
   customerName: string;
   customerId: number | null;
+  /** Cliente parecido que no se asignó solo (ej: "jose" → "Jose Luis") */
+  suggestedCustomer: MatchCustomer | null;
   items: Array<{
     nombre: string;
     cantidad: number;
@@ -68,6 +71,8 @@ interface ParsedAction {
 interface ParsedPayment {
   customerName: string;
   customerId: number | null;
+  /** Cliente parecido que no se asignó solo (ej: "jose" → "Jose Luis") */
+  suggestedCustomer: MatchCustomer | null;
   amountUsd: number;
   amountUsdDivisa: number | null;
   description: string;
@@ -164,11 +169,15 @@ como suenan. Por eso, y SOLO en este caso, aplica lo siguiente:
 CLIENTE:
 - Buscar el nombre del cliente en la lista de clientes registrados
 - Ignorar acentos/mayusculas (ej: "delcy" = "Delcy", "garcia" = "García", "angel" = "Ángel")
-- PRIORIDAD de match: 1) coincidencia exacta, 2) coincidencia parcial única (solo un cliente posible)
+- PRIORIDAD de match: 1) coincidencia exacta, 2) coincidencia parcial única con un nombre DISTINTIVO (solo un cliente posible)
 - Si el nombre escrito es AMBIGUO (varios clientes coinciden), devolver customerId: null
+- Un nombre de pila común solo ("jose", "maria", "luis", "carlos") NO es distintivo: si ningún cliente se llama exactamente así, customerId: null (puede ser otra persona con el mismo nombre)
 - CORRECTO: "jose" con clientes ["Jose", "Jose Luis"] → usar "Jose" (exacto)
 - CORRECTO: "garcia" con clientes ["Jose Garcia"] → único parcial, usar "Jose Garcia"
+- CORRECTO: "canastas" con clientes ["Canastas del Mar"] → único parcial distintivo, usar "Canastas del Mar"
 - INCORRECTO: "jose" con clientes ["Jose", "Jose Luis"] → NO auto-asignar "Jose Luis"
+- INCORRECTO: "jose" con clientes ["Jose Luis"] → NO asignar "Jose Luis": customerId null y customerName "jose"
+- Devolver SIEMPRE "writtenName" con el nombre del cliente TAL CUAL lo escribió o dictó el usuario (sin corregirlo ni completarlo)
 - INCORRECTO: "Delsy" con clientes ["Delicias de la Nona"] → NO matchear por parecido superficial (compartir las primeras letras NO es coincidencia). Si el nombre escrito no coincide con ningún cliente, customerId: null y customerName con el nombre TAL CUAL lo escribió el usuario
 - Si el usuario dice "cliente" sin apellido ni nombre → customerId: null, customerName: "Cliente" (nombre genérico válido)
 - Si no hay nombre en absoluto → customerId: null, customerName: ""
@@ -285,6 +294,7 @@ ABONOS / PAGOS (array "payments"):
 Responde SOLO con un JSON valido:
 {
   "customerName": "nombre del cliente como aparece en la lista o como lo escribio",
+  "writtenName": "nombre del cliente tal cual lo escribio el usuario",
   "customerId": numero o null,
   "items": [
     {
@@ -305,6 +315,7 @@ Responde SOLO con un JSON valido:
   "payments": [
     {
       "customerName": "nombre del cliente que abona",
+      "writtenName": "nombre del cliente que abona tal cual lo escribio el usuario",
       "customerId": numero o null,
       "amountUsd": numero,
       "description": "texto corto del abono",
@@ -550,51 +561,21 @@ Responde SOLO con un JSON valido:
       `${i.nombre} ${i.cantidad}${i.unidad}`
     ).join(', ');
 
-    let resolvedCustomerId = parsed.customerId || null;
-    let resolvedCustomerName = parsed.customerName?.trim() || 'Cliente';
-
-    // Validar el cliente que eligió la IA contra el texto original: a veces
-    // matchea por similitud superficial (ej: "Delsy" → "Delicias de la Nona").
-    // Si ninguna palabra del nombre elegido aparece en el texto, descartarlo
-    // y usar el nombre que el usuario escribió ("Delsy: ..." o "... para Delsy")
-    if (resolvedCustomerId) {
-      const textNorm = normalize(text);
-      const stopTokens = new Set(['los', 'las', 'del', 'para', 'con', 'cliente']);
-      const chosen = customers.find(c => String(c.id) === String(resolvedCustomerId));
-      const appearsInText = chosen
-        ? normalize(chosen.name).split(/\s+/)
-            .filter(t => t.length >= 3 && !stopTokens.has(t))
-            .some(t => new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(textNorm))
-        : false;
-      if (chosen && !appearsInText) {
-        resolvedCustomerId = null;
-        const writtenName = text.match(/^\s*([\p{L} .'-]{2,40}?)\s*:/u)?.[1]
-          || text.match(/\bpara\s+([\p{L} .'-]{2,40}?)\s*(?:$|[,;\n.])/iu)?.[1];
-        if (writtenName?.trim()) resolvedCustomerName = writtenName.trim();
-      }
-    }
-
-    // Fallback: si no hay cliente resuelto, buscar sin acentos por nombre
-    if (!resolvedCustomerId && resolvedCustomerName && resolvedCustomerName !== 'Cliente') {
-      const normalizedInput = normalize(resolvedCustomerName).trim();
-      if (normalizedInput) {
-        const exactMatch = customers.find(c => normalize(c.name) === normalizedInput);
-        if (exactMatch) {
-          resolvedCustomerId = exactMatch.id;
-          resolvedCustomerName = exactMatch.name;
-        } else {
-          const partialMatches = customers.filter(c => normalize(c.name).includes(normalizedInput));
-          if (partialMatches.length === 1) {
-            resolvedCustomerId = partialMatches[0].id;
-            resolvedCustomerName = partialMatches[0].name;
-          }
-        }
-      }
-    }
+    // El cliente lo decide resolveCustomer: la IA propone, pero por ejemplo
+    // "jose" no se asigna solo a "Jose Luis" (puede ser otro José): queda sugerido
+    const customerMatch = resolveCustomer({
+      text,
+      writtenName: parsed.writtenName,
+      aiCustomerId: parsed.customerId,
+      aiCustomerName: parsed.customerName,
+    }, customers);
+    const resolvedCustomerId = customerMatch.id;
+    const resolvedCustomerName = customerMatch.name;
 
     const action: ParsedAction = {
       customerName: resolvedCustomerName,
       customerId: resolvedCustomerId,
+      suggestedCustomer: customerMatch.suggestion,
       items: presupuestoItems,
       totalUSD,
       totalBs: Math.round(totalBs * 100) / 100,
@@ -605,33 +586,28 @@ Responde SOLO con un JSON valido:
       delivery: delivery > 0 ? delivery : null
     };
 
-    // Abonos/pagos detectados en el mismo texto. Se resuelve el cliente de cada
-    // uno igual que el de la compra: exacto primero, parcial unico despues.
-    const resolvePaymentCustomer = (name: string): { id: number | null; name: string } => {
-      const raw = (name || '').trim();
-      if (!raw) return { id: resolvedCustomerId, name: resolvedCustomerName };
-      const norm = normalize(raw);
-      const exact = customers.find(c => normalize(c.name) === norm);
-      if (exact) return { id: exact.id, name: exact.name };
-      const partial = customers.filter(c => normalize(c.name).includes(norm));
-      if (partial.length === 1) return { id: partial[0].id, name: partial[0].name };
-      return { id: null, name: raw };
+    // Abonos/pagos detectados en el mismo texto. El cliente de cada uno se
+    // resuelve con las mismas reglas que el de la compra; sin nombre, es el mismo.
+    const resolvePaymentCustomer = (p: any): CustomerResolution => {
+      const hasCustomer = Boolean(String(p?.writtenName || p?.customerName || '').trim()) || p?.customerId != null;
+      if (!hasCustomer) return customerMatch;
+      return resolveCustomer({
+        text,
+        writtenName: p?.writtenName,
+        aiCustomerId: p?.customerId,
+        aiCustomerName: p?.customerName,
+      }, customers);
     };
 
     const payments: ParsedPayment[] = ((parsed.payments || []) as any[])
       .map(p => {
         const amountUsd = Math.round((Number(p?.amountUsd) || 0) * 100) / 100;
         if (amountUsd <= 0) return null;
-        // La IA a veces devuelve un customerId que no existe; se revalida por nombre.
-        const byId = p?.customerId != null
-          ? customers.find(c => String(c.id) === String(p.customerId))
-          : null;
-        const resolved = byId
-          ? { id: byId.id, name: byId.name }
-          : resolvePaymentCustomer(String(p?.customerName || ''));
+        const resolved = resolvePaymentCustomer(p);
         return {
           customerName: resolved.name,
           customerId: resolved.id,
+          suggestedCustomer: resolved.suggestion,
           amountUsd,
           amountUsdDivisa: null,
           description: String(p?.description || 'Abono').slice(0, 120),

@@ -19,6 +19,7 @@ interface AIAction {
   currencyType: 'divisas' | 'dolar_bcv' | 'euro_bcv';
   paymentMethod: string | null;
   date: string | null;
+  suggestedCustomer?: SimpleCustomer | null;
 }
 
 interface AIProductAction {
@@ -41,6 +42,7 @@ interface AIProductAction {
   pricingMode: 'bcv' | 'divisas' | 'dual';
   delivery?: number | null;
   hideRate?: boolean;
+  suggestedCustomer?: SimpleCustomer | null;
 }
 
 interface CustomerAIPanelProps {
@@ -86,6 +88,19 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
 
   const findSimilarCustomer = (name: string): SimpleCustomer | null =>
     customers.find(c => normalizeName(c.name) === normalizeName(name)) ?? null;
+
+  // Cliente parecido que el servidor no asignó solo (ej: "jose" → "José Luis")
+  const suggestionChip = (suggested: SimpleCustomer | null | undefined, onPick: (c: SimpleCustomer) => void) =>
+    suggested ? (
+      <button
+        type="button"
+        onClick={() => onPick(suggested)}
+        className="text-xs text-amber-800 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded hover:bg-amber-200 transition-colors"
+        title="Hay un cliente parecido, pero puede ser otra persona: clic para asignarlo"
+      >
+        ¿Es "{suggested.name}"?
+      </button>
+    ) : null;
 
   useEffect(() => {
     fetch('/api/customers', { credentials: 'include' })
@@ -184,6 +199,7 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
         const payments: AIAction[] = (data.payments || []).map((p: any) => ({
           customerName: p.customerName,
           customerId: p.customerId ?? null,
+          suggestedCustomer: p.suggestedCustomer ?? null,
           type: 'payment' as const,
           amountUsd: p.amountUsd,
           amountUsdDivisa: p.amountUsdDivisa ?? null,
@@ -693,6 +709,9 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
+            {!aiProductAction.customerId && suggestionChip(aiProductAction.suggestedCustomer, c =>
+              setAiProductAction(prev => prev ? { ...prev, customerId: c.id, customerName: c.name } : null)
+            )}
             {!aiProductAction.customerId && (() => {
               const similar = findSimilarCustomer(aiProductAction.customerName);
               if (similar) return (
@@ -925,6 +944,9 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
+                  {!a.customerId && suggestionChip(a.suggestedCustomer, c =>
+                    setAiActions(prev => prev.map((x, idx) => idx === i ? { ...x, customerId: c.id, customerName: c.name } : x))
+                  )}
                   <span className="font-semibold text-green-700">{formatUSD(a.amountUsd)}</span>
                   <span className="text-ocean-400">{a.description}</span>
                   {a.paymentMethod && <span className="text-ocean-400">({a.paymentMethod})</span>}
@@ -1019,6 +1041,9 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
+                {!action.customerId && suggestionChip(action.suggestedCustomer, c =>
+                  setAiActions(prev => prev.map((x, idx) => idx === i ? { ...x, customerId: c.id, customerName: c.name } : x))
+                )}
                 {!action.customerId && (() => {
                   const similar = findSimilarCustomer(action.customerName);
                   if (similar) return (
