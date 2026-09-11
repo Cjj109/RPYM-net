@@ -7,8 +7,9 @@ import { formatUSD, formatBs, formatQuantity, formatUSDCompact } from './format'
 
 export interface WhatsAppCardItem {
   nombre: string;
-  cantidad: number;
-  unidad: string;
+  /** Sin cantidad/unidad (notas de la calculadora) la tabla va solo con Producto y Total */
+  cantidad?: number;
+  unidad?: string;
   subtotalUSD: number;
   subtotalUSDDivisa?: number;
 }
@@ -20,6 +21,8 @@ export interface WhatsAppCardData {
   totalUSD: number;
   totalUSDDivisa?: number;
   hideRate?: boolean;
+  /** Equivalente en Bs ya calculado (si no, totalUSD × bcvRate) */
+  totalBs?: number;
   delivery?: number;
   modoPrecio?: string;
   estado: 'pendiente' | 'pagado';
@@ -34,6 +37,10 @@ export interface WhatsAppCardOpts {
 
 /** Ancho del HTML de captura: tarjeta de 440px + 16px de padding por lado */
 export const WHATSAPP_CARD_CAPTURE_WIDTH = 472;
+
+/** Monto con signo delante del símbolo: "-$5.00" (formatUSD daría "$-5.00") */
+const formatSignedUSD = (n: number) => `${n < 0 ? '-' : ''}${formatUSD(Math.abs(n))}`;
+const formatSignedBs = (n: number) => `${n < 0 ? '-' : ''}${formatBs(Math.abs(n))}`;
 
 /**
  * "Cliente" es el nombre genérico que se usa cuando no se identificó a nadie:
@@ -74,16 +81,29 @@ function generateFacturaCard(data: WhatsAppCardData, opts: WhatsAppCardOpts, var
   const subtotalUSD = totalUSD - delivery;
   const fechaStr = new Date(data.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const showBcvBlocks = !isAmber && !data.hideRate && bcvRate > 0;
+  const totalBs = data.totalBs ?? totalUSD * bcvRate;
+  // Notas de la calculadora: solo descripción y monto, sin cantidad ni unidad
+  const simpleRows = data.items.every(item => item.cantidad == null);
 
   const rows = data.items.map(item => {
     const itemTotal = variant === 'divisa' ? (item.subtotalUSDDivisa ?? item.subtotalUSD) : item.subtotalUSD;
-    const unitLabel = (item.cantidad > 0 && itemTotal > 0) ? formatUSDCompact(itemTotal / item.cantidad) : '—';
+    const rowColor = itemTotal < 0 ? '#dc2626' : colors.text;
+    if (simpleRows) {
+      return `
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-bottom:1px solid ${colors.ribbonBg};">
+        <div style="flex:1;min-width:0;font-size:13px;font-weight:700;color:${rowColor};">${item.nombre}</div>
+        <div style="font-size:13px;font-weight:800;color:${rowColor};white-space:nowrap;">${formatSignedUSD(itemTotal)}</div>
+      </div>`;
+    }
+    const cantidad = item.cantidad ?? 0;
+    const unidad = item.unidad ?? '';
+    const unitLabel = (cantidad > 0 && itemTotal > 0) ? formatUSDCompact(itemTotal / cantidad) : '—';
     return `
       <div style="display:flex;align-items:center;padding:11px 12px;border-bottom:1px solid ${colors.ribbonBg};">
-        <div style="flex:2;min-width:0;font-size:13px;font-weight:700;color:${colors.text};">${item.nombre}</div>
-        <div style="flex:1;text-align:center;font-size:12px;color:${colors.textLight};white-space:nowrap;">${formatQuantity(item.cantidad)} ${item.unidad}</div>
-        <div style="flex:1;text-align:right;font-size:12px;color:${colors.textLight};white-space:nowrap;">${unitLabel} / ${item.unidad}</div>
-        <div style="flex:1;text-align:right;font-size:13px;font-weight:800;color:${colors.text};white-space:nowrap;">${formatUSD(itemTotal)}</div>
+        <div style="flex:2;min-width:0;font-size:13px;font-weight:700;color:${rowColor};">${item.nombre}</div>
+        <div style="flex:1;text-align:center;font-size:12px;color:${colors.textLight};white-space:nowrap;">${formatQuantity(cantidad)} ${unidad}</div>
+        <div style="flex:1;text-align:right;font-size:12px;color:${colors.textLight};white-space:nowrap;">${unitLabel} / ${unidad}</div>
+        <div style="flex:1;text-align:right;font-size:13px;font-weight:800;color:${rowColor};white-space:nowrap;">${formatSignedUSD(itemTotal)}</div>
       </div>`;
   }).join('');
 
@@ -125,10 +145,13 @@ function generateFacturaCard(data: WhatsAppCardData, opts: WhatsAppCardOpts, var
 
     <div style="border-radius:8px;overflow:hidden;margin-bottom:14px;border:1px solid ${colors.ribbonBg};">
       <div style="display:flex;background:${colors.dark};color:white;font-size:10px;font-weight:700;padding:8px 12px;text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap;">
+        ${simpleRows ? `
+        <div style="flex:1;">Producto</div>
+        <div>Total</div>` : `
         <div style="flex:2;">Producto</div>
         <div style="flex:1;text-align:center;">Cant.</div>
         <div style="flex:1;text-align:right;">Precio Unit.</div>
-        <div style="flex:1;text-align:right;">Total</div>
+        <div style="flex:1;text-align:right;">Total</div>`}
       </div>
       ${rows}
     </div>
@@ -142,12 +165,12 @@ function generateFacturaCard(data: WhatsAppCardData, opts: WhatsAppCardOpts, var
           <span>+</span>
           <span>Delivery <strong style="color:${colors.text};">${formatUSD(delivery)}</strong></span>
         </div>` : ''}
-        <div style="font-size:34px;font-weight:900;line-height:1.1;color:${colors.text};${delivery > 0 ? 'margin-top:8px;' : ''}">${formatUSD(totalUSD)}</div>
+        <div style="font-size:34px;font-weight:900;line-height:1.1;color:${colors.text};${delivery > 0 ? 'margin-top:8px;' : ''}">${formatSignedUSD(totalUSD)}</div>
         ${(showBcvBlocks) ? `
         <div class="bs-toggle-row">
           <div style="border-top:1px dashed ${colors.border};margin:12px 0 10px;"></div>
           <div style="font-size:11px;color:${colors.textLight};">Equivalente en bolívares</div>
-          <div style="font-size:24px;font-weight:800;color:${colors.orange};margin-top:2px;">${formatBs(totalUSD * bcvRate)}</div>
+          <div style="font-size:24px;font-weight:800;color:${colors.orange};margin-top:2px;">${formatSignedBs(totalBs)}</div>
         </div>` : ''}
       </div>
     </div>

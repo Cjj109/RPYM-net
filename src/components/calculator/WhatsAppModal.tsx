@@ -3,6 +3,7 @@ import html2canvas from 'html2canvas';
 import { formatUSD, formatBs } from '../../lib/format';
 import { formatPhoneDisplay, isValidVenezuelanPhone } from '../../lib/phone-ve';
 import { renderCalcCardHTML, openCalcCardWindow } from '../../lib/calc-whatsapp-card';
+import { WHATSAPP_CARD_CAPTURE_WIDTH } from '../../lib/presupuesto-whatsapp-card';
 import type { CalcEntry } from './types';
 import { WhatsAppIcon } from './icons';
 
@@ -53,14 +54,14 @@ export function WhatsAppModal({ entries, clientName, totalUSD, totalBs, activeRa
 
       await new Promise(resolve => setTimeout(resolve, 400));
 
-      // scale 3: la tarjeta mide 320px, así llega a WhatsApp a 960px y el
+      // scale 3: la captura mide 472px, así llega a WhatsApp a 1416px y el
       // texto se ve tan nítido como en la vista de la página.
       const canvas = await html2canvas(captureDiv.firstElementChild as HTMLElement, {
         scale: 3,
         useCORS: true,
         backgroundColor: '#ffffff',
-        width: 320,
-        windowWidth: 320,
+        width: WHATSAPP_CARD_CAPTURE_WIDTH,
+        windowWidth: WHATSAPP_CARD_CAPTURE_WIDTH,
       });
 
       captureDiv.style.display = 'none';
@@ -251,7 +252,7 @@ export function WhatsAppModal({ entries, clientName, totalUSD, totalBs, activeRa
       {/* Hidden div for html2canvas capture */}
       <div
         ref={captureRef}
-        style={{ position: 'fixed', left: '-9999px', top: 0, zIndex: -1, display: 'none' }}
+        style={{ position: 'fixed', left: '-9999px', top: 0, width: `${WHATSAPP_CARD_CAPTURE_WIDTH}px`, zIndex: -1, display: 'none' }}
       />
     </>
   );
