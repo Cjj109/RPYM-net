@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/*
+ * html2canvas 1.4.1 mide la línea base de las fuentes con una imagen 1x1 que
+ * mete en el documento principal. El preflight de Tailwind (img { display:block })
+ * rompe esa medición y el texto de las capturas sale corrido hacia abajo
+ * (nombres cortados, totales pegados al borde). Solo afecta a esa imagen.
+ */
+img[src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"] {
+  display: inline !important;
+}
+
 /* ========== SISTEMA DE TEMAS DINAMICOS ========== */
 
 /* Variables de tema base (Ocean - default) */

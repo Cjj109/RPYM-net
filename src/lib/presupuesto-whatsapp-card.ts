@@ -102,11 +102,11 @@ function generateFacturaCard(data: WhatsAppCardData, opts: WhatsAppCardOpts, var
     ${isPaid ? `<div style="text-align:center;margin-bottom:12px;"><span style="display:inline-block;background:#dcfce7;color:#166534;font-size:11px;font-weight:700;padding:3px 12px;border-radius:9999px;">PAGADO</span></div>` : ''}
 
     <div style="display:flex;justify-content:${customerName ? 'space-between' : 'flex-end'};align-items:flex-start;margin-bottom:14px;">
-      ${customerName ? `<div style="display:flex;align-items:center;gap:8px;min-width:0;">
+      ${customerName ? `<div style="flex:1;display:flex;align-items:center;gap:8px;min-width:0;">
         <div style="width:30px;height:30px;border-radius:50%;background:${colors.dark};display:flex;align-items:center;justify-content:center;flex-shrink:0;">${iconPerson('white')}</div>
         <div style="min-width:0;">
           <div style="font-size:11px;color:${colors.textLight};">Cliente</div>
-          <div style="font-size:15px;font-weight:800;color:${colors.text};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${customerName}</div>
+          <div style="font-size:15px;font-weight:800;line-height:1.25;color:${colors.text};overflow-wrap:anywhere;">${customerName}</div>
         </div>
       </div>` : ''}
       <div style="text-align:right;flex-shrink:0;padding-left:8px;">
@@ -124,7 +124,7 @@ function generateFacturaCard(data: WhatsAppCardData, opts: WhatsAppCardOpts, var
     </div>` : ''}
 
     <div style="border-radius:8px;overflow:hidden;margin-bottom:14px;border:1px solid ${colors.ribbonBg};">
-      <div style="display:flex;background:${colors.dark};color:white;font-size:10px;font-weight:700;padding:8px 12px;text-transform:uppercase;letter-spacing:0.3px;">
+      <div style="display:flex;background:${colors.dark};color:white;font-size:10px;font-weight:700;padding:8px 12px;text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap;">
         <div style="flex:2;">Producto</div>
         <div style="flex:1;text-align:center;">Cant.</div>
         <div style="flex:1;text-align:right;">Precio Unit.</div>
