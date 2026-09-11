@@ -3,7 +3,8 @@ import { getD1 } from '../../../lib/d1-types';
 import {
   authenticateUser,
   createSession,
-  getSessionCookieOptions
+  buildSessionCookie,
+  cleanupExpiredSessions
 } from '../../../lib/auth';
 
 export const prerender = false;
@@ -47,8 +48,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    // Create session
+    // Create session (no toca las sesiones de otros dispositivos)
     const sessionId = await createSession(db, user.id);
+
+    // Limpieza oportunista de sesiones vencidas; si falla no bloquea el login
+    try {
+      await cleanupExpiredSessions(db);
+    } catch (cleanupError) {
+      console.error('Error al limpiar sesiones vencidas:', cleanupError);
+    }
 
     return new Response(JSON.stringify({
       success: true,
@@ -60,7 +68,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }), {
       headers: {
         'Content-Type': 'application/json',
-        'Set-Cookie': `rpym_session=${sessionId}; ${getSessionCookieOptions()}`
+        'Set-Cookie': buildSessionCookie(sessionId)
       }
     });
 

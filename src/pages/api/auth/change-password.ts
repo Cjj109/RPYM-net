@@ -1,6 +1,11 @@
 import type { APIRoute } from 'astro';
 import { requireAuth } from '../../../lib/require-auth';
-import { verifyPassword, hashPassword } from '../../../lib/auth';
+import {
+  verifyPassword,
+  hashPassword,
+  deleteOtherUserSessions,
+  getSessionFromCookie
+} from '../../../lib/auth';
 
 export const prerender = false;
 
@@ -68,6 +73,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
     await db.prepare(`
       UPDATE admin_users SET password_hash = ? WHERE id = ?
     `).bind(newPasswordHash, user.id).run();
+
+    // Las sesiones ahora son deslizantes (largas): al cambiar la contraseña se
+    // cierran las de los demás dispositivos y se conserva la actual.
+    await deleteOtherUserSessions(db, user.id, getSessionFromCookie(request.headers.get('Cookie')));
 
     return new Response(JSON.stringify({
       success: true,

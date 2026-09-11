@@ -1,14 +1,31 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { getAuthOptional } from '../../lib/require-auth';
 
 export const prerender = false;
 
-// Check if already authenticated (server-side)
-const sessionCookie = Astro.cookies.get('rpym_session');
-if (sessionCookie?.value) {
-  // Redirect to presupuestos if already logged in
-  // Note: Client will verify this session is still valid
-  return Astro.redirect('/admin/presupuestos');
+// Si ya hay una sesión válida, ir directo al panel. Antes bastaba con que
+// existiera la cookie: con una cookie vencida en D1 se entraba en un bucle
+// login -> panel (/api/auth/me dice que no) -> login.
+if (Astro.cookies.get('rpym_session')?.value) {
+  let sessionValid = false;
+  let checkFailed = false;
+  try {
+    const auth = await getAuthOptional(Astro.request, Astro.locals);
+    sessionValid = auth.user !== null;
+    checkFailed = auth.db === null;
+  } catch (error) {
+    console.error('Error al validar la sesión en el login:', error);
+    checkFailed = true;
+  }
+
+  if (sessionValid) {
+    return Astro.redirect('/admin/presupuestos');
+  }
+  if (!checkFailed) {
+    // Cookie huérfana (sesión vencida o cerrada): se borra y se muestra el login
+    Astro.cookies.delete('rpym_session', { path: '/' });
+  }
 }
 ---
 
