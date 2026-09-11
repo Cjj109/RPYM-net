@@ -6,7 +6,7 @@ import { getProviderOrder } from '../../lib/ai-config';
 import { normalizeDictatedText } from '../../lib/normalize-dictated';
 import { detectExplicitUnit } from '../../lib/detect-explicit-unit';
 import { resolveCustomer, type CustomerResolution, type MatchCustomer } from '../../lib/customer-match';
-import { resolveProductAlias } from '../../lib/product-aliases';
+import { resolveProductAlias, isGenericNoteName } from '../../lib/product-aliases';
 
 export const prerender = false;
 
@@ -251,6 +251,7 @@ CAMARONES - REGLA CRITICA DE DISAMBIGUATION:
   * Poner suggestedName con el nombre que uso el usuario (capitalizado correctamente)
   * Poner customPrice con el precio dado
   * Si hay precio dual, poner tambien customPriceDivisa
+  * "mariscos varios", "varios", "pedido" con un monto ("mariscos varios $20") NO es un producto por kg: es una anotación por MONTO. Producto personalizado con suggestedName "Mariscos Varios", quantity: 1, unit: "unidad", customPrice: el monto
 
 MONTOS EN DOLARES (¡¡¡MUY IMPORTANTE!!!):
 - El cliente especifica CUÁNTO DINERO quiere gastar, NO la cantidad
@@ -432,6 +433,9 @@ Responde SOLO con un JSON valido:
     const dollarAmountRegex = /^\$\s*(\d+(?:\.\d+)?)|^(\d+(?:\.\d+)?)\s*\$|^(\d+(?:\.\d+)?)\s*(?:dolares?|dollars?|usd)\s/i;
     const dollarDeRegex = /^\$?\s*(\d+(?:\.\d+)?)\s*\$?\s*(?:de\s|del\s|en\s|d\s)/i;
 
+    // Líneas que son anotaciones por monto ("mariscos varios $20"), no productos
+    let genericNoteCount = 0;
+
     for (const item of parsed.items || []) {
       // Sinónimos del negocio (botones = vieras, pelado = desvenado, caja de desvenado = 41/50)
       const saysBox = item.unit === 'caja' || detectExplicitUnit(item, text) === 'caja';
@@ -527,22 +531,37 @@ Responde SOLO con un JSON valido:
         const precioDivisa = item.customPriceDivisa ?? precioBcv;
         const precioMain = pricingMode === 'divisas' ? precioDivisa : precioBcv;
 
+        // "mariscos varios $20" es una anotación por monto: 1 unidad a ese precio, no $20/kg
+        const genericNote = isGenericNoteName(item.suggestedName) || isGenericNoteName(item.requestedName || '');
+        if (genericNote) genericNoteCount++;
+        const qty = genericNote ? 1 : item.quantity;
+
         const itemData: any = {
           nombre: item.suggestedName,
-          cantidad: item.quantity,
-          unidad: item.unit || 'kg',
+          cantidad: qty,
+          unidad: genericNote ? 'unidad' : (item.unit || 'kg'),
           precioUSD: precioMain,
-          subtotalUSD: Math.round(precioMain * item.quantity * 100) / 100,
+          subtotalUSD: Math.round(precioMain * qty * 100) / 100,
         };
 
         // Only add divisa prices for dual mode
         if (pricingMode === 'dual') {
           itemData.precioUSDDivisa = precioDivisa;
-          itemData.subtotalUSDDivisa = Math.round(precioDivisa * item.quantity * 100) / 100;
+          itemData.subtotalUSDDivisa = Math.round(precioDivisa * qty * 100) / 100;
         }
 
         presupuestoItems.push(itemData);
       }
+    }
+
+    // Solo anotaciones por monto ("mariscos varios $20"): el panel en modo auto
+    // la registra como nota simple (con sus abonos) en vez de un producto
+    if (presupuestoItems.length > 0 && genericNoteCount === presupuestoItems.length) {
+      return new Response(JSON.stringify({
+        success: false,
+        simpleNote: true,
+        error: 'Es una anotación simple por monto, no un pedido con productos. Usa el modo Simple.',
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
     if (presupuestoItems.length === 0) {

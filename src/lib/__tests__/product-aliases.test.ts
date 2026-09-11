@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveProductAlias } from '../product-aliases';
+import { resolveProductAlias, isGenericNoteName } from '../product-aliases';
 
 /** Catálogo real (nombres, unidades) de los productos involucrados */
 const CATALOGO = [
@@ -60,5 +60,21 @@ describe('resolveProductAlias', () => {
     expect(alias('2kg jumbo')).toBe(null);
     expect(alias('caja de pepitona')).toBe(null);
     expect(alias('1kg vieras')).toBe(null);
+  });
+});
+
+describe('isGenericNoteName', () => {
+  it('reconoce anotaciones por monto', () => {
+    expect(isGenericNoteName('Mariscos Varios')).toBe(true);
+    expect(isGenericNoteName('$20 de mariscos varios')).toBe(true);
+    expect(isGenericNoteName('mariscos varios 15$')).toBe(true);
+    expect(isGenericNoteName('varios')).toBe(true);
+    expect(isGenericNoteName('Pedido')).toBe(true);
+  });
+  it('no confunde productos reales', () => {
+    expect(isGenericNoteName('Langosta')).toBe(false);
+    expect(isGenericNoteName('2kg pulpo')).toBe(false);
+    expect(isGenericNoteName('Camaron Desvenado')).toBe(false);
+    expect(isGenericNoteName('mariscos para paella')).toBe(false);
   });
 });

@@ -57,3 +57,22 @@ export function resolveProductAlias<P extends AliasProduct>(
   if (/\bmedian[oa]s?\b/.test(r)) return deveined.find(p => /\bmedian/.test(norm(p.nombre))) ?? null;
   return deveined.find(p => !/\b(jumbo|median[oa])\b/.test(norm(p.nombre))) ?? null;
 }
+
+/** Nombres que no son un producto sino una anotación por monto ("mariscos varios $20") */
+const GENERIC_NOTE_NAMES = new Set([
+  'mariscos varios', 'marisco varios', 'mariscos', 'varios', 'productos varios',
+  'pedido', 'compra', 'mercancia', 'surtido', 'mariscos surtidos',
+]);
+
+/**
+ * ¿Es una anotación por monto y no un producto? "mariscos varios $20" se anota
+ * como nota simple (o como 1 unidad a ese precio), nunca como $20/kg.
+ */
+export function isGenericNoteName(name: string): boolean {
+  const cleaned = norm(name)
+    .replace(/[$\d.,/]+/g, ' ')
+    .replace(/\b(de|del|en|los|las|unos|unas|kg|kilos?|dolares?|usd|bs)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return GENERIC_NOTE_NAMES.has(cleaned);
+}
