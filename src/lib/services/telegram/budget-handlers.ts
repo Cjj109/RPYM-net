@@ -1194,7 +1194,8 @@ export async function sendBudgetWhatsApp(db: D1Database | null, budgetId: string
         date: new Date(budget.fecha).toLocaleDateString('es-VE'),
         isPaid: budget.estado === 'pagado',
         delivery: budget.delivery || 0,
-        modoPrecio: modoPrecio
+        modoPrecio: modoPrecio,
+        hideRate: budget.hide_rate === 1
       }),
     });
     const result = await response.json();

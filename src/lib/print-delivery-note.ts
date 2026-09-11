@@ -33,10 +33,14 @@ export interface PrintPresupuesto {
 
 // ─── Shared page builders (same output used by popup AND direct download) ────
 
-function buildBcvPage(presupuesto: PrintPresupuesto, bcvRate: number | undefined): string {
+/**
+ * @param bsToggle - Ventana con botón de Bs: siempre incluye la fila de Bs (ocultable con
+ *   .hide-bs) y la etiqueta "PRECIOS BCV" solo se ve mientras los Bs estén ocultos
+ */
+function buildBcvPage(presupuesto: PrintPresupuesto, bcvRate: number | undefined, bsToggle = false): string {
   const modoPrecio = presupuesto.modoPrecio || '';
   const isDualMode = modoPrecio === 'dual';
-  const hideRateOnly = presupuesto.hideRate === true;
+  const hideRateOnly = presupuesto.hideRate === true && !bsToggle;
   const showPaid = presupuesto.estado === 'pagado';
   const dateStr = new Date(presupuesto.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const customerName = presupuesto.customerName || '';
@@ -73,7 +77,7 @@ function buildBcvPage(presupuesto: PrintPresupuesto, bcvRate: number | undefined
       </div>
       <div style="text-align:right;">
         <div style="font-size:16px;font-weight:700;color:#0c4a6e;border-bottom:2px solid #075985;padding-bottom:4px;margin-bottom:6px;">PRESUPUESTO</div>
-        ${isDualMode || hideRateOnly ? '<div style="background:#e0f2fe;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#075985;margin-bottom:4px;">PRECIOS BCV</div>' : ''}
+        ${isDualMode || hideRateOnly || bsToggle ? `<div class="${!isDualMode && bsToggle ? 'bs-hidden-only' : ''}" style="background:#e0f2fe;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#075985;margin-bottom:4px;">PRECIOS BCV</div>` : ''}
         <div style="font-size:10px;color:#0369a1;">No: <span style="font-family:monospace;font-weight:600;color:#0c4a6e;">${presupuesto.id}</span></div>
         <div style="font-size:10px;color:#0369a1;margin-top:2px;">Fecha: <span style="font-weight:600;color:#0c4a6e;">${dateStr}</span></div>
       </div>
@@ -270,14 +274,22 @@ function buildDivisaPage(presupuesto: PrintPresupuesto, prependPageBreak: boolea
 
 // ─── Popup window ─────────────────────────────────────────────────────────────
 
+export interface PrintBsOpts {
+  /** Abrir con los Bs visibles en vez de ocultos */
+  showBs?: boolean;
+  /** Vista pública: si el presupuesto tiene hideRate, no se ofrece mostrar los Bs */
+  strictHideRate?: boolean;
+}
+
 /**
  * Abre una ventana de impresión con formato de Nota de Entrega A4
  * FORMATO IDENTICO AL ADMIN PANEL
  * Soporta todos los modos: BCV, divisas, dual
- * Respeta el flag hideRate para ocultar Bs
+ * Los Bs arrancan ocultos y el botón "Mostrar Bs." los muestra, también si el
+ * presupuesto tiene hideRate (salvo con strictHideRate)
  * @param bcvRate - Tasa BCV actual (opcional). Si se proporciona, recalcula los Bs dinámicamente
  */
-export function printDeliveryNote(presupuesto: PrintPresupuesto, bcvRate?: number): void {
+export function printDeliveryNote(presupuesto: PrintPresupuesto, bcvRate?: number, opts: PrintBsOpts = {}): void {
   const printWindow = window.open('', '_blank', 'width=800,height=600');
   if (!printWindow) {
     alert('No se pudo abrir la ventana de impresion. Verifica que no esten bloqueados los popups.');
@@ -292,8 +304,11 @@ export function printDeliveryNote(presupuesto: PrintPresupuesto, bcvRate?: numbe
   const showDivisaPage = isDualMode || isDivisasOnly;
 
   const hideRateOnly = presupuesto.hideRate === true;
-  const bsToggleBtn = (!hideRateOnly && showBcvPage)
-    ? `<button id="btn-bs-toggle" onclick="toggleBs()" style="padding:8px 14px;background:#ea580c;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);">Ocultar Bs.</button>`
+  const hasBsAmount = (bcvRate ?? 0) > 0 || presupuesto.totalBs > 0;
+  const hasBsToggle = showBcvPage && hasBsAmount && !(opts.strictHideRate && hideRateOnly);
+  const startHidden = hasBsToggle && !opts.showBs;
+  const bsToggleBtn = hasBsToggle
+    ? `<button id="btn-bs-toggle" onclick="toggleBs()" style="padding:8px 14px;background:#ea580c;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);">${startHidden ? 'Mostrar Bs.' : 'Ocultar Bs.'}</button>`
     : '';
 
   const downloadBtns = isDualMode
@@ -340,16 +355,18 @@ export function printDeliveryNote(presupuesto: PrintPresupuesto, bcvRate?: numbe
       color: rgba(14, 165, 233, 0.06);
     }
     .hide-bs .bs-toggle-row { display: none !important; }
+    .bs-hidden-only { display: none; }
+    .hide-bs .bs-hidden-only { display: block; }
   </style>
 </head>
-<body>
+<body${startHidden ? ' class="hide-bs"' : ''}>
   <div class="no-print" id="dl-toolbar" style="position:-webkit-sticky;position:sticky;top:0;width:100%;background:rgba(255,255,255,0.97);border-bottom:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,0.08);display:flex;flex-direction:row;justify-content:flex-end;align-items:center;gap:8px;padding:10px 16px;padding-top:max(10px,env(safe-area-inset-top,0px));z-index:9999;">
     ${bsToggleBtn}
     ${downloadBtns}
     <button onclick="window.close()" style="padding:8px 14px;background:#dc2626;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);">Cerrar</button>
   </div>
 
-  ${showBcvPage ? buildBcvPage(presupuesto, bcvRate) : ''}
+  ${showBcvPage ? buildBcvPage(presupuesto, bcvRate, hasBsToggle) : ''}
   ${showDivisaPage ? buildDivisaPage(presupuesto, isDualMode) : ''}
 
   <script>

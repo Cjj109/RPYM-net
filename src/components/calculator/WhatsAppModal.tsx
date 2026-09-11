@@ -24,7 +24,7 @@ export function WhatsAppModal({ entries, clientName, totalUSD, totalBs, activeRa
   const captureRef = useRef<HTMLDivElement>(null);
 
   const [refId] = useState(() => String(Math.floor(100000 + Math.random() * 900000)));
-  const [hideBs, setHideBs] = useState(false);
+  const [hideBs, setHideBs] = useState(true);
 
   const resolvedName = nameInput.trim() || 'Cliente';
   const cardData = { entries, clientName: resolvedName, totalUSD, totalBs, activeRate, refId, hideBs };
@@ -149,7 +149,7 @@ export function WhatsAppModal({ entries, clientName, totalUSD, totalBs, activeRa
                         : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
                     }`}
                   >
-                    <span>{hideBs ? 'Bs. oculto' : 'Ocultar Bs.'}</span>
+                    <span>{hideBs ? 'Mostrar Bs.' : 'Ocultar Bs.'}</span>
                   </button>
                 </div>
               )}

@@ -197,15 +197,8 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
   // Editing delivery input (string-based to allow clearing)
   const [editingDelivery, setEditingDelivery] = useState<string | null>(null);
 
-  // Solo divisas mode (hide Bs) — persiste en localStorage
-  const [soloDivisas, setSoloDivisas] = useState(() => {
-    try { return localStorage.getItem('rpym_admin_hide_bs') === 'true'; } catch { return false; }
-  });
-
-  // Persistir preferencia de ocultar Bs en localStorage
-  useEffect(() => {
-    try { localStorage.setItem('rpym_admin_hide_bs', String(soloDivisas)); } catch {}
-  }, [soloDivisas]);
+  // Solo divisas mode (hide Bs) — ocultar Bs es lo predeterminado; el toggle "Mostrar Bs." los activa
+  const [soloDivisas, setSoloDivisas] = useState(true);
 
   // Pricing mode: BCV or Divisa
   const [modoPrecio, setModoPrecio] = useState<'bcv' | 'divisa' | 'dual'>('bcv');
@@ -310,6 +303,8 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
     setCustomerName(editingPresupuesto.customerName || '');
     setCustomerAddress(editingPresupuesto.customerAddress || '');
     if (editingPresupuesto.estado === 'pagado') setMarkAsPaid(true);
+    // Respetar si el presupuesto guardado mostraba o no los Bs
+    setSoloDivisas(editingPresupuesto.hideRate === true);
 
     // Load date when editing - enable custom date and set it
     if (editingPresupuesto.fecha) {
@@ -492,6 +487,8 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
     setSelectedItems(new Map());
     setPresupuestoId(null);
     setSaveMessage(null);
+    // Cada presupuesto nuevo vuelve a arrancar con los Bs ocultos
+    setSoloDivisas(true);
   };
 
   // Add custom product
@@ -857,7 +854,8 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
       customerAddress: customerAddress,
     };
 
-    printDeliveryNote(printData, bcvRate.rate);
+    // La ventana abre como diga el toggle "Mostrar Bs." del builder
+    printDeliveryNote(printData, bcvRate.rate, { showBs: !soloDivisas });
   };
 
   // WhatsApp compact screenshot version
@@ -882,7 +880,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
       estado: markAsPaid ? 'pagado' : 'pendiente',
       customerName: customerName,
     };
-    openWhatsAppCardWindow(cardData, { bcvRate: bcvRate.rate });
+    openWhatsAppCardWindow(cardData, { bcvRate: bcvRate.rate, showBs: !soloDivisas });
   };
 
   // Save to Google Sheets
@@ -1038,7 +1036,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
           <span className="text-xs text-ocean-600 mr-1">Modo:</span>
           <div className="flex rounded-lg overflow-hidden border border-ocean-200">
             <button
-              onClick={() => { setModoPrecio('bcv'); setSoloDivisas(false); }}
+              onClick={() => setModoPrecio('bcv')}
               className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                 modoPrecio === 'bcv'
                   ? 'bg-ocean-600 text-white'
@@ -1048,7 +1046,7 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
               BCV
             </button>
             <button
-              onClick={() => { setModoPrecio('dual'); setSoloDivisas(false); }}
+              onClick={() => setModoPrecio('dual')}
               className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                 modoPrecio === 'dual'
                   ? 'bg-purple-600 text-white'
@@ -2164,16 +2162,18 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
 
                 {/* Toggles */}
                 <div className="space-y-1.5 py-2 mb-2">
-                  <div className="flex items-center justify-between">
-                    <label htmlFor="solo-divisas" className="text-xs text-ocean-600 cursor-pointer">Solo divisas (ocultar Bs.)</label>
-                    <button
-                      id="solo-divisas"
-                      onClick={() => setSoloDivisas(!soloDivisas)}
-                      className={`relative w-9 h-5 rounded-full transition-colors ${soloDivisas ? 'bg-coral-500' : 'bg-ocean-200'}`}
-                    >
-                      <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${soloDivisas ? 'translate-x-4' : ''}`} />
-                    </button>
-                  </div>
+                  {modoPrecio !== 'divisa' && (
+                    <div className="flex items-center justify-between">
+                      <label htmlFor="mostrar-bs" className="text-xs text-ocean-600 cursor-pointer">Mostrar Bs.</label>
+                      <button
+                        id="mostrar-bs"
+                        onClick={() => setSoloDivisas(!soloDivisas)}
+                        className={`relative w-9 h-5 rounded-full transition-colors ${!soloDivisas ? 'bg-coral-500' : 'bg-ocean-200'}`}
+                      >
+                        <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${!soloDivisas ? 'translate-x-4' : ''}`} />
+                      </button>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <label htmlFor="mark-paid" className="text-xs text-ocean-600 cursor-pointer">Marcar como pagado</label>
                     <button
@@ -2578,15 +2578,17 @@ export default function AdminBudgetBuilder({ categories: initialCategories, bcvR
 
                 {/* Toggles */}
                 <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-2 text-xs text-ocean-600">
-                    <input
-                      type="checkbox"
-                      checked={soloDivisas}
-                      onChange={(e) => setSoloDivisas(e.target.checked)}
-                      className="rounded border-ocean-300"
-                    />
-                    Solo divisas
-                  </label>
+                  {modoPrecio !== 'divisa' && (
+                    <label className="flex items-center gap-2 text-xs text-ocean-600">
+                      <input
+                        type="checkbox"
+                        checked={!soloDivisas}
+                        onChange={(e) => setSoloDivisas(!e.target.checked)}
+                        className="rounded border-ocean-300"
+                      />
+                      Mostrar Bs.
+                    </label>
+                  )}
                   <label className="flex items-center gap-2 text-xs text-ocean-600">
                     <input
                       type="checkbox"

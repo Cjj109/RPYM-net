@@ -157,9 +157,9 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
         let rate = bcvRate || 1;
         if (!bcvRate) {
           try {
-            const rateRes = await fetch('/api/bcv-rate');
+            const rateRes = await fetch('/api/config/bcv-rate', { credentials: 'include' });
             const rateData = await rateRes.json();
-            if (rateData.success && rateData.rate) {
+            if (rateData.rate) {
               rate = rateData.rate;
               setBcvRate(rateData.rate);
             }
@@ -196,7 +196,8 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
 
         if (data.success && (data.action || payments.length > 0)) {
           // Puede venir solo compra, solo abonos, o ambos (texto mixto)
-          setAiProductAction(data.action || null);
+          // Los Bs arrancan ocultos; el toggle "Mostrar Bs." los activa
+          setAiProductAction(data.action ? { ...data.action, hideRate: data.action.hideRate ?? true } : null);
           setAiActions(payments);
           setAiUnmatched(data.unmatched || []);
           setAiResolvedMode('productos');
@@ -880,14 +881,14 @@ export function CustomerAIPanel({ bcvRate: initialBcvRate, onSuccess }: Customer
 
           {aiProductAction.pricingMode !== 'divisas' && (
             <div className="flex items-center justify-between py-2 mb-2">
-              <label htmlFor="ai-solo-divisas-panel" className="text-xs text-ocean-600 cursor-pointer">Solo divisas (ocultar Bs en print/WhatsApp)</label>
+              <label htmlFor="ai-mostrar-bs-panel" className="text-xs text-ocean-600 cursor-pointer">Mostrar Bs. (en print/WhatsApp)</label>
               <button
-                id="ai-solo-divisas-panel"
+                id="ai-mostrar-bs-panel"
                 type="button"
                 onClick={() => setAiProductAction(prev => prev ? { ...prev, hideRate: !prev.hideRate } : null)}
-                className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${aiProductAction.hideRate ? 'bg-coral-500' : 'bg-ocean-200'}`}
+                className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${!aiProductAction.hideRate ? 'bg-coral-500' : 'bg-ocean-200'}`}
               >
-                <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${aiProductAction.hideRate ? 'translate-x-4' : ''}`} />
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${!aiProductAction.hideRate ? 'translate-x-4' : ''}`} />
               </button>
             </div>
           )}

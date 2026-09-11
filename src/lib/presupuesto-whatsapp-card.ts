@@ -1,6 +1,6 @@
 /**
- * Utilidad compartida para la Vista WhatsApp (card compacta 320px)
- * Soporta modos BCV, divisa y dual (burbujas separadas)
+ * Utilidad compartida para la Vista WhatsApp (diseño "factura", tipo comprobante)
+ * Soporta modos BCV, divisa y dual (una tarjeta por moneda)
  * Usado por AdminPanel, AdminBudgetBuilder y PresupuestoAdminViewer
  */
 import { formatUSD, formatBs, formatQuantity, formatUSDCompact } from './format';
@@ -29,150 +29,22 @@ export interface WhatsAppCardData {
 export interface WhatsAppCardOpts {
   bcvRate?: number;
   baseUrl?: string; // prefix for image paths (e.g. window.location.origin para html2canvas)
+  showBs?: boolean; // abrir la ventana con los Bs visibles (por defecto arrancan ocultos)
 }
 
-
-/**
- * Etiqueta de precio unitario que va junto al nombre: " ($12/kg)".
- * Se deriva del subtotal para no depender de que el item traiga precioUSD.
- * Devuelve '' cuando no hay cantidad con la que dividir.
- */
-function unitPriceLabel(subtotal: number, cantidad: number, unidad: string): string {
-  if (!(cantidad > 0) || !(subtotal > 0)) return '';
-  return ` (${formatUSDCompact(subtotal / cantidad)}/${unidad})`;
-}
+/** Ancho del HTML de captura: tarjeta de 440px + 16px de padding por lado */
+export const WHATSAPP_CARD_CAPTURE_WIDTH = 472;
 
 /**
  * "Cliente" es el nombre genérico que se usa cuando no se identificó a nadie:
  * en ese caso no se muestra la línea de cliente.
  */
-function displayCustomerName(name?: string): string {
+export function displayCustomerName(name?: string): string {
   const trimmed = (name || '').trim();
   return trimmed.toLowerCase() === 'cliente' ? '' : trimmed;
 }
 
-function getThemeColors(isDivisasOnly: boolean) {
-  return isDivisasOnly ? {
-    bg: '#fffbeb', border: '#fde68a', borderDark: '#92400e', text: '#713f12', textLight: '#92400e', accent: '#d97706'
-  } : {
-    bg: '#f0f9ff', border: '#e0f2fe', borderDark: '#075985', text: '#0c4a6e', textLight: '#0369a1', accent: '#0ea5e9'
-  };
-}
-
-/**
- * Genera solo las burbujas HTML (main + divisa si dual)
- * Sin wrapper de página ni fondo
- */
-function generateBubbles(data: WhatsAppCardData, opts: WhatsAppCardOpts): string {
-  const isDivisasOnly = ['divisa', 'divisas'].includes(data.modoPrecio || '');
-  const isDual = data.modoPrecio === 'dual';
-  const isPaid = data.estado === 'pagado';
-  const customerName = displayCustomerName(data.customerName);
-  const colors = getThemeColors(isDivisasOnly);
-  const baseUrl = opts.baseUrl || '';
-  const bcvRate = opts.bcvRate || 0;
-  const delivery = data.delivery || 0;
-  const subtotalUSD = data.totalUSD - delivery;
-  const fechaStr = new Date(data.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-  const productRows = data.items.map(item => `
-      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid ${colors.border};">
-        <div style="flex:1;font-size:13px;color:${colors.text};">${item.nombre}<span style="color:${colors.textLight};font-size:12px;">${unitPriceLabel(item.subtotalUSD, item.cantidad, item.unidad)}</span></div>
-        <div style="font-size:12px;color:${colors.textLight};margin:0 8px;white-space:nowrap;">${formatQuantity(item.cantidad)} ${item.unidad}</div>
-        <div style="font-size:13px;font-weight:600;color:${colors.text};white-space:nowrap;">${formatUSD(item.subtotalUSD)}</div>
-      </div>
-  `).join('');
-
-  // Main bubble
-  const mainBubble = `
-  <div style="width:320px;background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:2px solid ${colors.borderDark};">
-    <div style="text-align:center;margin-bottom:12px;">
-      <img src="${baseUrl}/camaronlogo-lg.webp" alt="RPYM" style="display:block;width:140px;height:auto;object-fit:contain;margin:0 auto;" />
-      <div style="font-size:12px;color:${colors.textLight};margin-top:4px;">Presupuesto</div>
-      ${isDivisasOnly ? '<div style="background:#fef3c7;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#92400e;margin-top:4px;">Precios Divisa</div>' : '<div style="background:#e0f2fe;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#075985;margin-top:4px;">Precios BCV</div>'}
-      ${isPaid ? '<div style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:9999px;margin-top:6px;">PAGADO</div>' : ''}
-    </div>
-    ${customerName ? '<div style="font-size:12px;color:' + colors.textLight + ';text-align:center;margin-bottom:10px;">Cliente: <strong style="color:' + colors.text + ';">' + customerName + '</strong></div>' : ''}
-    <div style="margin-bottom:12px;">
-      ${productRows}
-    </div>
-    <div style="border-top:2px solid ${colors.borderDark};padding-top:10px;margin-bottom:12px;">
-      ${delivery > 0 ? `
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
-        <span style="font-size:12px;color:${colors.textLight};">Subtotal</span>
-        <span style="font-size:14px;font-weight:600;color:${colors.text};">${formatUSD(subtotalUSD)}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
-        <span style="font-size:12px;color:${colors.textLight};">Delivery</span>
-        <span style="font-size:14px;font-weight:600;color:${colors.text};">${formatUSD(delivery)}</span>
-      </div>
-      ` : ''}
-      <div style="display:flex;justify-content:space-between;align-items:baseline;${delivery > 0 ? 'border-top:1px solid ' + colors.border + ';padding-top:6px;' : ''}">
-        <span style="font-size:14px;font-weight:600;color:${colors.textLight};">${isDivisasOnly ? 'Total USD (Divisa)' : 'Total USD'}</span>
-        <span style="font-size:20px;font-weight:800;color:${colors.text};">${formatUSD(data.totalUSD)}</span>
-      </div>
-      ${(!isDivisasOnly && !data.hideRate && bcvRate > 0) ? `<div class="bs-toggle-row" style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px;">
-        <span style="font-size:12px;color:${colors.textLight};">Total Bs.</span>
-        <span style="font-size:15px;font-weight:700;color:#ea580c;">${formatBs(data.totalUSD * bcvRate)}</span>
-      </div>` : ''}
-    </div>
-    <div style="text-align:center;border-top:1px solid ${colors.border};padding-top:8px;">
-      <div style="font-size:10px;color:${colors.accent};">${fechaStr}</div>
-      <div style="font-size:10px;color:${colors.accent};margin-top:2px;">WhatsApp: +58 414-214-5202</div>
-      <div style="font-size:9px;color:${colors.border};margin-top:4px;">Ref: ${data.id}</div>
-    </div>
-  </div>`;
-
-  // Divisa bubble (solo para modo dual)
-  const divisaBubble = (isDual && data.totalUSDDivisa) ? (() => {
-    const divisaProductRows = data.items.map(item => `
-      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid #fefce8;">
-        <div style="flex:1;font-size:13px;color:#713f12;">${item.nombre}<span style="color:#92400e;font-size:12px;">${unitPriceLabel(item.subtotalUSDDivisa ?? item.subtotalUSD, item.cantidad, item.unidad)}</span></div>
-        <div style="font-size:12px;color:#92400e;margin:0 8px;white-space:nowrap;">${formatQuantity(item.cantidad)} ${item.unidad}</div>
-        <div style="font-size:13px;font-weight:600;color:#713f12;white-space:nowrap;">${formatUSD(item.subtotalUSDDivisa ?? item.subtotalUSD)}</div>
-      </div>
-    `).join('');
-    return `
-    <div style="width:320px;background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-top:16px;border:2px solid #fde68a;">
-      <div style="text-align:center;margin-bottom:12px;">
-        <img src="${baseUrl}/camaronlogo-lg.webp" alt="RPYM" style="display:block;width:140px;height:auto;object-fit:contain;margin:0 auto;" />
-        <div style="background:#fef3c7;display:inline-block;padding:3px 12px;border-radius:6px;font-size:12px;font-weight:700;color:#92400e;margin-top:4px;">Precios Divisa</div>
-        ${isPaid ? '<div style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:9999px;margin-top:6px;">PAGADO</div>' : ''}
-      </div>
-      ${customerName ? '<div style="font-size:12px;color:#92400e;text-align:center;margin-bottom:10px;">Cliente: <strong style="color:#713f12;">' + customerName + '</strong></div>' : ''}
-      <div style="margin-bottom:12px;">
-        ${divisaProductRows}
-      </div>
-      <div style="border-top:2px solid #92400e;padding-top:10px;margin-bottom:12px;">
-        ${delivery > 0 ? `
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
-          <span style="font-size:12px;color:#92400e;">Subtotal</span>
-          <span style="font-size:14px;font-weight:600;color:#713f12;">${formatUSD(data.totalUSDDivisa! - delivery)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
-          <span style="font-size:12px;color:#92400e;">Delivery</span>
-          <span style="font-size:14px;font-weight:600;color:#713f12;">${formatUSD(delivery)}</span>
-        </div>
-        ` : ''}
-        <div style="display:flex;justify-content:space-between;align-items:baseline;${delivery > 0 ? 'border-top:1px solid #fde68a;padding-top:6px;' : ''}">
-          <span style="font-size:14px;font-weight:600;color:#92400e;">Total USD (Divisa)</span>
-          <span style="font-size:20px;font-weight:800;color:#713f12;">${formatUSD(data.totalUSDDivisa!)}</span>
-        </div>
-      </div>
-      <div style="text-align:center;border-top:1px solid #fde68a;padding-top:8px;">
-        <div style="font-size:10px;color:#d97706;">${fechaStr}</div>
-        <div style="font-size:10px;color:#d97706;margin-top:2px;">WhatsApp: +58 414-214-5202</div>
-        <div style="font-size:9px;color:#fde68a;margin-top:4px;">Ref: ${data.id}</div>
-      </div>
-    </div>`;
-  })() : '';
-
-  return mainBubble + divisaBubble;
-}
-
-// ─── Diseño "Factura" (alterno, tipo comprobante) ──────────────────────────
-
-function getFacturaColors(isAmber: boolean) {
+export function getFacturaColors(isAmber: boolean) {
   return isAmber ? {
     dark: '#78350f', ribbonBg: '#fef3c7', text: '#713f12', textLight: '#92400e', orange: '#b45309', border: '#fde68a'
   } : {
@@ -306,31 +178,29 @@ function generateFacturaBubbles(data: WhatsAppCardData, opts: WhatsAppCardOpts):
  * Incluye wrapper con fondo gris y tipografia
  */
 export function renderWhatsAppCardHTML(data: WhatsAppCardData, opts: WhatsAppCardOpts = {}): string {
-  const bubbles = generateBubbles(data, opts);
+  const bubbles = generateFacturaBubbles(data, opts);
   return `
-    <div style="font-family:'Inter',-apple-system,sans-serif;background:#e5e7eb;padding:16px;display:flex;flex-direction:column;align-items:center;">
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f1f5f9;padding:16px;display:flex;flex-direction:column;align-items:center;">
       ${bubbles}
     </div>
   `;
 }
 
 /**
- * Abre una ventana nueva con la Vista WhatsApp.
- * Permite alternar entre el diseño clásico (card compacta) y el diseño
- * "factura" (comprobante), y descargar la imagen del que esté visible.
- * Si hay tasa BCV visible, también permite ocultar Bs./tasa antes de descargar.
+ * Abre una ventana nueva con la Vista WhatsApp y permite descargar la imagen.
+ * Si hay tasa BCV, los Bs./tasa arrancan ocultos (incluso con hideRate) y el
+ * botón "Mostrar Bs." los muestra antes de descargar. Solo se usa en el admin.
  */
 export function openWhatsAppCardWindow(data: WhatsAppCardData, opts: WhatsAppCardOpts = {}): void {
   const isDivisasOnly = ['divisa', 'divisas'].includes(data.modoPrecio || '');
-  const colors = getThemeColors(isDivisasOnly);
-  const bubbles = generateBubbles(data, opts);
-  const facturaBubbles = generateFacturaBubbles(data, opts);
   const origin = window.location.origin;
 
   const bcvRate = opts.bcvRate || 0;
-  const showBsToggle = !isDivisasOnly && !data.hideRate && bcvRate > 0;
-  const bsToggleBtn = showBsToggle
-    ? `<button id="btn-bs-toggle" onclick="toggleBs()" style="background:#ea580c;">Ocultar Bs.</button>`
+  const hasBsToggle = !isDivisasOnly && bcvRate > 0;
+  const startHidden = hasBsToggle && !opts.showBs;
+  const bubbles = generateFacturaBubbles(hasBsToggle ? { ...data, hideRate: false } : data, opts);
+  const bsToggleBtn = hasBsToggle
+    ? `<button id="btn-bs-toggle" onclick="toggleBs()" style="background:#ea580c;">${startHidden ? 'Mostrar Bs.' : 'Ocultar Bs.'}</button>`
     : '';
 
   const waWindow = window.open('', '_blank', 'width=520,height=780,scrollbars=yes');
@@ -389,45 +259,20 @@ export function openWhatsAppCardWindow(data: WhatsAppCardData, opts: WhatsAppCar
     @media print { .no-print { display: none !important; } }
   </style>
 </head>
-<body>
+<body${startHidden ? ' class="hide-bs"' : ''}>
   <div class="no-print" id="dl-toolbar">
     ${bsToggleBtn}
-    <button id="btn-design-toggle" onclick="toggleDesign()" style="background:#7c3aed;">Ver diseño clásico</button>
-    <button onclick="downloadCurrent()" style="background:#16a34a;">&#11015; Descargar imagen</button>
+    <button onclick="downloadImage('card-content','presupuesto-${data.id}.png')" style="background:#16a34a;">&#11015; Descargar imagen</button>
     <button onclick="window.close()" style="background:#dc2626;">Cerrar</button>
   </div>
-  <div id="card-content" style="display:none;padding:16px;background:${colors.bg};flex-direction:column;align-items:center;">
+  <div id="card-content" style="padding:16px;background:#f1f5f9;display:flex;flex-direction:column;align-items:center;">
     ${bubbles}
   </div>
-  <div id="card-content-new" style="padding:16px;background:#f1f5f9;display:flex;flex-direction:column;align-items:center;">
-    ${facturaBubbles}
-  </div>
   <script>
-  var currentDesign = 'new';
-  function toggleDesign() {
-    currentDesign = currentDesign === 'old' ? 'new' : 'old';
-    var oldEl = document.getElementById('card-content');
-    var newEl = document.getElementById('card-content-new');
-    var btn = document.getElementById('btn-design-toggle');
-    if (currentDesign === 'new') {
-      oldEl.style.display = 'none';
-      newEl.style.display = 'flex';
-      if (btn) btn.textContent = 'Ver diseño clásico';
-    } else {
-      oldEl.style.display = 'flex';
-      newEl.style.display = 'none';
-      if (btn) btn.textContent = 'Ver diseño nuevo';
-    }
-  }
   function toggleBs() {
     document.body.classList.toggle('hide-bs');
     var btn = document.getElementById('btn-bs-toggle');
     if (btn) btn.textContent = document.body.classList.contains('hide-bs') ? 'Mostrar Bs.' : 'Ocultar Bs.';
-  }
-  function downloadCurrent() {
-    var elementId = currentDesign === 'new' ? 'card-content-new' : 'card-content';
-    var filename = 'presupuesto-' + (currentDesign === 'old' ? 'clasico-' : '') + '${data.id}.png';
-    downloadImage(elementId, filename);
   }
   async function downloadImage(elementId, filename) {
     if (typeof html2canvas === 'undefined') {

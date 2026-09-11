@@ -25,7 +25,7 @@ import {
   type PresupuestoStats
 } from '../lib/presupuesto-storage';
 import { printDeliveryNote, downloadDeliveryNoteImage, type PrintPresupuesto } from '../lib/print-delivery-note';
-import { openWhatsAppCardWindow, renderWhatsAppCardHTML, type WhatsAppCardData } from '../lib/presupuesto-whatsapp-card';
+import { openWhatsAppCardWindow, renderWhatsAppCardHTML, WHATSAPP_CARD_CAPTURE_WIDTH, type WhatsAppCardData } from '../lib/presupuesto-whatsapp-card';
 import { formatUSD, formatBs, formatDateWithTime } from '../lib/format';
 import { formatPhoneDisplay, isValidVenezuelanPhone } from '../lib/phone-ve';
 import { inferModoPrecio } from '../lib/presupuesto-utils';
@@ -89,14 +89,16 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
   // Estado para copiar ID
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Preferencia de ocultar montos en Bs por presupuesto
-  const [hideBsMap, setHideBsMap] = useState<Record<string, boolean>>(() => {
-    try { return JSON.parse(localStorage.getItem('rpym_hide_bs_map') || '{}'); } catch { return {}; }
+  // Preferencia de mostrar montos en Bs por presupuesto (por defecto ocultos).
+  // Manda en el admin (lista, descargas y envíos) aunque el presupuesto tenga hideRate;
+  // hideRate solo decide lo que ve el cliente en su enlace.
+  const [showBsMap, setShowBsMap] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem('rpym_show_bs_map') || '{}'); } catch { return {}; }
   });
-  const toggleBudgetHideBs = (id: string) => {
-    setHideBsMap(prev => {
+  const toggleBudgetShowBs = (id: string) => {
+    setShowBsMap(prev => {
       const next = { ...prev, [id]: !prev[id] };
-      try { localStorage.setItem('rpym_hide_bs_map', JSON.stringify(next)); } catch {}
+      try { localStorage.setItem('rpym_show_bs_map', JSON.stringify(next)); } catch {}
       return next;
     });
   };
@@ -316,7 +318,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
       totalUSD: presupuesto.totalUSD,
       totalBs: presupuesto.totalBs,
       totalUSDDivisa: presupuesto.totalUSDDivisa,
-      hideRate: presupuesto.hideRate || hideBsMap[presupuesto.id] || false,
+      hideRate: presupuesto.hideRate || false,
       delivery: presupuesto.delivery,
       modoPrecio: modo,
       estado: presupuesto.estado,
@@ -324,7 +326,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
       customerAddress: presupuesto.customerAddress,
     };
 
-    printDeliveryNote(printData, bcvRateValue);
+    printDeliveryNote(printData, bcvRateValue, { showBs: !!showBsMap[presupuesto.id] });
   };
 
   const downloadNote = async (presupuesto: Presupuesto) => {
@@ -344,7 +346,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
       totalUSD: presupuesto.totalUSD,
       totalBs: presupuesto.totalBs,
       totalUSDDivisa: presupuesto.totalUSDDivisa,
-      hideRate: presupuesto.hideRate || hideBsMap[presupuesto.id] || false,
+      hideRate: !showBsMap[presupuesto.id],
       delivery: presupuesto.delivery,
       modoPrecio: modo,
       estado: presupuesto.estado,
@@ -369,7 +371,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
       })),
       totalUSD: presupuesto.totalUSD,
       totalUSDDivisa: presupuesto.totalUSDDivisa,
-      hideRate: presupuesto.hideRate || hideBsMap[presupuesto.id] || false,
+      hideRate: presupuesto.hideRate || false,
       delivery: presupuesto.delivery,
       modoPrecio: modo,
       estado: presupuesto.estado,
@@ -379,12 +381,13 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
 
   // Vista WhatsApp compacta del presupuesto (estilo card limpio)
   const handleWhatsAppView = (presupuesto: Presupuesto) => {
-    openWhatsAppCardWindow(mapToWhatsAppCard(presupuesto), { bcvRate: bcvRateValue });
+    openWhatsAppCardWindow(mapToWhatsAppCard(presupuesto), { bcvRate: bcvRateValue, showBs: !!showBsMap[presupuesto.id] });
   };
 
-  // Generar HTML para captura de WhatsApp (para html2canvas)
+  // Generar HTML para captura de WhatsApp (para html2canvas); los Bs van solo si se activaron
   const buildWhatsAppHTML = (presupuesto: Presupuesto): string => {
-    return renderWhatsAppCardHTML(mapToWhatsAppCard(presupuesto), { bcvRate: bcvRateValue, baseUrl: window.location.origin });
+    const card = { ...mapToWhatsAppCard(presupuesto), hideRate: !showBsMap[presupuesto.id] };
+    return renderWhatsAppCardHTML(card, { bcvRate: bcvRateValue, baseUrl: window.location.origin });
   };
 
   // Enviar presupuesto por WhatsApp Cloud API
@@ -418,14 +421,14 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
       await new Promise(resolve => setTimeout(resolve, 400));
 
       // 3. Capturar con html2canvas
-      // scale 3: la tarjeta mide 380px, así llega a WhatsApp a 1140px y el
+      // scale 3: la captura mide 472px, así llega a WhatsApp a 1416px y el
       // texto se ve tan nítido como en la vista de la página.
       const canvas = await html2canvas(captureDiv.firstElementChild as HTMLElement, {
         scale: 3,
         useCORS: true,
         backgroundColor: '#ffffff',
-        width: 380,
-        windowWidth: 380,
+        width: WHATSAPP_CARD_CAPTURE_WIDTH,
+        windowWidth: WHATSAPP_CARD_CAPTURE_WIDTH,
       });
 
       // Ocultar div de captura
@@ -527,7 +530,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
           isPaid: presupuesto.estado === 'pagado',
           delivery: presupuesto.delivery || 0,
           modoPrecio: modo,
-          hideRate: presupuesto.hideRate || false
+          hideRate: !showBsMap[presupuesto.id]
         }),
       });
 
@@ -567,7 +570,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     // Build message with presupuesto details
     const isDual = presupuesto.modoPrecio === 'dual' || (presupuesto.modoPrecio !== 'divisa' && presupuesto.totalUSDDivisa != null && Number(presupuesto.totalUSDDivisa) > 0);
     const isDivisasOnly = presupuesto.modoPrecio === 'divisa' || (presupuesto.totalBs === 0 && !presupuesto.hideRate && !isDual);
-    const hideRateOnly = presupuesto.hideRate === true;
+    const hideRateOnly = !showBsMap[presupuesto.id];
     let message = `*Presupuesto RPYM #${presupuesto.id}*\n`;
     if (presupuesto.customerName) message += `Cliente: ${presupuesto.customerName}\n`;
     message += `\n`;
@@ -865,7 +868,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <span className="font-semibold text-coral-600">{formatUSD(p.totalUSD)}</span>
-                        {!hideBsMap[p.id] && bcvRateValue > 0 && p.totalBs !== 0 && !p.hideRate && (
+                        {showBsMap[p.id] && bcvRateValue > 0 && p.totalBs !== 0 && (
                           <span className="block text-xs text-ocean-500">{formatBs(p.totalUSD * bcvRateValue)}</span>
                         )}
                       </td>
@@ -934,15 +937,15 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                           >
                             👁️
                           </button>
-                          {bcvRateValue > 0 && p.totalBs !== 0 && !p.hideRate && (
+                          {bcvRateValue > 0 && p.totalBs !== 0 && (
                             <button
-                              onClick={() => toggleBudgetHideBs(p.id)}
+                              onClick={() => toggleBudgetShowBs(p.id)}
                               className={`p-1.5 rounded-lg transition-colors text-xs font-bold ${
-                                hideBsMap[p.id]
+                                showBsMap[p.id]
                                   ? 'bg-coral-100 text-coral-700 hover:bg-coral-200'
                                   : 'text-ocean-400 hover:bg-ocean-50'
                               }`}
-                              title={hideBsMap[p.id] ? 'Mostrando solo USD — clic para mostrar Bs.' : 'Clic para ocultar Bs.'}
+                              title={showBsMap[p.id] ? 'Mostrando Bs. — clic para ocultarlos' : 'Solo USD — clic para mostrar Bs.'}
                             >
                               Bs
                             </button>
@@ -1089,7 +1092,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
                   <span className="text-xl font-bold text-coral-600">{formatUSD(currentTotalUSD)}</span>
                 </div>
                 {/* Mostrar Bs solo si no es modo divisas, tenemos tasa BCV y el toggle lo permite */}
-                {!hideBsMap[selectedPresupuesto.id] && bcvRateValue > 0 && selectedPresupuesto.totalBs !== 0 && !selectedPresupuesto.hideRate && (
+                {showBsMap[selectedPresupuesto.id] && bcvRateValue > 0 && selectedPresupuesto.totalBs !== 0 && (
                   <div className="flex justify-between items-center mt-1">
                     <span className="text-ocean-700">Total Bs:</span>
                     <span className="font-semibold text-ocean-900">{formatBs(currentTotalBs)}</span>
@@ -1450,7 +1453,7 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
           position: 'fixed',
           left: '-9999px',
           top: 0,
-          width: '380px',
+          width: `${WHATSAPP_CARD_CAPTURE_WIDTH}px`,
           display: 'none',
           zIndex: -1,
         }}

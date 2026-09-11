@@ -229,7 +229,8 @@ export default function PresupuestoViewer() {
   // Función para imprimir en formato Nota de Entrega A4 (tipo admin panel)
   const handlePrintDeliveryNote = () => {
     if (!presupuesto) return;
-    printDeliveryNote(presupuesto, bcvRate);
+    // Vista pública del cliente: los Bs arrancan visibles y se respeta hideRate
+    printDeliveryNote(presupuesto, bcvRate, { showBs: true, strictHideRate: true });
   };
 
   // Generar mensaje de WhatsApp
