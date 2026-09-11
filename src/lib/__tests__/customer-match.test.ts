@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveCustomer, isGenericFirstName, type MatchCustomer } from '../customer-match';
+import { resolveCustomer, isGenericFirstName, findCustomerInText, type MatchCustomer } from '../customer-match';
 
 const CANASTAS = { id: 1, name: 'Canastas del Mar' };
 const JOSE_LUIS = { id: 2, name: 'José Luis' };
@@ -127,5 +127,26 @@ describe('isGenericFirstName', () => {
     expect(isGenericFirstName('canastas')).toBe(false);
     expect(isGenericFirstName('garcia')).toBe(false);
     expect(isGenericFirstName('jose garcia')).toBe(false);
+  });
+});
+
+describe('findCustomerInText', () => {
+  it('encuentra al cliente por nombre completo o palabra distintiva', () => {
+    expect(findCustomerInText('jose 2kg jaiba', [JOSE_LUIS, JOSE])).toEqual(JOSE);
+    expect(findCustomerInText('canastas 3kg pulpo', [CANASTAS, JOSE_LUIS])).toEqual(CANASTAS);
+  });
+
+  it('un nombre de pila suelto no basta ("jose" con solo "José Luis")', () => {
+    expect(findCustomerInText('jose 2kg jaiba', [JOSE_LUIS])).toBe(null);
+  });
+
+  it('no confunde palabras del catálogo con clientes', () => {
+    const PULPO_LOCO = { id: 30, name: 'Pulpo Loco' };
+    expect(findCustomerInText('2kg pulpo', [PULPO_LOCO], ['Pulpo Mediano'])).toBe(null);
+    expect(findCustomerInText('pulpo loco 2kg jaiba', [PULPO_LOCO], ['Pulpo Mediano'])).toEqual(PULPO_LOCO);
+  });
+
+  it('con empate no elige', () => {
+    expect(findCustomerInText('maria 1kg', [MARIA_F, MARIA_J])).toBe(null);
   });
 });

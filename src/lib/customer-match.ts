@@ -212,3 +212,41 @@ export function resolveCustomer(input: ResolveCustomerInput, customers: MatchCus
   if (chosen) return resolveByText(chosen, input.text, extractWrittenName(input.text) || 'Cliente');
   return { id: null, name: 'Cliente', suggestion: null };
 }
+
+/**
+ * Cliente que aparece en el texto, antes de llamar a la IA (para sumarle su
+ * historial al prompt). Cuenta si aparece su nombre completo, o una palabra
+ * distintiva que no sea nombre de pila ni palabra del catálogo ("canastas" sí,
+ * "pulpo" de "Pulpo Loco" no). Si hay empate, null.
+ * @param ignoreWords - Nombres de productos, para no confundirlos con clientes
+ */
+export function findCustomerInText(
+  text: string,
+  customers: MatchCustomer[],
+  ignoreWords: string[] = []
+): MatchCustomer | null {
+  const textTokens = tokens(text);
+  const ignore = new Set(ignoreWords.flatMap(w => tokens(w)));
+  let best: MatchCustomer | null = null;
+  let bestScore = 0;
+  let tie = false;
+
+  for (const c of customers) {
+    const ct = tokens(c.name).filter(t => t.length >= 3);
+    if (ct.length === 0) continue;
+    const hits = ct.filter(t => textTokens.some(x => tokenMatches(x, t)));
+    const full = hits.length === ct.length;
+    const distinctive = hits.some(t => !COMMON_FIRST_NAMES.has(t) && !ignore.has(t));
+    if (!full && !distinctive) continue;
+
+    const score = hits.length + (full ? 0.5 : 0);
+    if (score > bestScore) {
+      best = c;
+      bestScore = score;
+      tie = false;
+    } else if (score === bestScore) {
+      tie = true;
+    }
+  }
+  return tie ? null : best;
+}

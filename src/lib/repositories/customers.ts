@@ -84,3 +84,24 @@ export async function findCustomerSuggestions(
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
 }
+
+/**
+ * Líneas (JSON) de los últimos presupuestos comprados por un cliente, del más
+ * reciente al más antiguo. Excluye transacciones tachadas.
+ */
+export async function findRecentPurchaseItems(
+  db: D1Database,
+  customerId: number,
+  limit: number = 6
+): Promise<{ items: string; fecha: string }[]> {
+  if (!db) return [];
+  const rows = await db.prepare(`
+    SELECT p.items, p.fecha
+    FROM customer_transactions t
+    JOIN presupuestos p ON p.id = t.presupuesto_id
+    WHERE t.customer_id = ? AND t.type = 'purchase' AND COALESCE(t.is_crossed, 0) = 0
+    ORDER BY t.date DESC, t.id DESC
+    LIMIT ?
+  `).bind(customerId, limit).all<{ items: string; fecha: string }>();
+  return rows?.results || [];
+}

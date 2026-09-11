@@ -5,7 +5,9 @@ import { callAIWithFallback } from '../../lib/ai-fallback';
 import { getProviderOrder } from '../../lib/ai-config';
 import { normalizeDictatedText } from '../../lib/normalize-dictated';
 import { detectExplicitUnit } from '../../lib/detect-explicit-unit';
-import { resolveCustomer, type CustomerResolution, type MatchCustomer } from '../../lib/customer-match';
+import { resolveCustomer, findCustomerInText, type CustomerResolution, type MatchCustomer } from '../../lib/customer-match';
+import { findRecentPurchaseItems } from '../../lib/repositories/customers';
+import { summarizeProductHabits, formatHabitsForPrompt } from '../../lib/customer-history';
 import { resolveProductAlias, isGenericNoteName } from '../../lib/product-aliases';
 
 export const prerender = false;
@@ -134,6 +136,22 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const dayNames = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
     const todayName = dayNames[dayOfWeek];
 
+    // Historial del cliente, si se reconoce en el texto: sus últimos 15 pedidos
+    // resumidos en sus productos habituales (tope de 10, ~250 tokens), para
+    // desambiguar productos sin volver lenta la IA
+    const historyStart = Date.now();
+    const knownCustomer = findCustomerInText(text, customers, products.map(p => p.nombre));
+    let customerHistory = '';
+    if (knownCustomer && db) {
+      try {
+        const rows = await findRecentPurchaseItems(db, knownCustomer.id, 15);
+        customerHistory = formatHabitsForPrompt(knownCustomer.name, summarizeProductHabits(rows, 10), rows.length);
+      } catch (error) {
+        console.error('Error al leer el historial del cliente:', error);
+      }
+    }
+    const historyMs = Date.now() - historyStart;
+
     const systemPrompt = `Eres un asistente experto para RPYM, un negocio de mariscos en Venezuela. Tu tarea es interpretar textos que contienen:
 1. Un nombre de cliente
 2. Una lista de productos con cantidades
@@ -148,7 +166,7 @@ ${customerList}
 PRODUCTOS DISPONIBLES:
 ${productList}
 
-${dictado ? `⚠️ ESTE TEXTO VIENE DE UNA NOTA DE VOZ, NO FUE ESCRITO.
+${customerHistory ? customerHistory + '\n' : ''}${dictado ? `⚠️ ESTE TEXTO VIENE DE UNA NOTA DE VOZ, NO FUE ESCRITO.
 El reconocimiento de voz no conoce los nombres del negocio, así que los escribe
 como suenan. Por eso, y SOLO en este caso, aplica lo siguiente:
 
@@ -332,6 +350,7 @@ Responde SOLO con un JSON valido:
 }`;
 
     const providerOrder = await getProviderOrder(db);
+    const aiStart = Date.now();
     const aiResult = await callAIWithFallback({
       systemPrompt,
       userMessage: text,
@@ -350,6 +369,7 @@ Responde SOLO con un JSON valido:
     }
 
     console.log(`[purchase-with-products] Procesado con: ${aiResult.provider}`);
+    console.log(`[purchase-with-products] historial: ${customerHistory ? knownCustomer?.name : 'no'} (${historyMs}ms), IA ${Date.now() - aiStart}ms`);
     const content = aiResult.content;
 
     let parsed;
