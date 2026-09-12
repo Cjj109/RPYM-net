@@ -252,8 +252,8 @@ export async function deletePresupuesto(id: string): Promise<{ success: boolean;
 export async function getPresupuestoStats(): Promise<PresupuestoStats | null> {
   try {
     const response = await fetch('/api/presupuestos/stats');
-    const result = await response.json();
-    return result;
+    if (!response.ok) return null;
+    return await response.json();
   } catch (error) {
     console.error('Error obteniendo estadísticas:', error);
     return null;

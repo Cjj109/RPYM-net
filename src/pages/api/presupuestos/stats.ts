@@ -1,9 +1,15 @@
 import type { APIRoute } from 'astro';
 import { getD1 } from '../../../lib/d1-types';
+import { requireAuth } from '../../../lib/require-auth';
 
 export const prerender = false;
 
-export const GET: APIRoute = async ({ locals }) => {
+// Protegido: expone las ventas del día y cada llamada recorre la tabla de
+// presupuestos, así que abierto a cualquiera podría agotar las lecturas de D1.
+export const GET: APIRoute = async ({ request, locals }) => {
+  const auth = await requireAuth(request, locals);
+  if (auth instanceof Response) return auth;
+
   try {
     const db = getD1(locals);
 
