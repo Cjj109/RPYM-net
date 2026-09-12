@@ -76,24 +76,24 @@ export const GET: APIRoute = async ({ request, locals }) => {
       params.push(`%${search}%`, `%${search}%`);
     }
 
-    let query = 'SELECT * FROM presupuestos';
+    // "Vinculado" se comprueba solo para las filas que se devuelven, con el
+    // índice de customer_transactions.presupuesto_id. Antes se leían todos los
+    // presupuestos vinculados (~1.000 filas) en cada refresco del panel.
+    let query = `SELECT p.*, EXISTS (
+        SELECT 1 FROM customer_transactions t WHERE t.presupuesto_id = p.id
+      ) AS is_linked
+      FROM presupuestos p`;
     if (conditions.length > 0) {
       query += ' WHERE ' + conditions.join(' AND ');
     }
-    query += ' ORDER BY created_at DESC LIMIT ?';
+    query += ' ORDER BY p.created_at DESC LIMIT ?';
     params.push(limit);
 
-    const results = await db.prepare(query).bind(...params).all<D1Presupuesto>();
-
-    // Get list of presupuesto IDs that are linked to customer transactions
-    const linkedResult = await db.prepare(`
-      SELECT DISTINCT presupuesto_id FROM customer_transactions WHERE presupuesto_id IS NOT NULL
-    `).all<{ presupuesto_id: string }>();
-    const linkedIds = new Set(linkedResult.results.map(r => r.presupuesto_id));
+    const results = await db.prepare(query).bind(...params).all<D1Presupuesto & { is_linked: number }>();
 
     const presupuestos = results.results.map(row => ({
       ...transformPresupuesto(row),
-      isLinked: linkedIds.has(row.id)
+      isLinked: row.is_linked === 1
     }));
 
     return new Response(JSON.stringify({

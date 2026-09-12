@@ -50,12 +50,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
       'INSERT OR IGNORE INTO calc_sessions (id, data) VALUES (?, ?)'
     ).bind(session.id, JSON.stringify(session)).run();
 
-    // Mantener solo las últimas 2000 sesiones
-    await db.prepare(`
-      DELETE FROM calc_sessions WHERE id NOT IN (
-        SELECT id FROM calc_sessions ORDER BY created_at DESC LIMIT 2000
-      )
-    `).run();
+    // Mantener solo las últimas 2000 sesiones. La limpieza recorre la tabla
+    // entera (~4.000 filas leídas), así que se hace en ~1 de cada 20 guardados:
+    // el exceso temporal no importa porque el GET ya trae solo 2000.
+    if (Math.random() < 0.05) {
+      await db.prepare(`
+        DELETE FROM calc_sessions WHERE id NOT IN (
+          SELECT id FROM calc_sessions ORDER BY created_at DESC LIMIT 2000
+        )
+      `).run();
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       status: 201,

@@ -201,13 +201,29 @@ export default function AdminPanel({ categories, bcvRate }: AdminPanelProps = {}
     }
   }, [filter, debouncedSearch]);
 
-  // Cargar datos iniciales y configurar auto-refresh
+  // Cargar datos y refrescar cada minuto, solo con la pestaña visible. Cada
+  // refresco lee la tabla de presupuestos: con la pestaña abierta en segundo
+  // plano todo el día (antes cada 30 s) rozaba el límite diario de lecturas de D1.
   useEffect(() => {
-    if (isAuthenticated) {
+    if (!isAuthenticated) return;
+    let lastLoad = Date.now();
+    const refresh = () => {
+      lastLoad = Date.now();
       loadData();
-      const interval = setInterval(loadData, 30000); // Refresh cada 30 segundos
-      return () => clearInterval(interval);
-    }
+    };
+    refresh();
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') refresh();
+    }, 60000);
+    // Al volver a la pestaña se refresca al momento (máximo una vez cada 15 s)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastLoad > 15000) refresh();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [isAuthenticated, loadData]);
 
   // Marcar como pagado

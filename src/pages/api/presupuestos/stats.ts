@@ -25,48 +25,24 @@ export const GET: APIRoute = async ({ locals }) => {
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
     const tomorrowStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
 
-    // Execute all stats queries in parallel using batch
-    const [
-      todayCountResult,
-      todaySalesResult,
-      pendingResult,
-      totalResult
-    ] = await db.batch([
-      // Count today's presupuestos
-      db.prepare(`
-        SELECT COUNT(*) as count
-        FROM presupuestos
-        WHERE created_at >= ? AND created_at < ?
-      `).bind(todayStart, tomorrowStart),
+    // Una sola pasada por la tabla. Antes eran cuatro consultas y tres de ellas
+    // la recorrían entera en cada refresco del panel: con el panel abierto todo
+    // el día eso rozaba el límite diario de filas leídas de D1.
+    const row = await db.prepare(`
+      SELECT
+        COUNT(*) AS total,
+        COALESCE(SUM(CASE WHEN estado = 'pendiente' THEN 1 ELSE 0 END), 0) AS pendientes,
+        COALESCE(SUM(CASE WHEN created_at >= ? AND created_at < ? THEN 1 ELSE 0 END), 0) AS hoy,
+        COALESCE(SUM(CASE WHEN estado = 'pagado' AND created_at >= ? AND created_at < ? THEN total_usd ELSE 0 END), 0) AS vendido_usd,
+        COALESCE(SUM(CASE WHEN estado = 'pagado' AND created_at >= ? AND created_at < ? THEN total_bs ELSE 0 END), 0) AS vendido_bs
+      FROM presupuestos
+    `).bind(todayStart, tomorrowStart, todayStart, tomorrowStart, todayStart, tomorrowStart)
+      .first<{ total: number; pendientes: number; hoy: number; vendido_usd: number; vendido_bs: number }>();
 
-      // Sum today's paid presupuestos
-      db.prepare(`
-        SELECT
-          COALESCE(SUM(total_usd), 0) as total_usd,
-          COALESCE(SUM(total_bs), 0) as total_bs
-        FROM presupuestos
-        WHERE estado = 'pagado'
-        AND created_at >= ? AND created_at < ?
-      `).bind(todayStart, tomorrowStart),
-
-      // Count pending presupuestos
-      db.prepare(`
-        SELECT COUNT(*) as count
-        FROM presupuestos
-        WHERE estado = 'pendiente'
-      `),
-
-      // Count total presupuestos
-      db.prepare(`
-        SELECT COUNT(*) as count
-        FROM presupuestos
-      `)
-    ]);
-
-    const todayCount = (todayCountResult.results[0] as any)?.count || 0;
-    const todaySales = todaySalesResult.results[0] as any || { total_usd: 0, total_bs: 0 };
-    const pendingCount = (pendingResult.results[0] as any)?.count || 0;
-    const totalCount = (totalResult.results[0] as any)?.count || 0;
+    const todayCount = row?.hoy || 0;
+    const todaySales = { total_usd: row?.vendido_usd || 0, total_bs: row?.vendido_bs || 0 };
+    const pendingCount = row?.pendientes || 0;
+    const totalCount = row?.total || 0;
 
     return new Response(JSON.stringify({
       totalHoy: todayCount,
