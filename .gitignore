@@ -27,6 +27,11 @@ pnpm-debug.log*
 # wrangler local state
 .wrangler/
 
+# arboles de trabajo temporales de los agentes: cada uno es una copia entera
+# del repo dentro del repo. Solo los worktrees — el resto de .claude/ puede
+# llevar ajustes y definiciones de agentes que si conviene versionar.
+.claude/worktrees/
+
 # Source images (processed versions are in public/)
 camaron.jpeg
 delivery.jpeg
