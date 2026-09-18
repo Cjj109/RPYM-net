@@ -2,6 +2,7 @@ export const prerender = false;
 
 import type { APIRoute } from 'astro';
 import { requireAuth } from '../../../lib/require-auth';
+import { TOLERANCIA_PAGO } from '../../../lib/pagos-proveedores-types';
 
 /** GET /api/pagos-proveedores/pendientes?antes_de=YYYY-MM
  *  Devuelve cantidad y lista resumida de compras pendientes de meses anteriores al indicado */
@@ -37,7 +38,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
       WHERE c.is_active = 1
         AND c.pagada_manual = 0
         AND c.fecha < ?
-        AND ${totalAbonadoExpr} < c.monto_total
+        AND ${totalAbonadoExpr} < c.monto_total - ${TOLERANCIA_PAGO}
       ORDER BY c.fecha ASC
     `).bind(`${antesDe}-01`).all<{
       id: number;

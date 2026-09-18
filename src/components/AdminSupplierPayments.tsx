@@ -5,9 +5,58 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { formatUSD, formatBs, formatDateShort } from '../lib/format';
 import type { ProveedorInformal, CompraProveedor, AbonoProveedor, ResumenMensual, MetodoPago, CuentaPago, ModoPrecioCompra } from '../lib/pagos-proveedores-types';
-import { METODO_PAGO_LABELS, METODO_PAGO_SHORT, CUENTA_LABELS, CUENTA_SHORT, MODO_PRECIO_LABELS, MODO_PRECIO_SHORT } from '../lib/pagos-proveedores-types';
+import { METODO_PAGO_LABELS, METODO_PAGO_SHORT, CUENTA_LABELS, CUENTA_SHORT, MODO_PRECIO_LABELS, MODO_PRECIO_SHORT, esCuentaEnDivisas, estaPagada, tieneSaldoAFavor, sigueDebiendo } from '../lib/pagos-proveedores-types';
 
 const MONTHS_FULL_CAP = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+/** El mismo tope que acepta el endpoint */
+const MAX_LINEAS = 10;
+
+/**
+ * Un pago dentro de la tanda.
+ *
+ * A un proveedor se le paga el mismo día desde varias cuentas —algo de la de
+ * PA, algo de la de Carlos, algo de Zelle— y cada transferencia trae su propio
+ * comprobante. Lo que cambia de una a otra es esto; la fecha y las tasas del
+ * día son las mismas para todas y viven fuera.
+ */
+interface LineaAbono {
+  uid: number;
+  modo: 'usd' | 'bs';
+  montoUsd: string;
+  montoBs: string;
+  metodoPago: MetodoPago;
+  cuenta: CuentaPago;
+  notas: string;
+  imagenFile: File | null;
+  imagenPreview: string | null;
+}
+
+let proximoUid = 1;
+
+const lineaVacia = (parcial: Partial<LineaAbono> = {}): LineaAbono => ({
+  uid: proximoUid++,
+  modo: 'usd',
+  montoUsd: '',
+  montoBs: '',
+  metodoPago: 'pago_movil',
+  cuenta: 'pa',
+  notas: '',
+  imagenFile: null,
+  imagenPreview: null,
+  ...parcial,
+});
+
+/** La tasa que convierte en esta compra: la paralela manda si la compra es a paralelo */
+const tasaQueManda = (compra: CompraProveedor | null, bcv: string, paralela: string): number =>
+  (compra?.modoPrecio === 'paralelo' ? Number(paralela) : Number(bcv)) || 0;
+
+/** Lo que vale la línea en dólares */
+const usdDeLinea = (linea: LineaAbono, tasa: number): number => {
+  if (linea.modo === 'usd') return Number(linea.montoUsd) || 0;
+  const bs = Number(linea.montoBs) || 0;
+  return tasa > 0 ? bs / tasa : 0;
+};
 
 function getCurrentMonth(): string {
   const now = new Date();
@@ -66,25 +115,16 @@ export default function AdminSupplierPayments() {
   const [removeNotaEntrega, setRemoveNotaEntrega] = useState(false);
   const [isSavingCompra, setIsSavingCompra] = useState(false);
 
-  // Abono modal
+  // Abono modal — una línea por pago
   const [showAbonoModal, setShowAbonoModal] = useState(false);
   const [abonoTargetCompra, setAbonoTargetCompra] = useState<CompraProveedor | null>(null);
   const [editingAbono, setEditingAbono] = useState<AbonoProveedor | null>(null);
-  const [abonoForm, setAbonoForm] = useState({
-    montoUsd: '',
-    fecha: new Date().toISOString().split('T')[0],
-    metodoPago: 'pago_movil' as MetodoPago,
-    cuenta: 'pa' as CuentaPago,
-    notas: '',
-  });
-  const [imagenFile, setImagenFile] = useState<File | null>(null);
-  const [imagenPreview, setImagenPreview] = useState<string | null>(null);
+  const [abonoFecha, setAbonoFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [lineas, setLineas] = useState<LineaAbono[]>([]);
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
   const [isSavingAbono, setIsSavingAbono] = useState(false);
 
-  // Bs conversion mode for abono
-  const [montoMode, setMontoMode] = useState<'usd' | 'bs'>('usd');
-  const [montoBsInput, setMontoBsInput] = useState('');
+  // Tasas del día: valen para todas las líneas de la tanda
   const [tasaBcv, setTasaBcv] = useState<number | null>(null);
   const [tasaBcvInput, setTasaBcvInput] = useState('');
   const [tasaParalela, setTasaParalela] = useState('');
@@ -368,99 +408,166 @@ export default function AdminSupplierPayments() {
 
   const openAbonoModal = (compra: CompraProveedor, abono?: AbonoProveedor) => {
     setAbonoTargetCompra(compra);
+    setTasaBcvInput(tasaBcv ? String(tasaBcv) : '');
+    setTasaParalela('');
+
     if (abono) {
       setEditingAbono(abono);
-      setAbonoForm({
+      setAbonoFecha(abono.fecha);
+      if (abono.tasaCambio) setTasaBcvInput(String(abono.tasaCambio));
+      if (abono.tasaParalela) setTasaParalela(String(abono.tasaParalela));
+      setLineas([lineaVacia({
+        modo: abono.montoBs ? 'bs' : 'usd',
         montoUsd: String(abono.montoUsd),
-        fecha: abono.fecha,
+        montoBs: abono.montoBs ? String(abono.montoBs) : '',
         metodoPago: abono.metodoPago,
         cuenta: abono.cuenta,
         notas: abono.notas || '',
-      });
-      setImagenPreview(abono.imagenUrl);
-      if (abono.montoBs) {
-        setMontoMode('bs');
-        setMontoBsInput(String(abono.montoBs));
-        setTasaBcvInput(abono.tasaCambio ? String(abono.tasaCambio) : (tasaBcv ? String(tasaBcv) : ''));
-        setTasaParalela(abono.tasaParalela ? String(abono.tasaParalela) : '');
-      } else {
-        setMontoMode('usd');
-        setMontoBsInput('');
-        setTasaBcvInput(tasaBcv ? String(tasaBcv) : '');
-        setTasaParalela('');
-      }
+        imagenPreview: abono.imagenUrl,
+      })]);
     } else {
       setEditingAbono(null);
-      // Para compras paralelo, default a modo Bs
-      const defaultBsMode = compra.modoPrecio === 'paralelo';
-      setAbonoForm({
-        montoUsd: compra.saldoPendiente > 0 ? String(compra.saldoPendiente.toFixed(2)) : '',
-        fecha: new Date().toISOString().split('T')[0],
-        metodoPago: 'pago_movil',
-        cuenta: 'pa',
-        notas: '',
-      });
-      setImagenPreview(null);
-      setMontoMode(defaultBsMode ? 'bs' : 'usd');
-      setMontoBsInput('');
-      setTasaBcvInput(tasaBcv ? String(tasaBcv) : '');
-      setTasaParalela('');
+      setAbonoFecha(new Date().toISOString().split('T')[0]);
+      // Las compras a paralelo se pagan en bolívares: arrancan en ese modo
+      const enBs = compra.modoPrecio === 'paralelo';
+      setLineas([lineaVacia({
+        modo: enBs ? 'bs' : 'usd',
+        montoUsd: !enBs && compra.saldoPendiente > 0 ? compra.saldoPendiente.toFixed(2) : '',
+      })]);
     }
-    setImagenFile(null);
     setRemoveExistingImage(false);
     setShowAbonoModal(true);
   };
 
+  // ── Líneas de la tanda ────────────────────────────────
+
+  const cambiarLinea = (uid: number, cambios: Partial<LineaAbono>) =>
+    setLineas(prev => prev.map(l => (l.uid === uid ? { ...l, ...cambios } : l)));
+
+  /** Nunca deja la tanda sin líneas: sin ninguna no habría nada que rellenar */
+  const quitarLinea = (uid: number) =>
+    setLineas(prev => (prev.length > 1 ? prev.filter(l => l.uid !== uid) : prev));
+
+  const anadirLinea = () =>
+    setLineas(prev => {
+      if (prev.length >= MAX_LINEAS) return prev;
+      const ultima = prev[prev.length - 1];
+      /* Hereda método y moneda de la anterior: cuando se reparte un pago, eso
+         suele repetirse y lo que cambia es la cuenta. */
+      return [...prev, lineaVacia({ metodoPago: ultima?.metodoPago, modo: ultima?.modo })];
+    });
+
+  const seleccionarImagen = (uid: number, file: File | null) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('La imagen es demasiado grande. Maximo 5MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () =>
+      cambiarLinea(uid, { imagenFile: file, imagenPreview: reader.result as string });
+    reader.readAsDataURL(file);
+  };
+
+  /** Sube un comprobante. Devuelve si llegó. */
+  const subirComprobante = async (abonoId: number, file: File): Promise<boolean> => {
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('abonoId', String(abonoId));
+      const res = await fetch('/api/pagos-proveedores/upload-imagen', { method: 'POST', body: formData });
+      const data = await res.json();
+      return Boolean(data.success);
+    } catch {
+      return false;
+    }
+  };
+
+  const cuerpoDeLinea = (linea: LineaAbono, tasa: number) => ({
+    montoUsd: usdDeLinea(linea, tasa).toFixed(2),
+    fecha: abonoFecha,
+    metodoPago: linea.metodoPago,
+    cuenta: linea.cuenta,
+    notas: linea.notas,
+    montoBs: linea.modo === 'bs' ? Number(linea.montoBs) || null : null,
+    tasaCambio: linea.modo === 'bs' && tasaBcvInput ? Number(tasaBcvInput) : null,
+    tasaParalela: linea.modo === 'bs' && tasaParalela ? Number(tasaParalela) : null,
+  });
+
   const handleSaveAbono = async () => {
-    if (!abonoTargetCompra || !abonoForm.montoUsd || !abonoForm.fecha) {
-      alert('Completa monto y fecha');
+    if (!abonoTargetCompra || !abonoFecha) {
+      alert('Completa la fecha');
       return;
     }
 
-    // Validar tasa paralela requerida para compras paralelo con abono en Bs
-    if (abonoTargetCompra.modoPrecio === 'paralelo' && montoMode === 'bs' && !tasaParalela) {
-      alert('La tasa paralela es requerida para compras a tasa paralelo');
+    const tasa = tasaQueManda(abonoTargetCompra, tasaBcvInput, tasaParalela);
+
+    if (lineas.some(l => l.modo === 'bs') && !tasa) {
+      alert(abonoTargetCompra.modoPrecio === 'paralelo'
+        ? 'Falta la tasa paralela: es la que convierte los bolívares en esta compra'
+        : 'Falta la tasa BCV para convertir los bolívares');
+      return;
+    }
+
+    const conMonto = lineas.filter(l => usdDeLinea(l, tasa) !== 0);
+
+    if (conMonto.length === 0) {
+      alert('Ningún pago tiene monto');
+      return;
+    }
+
+    /* Una línea sin monto se descarta sola, pero si trae comprobante adjunto
+       hay que avisar: perder el soporte de un pago en silencio es lo peor que
+       puede hacer este formulario. */
+    if (lineas.some(l => usdDeLinea(l, tasa) === 0 && l.imagenFile)) {
+      alert('Hay un comprobante adjunto en un pago sin monto');
       return;
     }
 
     setIsSavingAbono(true);
     try {
-      const method = editingAbono ? 'PUT' : 'POST';
-      const url = editingAbono
-        ? `/api/pagos-proveedores/compras/${abonoTargetCompra.id}/abonos/${editingAbono.id}`
-        : `/api/pagos-proveedores/compras/${abonoTargetCompra.id}/abonos`;
+      const base = `/api/pagos-proveedores/compras/${abonoTargetCompra.id}/abonos`;
+      let pendientesDeImagen: [number, File][] = [];
 
-      const payload = {
-        ...abonoForm,
-        removeImage: removeExistingImage,
-        montoBs: montoMode === 'bs' ? Number(montoBsInput) || null : null,
-        tasaCambio: montoMode === 'bs' && tasaBcvInput ? Number(tasaBcvInput) : null,
-        tasaParalela: montoMode === 'bs' && tasaParalela ? Number(tasaParalela) : null,
-      };
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-
-      if (!data.success) {
-        alert(data.error || 'Error al guardar');
-        return;
+      if (editingAbono) {
+        const linea = conMonto[0];
+        const res = await fetch(`${base}/${editingAbono.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...cuerpoDeLinea(linea, tasa), removeImage: removeExistingImage }),
+        });
+        const data = await res.json();
+        if (!data.success) {
+          alert(data.error || 'Error al guardar');
+          return;
+        }
+        if (linea.imagenFile) pendientesDeImagen = [[editingAbono.id, linea.imagenFile]];
+      } else {
+        const res = await fetch(base, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ abonos: conMonto.map(l => cuerpoDeLinea(l, tasa)) }),
+        });
+        const data = await res.json();
+        if (!data.success) {
+          alert(data.error || 'Error al guardar');
+          return;
+        }
+        const ids: number[] = data.ids || [];
+        pendientesDeImagen = conMonto
+          .map((l, i): [number, File] | null => (l.imagenFile && ids[i] ? [ids[i], l.imagenFile] : null))
+          .filter((p): p is [number, File] => p !== null);
       }
 
-      const abonoId = editingAbono ? editingAbono.id : data.id;
+      const subidas = await Promise.all(pendientesDeImagen.map(([id, file]) => subirComprobante(id, file)));
+      const fallaron = subidas.filter(ok => !ok).length;
 
-      // Upload image if selected
-      if (imagenFile && abonoId) {
-        const formData = new FormData();
-        formData.append('image', imagenFile);
-        formData.append('abonoId', String(abonoId));
-        await fetch('/api/pagos-proveedores/upload-imagen', {
-          method: 'POST',
-          body: formData,
-        });
+      /* Los abonos ya están guardados: que falle una imagen no los deshace,
+         pero callarlo dejaría un pago sin soporte sin que nadie se entere. */
+      if (fallaron > 0) {
+        alert(fallaron === 1
+          ? 'Se guardaron los pagos, pero un comprobante no subió. Adjúntalo editando ese abono.'
+          : `Se guardaron los pagos, pero ${fallaron} comprobantes no subieron. Adjúntalos editando esos abonos.`);
       }
 
       setShowAbonoModal(false);
@@ -586,19 +693,6 @@ export default function AdminSupplierPayments() {
   };
 
   // ── Image handling ────────────────────────────────────
-
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      alert('La imagen es demasiado grande. Maximo 5MB.');
-      return;
-    }
-    setImagenFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setImagenPreview(reader.result as string);
-    reader.readAsDataURL(file);
-  };
 
   const handleNotaEntregaSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -899,9 +993,7 @@ export default function AdminSupplierPayments() {
           const filterParts: string[] = [];
           if (facturaFilter === '0') filterParts.push('sin factura');
           if (facturaFilter === '1') filterParts.push('con factura');
-          if (cuentaFilter === 'pa') filterParts.push('Cuenta PA');
-          if (cuentaFilter === 'carlos') filterParts.push('Cuenta Carlos');
-          if (cuentaFilter === 'venezuela') filterParts.push('Cuenta Venezuela');
+          if (cuentaFilter) filterParts.push(CUENTA_LABELS[cuentaFilter]);
           if (estadoFilter === 'pendiente') filterParts.push('pendientes');
           if (estadoFilter === 'pagada') filterParts.push('pagadas');
           if (proveedorFilter) {
@@ -961,10 +1053,14 @@ export default function AdminSupplierPayments() {
                 Sin factura: {formatUSD(resumen.totalSinFactura)} ({resumen.cantidadSinFactura})
               </span>
             </div>
-            <div className="flex justify-between text-xs mt-1.5 text-ocean-500">
+            <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-xs mt-1.5 text-ocean-500">
               <span>Cuenta PA: {formatUSD(resumen.totalCuentaPa)}</span>
               <span>Cuenta Carlos: {formatUSD(resumen.totalCuentaCarlos)}</span>
               <span>Cuenta Vzla: {formatUSD(resumen.totalCuentaVenezuela)}</span>
+              {/* Solo cuando hubo: los meses sin Zelle se ven como siempre */}
+              {resumen.totalCuentaZelle > 0 && (
+                <span className="text-emerald-600 font-medium">Zelle: {formatUSD(resumen.totalCuentaZelle)}</span>
+              )}
             </div>
           </div>
         )}
@@ -1058,36 +1154,19 @@ export default function AdminSupplierPayments() {
 
           <span className="w-px bg-ocean-200 mx-1" />
 
-          <button
-            onClick={() => setCuentaFilter(c => c === 'pa' ? '' : 'pa')}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-              cuentaFilter === 'pa'
-                ? 'bg-ocean-600 text-white'
-                : 'bg-ocean-50 text-ocean-700 hover:bg-ocean-100'
-            }`}
-          >
-            Cuenta PA
-          </button>
-          <button
-            onClick={() => setCuentaFilter(c => c === 'carlos' ? '' : 'carlos')}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-              cuentaFilter === 'carlos'
-                ? 'bg-ocean-600 text-white'
-                : 'bg-ocean-50 text-ocean-700 hover:bg-ocean-100'
-            }`}
-          >
-            Cuenta Carlos
-          </button>
-          <button
-            onClick={() => setCuentaFilter(c => c === 'venezuela' ? '' : 'venezuela')}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-              cuentaFilter === 'venezuela'
-                ? 'bg-ocean-600 text-white'
-                : 'bg-ocean-50 text-ocean-700 hover:bg-ocean-100'
-            }`}
-          >
-            Cuenta Venezuela
-          </button>
+          {(Object.entries(CUENTA_LABELS) as [CuentaPago, string][]).map(([val, label]) => (
+            <button
+              key={val}
+              onClick={() => setCuentaFilter(c => c === val ? '' : val)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                cuentaFilter === val
+                  ? 'bg-ocean-600 text-white'
+                  : 'bg-ocean-50 text-ocean-700 hover:bg-ocean-100'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
 
           <span className="w-px bg-ocean-200 mx-1" />
 
@@ -1201,8 +1280,8 @@ export default function AdminSupplierPayments() {
         <div className="space-y-3">
           {compras.map(compra => {
             const isExpanded = expandedCompraId === compra.id;
-            const isPagada = compra.pagadaManual || compra.saldoPendiente <= 0;
-            const isSaldoFavor = !compra.pagadaManual && compra.saldoPendiente < 0;
+            const isPagada = estaPagada(compra);
+            const isSaldoFavor = tieneSaldoAFavor(compra);
 
             return (
               <div key={compra.id} className="bg-white rounded-xl shadow-sm border border-ocean-100 overflow-hidden">
@@ -1408,7 +1487,7 @@ export default function AdminSupplierPayments() {
                       )}
 
                       {/* Marcar como pagada */}
-                      {compra.saldoPendiente > 0 && !compra.pagadaManual && (
+                      {sigueDebiendo(compra) && (
                         <button
                           onClick={() => openPagadaModal(compra)}
                           className="px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-xs font-medium hover:bg-amber-100"
@@ -1872,24 +1951,37 @@ export default function AdminSupplierPayments() {
       )}
 
       {/* ── Modal: Agregar/Editar Abono ──────────────────── */}
-      {showAbonoModal && abonoTargetCompra && (
+      {showAbonoModal && abonoTargetCompra && (() => {
+        const esParalelo = abonoTargetCompra.modoPrecio === 'paralelo';
+        const tasa = tasaQueManda(abonoTargetCompra, tasaBcvInput, tasaParalela);
+        const hayBs = lineas.some(l => l.modo === 'bs');
+        const totalTanda = lineas.reduce((sum, l) => sum + usdDeLinea(l, tasa), 0);
+        // Redondeado al centavo, igual que el saldo que llega del servidor
+        const restante = Math.round((abonoTargetCompra.saldoPendiente - totalTanda) * 100) / 100;
+        const sinNada = lineas.every(l => !l.montoUsd && !l.montoBs);
+
+        return (
         <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-xl w-full max-w-lg my-8 shadow-xl">
             <div className="px-6 py-4 border-b border-ocean-100">
               <h3 className="text-lg font-semibold text-ocean-900">
-                {editingAbono ? 'Editar Abono' : 'Agregar Abono'}
+                {editingAbono
+                  ? 'Editar Abono'
+                  : lineas.length > 1
+                    ? `Agregar ${lineas.length} Pagos`
+                    : 'Agregar Abono'}
               </h3>
               <div className="mt-1 text-sm text-ocean-500">
                 {abonoTargetCompra.proveedorNombre} — {abonoTargetCompra.producto}
                 <span className="ml-2 font-medium text-ocean-700">
                   Total: {formatUSD(abonoTargetCompra.montoTotal)}
                 </span>
-                {abonoTargetCompra.saldoPendiente > 0 && (
+                {sigueDebiendo(abonoTargetCompra) && (
                   <span className="ml-2 text-amber-600">
                     Pendiente: {formatUSD(abonoTargetCompra.saldoPendiente)}
                   </span>
                 )}
-                {abonoTargetCompra.saldoPendiente < 0 && (
+                {tieneSaldoAFavor(abonoTargetCompra) && (
                   <span className="ml-2 text-blue-600 font-medium">
                     Saldo a favor: {formatUSD(Math.abs(abonoTargetCompra.saldoPendiente))}
                   </span>
@@ -1898,261 +1990,246 @@ export default function AdminSupplierPayments() {
             </div>
 
             <div className="p-6 space-y-4">
-              {/* Monto — toggle USD / Bs */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-sm font-medium text-ocean-700">Monto</label>
-                  <div className="flex bg-ocean-100 rounded-lg p-0.5 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMontoMode('usd');
-                        setMontoBsInput('');
-                        setTasaParalela('');
-                      }}
-                      className={`px-3 py-1 rounded-md transition-colors ${montoMode === 'usd' ? 'bg-white text-ocean-900 shadow-sm font-medium' : 'text-ocean-600'}`}
-                    >
-                      USD
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMontoMode('bs')}
-                      className={`px-3 py-1 rounded-md transition-colors ${montoMode === 'bs' ? 'bg-white text-ocean-900 shadow-sm font-medium' : 'text-ocean-600'}`}
-                    >
-                      Bs
-                    </button>
-                  </div>
-                </div>
-
-                {montoMode === 'usd' ? (
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={abonoForm.montoUsd}
-                    onChange={e => setAbonoForm(prev => ({ ...prev, montoUsd: e.target.value }))}
-                    placeholder="0.00"
-                    className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
-                  />
-                ) : (
-                  <div className="space-y-3">
-                    {/* Indicador de modo paralelo */}
-                    {abonoTargetCompra.modoPrecio === 'paralelo' && (
-                      <div className="bg-violet-50 border border-violet-200 rounded-lg px-3 py-2 text-xs text-violet-700">
-                        Compra a tasa paralelo — la conversión principal usa tasa paralela
-                      </div>
-                    )}
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={montoBsInput}
-                      onChange={e => {
-                        const bs = e.target.value;
-                        setMontoBsInput(bs);
-                        // Usar tasa paralela como principal si la compra es paralelo
-                        const isParalelo = abonoTargetCompra.modoPrecio === 'paralelo';
-                        const tasa = isParalelo ? Number(tasaParalela) : Number(tasaBcvInput);
-                        if (tasa && Number(bs)) {
-                          setAbonoForm(prev => ({ ...prev, montoUsd: (Number(bs) / tasa).toFixed(2) }));
-                        } else {
-                          setAbonoForm(prev => ({ ...prev, montoUsd: '' }));
-                        }
-                      }}
-                      placeholder="Monto en Bs"
-                      className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
-                    />
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs text-ocean-500 mb-1">
-                          Tasa BCV{abonoTargetCompra.modoPrecio === 'paralelo' ? ' (ref.)' : ''}
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={tasaBcvInput}
-                          onChange={e => {
-                            const tasa = e.target.value;
-                            setTasaBcvInput(tasa);
-                            // Solo recalcular montoUsd si NO es compra paralelo
-                            if (abonoTargetCompra.modoPrecio !== 'paralelo' && Number(tasa) && Number(montoBsInput)) {
-                              setAbonoForm(prev => ({ ...prev, montoUsd: (Number(montoBsInput) / Number(tasa)).toFixed(2) }));
-                            }
-                          }}
-                          placeholder={tasaBcv ? `Auto: ${tasaBcv.toFixed(2)}` : 'Ej: 80.00'}
-                          className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-ocean-500 mb-1">
-                          Tasa Paralelo{abonoTargetCompra.modoPrecio === 'paralelo' ? '' : ' (ref.)'}
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={tasaParalela}
-                          onChange={e => {
-                            const tasa = e.target.value;
-                            setTasaParalela(tasa);
-                            // Recalcular montoUsd si ES compra paralelo
-                            if (abonoTargetCompra.modoPrecio === 'paralelo' && Number(tasa) && Number(montoBsInput)) {
-                              setAbonoForm(prev => ({ ...prev, montoUsd: (Number(montoBsInput) / Number(tasa)).toFixed(2) }));
-                            }
-                          }}
-                          placeholder={abonoTargetCompra.modoPrecio === 'paralelo' ? 'Requerido' : 'Opcional'}
-                          className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
-                        />
-                      </div>
-                    </div>
-
-                    {montoBsInput && Number(montoBsInput) > 0 && (tasaBcvInput || tasaParalela) && (
-                      <div className="bg-ocean-50 rounded-lg p-3 text-sm space-y-1">
-                        {/* Para compras paralelo, mostrar paralelo primero y con énfasis */}
-                        {abonoTargetCompra.modoPrecio === 'paralelo' ? (
-                          <>
-                            {tasaParalela && Number(tasaParalela) > 0 && (
-                              <div className="flex justify-between text-ocean-700 font-medium">
-                                <span>Paralelo ({Number(tasaParalela).toFixed(2)})</span>
-                                <span className="text-ocean-900">
-                                  {formatUSD(Number(montoBsInput) / Number(tasaParalela))}
-                                </span>
-                              </div>
-                            )}
-                            {tasaBcvInput && Number(tasaBcvInput) > 0 && (
-                              <div className="flex justify-between text-ocean-500">
-                                <span>BCV ({Number(tasaBcvInput).toFixed(2)})</span>
-                                <span>
-                                  {formatUSD(Number(montoBsInput) / Number(tasaBcvInput))}
-                                </span>
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            {tasaBcvInput && Number(tasaBcvInput) > 0 && (
-                              <div className="flex justify-between text-ocean-700 font-medium">
-                                <span>BCV ({Number(tasaBcvInput).toFixed(2)})</span>
-                                <span className="text-ocean-900">
-                                  {formatUSD(Number(montoBsInput) / Number(tasaBcvInput))}
-                                </span>
-                              </div>
-                            )}
-                            {tasaParalela && Number(tasaParalela) > 0 && (
-                              <div className="flex justify-between text-ocean-500">
-                                <span>Paralelo ({Number(tasaParalela).toFixed(2)})</span>
-                                <span>
-                                  {formatUSD(Number(montoBsInput) / Number(tasaParalela))}
-                                </span>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Fecha */}
+              {/* Fecha — la misma para toda la tanda */}
               <div>
                 <label className="block text-sm font-medium text-ocean-700 mb-1">Fecha</label>
                 <input
                   type="date"
-                  value={abonoForm.fecha}
-                  onChange={e => setAbonoForm(prev => ({ ...prev, fecha: e.target.value }))}
+                  value={abonoFecha}
+                  onChange={e => setAbonoFecha(e.target.value)}
                   className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
                 />
+                {lineas.length > 1 && (
+                  <p className="mt-1 text-xs text-ocean-400">La misma para los {lineas.length} pagos</p>
+                )}
               </div>
 
-              {/* Metodo de pago + Cuenta */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Tasas del día — solo si algún pago va en bolívares */}
+              {hayBs && (
                 <div>
-                  <label className="block text-sm font-medium text-ocean-700 mb-1">Metodo de pago</label>
-                  <select
-                    value={abonoForm.metodoPago}
-                    onChange={e => setAbonoForm(prev => ({ ...prev, metodoPago: e.target.value as MetodoPago }))}
-                    className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
-                  >
-                    {(Object.entries(METODO_PAGO_LABELS) as [MetodoPago, string][]).map(([val, label]) => (
-                      <option key={val} value={val}>{label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-ocean-700 mb-1">Cuenta</label>
-                  <select
-                    value={abonoForm.cuenta}
-                    onChange={e => setAbonoForm(prev => ({ ...prev, cuenta: e.target.value as CuentaPago }))}
-                    className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
-                  >
-                    {(Object.entries(CUENTA_LABELS) as [CuentaPago, string][]).map(([val, label]) => (
-                      <option key={val} value={val}>{label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Notas */}
-              <div>
-                <label className="block text-sm font-medium text-ocean-700 mb-1">Notas (opcional)</label>
-                <textarea
-                  value={abonoForm.notas}
-                  onChange={e => setAbonoForm(prev => ({ ...prev, notas: e.target.value }))}
-                  rows={2}
-                  className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm resize-none"
-                  placeholder="Detalle adicional..."
-                />
-              </div>
-
-              {/* Comprobante */}
-              <div>
-                <label className="block text-sm font-medium text-ocean-700 mb-1">Comprobante (imagen)</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageSelect}
-                  className="w-full text-sm text-ocean-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-ocean-50 file:text-ocean-700 hover:file:bg-ocean-100"
-                />
-                {imagenPreview && !removeExistingImage && (
-                  <div className="mt-2 relative inline-block">
-                    <img
-                      src={imagenPreview}
-                      alt="Preview"
-                      className="max-h-40 rounded-lg border border-ocean-200 cursor-pointer"
-                      onClick={() => setImagenAmpliada(imagenPreview)}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (imagenFile) {
-                          setImagenFile(null);
-                          setImagenPreview(editingAbono?.imagenUrl || null);
-                        } else {
-                          setRemoveExistingImage(true);
-                          setImagenPreview(null);
-                        }
-                      }}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow text-xs hover:bg-red-600"
-                    >
-                      &times;
-                    </button>
+                  <div className="flex items-center justify-between mb-1 gap-2">
+                    <label className="text-sm font-medium text-ocean-700">Tasas del día</label>
+                    {esParalelo && (
+                      <span className="text-[11px] text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-2 py-0.5">
+                        Compra a paralelo: convierte la paralela
+                      </span>
+                    )}
                   </div>
-                )}
-                {removeExistingImage && (
-                  <p className="mt-2 text-sm text-orange-600">
-                    La imagen sera eliminada al guardar.{' '}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRemoveExistingImage(false);
-                        setImagenPreview(editingAbono?.imagenUrl || null);
-                      }}
-                      className="underline hover:text-orange-800"
-                    >
-                      Deshacer
-                    </button>
-                  </p>
-                )}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-ocean-500 mb-1">
+                        Tasa BCV{esParalelo ? ' (ref.)' : ''}
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={tasaBcvInput}
+                        onChange={e => setTasaBcvInput(e.target.value)}
+                        placeholder={tasaBcv ? `Auto: ${tasaBcv.toFixed(2)}` : 'Ej: 80.00'}
+                        className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-ocean-500 mb-1">
+                        Tasa Paralelo{esParalelo ? '' : ' (ref.)'}
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={tasaParalela}
+                        onChange={e => setTasaParalela(e.target.value)}
+                        placeholder={esParalelo ? 'Requerido' : 'Opcional'}
+                        className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Un bloque por pago */}
+              <div className="space-y-3">
+                {lineas.map((linea, i) => {
+                  const enDivisas = esCuentaEnDivisas(linea.cuenta);
+                  const usd = usdDeLinea(linea, tasa);
+
+                  return (
+                    <div key={linea.uid} className="border border-ocean-200 rounded-xl p-3 space-y-3">
+                      {lineas.length > 1 && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-ocean-500">Pago {i + 1}</span>
+                          <button
+                            type="button"
+                            onClick={() => quitarLinea(linea.uid)}
+                            className="text-xs text-red-500 hover:text-red-700"
+                          >
+                            Quitar
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Monto y en qué moneda */}
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={linea.modo === 'usd' ? linea.montoUsd : linea.montoBs}
+                          onChange={e => cambiarLinea(linea.uid, linea.modo === 'usd'
+                            ? { montoUsd: e.target.value }
+                            : { montoBs: e.target.value })}
+                          placeholder={linea.modo === 'usd' ? '0.00' : 'Monto en Bs'}
+                          className="flex-1 min-w-0 px-3 py-2 border border-ocean-200 rounded-lg text-sm"
+                        />
+                        {/* Zelle son dólares: ahí no hay nada que elegir */}
+                        {!enDivisas && (
+                          <div className="flex bg-ocean-100 rounded-lg p-0.5 text-xs shrink-0">
+                            {(['usd', 'bs'] as const).map(m => (
+                              <button
+                                key={m}
+                                type="button"
+                                onClick={() => cambiarLinea(linea.uid, { modo: m })}
+                                className={`px-3 py-1 rounded-md transition-colors ${
+                                  linea.modo === m ? 'bg-white text-ocean-900 shadow-sm font-medium' : 'text-ocean-600'
+                                }`}
+                              >
+                                {m === 'usd' ? 'USD' : 'Bs'}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {linea.modo === 'bs' && usd > 0 && (
+                        <p className="text-xs text-ocean-500">
+                          ≈ <span className="font-medium text-ocean-800">{formatUSD(usd)}</span>
+                          {' '}a {esParalelo ? 'paralelo' : 'BCV'} {tasa.toFixed(2)}
+                        </p>
+                      )}
+
+                      {/* De dónde salió */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <select
+                          value={linea.metodoPago}
+                          onChange={e => cambiarLinea(linea.uid, { metodoPago: e.target.value as MetodoPago })}
+                          className="w-full px-2 py-2 border border-ocean-200 rounded-lg text-sm"
+                        >
+                          {(Object.entries(METODO_PAGO_LABELS) as [MetodoPago, string][]).map(([val, label]) => (
+                            <option key={val} value={val}>{label}</option>
+                          ))}
+                        </select>
+                        <select
+                          value={linea.cuenta}
+                          onChange={e => {
+                            const cuenta = e.target.value as CuentaPago;
+                            /* Al pasar a Zelle el monto vuelve a dólares y los
+                               bolívares escritos se van: no se convierte nada. */
+                            cambiarLinea(linea.uid, esCuentaEnDivisas(cuenta)
+                              ? { cuenta, modo: 'usd', montoBs: '' }
+                              : { cuenta });
+                          }}
+                          className="w-full px-2 py-2 border border-ocean-200 rounded-lg text-sm"
+                        >
+                          {(Object.entries(CUENTA_LABELS) as [CuentaPago, string][]).map(([val, label]) => (
+                            <option key={val} value={val}>{label}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <input
+                        type="text"
+                        value={linea.notas}
+                        onChange={e => cambiarLinea(linea.uid, { notas: e.target.value })}
+                        placeholder="Nota (opcional)"
+                        className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm"
+                      />
+
+                      {/* Su propio comprobante */}
+                      <div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={e => {
+                            seleccionarImagen(linea.uid, e.target.files?.[0] ?? null);
+                            e.target.value = '';
+                          }}
+                          className="w-full text-xs text-ocean-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-ocean-50 file:text-ocean-700 hover:file:bg-ocean-100"
+                        />
+                        {linea.imagenPreview && (
+                          <div className="mt-2 relative inline-block">
+                            <img
+                              src={linea.imagenPreview}
+                              alt="Comprobante"
+                              className="max-h-28 rounded-lg border border-ocean-200 cursor-pointer"
+                              onClick={() => setImagenAmpliada(linea.imagenPreview)}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (linea.imagenFile) {
+                                  // Quita solo lo recién elegido; lo ya guardado sigue
+                                  cambiarLinea(linea.uid, {
+                                    imagenFile: null,
+                                    imagenPreview: editingAbono?.imagenUrl || null,
+                                  });
+                                } else {
+                                  setRemoveExistingImage(true);
+                                  cambiarLinea(linea.uid, { imagenPreview: null });
+                                }
+                              }}
+                              className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow text-xs hover:bg-red-600"
+                            >
+                              &times;
+                            </button>
+                          </div>
+                        )}
+                        {editingAbono && removeExistingImage && (
+                          <p className="mt-2 text-xs text-orange-600">
+                            El comprobante se eliminara al guardar.{' '}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRemoveExistingImage(false);
+                                cambiarLinea(linea.uid, { imagenPreview: editingAbono.imagenUrl });
+                              }}
+                              className="underline hover:text-orange-800"
+                            >
+                              Deshacer
+                            </button>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+
+              {/* Editar es de a uno: ahí no se añaden pagos */}
+              {!editingAbono && (
+                <button
+                  type="button"
+                  onClick={anadirLinea}
+                  disabled={lineas.length >= MAX_LINEAS}
+                  className="w-full py-2 border-2 border-dashed border-ocean-200 rounded-xl text-sm font-medium text-ocean-600 hover:border-ocean-300 hover:bg-ocean-50 disabled:opacity-50"
+                >
+                  + Otro pago
+                </button>
+              )}
+
+              {lineas.length > 1 && (
+                <div className="bg-ocean-50 rounded-lg p-3 text-sm space-y-1">
+                  <div className="flex justify-between font-medium text-ocean-800">
+                    <span>Total de los {lineas.length} pagos</span>
+                    <span>{formatUSD(totalTanda)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-ocean-500">
+                      {restante < 0 ? 'Quedaria a favor' : 'Quedaria pendiente'}
+                    </span>
+                    <span className={restante < 0 ? 'text-blue-600 font-medium' : 'text-ocean-500'}>
+                      {formatUSD(Math.abs(restante))}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="px-6 py-4 border-t border-ocean-100 flex gap-3 justify-end">
@@ -2164,15 +2241,22 @@ export default function AdminSupplierPayments() {
               </button>
               <button
                 onClick={handleSaveAbono}
-                disabled={isSavingAbono || !abonoForm.montoUsd}
+                disabled={isSavingAbono || sinNada}
                 className="px-6 py-2 text-sm bg-ocean-600 text-white rounded-lg font-medium hover:bg-ocean-700 disabled:opacity-50"
               >
-                {isSavingAbono ? 'Guardando...' : editingAbono ? 'Actualizar' : 'Registrar Abono'}
+                {isSavingAbono
+                  ? 'Guardando...'
+                  : editingAbono
+                    ? 'Actualizar'
+                    : lineas.length > 1
+                      ? `Registrar ${lineas.length} pagos`
+                      : 'Registrar Abono'}
               </button>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* ── Modal: Crear/Editar Proveedor ──────────────── */}
       {showProveedorModal && (

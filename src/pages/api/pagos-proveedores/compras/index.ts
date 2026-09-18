@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { requireAuth } from '../../../../lib/require-auth';
 import type { D1CompraProveedorWithNombre, D1AbonoProveedor } from '../../../../lib/pagos-proveedores-types';
-import { transformCompraProveedor } from '../../../../lib/pagos-proveedores-types';
+import { transformCompraProveedor, TOLERANCIA_PAGO } from '../../../../lib/pagos-proveedores-types';
 
 export const prerender = false;
 
@@ -68,10 +68,12 @@ export const GET: APIRoute = async ({ request, locals }) => {
       params.push(modoPrecio);
     }
 
+    // El centavo de tolerancia va aquí también: si no, el filtro "Pendientes"
+    // seguiría sacando compras que la pantalla da por pagadas.
     if (estado === 'pendiente') {
-      query += ` AND c.pagada_manual = 0 AND ${totalAbonadoExpr} < c.monto_total`;
+      query += ` AND c.pagada_manual = 0 AND ${totalAbonadoExpr} < c.monto_total - ${TOLERANCIA_PAGO}`;
     } else if (estado === 'pagada') {
-      query += ` AND (c.pagada_manual = 1 OR ${totalAbonadoExpr} >= c.monto_total)`;
+      query += ` AND (c.pagada_manual = 1 OR ${totalAbonadoExpr} >= c.monto_total - ${TOLERANCIA_PAGO})`;
     }
 
     query += ` ORDER BY c.fecha DESC, c.created_at DESC`;

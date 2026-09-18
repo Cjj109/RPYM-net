@@ -44,6 +44,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
         COALESCE(SUM(CASE WHEN a.cuenta = 'pa' THEN a.monto_usd ELSE 0 END), 0) as total_cuenta_pa,
         COALESCE(SUM(CASE WHEN a.cuenta = 'carlos' THEN a.monto_usd ELSE 0 END), 0) as total_cuenta_carlos,
         COALESCE(SUM(CASE WHEN a.cuenta = 'venezuela' THEN a.monto_usd ELSE 0 END), 0) as total_cuenta_venezuela,
+        COALESCE(SUM(CASE WHEN a.cuenta = 'zelle' THEN a.monto_usd ELSE 0 END), 0) as total_cuenta_zelle,
         COUNT(*) as cantidad_total,
         COALESCE(SUM(CASE WHEN c.tiene_factura = 1 THEN 1 ELSE 0 END), 0) as cantidad_con_factura,
         COALESCE(SUM(CASE WHEN c.tiene_factura = 0 THEN 1 ELSE 0 END), 0) as cantidad_sin_factura
@@ -56,6 +57,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
       total_cuenta_pa: number;
       total_cuenta_carlos: number;
       total_cuenta_venezuela: number;
+      total_cuenta_zelle: number;
       cantidad_total: number;
       cantidad_con_factura: number;
       cantidad_sin_factura: number;
@@ -76,6 +78,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
       totalCuentaPa: breakdown?.total_cuenta_pa || 0,
       totalCuentaCarlos: breakdown?.total_cuenta_carlos || 0,
       totalCuentaVenezuela: breakdown?.total_cuenta_venezuela || 0,
+      totalCuentaZelle: breakdown?.total_cuenta_zelle || 0,
       cantidadTotal: breakdown?.cantidad_total || 0,
       cantidadConFactura: breakdown?.cantidad_con_factura || 0,
       cantidadSinFactura: breakdown?.cantidad_sin_factura || 0,
