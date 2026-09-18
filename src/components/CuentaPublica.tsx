@@ -34,7 +34,25 @@ interface PublicCustomer {
   balanceEuro: number;
 }
 
-export default function CuentaPublica() {
+interface Props {
+  /**
+   * El token del enlace. Si no viene se lee de la barra de direcciones, que es
+   * como entra el cliente. Se pasa a mano cuando el panel monta esta misma
+   * vista para revisar lo que el cliente está viendo: así no hay una segunda
+   * copia de la pantalla que se pueda quedar atrás.
+   */
+  token?: string;
+  /** Empotrada dentro del panel: sin alto mínimo de pantalla completa */
+  empotrada?: boolean;
+}
+
+/** El token que cuelga al final de /cuenta/:token */
+const tokenDeLaUrl = (): string => {
+  const partes = window.location.pathname.split('/');
+  return partes[partes.length - 1] || '';
+};
+
+export default function CuentaPublica({ token: tokenProp, empotrada = false }: Props = {}) {
   const [customer, setCustomer] = useState<PublicCustomer | null>(null);
   const [transactions, setTransactions] = useState<PublicTransaction[]>([]);
   const [bcvRate, setBcvRate] = useState<number>(0);
@@ -54,8 +72,7 @@ export default function CuentaPublica() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const pathParts = window.location.pathname.split('/');
-        const token = pathParts[pathParts.length - 1];
+        const token = tokenProp || tokenDeLaUrl();
 
         if (!token) {
           setError('Enlace no valido');
@@ -84,11 +101,10 @@ export default function CuentaPublica() {
     };
 
     loadData();
-  }, []);
+  }, [tokenProp]);
 
   const handleViewPresupuesto = async (presupuestoId: string) => {
-    const pathParts = window.location.pathname.split('/');
-    const urlToken = pathParts[pathParts.length - 1] || pathParts[pathParts.length - 2];
+    const urlToken = tokenProp || tokenDeLaUrl();
 
     setLoadingPresupuesto(true);
     setShowPresupuestoModal(true);
@@ -187,7 +203,7 @@ export default function CuentaPublica() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-ocean-50 to-white flex items-center justify-center">
+      <div className={(empotrada ? 'py-16 ' : 'min-h-screen ') + 'bg-gradient-to-b from-ocean-50 to-white flex items-center justify-center'}>
         <div className="text-center">
           <div className="w-12 h-12 border-3 border-ocean-200 border-t-ocean-600 rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-ocean-600 text-sm font-medium">Cargando estado de cuenta...</p>
@@ -198,7 +214,7 @@ export default function CuentaPublica() {
 
   if (error || !customer) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-ocean-50 to-white flex items-center justify-center p-4">
+      <div className={(empotrada ? 'py-16 ' : 'min-h-screen ') + 'bg-gradient-to-b from-ocean-50 to-white flex items-center justify-center p-4'}>
         <div className="bg-white rounded-2xl shadow-lg border border-ocean-100 p-8 max-w-sm w-full text-center">
           <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -430,7 +446,7 @@ export default function CuentaPublica() {
   const allClear = totalBalance <= 0 && activeBalances === 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-ocean-50 via-white to-ocean-50/30">
+    <div className={(empotrada ? '' : 'min-h-screen ') + 'bg-gradient-to-b from-ocean-50 via-white to-ocean-50/30'}>
       {/* Header */}
       <header className="bg-gradient-to-br from-ocean-700 via-ocean-600 to-ocean-700 text-white">
         <div className="max-w-lg mx-auto px-4 pt-6 pb-8">

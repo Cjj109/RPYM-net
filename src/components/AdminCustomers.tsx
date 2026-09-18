@@ -2,10 +2,11 @@
  * RPYM - Admin Customers Management (Cuentas de Clientes)
  * Gestión de clientes y libro de cuentas desde D1 database
  */
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { formatUSD, formatBs, formatEUR, formatQuantity, formatDateShort, formatDateDMY } from '../lib/format';
 import { CustomerAIPanel } from './calculator/CustomerAIPanel';
 import EstadoCuentaExport from './EstadoCuentaExport';
+import CuentaPublica from './CuentaPublica';
 import { printDeliveryNote, downloadDeliveryNoteImage, type PrintPresupuesto } from '../lib/print-delivery-note';
 
 interface Customer {
@@ -46,6 +47,35 @@ interface CustomerTransaction {
   createdAt: string;
   updatedAt: string;
 }
+
+/**
+ * Qué movimientos entran en la lámina que se le manda al cliente.
+ *
+ * La lámina llevaba SIEMPRE el historial completo, pagados incluidos (solo los
+ * atenuaba). Un cliente con dos años de compras salía en una tira de miles de
+ * píxeles: por WhatsApp eso llega como una rendija que no se lee. Recortar no
+ * es esconder — lo que queda fuera se declara al pie.
+ */
+type AlcanceLamina = 'pendiente' | 'recientes' | 'todo';
+
+const ALCANCE_LABELS: Record<AlcanceLamina, string> = {
+  pendiente: 'Solo lo pendiente',
+  recientes: 'Últimos 20',
+  todo: 'Todo',
+};
+
+/** Cuántas filas caben antes de que la imagen deje de leerse en un teléfono */
+const TOPE_LAMINA = 20;
+
+const recortarParaLamina = (
+  transactions: CustomerTransaction[],
+  alcance: AlcanceLamina
+): CustomerTransaction[] => {
+  if (alcance === 'todo') return transactions;
+  if (alcance === 'recientes') return transactions.slice(0, TOPE_LAMINA);
+  // Lo pendiente: lo que el cliente todavía debe, que es a lo que viene
+  return transactions.filter(tx => !tx.isPaid && !tx.isCrossed).slice(0, TOPE_LAMINA);
+};
 
 export default function AdminCustomers() {
   // Vista principal: lista o detalle
@@ -149,6 +179,17 @@ export default function AdminCustomers() {
   const [exportDate, setExportDate] = useState('');
   const [exportBalances, setExportBalances] = useState({ divisas: 0, bcv: 0, euro: 0 });
   const exportRef = useRef<HTMLDivElement>(null);
+  const [exportScope, setExportScope] = useState<AlcanceLamina>('pendiente');
+
+  // Ver la cuenta tal como la ve el cliente en su enlace
+  const [showClientePreview, setShowClientePreview] = useState(false);
+
+  // Lo que entra en la lámina, y cuánto quedó fuera
+  const txLamina = useMemo(
+    () => recortarParaLamina(transactions, exportScope),
+    [transactions, exportScope]
+  );
+  const omitidasLamina = transactions.length - txLamina.length;
 
   // Toggle BCV/Divisas para transacciones duales
   const [dualView, setDualView] = useState<'bcv' | 'divisas'>('bcv');
@@ -2727,14 +2768,23 @@ export default function AdminCustomers() {
   const renderShareModal = () => {
     if (!showShareModal || !selectedCustomer) return null;
 
+    const saldo =
+      selectedCustomer.balanceDivisas + selectedCustomer.balanceBcv + selectedCustomer.balanceEuro;
+    const alDia = Math.abs(saldo) < 0.01;
+    const mensajeWhatsApp = `Hola ${selectedCustomer.name}, aqui puedes ver tu estado de cuenta:`;
+
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto">
         <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl my-4">
           <div className="p-4 border-b border-ocean-100 flex items-center justify-between">
-            <h3 className="font-bold text-ocean-900">Compartir Estado de Cuenta</h3>
+            <div className="min-w-0">
+              <h3 className="font-bold text-ocean-900">Compartir Estado de Cuenta</h3>
+              <p className="text-xs text-ocean-400 mt-0.5 truncate">{selectedCustomer.name}</p>
+            </div>
             <button
               onClick={() => setShowShareModal(false)}
-              className="p-2 text-ocean-600 hover:bg-ocean-50 rounded-lg"
+              aria-label="Cerrar"
+              className="p-2 text-ocean-600 hover:bg-ocean-50 rounded-lg flex-shrink-0"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -2745,74 +2795,209 @@ export default function AdminCustomers() {
           <div className="p-4 space-y-4">
             {!shareUrl ? (
               <div className="text-center py-4">
-                <p className="text-sm text-ocean-600 mb-4">
-                  Genera un enlace publico para que {selectedCustomer.name} pueda ver su estado de cuenta.
+                <div className="w-14 h-14 bg-ocean-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-7 h-7 text-ocean-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                </div>
+                <p className="text-sm text-ocean-600 mb-1">
+                  {selectedCustomer.name} todavia no tiene enlace.
+                </p>
+                <p className="text-xs text-ocean-400 mb-4">
+                  Con el podra ver su saldo y sus movimientos al dia, sin clave.
                 </p>
                 <button
                   onClick={handleGenerateShareToken}
                   disabled={isGeneratingToken}
-                  className="px-6 py-3 bg-ocean-600 hover:bg-ocean-500 disabled:bg-ocean-300 text-white rounded-lg text-sm font-medium transition-colors"
+                  className="px-6 py-3 bg-ocean-600 hover:bg-ocean-500 disabled:bg-ocean-300 text-white rounded-xl text-sm font-medium transition-colors"
                 >
                   {isGeneratingToken ? 'Generando...' : 'Generar enlace publico'}
                 </button>
               </div>
             ) : (
               <>
-                <div>
-                  <label className="block text-xs text-ocean-600 mb-1">Enlace publico</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      readOnly
-                      value={shareUrl}
-                      className="w-full px-3 py-2 border border-ocean-200 rounded-lg text-sm bg-ocean-50 text-ocean-700 outline-none"
-                    />
+                {/* Lo que el cliente va a ver al abrirlo */}
+                <div
+                  className={`rounded-xl p-3 border ${
+                    alDia
+                      ? 'bg-green-50 border-green-100'
+                      : saldo > 0
+                        ? 'bg-red-50 border-red-100'
+                        : 'bg-blue-50 border-blue-100'
+                  }`}
+                >
+                  <p className="text-[10px] uppercase tracking-wide text-ocean-500 font-semibold">
+                    Vera este saldo
+                  </p>
+                  <div className="flex items-baseline gap-2 mt-0.5">
+                    <span
+                      className={`text-2xl font-bold ${
+                        alDia ? 'text-green-700' : saldo > 0 ? 'text-red-600' : 'text-blue-700'
+                      }`}
+                    >
+                      {formatUSD(Math.abs(saldo))}
+                    </span>
+                    <span
+                      className={`text-xs font-medium ${
+                        alDia ? 'text-green-600' : saldo > 0 ? 'text-red-500' : 'text-blue-600'
+                      }`}
+                    >
+                      {alDia ? 'Al dia' : saldo > 0 ? 'Por pagar' : 'A favor'}
+                    </span>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                {/* El enlace */}
+                <div>
+                  <label className="block text-xs text-ocean-600 mb-1">Enlace publico</label>
                   <button
                     onClick={handleCopyLink}
-                    className="px-4 py-2.5 bg-ocean-600 hover:bg-ocean-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                    title={shareUrl}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 bg-ocean-50 hover:bg-ocean-100 border border-ocean-200 rounded-xl text-left transition-colors group"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <span className="flex-1 min-w-0 truncate font-mono text-xs text-ocean-700">
+                      {shareUrl}
+                    </span>
+                    <span className="flex-shrink-0 text-ocean-400 group-hover:text-ocean-600">
                       {copiedLink ? (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
                       ) : (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                        </svg>
                       )}
-                    </svg>
-                    {copiedLink ? 'Copiado!' : 'Copiar enlace'}
+                    </span>
                   </button>
-
-                  <button
-                    onClick={handleShareWhatsApp}
-                    className="px-4 py-2.5 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                  >
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                    </svg>
-                    Enviar por WhatsApp
-                  </button>
+                  <p className="mt-1 text-[11px] text-ocean-400">
+                    {copiedLink ? 'Copiado al portapapeles.' : 'Toca el enlace para copiarlo.'}
+                  </p>
                 </div>
 
-                <div className="flex gap-2 pt-2 border-t border-ocean-100">
-                  <button
-                    onClick={handleGenerateShareToken}
-                    disabled={isGeneratingToken}
-                    className="flex-1 px-4 py-2 text-ocean-700 hover:bg-ocean-50 rounded-lg text-sm font-medium transition-colors border border-ocean-200"
-                  >
-                    {isGeneratingToken ? 'Regenerando...' : 'Regenerar enlace'}
-                  </button>
-                  <button
-                    onClick={handleRevokeShareToken}
-                    className="flex-1 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm font-medium transition-colors border border-red-200"
-                  >
-                    Revocar acceso
-                  </button>
-                </div>
+                {/* Mandarlo */}
+                <button
+                  onClick={handleShareWhatsApp}
+                  className="w-full px-4 py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                  </svg>
+                  {selectedCustomer.phone ? 'Enviar por WhatsApp' : 'Compartir por WhatsApp'}
+                </button>
+                <p className="-mt-2 text-[11px] text-ocean-400 leading-relaxed">
+                  {selectedCustomer.phone
+                    ? `Se abre el chat con ${selectedCustomer.phone}. `
+                    : 'Este cliente no tiene telefono guardado, tendras que elegir el chat. '}
+                  Mensaje: «{mensajeWhatsApp}» y debajo el enlace.
+                </p>
+
+                {/* Verlo con sus ojos */}
+                <button
+                  onClick={() => setShowClientePreview(true)}
+                  className="w-full px-4 py-2.5 bg-white hover:bg-ocean-50 text-ocean-700 border border-ocean-200 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  Ver como lo ve el cliente
+                </button>
+
+                {/* Lo que rompe cosas, aparte y avisado */}
+                <details className="pt-2 border-t border-ocean-100 group">
+                  <summary className="text-xs text-ocean-500 cursor-pointer list-none flex items-center gap-1.5 hover:text-ocean-700">
+                    <svg className="w-3.5 h-3.5 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    Cambiar o retirar el acceso
+                  </summary>
+                  <div className="mt-3 space-y-2">
+                    <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 leading-relaxed">
+                      Las dos cosas dejan muerto el enlace que ya le mandaste. Si te
+                      escribe diciendo que no le abre, fue por aqui.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleGenerateShareToken}
+                        disabled={isGeneratingToken}
+                        className="flex-1 px-4 py-2 text-ocean-700 hover:bg-ocean-50 rounded-lg text-xs font-medium transition-colors border border-ocean-200"
+                      >
+                        {isGeneratingToken ? 'Regenerando...' : 'Regenerar enlace'}
+                      </button>
+                      <button
+                        onClick={handleRevokeShareToken}
+                        className="flex-1 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg text-xs font-medium transition-colors border border-red-200"
+                      >
+                        Revocar acceso
+                      </button>
+                    </div>
+                  </div>
+                </details>
               </>
             )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ─── Render: Ver la cuenta como la ve el cliente ──────────────────
+
+  /**
+   * Monta el MISMO componente que ve el cliente, pasandole su token.
+   *
+   * No es un iframe porque `public/_headers` manda X-Frame-Options: DENY, que
+   * bloquea el enmarcado incluso desde el propio sitio — y esa cabecera protege
+   * al panel, no se toca. Y no es una copia de la pantalla porque una copia se
+   * queda atras: esto pide los mismos datos al mismo endpoint publico.
+   */
+  const renderClientePreview = () => {
+    /* El token sale del enlace, no del cliente que hay en memoria: al generar
+       uno nuevo el enlace ya esta listo mientras el cliente todavia se esta
+       recargando, y de la otra forma el boton no hacia nada sin decir por que. */
+    const token = shareUrl?.split('/').pop();
+    if (!showClientePreview || !selectedCustomer || !token) return null;
+
+    return (
+      <div className="fixed inset-0 z-[60] flex flex-col bg-black/70">
+        <div
+          className="bg-white border-b border-ocean-100 px-4 py-3 flex items-center justify-between flex-shrink-0"
+          style={{ paddingTop: 'max(env(safe-area-inset-top), 12px)' }}
+        >
+          <div className="min-w-0">
+            <h3 className="font-bold text-ocean-900 text-sm truncate">
+              Como lo ve {selectedCustomer.name}
+            </h3>
+            <p className="text-xs text-ocean-400 mt-0.5">Su enlace, en vivo</p>
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {shareUrl && (
+              <a
+                href={shareUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 text-xs font-medium text-ocean-700 hover:bg-ocean-50 rounded-lg transition-colors border border-ocean-200"
+              >
+                Abrir aparte
+              </a>
+            )}
+            <button
+              onClick={() => setShowClientePreview(false)}
+              aria-label="Cerrar"
+              className="p-1.5 text-ocean-400 hover:text-ocean-600 hover:bg-ocean-50 rounded-lg transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Al ancho de un telefono, que es como le llega a el */}
+        <div className="flex-1 overflow-y-auto bg-gray-200 p-3 sm:p-4">
+          <div className="mx-auto w-full max-w-[420px] bg-white rounded-2xl overflow-hidden shadow-2xl">
+            <CuentaPublica token={token} empotrada />
           </div>
         </div>
       </div>
@@ -3102,6 +3287,7 @@ export default function AdminCustomers() {
       {renderTxModal()}
       {renderTxDetailModal()}
       {renderShareModal()}
+      {renderClientePreview()}
       {renderPaidModal()}
       {renderPresupuestoModal()}
 
@@ -3162,6 +3348,31 @@ export default function AdminCustomers() {
             </button>
           </div>
 
+          {/* Qué entra en la imagen. Sin esto, un cliente con años de historia
+              salía en una tira ilegible por WhatsApp. */}
+          <div className="bg-white border-b border-ocean-100 px-4 pb-3 flex-shrink-0">
+            <div className="flex gap-1.5 overflow-x-auto">
+              {(Object.entries(ALCANCE_LABELS) as [AlcanceLamina, string][]).map(([val, label]) => (
+                <button
+                  key={val}
+                  onClick={() => setExportScope(val)}
+                  className={`px-3 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-colors ${
+                    exportScope === val
+                      ? 'bg-ocean-600 text-white'
+                      : 'bg-ocean-50 text-ocean-700 hover:bg-ocean-100'
+                  }`}
+                >
+                  {label} ({recortarParaLamina(transactions, val).length})
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[11px] text-ocean-400">
+              {omitidasLamina > 0
+                ? `${txLamina.length} movimiento${txLamina.length !== 1 ? 's' : ''} en la imagen; los otros ${omitidasLamina} se mencionan al pie.`
+                : `Los ${txLamina.length} movimiento${txLamina.length !== 1 ? 's' : ''} entran completos.`}
+            </p>
+          </div>
+
           {/* Vista previa scrolleable */}
           <div className="flex-1 overflow-y-auto bg-gray-100 relative">
             {isLoadingTx ? (
@@ -3174,7 +3385,8 @@ export default function AdminCustomers() {
                 <div ref={exportRef} style={{ width: '640px', maxWidth: '100%' }}>
                   <EstadoCuentaExport
                     customer={selectedCustomer}
-                    transactions={transactions}
+                    transactions={txLamina}
+                    omitidas={omitidasLamina}
                     bcvRate={bcvRate ?? 0}
                     dualView={dualView}
                     adjustedBalances={exportBalances}

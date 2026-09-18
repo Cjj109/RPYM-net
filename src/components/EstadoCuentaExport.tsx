@@ -41,6 +41,15 @@ interface Props {
   dualView: 'bcv' | 'divisas';
   adjustedBalances: { divisas: number; bcv: number; euro: number };
   generatedAt: string;
+  /**
+   * Movimientos que quedaron fuera de la lámina.
+   *
+   * Se recorta porque un cliente con dos años de historia salía en una tira de
+   * miles de píxeles que por WhatsApp llega como una rendija ilegible. Pero lo
+   * que no cabe se dice: una lámina que oculta movimientos sin avisar es una
+   * lámina que miente.
+   */
+  omitidas?: number;
 }
 
 const C = {
@@ -78,7 +87,7 @@ function formatPaymentMethod(method: string | null) {
   return map[method] || method;
 }
 
-export default function EstadoCuentaExport({ customer, transactions, bcvRate, dualView, adjustedBalances, generatedAt }: Props) {
+export default function EstadoCuentaExport({ customer, transactions, bcvRate, dualView, adjustedBalances, generatedAt, omitidas = 0 }: Props) {
   const totalBalance = adjustedBalances.divisas + adjustedBalances.bcv + adjustedBalances.euro;
   const isPositive = totalBalance > 0;
   const isZero = totalBalance === 0;
@@ -381,6 +390,22 @@ export default function EstadoCuentaExport({ customer, transactions, bcvRate, du
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Lo que se recortó, dicho ── */}
+      {omitidas > 0 && (
+        <div
+          style={{
+            padding: '11px 28px',
+            background: C.grayLight,
+            borderBottom: `1px solid ${C.border}`,
+            fontSize: '11px',
+            color: C.gray,
+            textAlign: 'center',
+          }}
+        >
+          y {omitidas} movimiento{omitidas !== 1 ? 's' : ''} más — puedes verlos todos en el enlace de tu cuenta
         </div>
       )}
 
