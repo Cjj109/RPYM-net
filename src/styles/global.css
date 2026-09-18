@@ -715,240 +715,270 @@ img[src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAA
   pointer-events: none;
 }
 
-/* === HALLOWEEN - REDISEÑO COMPLETO MODO TERROR === */
+/* === HALLOWEEN — la decoración ===
 
-/* Fondo negro profundo con niebla púrpura */
+   Misma regla que en navidad: la decoración nunca por delante de la
+   información. Aquí importa el doble, porque una silueta negra sobre una cifra
+   sí la tapa —a diferencia de un copo, que es diminuto y translúcido—, así que
+   los murciélagos van POR DETRÁS del contenido.
+
+     la esquina    la red del puesto, que es la telaraña del oficio, con un
+                   pulpo colgando que baja y sube fisgando
+     el fondo      una luna naranja detrás de la red (el pulpo se ve a
+                   contraluz) y niebla violeta abajo
+     los bichos    murciélagos que CRUZAN de vez en cuando, por detrás
+     el título     parpadea como una vela dentro de una calabaza
+
+   Lo que había antes y no vuelve: dos telarañas en position:fixed y z-index
+   1000 —o sea por encima de todo, modales incluidos, y persiguiéndote al
+   bajar—, bordes animados de cuatro colores en cada tarjeta, goterones de
+   sangre bajo cada tarjeta y bajo cada título, y selectores de escopeta
+   ([class*="text-coral-"], .font-bold, svg) que pintaban de naranja hasta los
+   precios. Esto es una lista de precios de pescadería, no una casa del terror:
+   si el susto estorba para leer cuánto vale el pargo, sobra. */
+
 [data-theme="halloween"] body {
   background:
-    radial-gradient(ellipse at 50% 0%, rgba(88, 28, 135, 0.15) 0%, transparent 50%),
-    radial-gradient(ellipse at 0% 100%, rgba(185, 28, 28, 0.1) 0%, transparent 40%),
-    radial-gradient(ellipse at 100% 100%, rgba(249, 115, 22, 0.08) 0%, transparent 40%),
-    linear-gradient(180deg, #0a0a0a 0%, #0f0a15 30%, #150a0a 70%, #0a0a0a 100%) !important;
+    /* La luna, justo detrás de donde cuelga la red */
+    radial-gradient(circle at 100% 0%, rgba(255, 176, 84, 0.20) 0, rgba(255, 138, 42, 0.07) 13rem, transparent 26rem),
+    radial-gradient(ellipse 80% 45% at 55% 108%, rgba(147, 51, 234, 0.14), transparent 70%),
+    radial-gradient(ellipse 60% 35% at 8% 104%, rgba(249, 115, 22, 0.06), transparent 70%),
+    linear-gradient(180deg, #0b0910 0%, #120d16 45%, #0d0a11 100%) !important;
 }
 
-/* Telarañas más detalladas - esquina superior izquierda */
-[data-theme="halloween"] body::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 250px;
-  height: 250px;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cdefs%3E%3ClinearGradient id='webGrad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:white;stop-opacity:0.25'/%3E%3Cstop offset='100%25' style='stop-color:white;stop-opacity:0.05'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0,0 L200,200 M0,0 L100,200 M0,0 L200,100 M0,0 L50,200 M0,0 L200,50 M0,0 L0,200 M0,0 L200,0' stroke='url(%23webGrad)' stroke-width='0.5' fill='none'/%3E%3Ccircle cx='0' cy='0' r='30' stroke='rgba(255,255,255,0.15)' stroke-width='0.5' fill='none'/%3E%3Ccircle cx='0' cy='0' r='60' stroke='rgba(255,255,255,0.12)' stroke-width='0.5' fill='none'/%3E%3Ccircle cx='0' cy='0' r='90' stroke='rgba(255,255,255,0.09)' stroke-width='0.5' fill='none'/%3E%3Ccircle cx='0' cy='0' r='120' stroke='rgba(255,255,255,0.06)' stroke-width='0.5' fill='none'/%3E%3Ccircle cx='0' cy='0' r='150' stroke='rgba(255,255,255,0.04)' stroke-width='0.5' fill='none'/%3E%3C/svg%3E") no-repeat;
-  pointer-events: none;
-  z-index: 1000;
-  opacity: 1;
-}
-
-/* Telaraña esquina superior derecha */
-[data-theme="halloween"] body::after {
-  content: '';
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: 250px;
-  height: 250px;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cdefs%3E%3ClinearGradient id='webGrad2' x1='100%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:white;stop-opacity:0.25'/%3E%3Cstop offset='100%25' style='stop-color:white;stop-opacity:0.05'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M200,0 L0,200 M200,0 L100,200 M200,0 L0,100 M200,0 L150,200 M200,0 L0,50 M200,0 L200,200 M200,0 L0,0' stroke='url(%23webGrad2)' stroke-width='0.5' fill='none'/%3E%3Ccircle cx='200' cy='0' r='30' stroke='rgba(255,255,255,0.15)' stroke-width='0.5' fill='none'/%3E%3Ccircle cx='200' cy='0' r='60' stroke='rgba(255,255,255,0.12)' stroke-width='0.5' fill='none'/%3E%3Ccircle cx='200' cy='0' r='90' stroke='rgba(255,255,255,0.09)' stroke-width='0.5' fill='none'/%3E%3Ccircle cx='200' cy='0' r='120' stroke='rgba(255,255,255,0.06)' stroke-width='0.5' fill='none'/%3E%3Ccircle cx='200' cy='0' r='150' stroke='rgba(255,255,255,0.04)' stroke-width='0.5' fill='none'/%3E%3C/svg%3E") no-repeat;
-  pointer-events: none;
-  z-index: 1000;
-  opacity: 1;
-}
-
-/* Todos los fondos blancos se vuelven negro profundo */
+/* Las tarjetas son de noche, no son criptas: oscuras, un borde tibio y una
+   sombra. Antes llevaban borde animado de cuatro colores, cuatro sombras y
+   goterones colgando del canto de abajo. */
 [data-theme="halloween"] .bg-white,
 [data-theme="halloween"] [class*="bg-ocean-50"],
 [data-theme="halloween"] [class*="bg-sand-"],
 [data-theme="halloween"] [class*="from-white"],
 [data-theme="halloween"] [class*="to-ocean-50"] {
-  background: linear-gradient(145deg, #1a1515 0%, #0d0808 100%) !important;
+  background: linear-gradient(150deg, #1a1420 0%, #120d17 100%) !important;
 }
 
-/* Cards estilo cripta/tumba */
+/* El fondo va aquí, en .themed-card, y no solo en la lista de arriba: las
+   tarjetas del hero llevan `bg-white/80`, que Tailwind genera como una clase
+   llamada `bg-white\/80` — y el selector `.bg-white` no la alcanza. Sin esto
+   se quedaban blancas sobre el fondo negro. */
 [data-theme="halloween"] .themed-card,
 [data-theme="halloween"] .bg-white.rounded-2xl,
 [data-theme="halloween"] .bg-white.rounded-3xl {
-  background:
-    radial-gradient(ellipse at 50% 0%, rgba(249, 115, 22, 0.08) 0%, transparent 50%),
-    linear-gradient(145deg, #1a1212 0%, #0d0808 50%, #0a0505 100%) !important;
-  border: 2px solid transparent !important;
-  border-image: linear-gradient(135deg, #f97316 0%, #dc2626 50%, #9333ea 100%) 1 !important;
-  box-shadow:
-    0 0 40px rgba(249, 115, 22, 0.2),
-    0 0 80px rgba(220, 38, 38, 0.1),
-    0 10px 40px rgba(0, 0, 0, 0.6),
-    inset 0 0 60px rgba(0, 0, 0, 0.4) !important;
-  position: relative;
+  background: linear-gradient(150deg, #1a1420 0%, #120d17 100%) !important;
+  border: 1px solid rgba(255, 138, 42, 0.18) !important;
+  box-shadow: 0 0 40px -22px rgba(255, 138, 42, 0.6), 0 10px 30px -18px rgba(0, 0, 0, 0.8) !important;
 }
 
-/* Borde animado sangriento en cards */
-[data-theme="halloween"] .themed-card::before {
-  content: '';
-  position: absolute;
-  top: -3px;
-  left: -3px;
-  right: -3px;
-  bottom: -3px;
-  background: linear-gradient(
-    45deg,
-    #f97316, #dc2626, #9333ea, #dc2626, #f97316
-  );
-  background-size: 400% 400%;
-  border-radius: inherit;
-  z-index: -1;
-  animation: blood-flow 4s ease infinite;
-  opacity: 0.6;
-}
-
-@keyframes blood-flow {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-}
-
-/* Efecto de goteo de sangre en cards */
-[data-theme="halloween"] .themed-card::after {
-  content: '';
-  position: absolute;
-  top: 100%;
-  left: 10%;
-  width: 80%;
-  height: 20px;
-  background:
-    radial-gradient(ellipse 8px 15px at 10% 0%, #dc2626 80%, transparent 80%),
-    radial-gradient(ellipse 6px 12px at 30% 0%, #dc2626 80%, transparent 80%),
-    radial-gradient(ellipse 10px 18px at 55% 0%, #dc2626 80%, transparent 80%),
-    radial-gradient(ellipse 5px 10px at 75% 0%, #dc2626 80%, transparent 80%),
-    radial-gradient(ellipse 7px 14px at 90% 0%, #dc2626 80%, transparent 80%);
-  opacity: 0.4;
-  pointer-events: none;
-  z-index: 1;
-}
-
-/* Texto con brillo espectral */
+/* El texto se lee. Un solo halo tenue en los títulos y nada en el cuerpo:
+   antes cada encabezado llevaba tres sombras de color superpuestas. */
 [data-theme="halloween"] .text-ocean-900,
 [data-theme="halloween"] .text-ocean-800,
 [data-theme="halloween"] .text-ocean-700,
 [data-theme="halloween"] .text-gray-900,
 [data-theme="halloween"] .text-gray-800,
 [data-theme="halloween"] .text-gray-700 {
-  color: #f5f5f5 !important;
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+  color: #f3ece2 !important;
 }
 
 [data-theme="halloween"] .text-ocean-600,
 [data-theme="halloween"] .text-ocean-500 {
-  color: #fb923c !important;
-  text-shadow: 0 0 15px rgba(249, 115, 22, 0.4);
+  color: #f6b06a !important;
 }
 
-/* Headers con efecto sangre goteando */
-[data-theme="halloween"] h1,
+/* El acento, cuando es TEXTO.
+   `.text-coral-500` cuelga de --theme-accent-500, que en este tema es un
+   morado oscuro (#9333ea): sobre el fondo daba 3,56:1, y "Puesto 3 y 4" va en
+   medio de un párrafo a tamaño normal, donde el mínimo son 4,5:1.
+
+   Se corrige aquí y no en el token, porque ese mismo token pinta fondos:
+   aclararlo rompería el contraste por el otro lado, con texto blanco encima.
+   El violeta es el que usa la calculadora en su Halloween, y da 7,3:1. */
+[data-theme="halloween"] .text-coral-500,
+[data-theme="halloween"] .text-coral-600 {
+  color: #c084fc !important;
+}
+
 [data-theme="halloween"] h2.font-display,
 [data-theme="halloween"] h3 {
-  color: #ff6b35 !important;
-  text-shadow:
-    0 0 10px rgba(255, 107, 53, 0.8),
-    0 0 30px rgba(220, 38, 38, 0.5),
-    0 0 50px rgba(147, 51, 234, 0.3),
-    0 2px 4px rgba(0, 0, 0, 0.8);
-  position: relative;
+  color: #ff9a45 !important;
 }
 
-/* Gotas de sangre bajo títulos */
-[data-theme="halloween"] h1::after {
-  content: '';
-  position: absolute;
-  bottom: -8px;
-  left: 10%;
-  width: 80%;
-  height: 12px;
-  background:
-    radial-gradient(ellipse 4px 8px at 15% 0%, #dc2626 70%, transparent 70%),
-    radial-gradient(ellipse 3px 6px at 35% 0%, #dc2626 70%, transparent 70%),
-    radial-gradient(ellipse 5px 10px at 50% 0%, #dc2626 70%, transparent 70%),
-    radial-gradient(ellipse 3px 5px at 70% 0%, #dc2626 70%, transparent 70%),
-    radial-gradient(ellipse 4px 7px at 85% 0%, #dc2626 70%, transparent 70%);
-  opacity: 0.6;
-  animation: drip 3s ease-in-out infinite;
+/* El título, como la llama de una vela dentro de una calabaza */
+[data-theme="halloween"] h1 {
+  color: #ff8a2a !important;
+  filter: drop-shadow(0 0 10px rgba(255, 122, 26, 0.4));
+  animation: vela-calabaza 6s linear infinite;
 }
 
-@keyframes drip {
-  0%, 100% { transform: scaleY(1); opacity: 0.6; }
-  50% { transform: scaleY(1.3); opacity: 0.8; }
+/* Casi siempre quieta y de tanto en tanto dos titileos seguidos: una llama que
+   parpadea sin parar cansa, una que tiembla de vez en cuando se mira. */
+@keyframes vela-calabaza {
+  0%, 38%, 46%, 71%, 100% { opacity: 1; filter: drop-shadow(0 0 10px rgba(255, 122, 26, 0.4)); }
+  40% { opacity: 0.8; filter: drop-shadow(0 0 4px rgba(255, 122, 26, 0.22)); }
+  42% { opacity: 1; filter: drop-shadow(0 0 14px rgba(255, 122, 26, 0.55)); }
+  44% { opacity: 0.88; filter: drop-shadow(0 0 6px rgba(255, 122, 26, 0.28)); }
+  69% { opacity: 0.92; filter: drop-shadow(0 0 7px rgba(255, 122, 26, 0.32)); }
 }
 
-/* Secciones con neblina oscura */
 [data-theme="halloween"] section {
   background: transparent !important;
 }
 
-[data-theme="halloween"] section.hero-section {
-  background:
-    radial-gradient(ellipse at 50% 20%, rgba(147, 51, 234, 0.15) 0%, transparent 60%),
-    radial-gradient(ellipse at 30% 80%, rgba(220, 38, 38, 0.08) 0%, transparent 40%),
-    radial-gradient(ellipse at 70% 80%, rgba(249, 115, 22, 0.08) 0%, transparent 40%) !important;
-}
-
-/* Badges oscuros */
 [data-theme="halloween"] [class*="bg-ocean-100"],
 [data-theme="halloween"] [class*="bg-coral-50"],
 [data-theme="halloween"] [class*="bg-green-100"],
 [data-theme="halloween"] [class*="bg-red-100"] {
-  background: rgba(249, 115, 22, 0.2) !important;
-  border: 1px solid rgba(249, 115, 22, 0.4) !important;
+  background: rgba(255, 138, 42, 0.14) !important;
+  border: 1px solid rgba(255, 138, 42, 0.3) !important;
 }
 
-[data-theme="halloween"] [class*="text-coral-"],
-[data-theme="halloween"] [class*="text-green-"],
-[data-theme="halloween"] .font-bold {
-  color: #fb923c !important;
-}
-
-/* Iconos brillantes */
-[data-theme="halloween"] svg {
-  filter: drop-shadow(0 0 3px rgba(249, 115, 22, 0.5));
-}
-
-/* Efecto de niebla en el fondo */
-[data-theme="halloween"] .hero-section::before {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 100px;
-  background: linear-gradient(to top, rgba(147, 51, 234, 0.1), transparent);
-  pointer-events: none;
-}
-
-/* Links con brillo */
 [data-theme="halloween"] a:not(.themed-button) {
-  color: #fb923c !important;
-  text-shadow: 0 0 5px rgba(249, 115, 22, 0.3);
+  color: #f6b06a !important;
 }
 
-[data-theme="halloween"] a:hover {
-  text-shadow: 0 0 10px rgba(249, 115, 22, 0.6);
-}
-
-/* Footer oscuro */
 [data-theme="halloween"] footer {
-  background: linear-gradient(to bottom, #0a0a0a, #000000) !important;
-  border-top: 1px solid rgba(249, 115, 22, 0.3);
+  background: linear-gradient(to bottom, #0b0910, #050408) !important;
+  border-top: 1px solid rgba(255, 138, 42, 0.25);
 }
 
-/* Bordes de sección con gradiente */
 [data-theme="halloween"] [class*="border-ocean"],
 [data-theme="halloween"] [class*="border-sand"] {
-  border-color: rgba(249, 115, 22, 0.4) !important;
+  border-color: rgba(255, 138, 42, 0.3) !important;
 }
 
-/* Scrollbar temática */
 [data-theme="halloween"] ::-webkit-scrollbar-track {
-  background: #0a0a0a;
+  background: #0b0910;
 }
 
 [data-theme="halloween"] ::-webkit-scrollbar-thumb {
   background: linear-gradient(to bottom, #f97316, #9333ea);
+}
+
+/* ---------- El header y su ola ----------
+   El header no tenía estilo propio: colgaba de los tokens de la paleta, y en
+   este tema eso da un marrón anaranjado que no dice nada. Aquí es de noche.
+
+   Y debajo iba lo peor que quedaba del diseño viejo: la ola decorativa, que
+   usa `fill-ocean-50` y `fill-ocean-100` — en Halloween, crema casi blanco
+   (#fff7ed y #ffedd5). Sobre una página negra era un chorro de leche cruzando
+   la pantalla de lado a lado.
+
+   Las clases llevan la barra de opacidad en el nombre (`fill-ocean-50\/50`),
+   así que van escapadas: `.fill-ocean-50` a secas no las alcanza. La de
+   delante se pinta del color del fondo para que se disuelva en él, y las dos
+   de detrás quedan como un resto de bruma tibia. */
+[data-theme="halloween"] header {
+  background: linear-gradient(180deg, #17111f 0%, #0d0a11 100%) !important;
+}
+
+[data-theme="halloween"] .fill-ocean-50 {
+  fill: #0d0a11 !important;
+}
+
+[data-theme="halloween"] .fill-ocean-800 {
+  fill: #17111f !important;
+}
+
+[data-theme="halloween"] .fill-ocean-50\/50 {
+  fill: rgba(255, 138, 42, 0.10) !important;
+}
+
+[data-theme="halloween"] .fill-ocean-100\/30 {
+  fill: rgba(147, 51, 234, 0.12) !important;
+}
+
+/* ---------- La red y el pulpo ----------
+   La pieza fuerte, y donde el tema deja de poder ser el de cualquier tienda en
+   octubre: en una pescadería la telaraña de la esquina es una red.
+
+   Cuelga del borde de abajo del header, en absolute como el acebo de la
+   calculadora: se va al desplazar en vez de perseguir a quien baja a leer los
+   precios. Y el pulpo baja y sube por su cordel, que es el mismo mecanismo de
+   la araña: el hilo se estira desde arriba y el bicho baja lo mismo con el
+   mismo reloj, así que nunca se despegan. */
+.red-muelle {
+  position: absolute;
+  right: 6px;
+  bottom: 0;
+  width: 150px;
+  height: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.red-muelle .red {
+  position: absolute;
+  top: -4px;
+  right: 0;
+  width: 150px;
+  height: 104px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 100'%3E%3Cg fill='none' stroke='rgba(226,232,240,0.30)' stroke-width='1' stroke-linecap='round'%3E%3Cpath d='M120 4Q74 26 6 16'/%3E%3Cpath d='M120 20Q78 44 14 34'/%3E%3Cpath d='M120 36Q82 62 26 54'/%3E%3Cpath d='M120 52Q88 80 44 74'/%3E%3Cpath d='M6 16Q28 40 44 74'/%3E%3Cpath d='M30 12Q48 42 62 70'/%3E%3Cpath d='M56 14Q70 42 82 66'/%3E%3Cpath d='M82 12Q92 38 100 60'/%3E%3Cpath d='M104 8Q110 32 116 54'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.red-muelle .pulpo {
+  position: absolute;
+  top: 26px;
+  right: 52px;
+  width: 26px;
+  height: 96px;
+  transform-origin: 50% 0;
+  animation: mecer-pulpo 5.6s ease-in-out infinite alternate;
+}
+
+/* El cordel */
+.red-muelle .pulpo::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1px;
+  height: 100%;
+  background: rgba(226, 232, 240, 0.45);
+  transform-origin: 50% 0;
+  animation: cordel-pulpo 9s ease-in-out infinite;
+}
+
+/* El pulpo. Ojos grandes y naranjas: el susto tiene que hacer gracia, no
+   dar miedo de verdad — es la lista de precios del negocio. */
+.red-muelle .pulpo::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -16px;
+  width: 26px;
+  height: 34px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 34'%3E%3Cg fill='none' stroke='%236f4a7e' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M7.5 18.5Q5 24.5 7.5 29.5Q9 32 7 33'/%3E%3Cpath d='M10.5 19.5Q9.4 25.5 11 30.5'/%3E%3Cpath d='M15.5 19.5Q16.6 25.5 15 30.5'/%3E%3Cpath d='M18.5 18.5Q21 24.5 18.5 29.5Q17 32 19 33'/%3E%3C/g%3E%3Cpath d='M13 2C18.6 2 22 6.6 22 12.2C22 16.2 20 18.8 17 19.8L9 19.8C6 18.8 4 16.2 4 12.2C4 6.6 7.4 2 13 2Z' fill='%236f4a7e'/%3E%3Ccircle cx='9.6' cy='11.4' r='3.1' fill='%23f6efe6'/%3E%3Ccircle cx='16.4' cy='11.4' r='3.1' fill='%23f6efe6'/%3E%3Ccircle cx='10.1' cy='11.9' r='1.5' fill='%23ff8a2a'/%3E%3Ccircle cx='16.9' cy='11.9' r='1.5' fill='%23ff8a2a'/%3E%3Cpath d='M11 16.4Q13 17.8 15 16.4' stroke='%233f2b49' stroke-width='1.1' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.5));
+  animation: bajar-pulpo 9s ease-in-out infinite;
+}
+
+@keyframes mecer-pulpo {
+  from { rotate: -4deg; }
+  to { rotate: 4deg; }
+}
+
+/* 96px de cordel: arriba se queda en 43 y baja hasta los 96 */
+@keyframes cordel-pulpo {
+  0%, 100% { scale: 1 0.45; }
+  46%, 61% { scale: 1 1; }
+}
+
+@keyframes bajar-pulpo {
+  0%, 100% { translate: 0 -52.8px; }
+  46%, 61% { translate: 0 0; }
+}
+
+/* En el teléfono la red se encoge y el pulpo cuelga más corto: a 390px de
+   ancho, a tamaño completo se le echaba encima a la mascota. */
+@media (max-width: 480px) {
+  .red-muelle { width: 104px; right: 2px; }
+  .red-muelle .red { width: 104px; height: 72px; }
+  .red-muelle .pulpo { top: 18px; right: 34px; width: 21px; height: 66px; }
+  .red-muelle .pulpo::after { width: 21px; height: 27px; bottom: -13px; }
+  @keyframes bajar-pulpo {
+    0%, 100% { translate: 0 -36.3px; }
+    46%, 61% { translate: 0 0; }
+  }
 }
 
 /* === CARNAVAL - Bordes festivos MEJORADOS === */
@@ -1636,113 +1666,39 @@ img[src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAA
   50% { transform: scale(1.3); opacity: 1; }
 }
 
-/* === HALLOWEEN - Botones CALABAZA BRILLANTE con sangre === */
+/* === HALLOWEEN — los botones ===
+   Eran calabazas literales: forma de calabaza con !important, borde amarillo
+   de 3px, surcos pintados en el ::before, un tallo verde asomando por arriba
+   en el ::after, y un latido infinito de cinco sombras (una de 120px). Un
+   botón que late sin parar al lado de un precio no deja mirar el precio.
+
+   Ahora es el botón de siempre, en naranja de calabaza y con una sombra tibia.
+   Lo de Halloween lo ponen la red, el pulpo y los murciélagos, que están donde
+   no estorban a nada. */
 [data-theme="halloween"] .themed-button,
 [data-theme="halloween"] a[href*="wa.me"] {
-  position: relative;
-  /* Forma de calabaza estilizada */
-  border-radius: 30px 30px 50% 50% / 40% 40% 60% 60% !important;
-  /* Gradiente calabaza con brillo interno */
-  background:
-    radial-gradient(ellipse at 30% 20%, rgba(255, 200, 100, 0.4) 0%, transparent 40%),
-    radial-gradient(ellipse at 70% 80%, rgba(120, 40, 0, 0.4) 0%, transparent 40%),
-    linear-gradient(180deg, #ff6b1a 0%, #ea580c 40%, #9a3412 80%, #7c2d12 100%) !important;
-  border: 3px solid #fbbf24 !important;
-  color: #ffffff !important;
-  padding: 16px 36px 20px 36px !important;
-  min-width: 160px;
+  background: linear-gradient(180deg, #d1510b 0%, #8f340e 100%) !important;
+  border: 1px solid rgba(255, 190, 120, 0.4) !important;
+  color: #fff6ec !important;
   box-shadow:
-    0 0 40px rgba(255, 107, 26, 0.7),
-    0 0 80px rgba(234, 88, 12, 0.4),
-    0 8px 30px rgba(0, 0, 0, 0.5),
-    inset 0 -4px 15px rgba(0, 0, 0, 0.4),
-    inset 0 4px 10px rgba(255, 200, 100, 0.3);
-  text-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.8),
-    0 0 20px rgba(255, 107, 26, 0.5);
-  animation: pumpkin-glow 2s ease-in-out infinite;
-  overflow: visible;
+    0 0 26px -12px rgba(255, 138, 42, 0.75),
+    0 6px 16px -10px rgba(0, 0, 0, 0.8);
 }
 
-@keyframes pumpkin-glow {
-  0%, 100% {
-    box-shadow:
-      0 0 40px rgba(255, 107, 26, 0.7),
-      0 0 80px rgba(234, 88, 12, 0.4),
-      0 8px 30px rgba(0, 0, 0, 0.5),
-      inset 0 -4px 15px rgba(0, 0, 0, 0.4),
-      inset 0 4px 10px rgba(255, 200, 100, 0.3);
-  }
-  50% {
-    box-shadow:
-      0 0 60px rgba(255, 107, 26, 0.9),
-      0 0 120px rgba(234, 88, 12, 0.6),
-      0 8px 30px rgba(0, 0, 0, 0.5),
-      inset 0 -4px 15px rgba(0, 0, 0, 0.4),
-      inset 0 4px 15px rgba(255, 200, 100, 0.5);
-    filter: brightness(1.1);
-  }
-}
-
-/* Líneas de la calabaza (surcos) */
-[data-theme="halloween"] .themed-button::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background:
-    linear-gradient(90deg,
-      transparent 0%,
-      rgba(0, 0, 0, 0.15) 15%,
-      transparent 30%,
-      rgba(0, 0, 0, 0.1) 50%,
-      transparent 70%,
-      rgba(0, 0, 0, 0.15) 85%,
-      transparent 100%
-    );
-  border-radius: inherit;
-  pointer-events: none;
-}
-
-/* Tallo de calabaza */
-[data-theme="halloween"] .themed-button::after {
-  content: '';
-  position: absolute;
-  top: -10px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 14px;
-  height: 12px;
-  background: linear-gradient(180deg, #166534 0%, #15803d 50%, #22c55e 100%);
-  border-radius: 3px 3px 0 0;
-  box-shadow:
-    0 -2px 8px rgba(34, 197, 94, 0.5),
-    inset 0 1px 2px rgba(255, 255, 255, 0.3);
-}
-
-/* Efecto de goteo de sangre en hover */
+/* Hover: se aviva como una brasa. Antes eran seis sombras, una de 200px. */
 [data-theme="halloween"] .themed-button:hover,
 [data-theme="halloween"] a[href*="wa.me"]:hover {
   animation: none;
-  transform: scale(1.08);
+  transform: translateY(-1px);
   box-shadow:
-    0 0 80px rgba(255, 107, 26, 1),
-    0 0 150px rgba(234, 88, 12, 0.7),
-    0 0 200px rgba(185, 28, 28, 0.4),
-    0 10px 40px rgba(0, 0, 0, 0.6),
-    inset 0 -4px 15px rgba(0, 0, 0, 0.4),
-    inset 0 4px 15px rgba(255, 200, 100, 0.5);
-  filter: brightness(1.15) saturate(1.2);
+    0 0 28px -8px rgba(255, 138, 42, 0.7),
+    0 6px 18px -8px rgba(0, 0, 0, 0.7);
+  filter: brightness(1.06);
 }
 
-/* Click - calabaza aplastada */
 [data-theme="halloween"] .themed-button:active {
-  transform: scale(0.95) scaleY(0.9);
-  box-shadow:
-    0 0 30px rgba(255, 107, 26, 0.6),
-    0 4px 15px rgba(0, 0, 0, 0.7);
+  transform: scale(0.98);
+  box-shadow: 0 0 16px -8px rgba(255, 138, 42, 0.6);
 }
 
 /* === CARNAVAL - Botones con colores del tema (diseño estándar) === */
@@ -2871,102 +2827,65 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 1px;
 }
 
-/* === HALLOWEEN - Murciélagos y calabazas === */
-@keyframes halloween-fall {
-  0% {
-    transform: translateY(-100vh) rotate(0deg);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(100vh) rotate(360deg);
-    opacity: 0.3;
-  }
-}
+/* === HALLOWEEN — los murciélagos ===
+   Cruzan la pantalla de lado a lado, cada uno a su altura y su ritmo, y pasan
+   la mayor parte del tiempo fuera: son una sorpresa, no un salvapantallas.
 
-@keyframes halloween-flutter {
-  0%, 100% { margin-left: 0; transform: scaleX(1); }
-  25% { margin-left: 20px; transform: scaleX(0.8); }
-  50% { margin-left: 0; transform: scaleX(1); }
-  75% { margin-left: -20px; transform: scaleX(0.8); }
-}
+   Antes CAÍAN, girando, junto con una lluvia de calabazas. Un murciélago
+   cayendo del cielo como una hoja no es un murciélago. Y el vaivén animaba
+   margin-left —una propiedad de maquetación—, así que recalculaba la página en
+   cada fotograma.
 
-.halloween-bat {
-  --bat-size: 14px;
-  position: fixed;
-  top: -50px;
-  z-index: 1;
+   Tres animaciones que no se pisan porque cada una mueve una propiedad
+   distinta: el vuelo desplaza la caja (translate), y dentro el murciélago
+   planea arriba y abajo (translate del pseudoelemento) mientras aletea
+   (scale). Van en el contenedor de partículas, que está en z-index 0: por
+   detrás del contenido, porque una silueta negra sobre una cifra sí la tapa. */
+.murcielago {
+  position: absolute;
+  left: 0;
+  width: var(--tam);
+  height: calc(var(--tam) * 0.41);
   pointer-events: none;
-  width: var(--bat-size);
-  height: calc(var(--bat-size) * 0.5);
-  background: #1a1a1a;
-  border-radius: 50% 50% 0 0;
+  /* backwards: durante la espera se queda fuera de la pantalla en el punto de
+     salida, en vez de esperar quieto a la vista pegado al borde */
+  animation: cruzar var(--dur) linear var(--espera) infinite backwards;
 }
 
-/* Alas del murciélago */
-.halloween-bat::before,
-.halloween-bat::after {
+.murcielago::before {
   content: '';
   position: absolute;
-  top: 20%;
-  width: calc(var(--bat-size) * 0.8);
-  height: calc(var(--bat-size) * 0.6);
-  background: #1a1a1a;
-  border-radius: 50% 50% 0 0;
+  inset: 0;
+  background: #2b1f3a;
+  opacity: 0.9;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 26'%3E%3Cpath d='M32 9L34.5 4L36 10C40 8 46 6 52 6C56 6 60 7 64 9C60 11 58 14 58 18C55 15 51 15 49 18C46 15 42 16 40 20C38 18 36 18 34.5 21L32 24L29.5 21C28 18 26 18 24 20C22 16 18 15 15 18C13 15 9 15 6 18C6 14 4 11 0 9C4 7 8 6 12 6C18 6 24 8 28 10L29.5 4Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 26'%3E%3Cpath d='M32 9L34.5 4L36 10C40 8 46 6 52 6C56 6 60 7 64 9C60 11 58 14 58 18C55 15 51 15 49 18C46 15 42 16 40 20C38 18 36 18 34.5 21L32 24L29.5 21C28 18 26 18 24 20C22 16 18 15 15 18C13 15 9 15 6 18C6 14 4 11 0 9C4 7 8 6 12 6C18 6 24 8 28 10L29.5 4Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  animation:
+    aleteo 0.28s ease-in-out infinite alternate,
+    planeo 2.6s ease-in-out infinite alternate;
 }
 
-.halloween-bat::before {
-  left: calc(var(--bat-size) * -0.6);
-  transform: rotate(-20deg);
+@keyframes cruzar {
+  from { translate: -18vw 0; }
+  to { translate: 118vw 0; }
 }
 
-.halloween-bat::after {
-  right: calc(var(--bat-size) * -0.6);
-  transform: rotate(20deg);
+@keyframes aleteo {
+  from { scale: 1 1; }
+  to { scale: 0.92 0.35; }
 }
 
-.halloween-pumpkin {
-  --pumpkin-size: 12px;
-  position: fixed;
-  top: -50px;
-  z-index: 1;
-  pointer-events: none;
-  width: var(--pumpkin-size);
-  height: calc(var(--pumpkin-size) * 0.9);
-  background: linear-gradient(
-    135deg,
-    #f97316 0%,
-    #ea580c 50%,
-    #c2410c 100%
-  );
-  border-radius: 50%;
-  box-shadow:
-    inset 2px 2px 4px rgba(255, 255, 255, 0.2),
-    0 0 10px rgba(249, 115, 22, 0.5);
+@keyframes planeo {
+  from { translate: 0 -14px; }
+  to { translate: 0 14px; }
 }
 
-/* Tallo de la calabaza */
-.halloween-pumpkin::before {
-  content: '';
-  position: absolute;
-  top: -15%;
-  left: 40%;
-  width: 20%;
-  height: 20%;
-  background: #22c55e;
-  border-radius: 2px;
-}
-
-/* Cara de la calabaza */
-.halloween-pumpkin::after {
-  content: '';
-  position: absolute;
-  top: 35%;
-  left: 25%;
-  width: 50%;
-  height: 30%;
-  background:
-    radial-gradient(ellipse 25% 40% at 25% 50%, #fde047 100%, transparent 100%),
-    radial-gradient(ellipse 25% 40% at 75% 50%, #fde047 100%, transparent 100%);
+@media (prefers-reduced-motion: reduce) {
+  /* El pulpo se queda quieto colgando. El murciélago no: uno quieto no es un
+     murciélago, es una mancha, y se va del todo en la lista de abajo. */
+  .red-muelle .pulpo,
+  .red-muelle .pulpo::before,
+  .red-muelle .pulpo::after { animation: none; }
 }
 
 /* === OCEAN - Burbujas === */
@@ -3028,8 +2947,7 @@ h1, h2, h3, h4, h5, h6 {
   .mundial-star,
   .mundial-trophy,
   .mundial-confetti,
-  .halloween-bat,
-  .halloween-pumpkin,
+  .murcielago,
   .campeones-confetti,
   .campeones-baseball,
   .campeones-star,

@@ -167,32 +167,6 @@
     50% { transform: translateY(-6px) scale(1.1); opacity: 1; }
   }
 
-  /* === Calabazas Halloween === */
-  .halloween-pumpkins {
-    display: flex;
-    justify-content: space-around;
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    padding: 2px 8% 0;
-  }
-
-  .halloween-pumpkin-icon {
-    font-size: 1.1rem;
-    animation: pumpkin-glow 2s ease-in-out infinite;
-    filter: drop-shadow(0 2px 6px rgba(249, 115, 22, 0.5));
-  }
-
-  .halloween-pumpkin-icon:nth-child(even) {
-    animation-delay: 0.5s;
-  }
-
-  @keyframes pumpkin-glow {
-    0%, 100% { transform: scale(1); filter: drop-shadow(0 2px 6px rgba(249, 115, 22, 0.5)); }
-    50% { transform: scale(1.15); filter: drop-shadow(0 0 12px rgba(249, 115, 22, 0.8)); }
-  }
-
   /* === Mundial - Estrellas === */
   .mundial-stars {
     display: flex;
@@ -367,7 +341,6 @@
     .easter-flower,
     .header-bubble,
     .valentine-heart-icon,
-    .halloween-pumpkin-icon,
     .mundial-star-icon,
     .campeones-header-icon,
     .ramos-branch-icon,
@@ -424,15 +397,10 @@
         <span class="valentine-heart-icon"></span>
       </div>
     `,
-    halloween: () => `
-      <div class="halloween-pumpkins">
-        <span class="halloween-pumpkin-icon">🎃</span>
-        <span class="halloween-pumpkin-icon">🎃</span>
-        <span class="halloween-pumpkin-icon">🎃</span>
-        <span class="halloween-pumpkin-icon">🎃</span>
-        <span class="halloween-pumpkin-icon">🎃</span>
-      </div>
-    `,
+    // Arriba no va nada: eran cinco 🎃 emoji en fila sobre el logo. La red y
+    // el pulpo cuelgan del borde de abajo (ver `colgantes`), que es donde hay
+    // sitio vacío y no tapan ni el nombre ni los precios.
+    halloween: () => '',
     mundial: () => '',
     campeones: () => `
       <div class="campeones-banner">
@@ -459,6 +427,15 @@
       <div class="pescados-muelle">
         <span class="cuelga pez-pargo" style="--x:2px;--ancho:40px;--alto:84px;--hilo:20px;--ritmo:4.2s;--espera:-1.1s"></span>
         <span class="cuelga pez-cherna" style="--x:54px;--ancho:38px;--alto:73px;--hilo:36px;--ritmo:5.1s;--espera:-2.6s"></span>
+      </div>
+    `,
+    // La red del puesto hace de telaraña —es la telaraña del oficio— y de
+    // ella cuelga un pulpo que baja y sube por su cordel, fisgando. Mismo
+    // mecanismo que la araña de la calculadora, bicho del muelle.
+    halloween: () => `
+      <div class="red-muelle">
+        <span class="red"></span>
+        <span class="pulpo"></span>
       </div>
     `
   };

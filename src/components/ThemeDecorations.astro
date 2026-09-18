@@ -223,18 +223,19 @@
       }
     },
     halloween: {
-      count: 15,
-      create: (i) => {
-        const element = document.createElement('div');
-        // Alternar entre murciélagos y calabazas
-        element.className = i % 3 === 0 ? 'halloween-pumpkin' : 'halloween-bat';
-        const size = element.className === 'halloween-pumpkin' ? (10 + Math.random() * 8) : (12 + Math.random() * 8);
-        element.style.setProperty(element.className === 'halloween-pumpkin' ? '--pumpkin-size' : '--bat-size', `${size}px`);
-        element.style.left = `${Math.random() * 100}%`;
-        element.style.opacity = `${0.6 + Math.random() * 0.3}`;
-        const duration = 6 + Math.random() * 6;
-        const delay = Math.random() * 5;
-        element.style.animation = `halloween-fall ${duration}s linear ${delay}s infinite, halloween-flutter 2s ease-in-out ${delay}s infinite`;
+      // Los murciélagos CRUZAN, no caen: uno cayendo del cielo como una hoja
+      // no es un murciélago, es una calabaza con alas. Y van pocos, con
+      // esperas largas y desiguales, para que sean una sorpresa y no un
+      // salvapantallas. Las calabazas que llovían se van: nada cae.
+      count: window.innerWidth < 480 ? 4 : 7,
+      create: () => {
+        const element = document.createElement('span');
+        const entre = (a, b) => a + Math.random() * (b - a);
+        element.className = 'murcielago';
+        element.style.top = `${entre(5, 62).toFixed(1)}%`;
+        element.style.setProperty('--tam', `${entre(26, 46).toFixed(0)}px`);
+        element.style.setProperty('--dur', `${entre(9, 16).toFixed(1)}s`);
+        element.style.setProperty('--espera', `${entre(0, 26).toFixed(1)}s`);
         return element;
       }
     },
