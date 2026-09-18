@@ -534,13 +534,13 @@ img[src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAA
 [data-theme="christmas"] .bloque-categoria,
 [data-theme="christmas"] .themed-card {
   position: relative;
-  padding-top: 1.6rem;
+  padding-top: 1.3rem;
 }
 
 @media (min-width: 768px) {
   [data-theme="christmas"] .bloque-categoria,
   [data-theme="christmas"] .themed-card {
-    padding-top: 2.15rem;
+    padding-top: 1.75rem;
   }
 }
 
@@ -551,14 +551,13 @@ img[src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAA
   top: 0;
   left: 0;
   right: 0;
-  height: 18px;
+  height: 14px;
   border-top-left-radius: inherit;
   border-top-right-radius: inherit;
   overflow: hidden;
   pointer-events: none;
   z-index: 1;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 18'%3E%3Cdefs%3E%3ClinearGradient id='t' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffffff'/%3E%3Cstop offset='1' stop-color='%23aed0e6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0 0h200v6.2H0z' fill='%23f2f9fd'/%3E%3Cg fill='url(%23t)'%3E%3Cpath d='M2 4L16 6.2L12 15L1 11Z'/%3E%3Cpath d='M18 5L31 3.8L34 14L22 16Z'/%3E%3Cpath d='M33 6L46 7.2L43 17L30 13Z'/%3E%3Cpath d='M48 4L62 6L58 16L47 12Z'/%3E%3Cpath d='M64 5L77 3.8L80 15L68 17Z'/%3E%3Cpath d='M79 6L92 7.2L88 16L76 12Z'/%3E%3Cpath d='M94 4L108 6L104 15L93 11Z'/%3E%3Cpath d='M110 5L123 3.8L126 14L114 16Z'/%3E%3Cpath d='M125 6L138 7.2L134 17L122 13Z'/%3E%3Cpath d='M140 4L154 6L150 16L139 12Z'/%3E%3Cpath d='M156 5L169 3.8L172 15L160 17Z'/%3E%3Cpath d='M171 6L184 7.2L180 16L168 12Z'/%3E%3Cpath d='M186 4L200 6L196 15L185 11Z'/%3E%3C/g%3E%3Cg fill='%23ffffff' opacity='0.9'%3E%3Cpath d='M3.5 5.2L10 6.2L8 9.5L3 7.8Z'/%3E%3Cpath d='M49.5 5.2L56 6.4L54 9.8L49 8Z'/%3E%3Cpath d='M95.5 5.2L102 6.4L100 9.8L95 8Z'/%3E%3Cpath d='M141.5 5.2L148 6.4L146 9.8L141 8Z'/%3E%3Cpath d='M187.5 5.2L194 6.4L192 9.8L187 8Z'/%3E%3C/g%3E%3Cg stroke='%2382aecb' stroke-width='0.6' fill='none' opacity='0.55'%3E%3Cpath d='M16 6.2L12 15'/%3E%3Cpath d='M31 3.8L34 14'/%3E%3Cpath d='M46 7.2L43 17'/%3E%3Cpath d='M62 6L58 16'/%3E%3Cpath d='M77 3.8L80 15'/%3E%3Cpath d='M92 7.2L88 16'/%3E%3Cpath d='M108 6L104 15'/%3E%3Cpath d='M123 3.8L126 14'/%3E%3Cpath d='M138 7.2L134 17'/%3E%3Cpath d='M154 6L150 16'/%3E%3Cpath d='M169 3.8L172 15'/%3E%3Cpath d='M184 7.2L180 16'/%3E%3C/g%3E%3C/svg%3E") var(--hielo-x, 0px) 0 / 200px 18px repeat-x;
-  filter: drop-shadow(0 1px 0 rgba(150, 180, 205, 0.4));
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 14'%3E%3Cdefs%3E%3ClinearGradient id='n' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0.35' stop-color='%23ffffff'/%3E%3Cstop offset='1' stop-color='%23d3e6f2'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0 0H200V9.4C191.7 9.4 183.3 6.2 175 6.2C166.7 6.2 158.3 9.4 150 9.4C141.7 9.4 133.3 6.2 125 6.2C116.7 6.2 108.3 9.4 100 9.4C91.7 9.4 83.3 6.2 75 6.2C66.7 6.2 58.3 9.4 50 9.4C41.7 9.4 33.3 6.2 25 6.2C16.7 6.2 8.3 9.4 0 9.4Z' fill='url(%23n)'/%3E%3Cellipse cx='150' cy='10.6' rx='1.3' ry='2.3' fill='url(%23n)'/%3E%3Cellipse cx='50' cy='10.4' rx='1.2' ry='2.1' fill='url(%23n)'/%3E%3C/svg%3E") var(--hielo-x, 0px) 0 / 200px 14px repeat-x;
 }
 
 /* Cada bloque arranca la tira en otro punto */
@@ -2034,8 +2033,9 @@ h1, h2, h3, h4, h5, h6 {
    está cayendo, en vez de soltarse todo desde arriba a la vez.
 
    Tres distancias: lejos (diminutos, tenues y desenfocados, lentos), los de
-   en medio, y unos pocos cerca, angulosos y girando. El hielo lleva perfil
-   azul y sombra propia porque el fondo aquí es claro: un blanco puro sobre
+   en medio, y unos pocos cerca, más grandes y girando. Redondeados y sin
+   aristas, como los copos de la calculadora. Llevan tono azulado porque el
+   fondo aquí es claro: un blanco puro sobre
    crema no se vería. Y se queda por detrás del contenido —las secciones son
    semitransparentes, así que se ve pasar a través— porque encima de un precio
    no pinta nada. */
@@ -2055,9 +2055,8 @@ h1, h2, h3, h4, h5, h6 {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(140deg, #ffffff 0%, #d7ecf8 55%, #9fc9e4 100%);
-  clip-path: polygon(24% 2%, 86% 18%, 100% 60%, 56% 100%, 6% 78%, 0 32%);
-  filter: drop-shadow(0 1px 1px rgba(28, 82, 120, 0.35));
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #ffffff 0%, #eaf6fd 45%, #c8e2f2 100%);
   animation: vaiven-hielo var(--ritmo) ease-in-out var(--espera) infinite alternate;
 }
 
@@ -2075,7 +2074,10 @@ h1, h2, h3, h4, h5, h6 {
 .hielo-cerca { --brillo: 0.72; }
 
 .hielo-cerca::before {
-  clip-path: polygon(38% 0, 100% 26%, 82% 74%, 44% 100%, 4% 68%, 12% 22%);
+  border-radius: 50%;
+  /* El brillo va descentrado: al girar se ve orbitar, que en un círculo
+     liso el giro no se notaría. */
+  background: radial-gradient(circle at 30% 26%, #ffffff 0%, #e4f2fb 48%, #b6d7ee 100%);
   animation:
     vaiven-hielo var(--ritmo) ease-in-out var(--espera) infinite alternate,
     girar-hielo 13s linear infinite;
