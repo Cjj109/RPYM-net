@@ -67,7 +67,7 @@ export function PriceListInteractive({ categories, masVendidos, bcvRate }: Price
 
           {/* Categorias */}
           {categories.map((category) => (
-            <div key={category.name} className="bg-ocean-50/50 rounded-xl md:rounded-2xl p-4 md:p-6 lg:p-8">
+            <div key={category.name} className="bloque-categoria bg-ocean-50/50 rounded-xl md:rounded-2xl p-4 md:p-6 lg:p-8">
               <h3 className="text-lg md:text-xl lg:text-2xl font-display font-semibold text-ocean-800 mb-4 md:mb-6 flex items-center gap-2 md:gap-3">
                 <span className="text-xl md:text-2xl">{categoryIcons[category.name] || '🐠'}</span>
                 {category.name}

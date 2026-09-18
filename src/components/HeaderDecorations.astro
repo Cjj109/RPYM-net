@@ -9,65 +9,16 @@
   <!-- Decoraciones se insertan dinámicamente -->
 </div>
 
+<!-- Lo que cuelga del borde de abajo del header (Navidad: el pargo y la
+     cherna). Va fuera del contenedor de arriba porque ese recorta. -->
+<div id="header-hang" aria-hidden="true"></div>
+
 <style>
-  /* === Luces de Navidad === */
-  .christmas-lights {
-    display: flex;
-    justify-content: space-around;
-    padding: 0 10px;
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-  }
-
-  .christmas-light {
-    width: 12px;
-    height: 18px;
-    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-    position: relative;
-    animation: twinkle 1.5s ease-in-out infinite;
-  }
-
-  .christmas-light::before {
-    content: '';
-    position: absolute;
-    top: -4px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 4px;
-    height: 6px;
-    background: #333;
-    border-radius: 2px 2px 0 0;
-  }
-
-  .christmas-light:nth-child(1) { background: #ef4444; animation-delay: 0s; }
-  .christmas-light:nth-child(2) { background: #22c55e; animation-delay: 0.2s; }
-  .christmas-light:nth-child(3) { background: #eab308; animation-delay: 0.4s; }
-  .christmas-light:nth-child(4) { background: #3b82f6; animation-delay: 0.6s; }
-  .christmas-light:nth-child(5) { background: #ef4444; animation-delay: 0.8s; }
-  .christmas-light:nth-child(6) { background: #22c55e; animation-delay: 1s; }
-  .christmas-light:nth-child(7) { background: #eab308; animation-delay: 1.2s; }
-  .christmas-light:nth-child(8) { background: #3b82f6; animation-delay: 0.1s; }
-  .christmas-light:nth-child(9) { background: #ef4444; animation-delay: 0.3s; }
-  .christmas-light:nth-child(10) { background: #22c55e; animation-delay: 0.5s; }
-
-  @keyframes twinkle {
-    0%, 100% { opacity: 1; filter: brightness(1.2); }
-    50% { opacity: 0.5; filter: brightness(0.8); }
-  }
-
-  /* Wire connecting lights */
-  .christmas-wire {
-    position: absolute;
-    top: 4px;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: linear-gradient(90deg,
-      transparent 0%, #333 5%, #333 95%, transparent 100%
-    );
-  }
+  /* Las luces de Navidad viven ahora en global.css (.luces-muelle), junto al
+     resto de la decoración navideña. Estaban aquí, en un <style> de
+     componente —o sea con estilos scoped—, pero el markup se inyecta por
+     innerHTML desde el script: esos nodos no llevan el atributo de scope de
+     Astro, así que las reglas no llegaban a aplicárseles. */
 
   /* === Serpentinas de Carnaval === */
   .carnival-streamers {
@@ -412,7 +363,6 @@
 
   /* Reduced motion */
   @media (prefers-reduced-motion: reduce) {
-    .christmas-light,
     .streamer,
     .easter-flower,
     .header-bubble,
@@ -456,20 +406,11 @@
         <div class="streamer"></div>
       </div>
     `,
+    // Las luces que se cuelgan en los puestos y los peñeros en diciembre.
+    // El cable y las bombillas van en el CSS global (dos circuitos que se
+    // turnan): aquí solo se cuelga la guirnalda.
     christmas: () => `
-      <div class="christmas-wire"></div>
-      <div class="christmas-lights">
-        <div class="christmas-light"></div>
-        <div class="christmas-light"></div>
-        <div class="christmas-light"></div>
-        <div class="christmas-light"></div>
-        <div class="christmas-light"></div>
-        <div class="christmas-light"></div>
-        <div class="christmas-light"></div>
-        <div class="christmas-light"></div>
-        <div class="christmas-light"></div>
-        <div class="christmas-light"></div>
-      </div>
+      <div class="luces-muelle"><i></i><i></i></div>
     `,
     easter: () => ``,
     valentine: () => `
@@ -510,12 +451,27 @@
     resurreccion: () => ''
   };
 
+  // Lo que cuelga del borde de abajo del header. El pargo y la cherna, cada
+  // uno con su ritmo y su largo de cordel: dos péndulos iguales que van a la
+  // par se notan enseguida. El pargo lleva la cinta de Navidad en la cola.
+  const colgantes = {
+    christmas: () => `
+      <div class="pescados-muelle">
+        <span class="cuelga pez-pargo" style="--x:2px;--ancho:40px;--alto:84px;--hilo:20px;--ritmo:4.2s;--espera:-1.1s"></span>
+        <span class="cuelga pez-cherna" style="--x:54px;--ancho:38px;--alto:73px;--hilo:36px;--ritmo:5.1s;--espera:-2.6s"></span>
+      </div>
+    `
+  };
+
+  const hang = document.getElementById('header-hang');
+
   let currentTheme = null;
 
   function render(theme) {
     if (currentTheme === theme) return;
     currentTheme = theme;
     container.innerHTML = decorations[theme] ? decorations[theme]() : '';
+    if (hang) hang.innerHTML = colgantes[theme] ? colgantes[theme]() : '';
   }
 
   function init() {
