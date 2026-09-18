@@ -66,28 +66,37 @@ img[src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAA
   --theme-accent-fg: #ffffff;
 }
 
-/* Navidad - Rojo, Verde, Dorado */
+/* Navidad — diciembre en el Muelle "El Mosquero".
+   Los colores salen del negocio, no del catálogo navideño: el rojo es el del
+   pargo, que es el pescado de las fiestas; el verde es el de la hoja de
+   plátano de la hallaca. No hay rojo Papá Noel ni verde pino.
+
+   El acento importa más de lo que parece: los precios se pintan con él
+   (text-coral-500 → --theme-accent-500). El verde menta anterior (#22c55e)
+   daba 2,3:1 sobre blanco, y un precio es justo lo que no se puede dejar de
+   leer. Este verde de hoja da 6,4:1, y sobre él el texto blanco de los
+   botones da 6,4:1 también. */
 [data-theme="christmas"] {
-  --theme-primary-50: #fef2f2;
-  --theme-primary-100: #fee2e2;
-  --theme-primary-200: #fecaca;
-  --theme-primary-300: #fca5a5;
-  --theme-primary-400: #f87171;
-  --theme-primary-500: #ef4444;
-  --theme-primary-600: #dc2626;
-  --theme-primary-700: #b91c1c;
-  --theme-primary-800: #991b1b;
-  --theme-primary-900: #7f1d1d;
-  --theme-primary-950: #450a0a;
+  --theme-primary-50: #fdf5f3;
+  --theme-primary-100: #fbe6e1;
+  --theme-primary-200: #f5c9c0;
+  --theme-primary-300: #eda596;
+  --theme-primary-400: #e0765f;
+  --theme-primary-500: #cf4a34;
+  --theme-primary-600: #b13722;
+  --theme-primary-700: #8f2a1a;
+  --theme-primary-800: #74241a;
+  --theme-primary-900: #5c1f18;
+  --theme-primary-950: #330f0b;
 
-  --theme-accent-100: #dcfce7;
-  --theme-accent-300: #86efac;
-  --theme-accent-400: #4ade80;
-  --theme-accent-500: #22c55e;
-  --theme-accent-600: #16a34a;
+  --theme-accent-100: #e6f0dc;
+  --theme-accent-300: #a8c78c;
+  --theme-accent-400: #86ab68;
+  --theme-accent-500: #3f6b2b;
+  --theme-accent-600: #33581f;
 
-  --theme-bg-from: #fef2f2;
-  --theme-bg-to: #f0fdf4;
+  --theme-bg-from: #eef4f6;
+  --theme-bg-to: #f3ece0;
 
   --theme-primary-fg: #ffffff;
   --theme-accent-fg: #ffffff;
@@ -459,99 +468,107 @@ img[src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAA
 
 /* ========== DETALLES TEMATICOS EN UI (Solo cliente, no admin) ========== */
 
-/* === NAVIDAD - Efecto escarcha/congelado MEJORADO === */
+/* === NAVIDAD — la decoración ===
 
-/* Fondo navideño: rojo suave, verde suave, nieve sutil */
+   Portada de la calculadora, pieza por pieza, cambiando el objeto por uno de
+   la pescadería y dejando el mecanismo igual:
+
+     el fondo        la mañana de diciembre en el muelle
+     lo que cae      hielo picado de la cava, en tres distancias
+     los bloques     la cama de hielo posada en el borde de arriba
+     el header       las luces que se cuelgan en los puestos y los peñeros
+     la esquina      el pargo y la cherna colgados de su cordel
+
+   Regla de la que sale todo lo demás: la decoración nunca por delante de la
+   información. Lo único que pasa por encima del contenido es el hielo, que
+   es diminuto y translúcido; un trozo cruzando un precio no lo tapa. */
+
+/* El fondo: frío azulado arriba (la bruma del mar a primera hora), crema
+   cálido abajo (la luz del puesto), y dos halos muy tenues —pargo a un lado,
+   hoja de plátano al otro— que dan el color del tema sin teñir la página.
+   El anterior era un degradado de cuatro paradas rosa/menta/amarillo: dejaba
+   las tarjetas blancas flotando sobre un fondo más saturado que ellas, que es
+   justo al revés de como se lee una tarjeta apoyada. */
 [data-theme="christmas"] body {
   background:
-    radial-gradient(ellipse at 50% 0%, rgba(186, 230, 253, 0.3) 0%, transparent 50%),
-    radial-gradient(ellipse at 0% 100%, rgba(34, 197, 94, 0.08) 0%, transparent 40%),
-    radial-gradient(ellipse at 100% 100%, rgba(249, 68, 68, 0.08) 0%, transparent 40%),
-    linear-gradient(180deg, #fef2f2 0%, #f0fdf4 30%, #fefce8 70%, #fef2f2 100%) !important;
+    radial-gradient(ellipse 70% 45% at 12% 0%, rgba(207, 74, 52, 0.07), transparent 70%),
+    radial-gradient(ellipse 65% 40% at 90% 8%, rgba(63, 107, 43, 0.07), transparent 70%),
+    linear-gradient(180deg, #eef4f6 0%, #f6f1e8 55%, #f3ece0 100%) !important;
 }
 
-[data-theme="christmas"] .themed-card,
-[data-theme="christmas"] .bg-white,
-[data-theme="christmas"] [class*="rounded"] {
-  position: relative;
-}
-
-/* Cards estilo regalo de Navidad: cinta roja y verde */
+/* Las tarjetas dejan de disfrazarse.
+   Antes, el selector era [class*="rounded"] —o sea cualquier cosa redondeada
+   de la página— y se llevaba un borde rojo de 2px, un degradado rosa-menta y
+   cuatro sombras, todo con !important. La decoración estaba puesta justo
+   encima de donde viven los precios. Ahora la tarjeta es blanca y limpia, con
+   una sombra a su escala, y lo navideño es la cama de hielo de arriba. */
 [data-theme="christmas"] .themed-card,
 [data-theme="christmas"] .bg-white.rounded-2xl,
 [data-theme="christmas"] .bg-white.rounded-3xl {
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.98) 0%,
-    rgba(254, 242, 242, 0.95) 50%,
-    rgba(240, 253, 244, 0.95) 100%
-  ) !important;
-  border: 2px solid rgba(185, 28, 28, 0.25) !important;
-  box-shadow:
-    0 0 0 1px rgba(34, 197, 94, 0.2),
-    0 4px 20px rgba(185, 28, 28, 0.08),
-    0 0 40px rgba(34, 197, 94, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid rgba(92, 31, 24, 0.10) !important;
+  box-shadow: 0 10px 24px -14px rgba(60, 40, 30, 0.35) !important;
 }
 
-/* Efecto de escarcha en los bordes de cards */
-[data-theme="christmas"] .themed-card::before,
-[data-theme="christmas"] .frost-effect::before {
-  content: '';
-  position: absolute;
-  top: -2px;
-  left: -2px;
-  right: -2px;
-  bottom: -2px;
-  background: linear-gradient(
-    135deg,
-    rgba(186, 230, 253, 0.4) 0%,
-    transparent 25%,
-    transparent 75%,
-    rgba(240, 253, 244, 0.3) 100%
-  );
-  border-radius: inherit;
-  pointer-events: none;
-  z-index: 0;
+/* Las tarjetas claras sí llevan el blanco cálido; la del hero es azul oscura
+   y se queda con su degradado. */
+[data-theme="christmas"] .bg-white.rounded-2xl,
+[data-theme="christmas"] .bg-white.rounded-3xl {
+  background: rgba(255, 255, 255, 0.96) !important;
 }
 
-/* Carámbanos en la parte superior de cards principales */
-[data-theme="christmas"] .icicle-top::after {
+/* ---------- La cama de hielo ----------
+   Es la traducción de la nieve posada en las tarjetas: aquí no cae del cielo,
+   está debajo del pescado. Es la imagen del puesto y es lo que hace que la
+   decoración solo pueda ser de esta tienda.
+
+   Va en los bloques de categoría y en las tarjetas grandes: pocos y anchos.
+   Puesta en cada producto serían cincuenta tiras iguales seguidas y se
+   volvería papel pintado.
+
+   La tira se repite sin estirarse (repeat-x a tamaño fijo): estirada, los
+   trozos se deformaban en los bloques anchos. Y cada bloque la empieza en un
+   punto distinto, porque la misma nevada exacta en todos se nota enseguida.
+   El recorte va en el propio ::before —con el radio de arriba heredado— para
+   no tener que ponerle overflow:hidden al bloque, que recortaría los menús
+   y el modal de producto. */
+[data-theme="christmas"] .bloque-categoria,
+[data-theme="christmas"] .themed-card {
+  position: relative;
+  padding-top: 1.6rem;
+}
+
+@media (min-width: 768px) {
+  [data-theme="christmas"] .bloque-categoria,
+  [data-theme="christmas"] .themed-card {
+    padding-top: 2.15rem;
+  }
+}
+
+[data-theme="christmas"] .bloque-categoria::before,
+[data-theme="christmas"] .themed-card::before {
   content: '';
   position: absolute;
   top: 0;
-  left: 10%;
-  right: 10%;
-  height: 12px;
-  background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20'%3E%3Cpath d='M0,0 L5,0 L5,8 L2.5,15 L0,8 Z M10,0 L18,0 L18,12 L14,20 L10,12 Z M22,0 L28,0 L28,6 L25,12 L22,6 Z M32,0 L42,0 L42,10 L37,18 L32,10 Z M46,0 L52,0 L52,7 L49,14 L46,7 Z M56,0 L64,0 L64,11 L60,19 L56,11 Z M68,0 L74,0 L74,5 L71,10 L68,5 Z M78,0 L88,0 L88,9 L83,16 L78,9 Z M92,0 L100,0 L100,7 L96,13 L92,7 Z' fill='%23e0f2fe' opacity='0.9'/%3E%3C/svg%3E") repeat-x;
-  background-size: 60px 12px;
+  left: 0;
+  right: 0;
+  height: 18px;
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+  overflow: hidden;
   pointer-events: none;
-  z-index: 10;
+  z-index: 1;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 18'%3E%3Cdefs%3E%3ClinearGradient id='t' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffffff'/%3E%3Cstop offset='1' stop-color='%23aed0e6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0 0h200v6.2H0z' fill='%23f2f9fd'/%3E%3Cg fill='url(%23t)'%3E%3Cpath d='M2 4L16 6.2L12 15L1 11Z'/%3E%3Cpath d='M18 5L31 3.8L34 14L22 16Z'/%3E%3Cpath d='M33 6L46 7.2L43 17L30 13Z'/%3E%3Cpath d='M48 4L62 6L58 16L47 12Z'/%3E%3Cpath d='M64 5L77 3.8L80 15L68 17Z'/%3E%3Cpath d='M79 6L92 7.2L88 16L76 12Z'/%3E%3Cpath d='M94 4L108 6L104 15L93 11Z'/%3E%3Cpath d='M110 5L123 3.8L126 14L114 16Z'/%3E%3Cpath d='M125 6L138 7.2L134 17L122 13Z'/%3E%3Cpath d='M140 4L154 6L150 16L139 12Z'/%3E%3Cpath d='M156 5L169 3.8L172 15L160 17Z'/%3E%3Cpath d='M171 6L184 7.2L180 16L168 12Z'/%3E%3Cpath d='M186 4L200 6L196 15L185 11Z'/%3E%3C/g%3E%3Cg fill='%23ffffff' opacity='0.9'%3E%3Cpath d='M3.5 5.2L10 6.2L8 9.5L3 7.8Z'/%3E%3Cpath d='M49.5 5.2L56 6.4L54 9.8L49 8Z'/%3E%3Cpath d='M95.5 5.2L102 6.4L100 9.8L95 8Z'/%3E%3Cpath d='M141.5 5.2L148 6.4L146 9.8L141 8Z'/%3E%3Cpath d='M187.5 5.2L194 6.4L192 9.8L187 8Z'/%3E%3C/g%3E%3Cg stroke='%2382aecb' stroke-width='0.6' fill='none' opacity='0.55'%3E%3Cpath d='M16 6.2L12 15'/%3E%3Cpath d='M31 3.8L34 14'/%3E%3Cpath d='M46 7.2L43 17'/%3E%3Cpath d='M62 6L58 16'/%3E%3Cpath d='M77 3.8L80 15'/%3E%3Cpath d='M92 7.2L88 16'/%3E%3Cpath d='M108 6L104 15'/%3E%3Cpath d='M123 3.8L126 14'/%3E%3Cpath d='M138 7.2L134 17'/%3E%3Cpath d='M154 6L150 16'/%3E%3Cpath d='M169 3.8L172 15'/%3E%3Cpath d='M184 7.2L180 16'/%3E%3C/g%3E%3C/svg%3E") var(--hielo-x, 0px) 0 / 200px 18px repeat-x;
+  filter: drop-shadow(0 1px 0 rgba(150, 180, 205, 0.4));
 }
 
-/* Brillo helado en badges */
-[data-theme="christmas"] .badge,
-[data-theme="christmas"] [class*="rounded-full"][class*="bg-"] {
-  box-shadow:
-    0 0 12px rgba(186, 230, 253, 0.5),
-    0 0 4px rgba(251, 191, 36, 0.3),
-    inset 0 1px 2px rgba(255, 255, 255, 0.7);
-}
-
-/* Nieve acumulada en la parte superior de elementos */
-[data-theme="christmas"] .snow-cap::before {
-  content: '';
-  position: absolute;
-  top: -4px;
-  left: 5%;
-  right: 5%;
-  height: 10px;
-  background: linear-gradient(to bottom, #ffffff 0%, #e0f2fe 50%, #fefce8 100%);
-  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
-  box-shadow: 0 -2px 6px rgba(255, 255, 255, 0.9);
-  z-index: 5;
-}
+/* Cada bloque arranca la tira en otro punto */
+[data-theme="christmas"] .bloque-categoria:nth-of-type(2) { --hielo-x: -43px; }
+[data-theme="christmas"] .bloque-categoria:nth-of-type(3) { --hielo-x: -77px; }
+[data-theme="christmas"] .bloque-categoria:nth-of-type(4) { --hielo-x: -21px; }
+[data-theme="christmas"] .bloque-categoria:nth-of-type(5) { --hielo-x: -96px; }
+[data-theme="christmas"] .bloque-categoria:nth-of-type(6) { --hielo-x: -62px; }
+[data-theme="christmas"] .themed-card:nth-of-type(2) { --hielo-x: -51px; }
+[data-theme="christmas"] .themed-card:nth-of-type(3) { --hielo-x: -88px; }
 
 /* === MUNDIAL - Estilo marcador/estadio === */
 [data-theme="mundial"] .themed-card,
@@ -1494,46 +1511,25 @@ img[src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAA
 
 /* ========== BOTONES Y CTAs TEMATICOS ========== */
 
-/* === NAVIDAD - Botones con brillo helado === */
+/* === NAVIDAD - Botones ===
+   Antes llevaban un destello (shine-sweep) recorriéndolos en bucle cada 3s,
+   por debajo del texto y sin parar mientras la página estuviera abierta. Un
+   botón que se mueve solo delante de "Arma tu Pedido" compite con lo que
+   pone. Ahora la sombra es cálida y quieta, y el movimiento pasa al hover,
+   que es cuando el usuario ha preguntado. */
 [data-theme="christmas"] .themed-button,
 [data-theme="christmas"] a[href*="wa.me"],
 [data-theme="christmas"] button[type="submit"]:not([class*="admin"]) {
-  position: relative;
-  overflow: hidden;
   box-shadow:
-    0 4px 15px rgba(185, 28, 28, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    0 4px 14px -4px rgba(143, 42, 26, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
-[data-theme="christmas"] .themed-button::before,
-[data-theme="christmas"] a[href*="wa.me"]::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: linear-gradient(
-    45deg,
-    transparent 30%,
-    rgba(255, 255, 255, 0.3) 50%,
-    transparent 70%
-  );
-  animation: shine-sweep 3s ease-in-out infinite;
-}
-
-@keyframes shine-sweep {
-  0% { transform: translateX(-100%) rotate(45deg); }
-  100% { transform: translateX(100%) rotate(45deg); }
-}
-
-/* Efecto de vapor helado en hover */
 [data-theme="christmas"] .themed-button:hover,
 [data-theme="christmas"] a[href*="wa.me"]:hover {
   box-shadow:
-    0 6px 20px rgba(185, 28, 28, 0.4),
-    0 0 30px rgba(186, 230, 253, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    0 8px 20px -6px rgba(143, 42, 26, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
 /* === SAN VALENTIN - Botones WOW (Reemplaza estilos anteriores) === */
@@ -1797,12 +1793,10 @@ img[src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAA
 /* ========== EFECTOS ADICIONALES WOW ========== */
 
 /* Headers temáticos */
-[data-theme="christmas"] h1,
-[data-theme="christmas"] h2.font-display {
-  text-shadow:
-    0 0 10px rgba(186, 230, 253, 0.5),
-    0 2px 4px rgba(0, 0, 0, 0.1);
-}
+/* Los títulos de Navidad no llevan nada.
+   Tenían un text-shadow de 10px en azul hielo: sobre fondo claro eso no
+   brilla, desenfoca. Un título de 3rem con halo se lee peor que uno limpio, y
+   el tema ya tiene dónde ser navideño sin meterse en las letras. */
 
 [data-theme="mundial"] h1,
 [data-theme="mundial"] h2.font-display {
@@ -2028,228 +2022,213 @@ h1, h2, h3, h4, h5, h6 {
   50% { rotate: 2deg; }
 }
 
-/* === NAVIDAD - Copos de nieve y decoraciones === */
-@keyframes snowfall {
-  0% {
-    transform: translateY(-100vh) rotate(0deg);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(100vh) rotate(360deg);
-    opacity: 0.3;
-  }
-}
+/* === NAVIDAD — el hielo picado ===
+   Lo que cae. En El Mosquero no nieva ni ha nevado nunca: lo que vuela en el
+   puesto cuando se abre la cava es hielo picado. Mismo mecanismo que la nieve
+   de la calculadora, otro material.
 
-@keyframes snow-sway {
-  0%, 100% { margin-left: 0; }
-  25% { margin-left: 15px; }
-  75% { margin-left: -15px; }
-}
+   Cada trozo son dos piezas que no se pisan: la caja cae (translate del span)
+   y dentro el trozo se mece de lado a lado (translate del ::before), porque
+   nada baja en línea recta. Los de cerca además giran, que es otra propiedad
+   y por eso tampoco choca. La espera va en negativo: al abrir la página ya
+   está cayendo, en vez de soltarse todo desde arriba a la vez.
 
-@keyframes snow-sparkle {
-  0%, 100% {
-    opacity: 0.6;
-    filter: brightness(1);
-  }
-  50% {
-    opacity: 1;
-    filter: brightness(1.5);
-  }
-}
-
-@keyframes star-twinkle {
-  0%, 100% {
-    transform: scale(1) rotate(0deg);
-    opacity: 0.8;
-  }
-  25% {
-    transform: scale(1.2) rotate(15deg);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(0.9) rotate(-10deg);
-    opacity: 0.6;
-  }
-  75% {
-    transform: scale(1.1) rotate(5deg);
-    opacity: 0.9;
-  }
-}
-
-/* Copo de nieve tipo cristal */
-.snowflake {
-  --snow-size: 8px;
+   Tres distancias: lejos (diminutos, tenues y desenfocados, lentos), los de
+   en medio, y unos pocos cerca, angulosos y girando. El hielo lleva perfil
+   azul y sombra propia porque el fondo aquí es claro: un blanco puro sobre
+   crema no se vería. Y se queda por detrás del contenido —las secciones son
+   semitransparentes, así que se ve pasar a través— porque encima de un precio
+   no pinta nada. */
+.hielo {
+  --brillo: 0.75;
   position: fixed;
-  top: -50px;
-  z-index: 1;
+  top: 0;
+  width: var(--tam);
+  height: var(--tam);
+  opacity: 0;
   pointer-events: none;
-  width: var(--snow-size);
-  height: var(--snow-size);
-  background: radial-gradient(circle, #ffffff 0%, #e0f2fe 60%, transparent 70%);
+  z-index: 1;
+  animation: caer-hielo var(--dur) linear var(--espera) infinite;
+}
+
+.hielo::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(140deg, #ffffff 0%, #d7ecf8 55%, #9fc9e4 100%);
+  clip-path: polygon(24% 2%, 86% 18%, 100% 60%, 56% 100%, 6% 78%, 0 32%);
+  filter: drop-shadow(0 1px 1px rgba(28, 82, 120, 0.35));
+  animation: vaiven-hielo var(--ritmo) ease-in-out var(--espera) infinite alternate;
+}
+
+/* Lejos: polvo de hielo, sin aristas que a ese tamaño no se distinguirían */
+.hielo-lejos { --brillo: 0.4; }
+
+.hielo-lejos::before {
+  clip-path: none;
   border-radius: 50%;
-  box-shadow:
-    0 0 calc(var(--snow-size) * 0.8) #ffffff,
-    0 0 calc(var(--snow-size) * 1.5) rgba(186, 230, 253, 0.8),
-    0 0 calc(var(--snow-size) * 2.5) rgba(125, 211, 252, 0.4);
-  animation: snowfall 8s linear infinite, snow-sway 3s ease-in-out infinite, snow-sparkle 2s ease-in-out infinite;
+  background: radial-gradient(circle at 35% 32%, #ffffff, #bcd9ec);
+  filter: blur(0.7px);
 }
 
-/* Copo de nieve estrella (6 puntas) */
-.snowflake-star {
-  --snow-size: 10px;
-  position: fixed;
-  top: -50px;
-  z-index: 1;
+/* Cerca: los trozos grandes, con otra forma y girando al caer */
+.hielo-cerca { --brillo: 0.72; }
+
+.hielo-cerca::before {
+  clip-path: polygon(38% 0, 100% 26%, 82% 74%, 44% 100%, 4% 68%, 12% 22%);
+  animation:
+    vaiven-hielo var(--ritmo) ease-in-out var(--espera) infinite alternate,
+    girar-hielo 13s linear infinite;
+}
+
+@keyframes caer-hielo {
+  0% { translate: 0 -5vh; opacity: 0; }
+  7% { opacity: var(--brillo); }
+  86% { opacity: calc(var(--brillo) * 0.65); }
+  100% { translate: var(--giro) 105vh; opacity: 0; }
+}
+
+@keyframes vaiven-hielo {
+  from { translate: calc(var(--vaiven) * -1) 0; }
+  to { translate: var(--vaiven) 0; }
+}
+
+@keyframes girar-hielo {
+  to { rotate: 360deg; }
+}
+
+/* ---------- El pargo y la cherna colgados ----------
+   La pieza principal, y el sitio donde el tema deja de poder ser el de
+   cualquier tienda: el pescado de las fiestas colgado de su cordel, como
+   cuelga en el puesto, con la cinta de Navidad atada a la cola del pargo.
+
+   Es el mismo mecanismo que las bolas del acebo en la calculadora: cada uno
+   pende de un punto, se mece desde ahí como un péndulo y con duraciones
+   distintas nunca van a la par. Cuelgan del borde de abajo del header —del
+   muelle— y no están fijos: se van al desplazar la página, como el acebo.
+
+   En el teléfono cuelga solo el pargo. Dos ocupan 118px y a 390px de ancho
+   se meterían por encima de la mascota; y con uno basta. */
+#header-hang {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0;
   pointer-events: none;
-  width: var(--snow-size);
-  height: var(--snow-size);
-  background: transparent;
 }
 
-.snowflake-star::before,
-.snowflake-star::after {
+.pescados-muelle {
+  position: absolute;
+  right: 10px;
+  bottom: 0;
+  width: 118px;
+  height: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.pescados-muelle .cuelga {
+  position: absolute;
+  top: 0;
+  right: var(--x);
+  width: var(--ancho);
+  height: calc(var(--hilo) + var(--alto));
+  transform-origin: 50% 0;
+  animation: mecer-pescado var(--ritmo) ease-in-out var(--espera) infinite alternate;
+}
+
+/* El cordel, que sale de debajo del pescado porque es de donde cuelga */
+.pescados-muelle .cuelga::before {
   content: '';
   position: absolute;
   top: 0;
   left: 50%;
   width: 2px;
-  height: var(--snow-size);
-  background: linear-gradient(to bottom, transparent 0%, #ffffff 30%, #ffffff 70%, transparent 100%);
-  transform-origin: center center;
-  box-shadow: 0 0 4px #bae6fd, 0 0 8px rgba(186, 230, 253, 0.6);
+  margin-left: -1px;
+  height: calc(var(--hilo) + 3px);
+  background: linear-gradient(180deg, #e0cfae, #a58a5e);
 }
 
-.snowflake-star::before {
-  transform: translateX(-50%) rotate(0deg);
+.pescados-muelle .cuelga::after {
+  content: '';
+  position: absolute;
+  top: var(--hilo);
+  left: 0;
+  width: var(--ancho);
+  height: var(--alto);
+  background: var(--pez) center / contain no-repeat;
+  filter: drop-shadow(0 3px 4px rgba(12, 28, 42, 0.4));
 }
 
-.snowflake-star::after {
-  transform: translateX(-50%) rotate(60deg);
+@keyframes mecer-pescado {
+  from { rotate: -4.5deg; }
+  to { rotate: 4.5deg; }
 }
 
-/* Esfera navideña roja */
-.christmas-ornament {
-  --ornament-size: 10px;
-  position: fixed;
-  top: -50px;
-  z-index: 1;
+.pez-pargo {
+  --pez: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 92'%3E%3Cdefs%3E%3CradialGradient id='p' cx='0.36' cy='0.3' r='0.85'%3E%3Cstop offset='0' stop-color='%23ff9e86'/%3E%3Cstop offset='0.5' stop-color='%23d8422f'/%3E%3Cstop offset='1' stop-color='%237c1a13'/%3E%3C/radialGradient%3E%3ClinearGradient id='c' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23a82a1c'/%3E%3Cstop offset='1' stop-color='%23e2604a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M22 3L12 0L15.5 15L22 19.5L28.5 15L32 0Z' fill='url(%23c)'/%3E%3Cpath d='M32 30L40.5 41L31.5 45.5Z' fill='%23b4331f'/%3E%3Cpath d='M12 32L3.5 43L12.5 47.5Z' fill='%23b4331f'/%3E%3Cpath d='M22 16C31 20 35 35 32 53C30 67 26 78 22 89C18 78 14 67 12 53C9 35 13 20 22 16Z' fill='url(%23p)'/%3E%3Cellipse cx='18' cy='38' rx='2.8' ry='12' fill='%23fff' opacity='0.17'/%3E%3Cpath d='M15.5 63Q22 68 28.5 63' stroke='%237c1a13' stroke-width='1.1' fill='none' opacity='0.55'/%3E%3Ccircle cx='17.6' cy='71' r='2.9' fill='%23fdf3e6'/%3E%3Ccircle cx='17.6' cy='71' r='1.5' fill='%23231310'/%3E%3Ccircle cx='16.9' cy='70.2' r='0.6' fill='%23fff' opacity='0.8'/%3E%3Cpath d='M19 86Q22 88.5 25 86' stroke='%237c1a13' stroke-width='1.1' fill='none'/%3E%3Cg transform='translate(22 17.5)'%3E%3Cpath d='M0 0C-6.5-5.5-10 1.5-3 3.5Z' fill='%23e0533a'/%3E%3Cpath d='M0 0C6.5-5.5 10 1.5 3 3.5Z' fill='%23e0533a'/%3E%3Cpath d='M0 0C-3 4-4.5 7.5-4 9.5' stroke='%23c23c26' stroke-width='1.4' fill='none'/%3E%3Cpath d='M0 0C3 4 4.5 7.5 4 9.5' stroke='%23c23c26' stroke-width='1.4' fill='none'/%3E%3Ccircle r='2' fill='%23b7301f'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.pez-cherna {
+  --pez: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 88'%3E%3Cdefs%3E%3CradialGradient id='m' cx='0.36' cy='0.3' r='0.85'%3E%3Cstop offset='0' stop-color='%23a7b68a'/%3E%3Cstop offset='0.5' stop-color='%235b6a45'/%3E%3Cstop offset='1' stop-color='%232d3521'/%3E%3C/radialGradient%3E%3C/defs%3E%3Cpath d='M23 3L12 0L16 15L23 19L30 15L34 0Z' fill='%2346512f'/%3E%3Cpath d='M34 30L42.5 40L33.5 44.5Z' fill='%233f4a2b'/%3E%3Cpath d='M12 32L3.5 42L12.5 46.5Z' fill='%233f4a2b'/%3E%3Cpath d='M23 16C33 21 37 36 34 53C32 66 28 77 23 86C18 77 14 66 12 53C9 36 13 21 23 16Z' fill='url(%23m)'/%3E%3Cg fill='%23262f1b' opacity='0.42'%3E%3Ccircle cx='19' cy='30' r='2.2'/%3E%3Ccircle cx='27' cy='36' r='1.9'/%3E%3Ccircle cx='17' cy='43' r='2.4'/%3E%3Ccircle cx='28' cy='49' r='2.1'/%3E%3Ccircle cx='20' cy='55' r='1.8'/%3E%3Ccircle cx='26' cy='62' r='1.6'/%3E%3C/g%3E%3Cellipse cx='18.5' cy='38' rx='2.6' ry='11' fill='%23fff' opacity='0.12'/%3E%3Cpath d='M16 62Q23 67 30 62' stroke='%232d3521' stroke-width='1.1' fill='none' opacity='0.55'/%3E%3Ccircle cx='18.2' cy='69' r='3' fill='%23f2efdc'/%3E%3Ccircle cx='18.2' cy='69' r='1.6' fill='%231c2113'/%3E%3Ccircle cx='17.4' cy='68.2' r='0.6' fill='%23fff' opacity='0.8'/%3E%3Cpath d='M19.5 83Q23 86 26.5 83' stroke='%232d3521' stroke-width='1.2' fill='none'/%3E%3C/svg%3E");
+}
+
+@media (max-width: 640px) {
+  .pescados-muelle { width: 58px; right: 6px; }
+  .pescados-muelle .pez-cherna { display: none; }
+}
+
+/* ---------- Las luces del muelle ----------
+   En diciembre los puestos y los peñeros amanecen con las luces colgadas, y
+   eso es lo que va en el borde de arriba del header.
+
+   Son una guirnalda de verdad, no diez bombillas en fila: el cable cuelga en
+   ondas entre bombilla y bombilla, cada una con su casquillo y su reflejo, y
+   van en dos circuitos que se turnan —uno baja cuando el otro sube—, con los
+   tres colores repartidos en cada circuito. Antes eran diez luces
+   parpadeando cada una por su cuenta cada 1,5s: eso no es una guirnalda, es
+   una discoteca encima del logo.
+
+   El contenedor del header mide 0 de alto y recorta; para Navidad se le da
+   la altura de la guirnalda. Solo para Navidad: los demás temas lo dejan
+   como estaba. */
+[data-theme="christmas"] #header-decorations {
+  height: 22px;
+  overflow: visible;
+}
+
+.luces-muelle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 22px;
   pointer-events: none;
-  width: var(--ornament-size);
-  height: var(--ornament-size);
-  background: radial-gradient(
-    circle at 30% 30%,
-    #fca5a5 0%,
-    #ef4444 30%,
-    #b91c1c 70%,
-    #7f1d1d 100%
-  );
-  border-radius: 50%;
-  box-shadow:
-    inset 2px 2px 4px rgba(255, 255, 255, 0.4),
-    inset -1px -1px 3px rgba(0, 0, 0, 0.2),
-    0 0 10px rgba(239, 68, 68, 0.5),
-    0 0 20px rgba(239, 68, 68, 0.3);
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 156 22'%3E%3Cpath d='M0 1.5Q13 11 26 1.5M26 1.5Q39 11 52 1.5M52 1.5Q65 11 78 1.5M78 1.5Q91 11 104 1.5M104 1.5Q117 11 130 1.5M130 1.5Q143 11 156 1.5' fill='none' stroke='%238ea6b6' stroke-width='1.3'/%3E%3C/svg%3E") 0 0 / 156px 22px repeat-x;
 }
 
-/* Gancho de la esfera */
-.christmas-ornament::before {
-  content: '';
+.luces-muelle i {
   position: absolute;
-  top: -20%;
-  left: 35%;
-  width: 30%;
-  height: 20%;
-  background: linear-gradient(to bottom, #fbbf24 0%, #d97706 100%);
-  border-radius: 2px 2px 0 0;
-  box-shadow: 0 0 4px rgba(251, 191, 36, 0.6);
+  inset: 0;
+  background-position: 0 0;
+  background-size: 156px 22px;
+  background-repeat: repeat-x;
+  animation: titilar-muelle 3.4s ease-in-out infinite;
 }
 
-/* Brillo de la esfera */
-.christmas-ornament::after {
-  content: '';
-  position: absolute;
-  top: 15%;
-  left: 20%;
-  width: 25%;
-  height: 25%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.8) 0%, transparent 70%);
-  border-radius: 50%;
+.luces-muelle i:first-child {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 156 22'%3E%3Cdefs%3E%3CradialGradient id='hr'%3E%3Cstop offset='0' stop-color='%23cf4a34' stop-opacity='0.6'/%3E%3Cstop offset='1' stop-color='%23cf4a34' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='br' cx='0.35' cy='0.3' r='0.8'%3E%3Cstop offset='0' stop-color='%23ff9a86'/%3E%3Cstop offset='0.5' stop-color='%23cf4a34'/%3E%3Cstop offset='1' stop-color='%238f2a1a'/%3E%3C/radialGradient%3E%3CradialGradient id='hy'%3E%3Cstop offset='0' stop-color='%23e0a42c' stop-opacity='0.6'/%3E%3Cstop offset='1' stop-color='%23e0a42c' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='by' cx='0.35' cy='0.3' r='0.8'%3E%3Cstop offset='0' stop-color='%23ffdc94'/%3E%3Cstop offset='0.5' stop-color='%23e0a42c'/%3E%3Cstop offset='1' stop-color='%238a5f0f'/%3E%3C/radialGradient%3E%3CradialGradient id='hg'%3E%3Cstop offset='0' stop-color='%236fa851' stop-opacity='0.6'/%3E%3Cstop offset='1' stop-color='%236fa851' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='bg' cx='0.35' cy='0.3' r='0.8'%3E%3Cstop offset='0' stop-color='%23c3dda6'/%3E%3Cstop offset='0.5' stop-color='%236fa851'/%3E%3Cstop offset='1' stop-color='%2333581f'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='13' cy='13.5' r='8' fill='url(%23hr)'/%3E%3Crect x='11.3' y='5.2' width='3.4' height='3.6' rx='0.7' fill='%23445a66'/%3E%3Cpath d='M10.7 8.4C9.5 11 10.2 15 13 16.6C15.8 15 16.5 11 15.3 8.4Z' fill='url(%23br)'/%3E%3Cellipse cx='12.1' cy='11' rx='0.6' ry='1.4' fill='%23fff' opacity='0.65'/%3E%3Ccircle cx='65' cy='13.5' r='8' fill='url(%23hg)'/%3E%3Crect x='63.3' y='5.2' width='3.4' height='3.6' rx='0.7' fill='%23445a66'/%3E%3Cpath d='M62.7 8.4C61.5 11 62.2 15 65 16.6C67.8 15 68.5 11 67.3 8.4Z' fill='url(%23bg)'/%3E%3Cellipse cx='64.1' cy='11' rx='0.6' ry='1.4' fill='%23fff' opacity='0.65'/%3E%3Ccircle cx='117' cy='13.5' r='8' fill='url(%23hy)'/%3E%3Crect x='115.3' y='5.2' width='3.4' height='3.6' rx='0.7' fill='%23445a66'/%3E%3Cpath d='M114.7 8.4C113.5 11 114.2 15 117 16.6C119.8 15 120.5 11 119.3 8.4Z' fill='url(%23by)'/%3E%3Cellipse cx='116.1' cy='11' rx='0.6' ry='1.4' fill='%23fff' opacity='0.65'/%3E%3C/svg%3E");
 }
 
-/* Esfera navideña verde */
-.christmas-ornament-green {
-  --ornament-size: 10px;
-  position: fixed;
-  top: -50px;
-  z-index: 1;
-  pointer-events: none;
-  width: var(--ornament-size);
-  height: var(--ornament-size);
-  background: radial-gradient(
-    circle at 30% 30%,
-    #86efac 0%,
-    #22c55e 30%,
-    #16a34a 70%,
-    #14532d 100%
-  );
-  border-radius: 50%;
-  box-shadow:
-    inset 2px 2px 4px rgba(255, 255, 255, 0.4),
-    inset -1px -1px 3px rgba(0, 0, 0, 0.2),
-    0 0 10px rgba(34, 197, 94, 0.5),
-    0 0 20px rgba(34, 197, 94, 0.3);
+.luces-muelle i:last-child {
+  animation-delay: -1.7s;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 156 22'%3E%3Cdefs%3E%3CradialGradient id='hr'%3E%3Cstop offset='0' stop-color='%23cf4a34' stop-opacity='0.6'/%3E%3Cstop offset='1' stop-color='%23cf4a34' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='br' cx='0.35' cy='0.3' r='0.8'%3E%3Cstop offset='0' stop-color='%23ff9a86'/%3E%3Cstop offset='0.5' stop-color='%23cf4a34'/%3E%3Cstop offset='1' stop-color='%238f2a1a'/%3E%3C/radialGradient%3E%3CradialGradient id='hy'%3E%3Cstop offset='0' stop-color='%23e0a42c' stop-opacity='0.6'/%3E%3Cstop offset='1' stop-color='%23e0a42c' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='by' cx='0.35' cy='0.3' r='0.8'%3E%3Cstop offset='0' stop-color='%23ffdc94'/%3E%3Cstop offset='0.5' stop-color='%23e0a42c'/%3E%3Cstop offset='1' stop-color='%238a5f0f'/%3E%3C/radialGradient%3E%3CradialGradient id='hg'%3E%3Cstop offset='0' stop-color='%236fa851' stop-opacity='0.6'/%3E%3Cstop offset='1' stop-color='%236fa851' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='bg' cx='0.35' cy='0.3' r='0.8'%3E%3Cstop offset='0' stop-color='%23c3dda6'/%3E%3Cstop offset='0.5' stop-color='%236fa851'/%3E%3Cstop offset='1' stop-color='%2333581f'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='39' cy='13.5' r='8' fill='url(%23hy)'/%3E%3Crect x='37.3' y='5.2' width='3.4' height='3.6' rx='0.7' fill='%23445a66'/%3E%3Cpath d='M36.7 8.4C35.5 11 36.2 15 39 16.6C41.8 15 42.5 11 41.3 8.4Z' fill='url(%23by)'/%3E%3Cellipse cx='38.1' cy='11' rx='0.6' ry='1.4' fill='%23fff' opacity='0.65'/%3E%3Ccircle cx='91' cy='13.5' r='8' fill='url(%23hr)'/%3E%3Crect x='89.3' y='5.2' width='3.4' height='3.6' rx='0.7' fill='%23445a66'/%3E%3Cpath d='M88.7 8.4C87.5 11 88.2 15 91 16.6C93.8 15 94.5 11 93.3 8.4Z' fill='url(%23br)'/%3E%3Cellipse cx='90.1' cy='11' rx='0.6' ry='1.4' fill='%23fff' opacity='0.65'/%3E%3Ccircle cx='143' cy='13.5' r='8' fill='url(%23hg)'/%3E%3Crect x='141.3' y='5.2' width='3.4' height='3.6' rx='0.7' fill='%23445a66'/%3E%3Cpath d='M140.7 8.4C139.5 11 140.2 15 143 16.6C145.8 15 146.5 11 145.3 8.4Z' fill='url(%23bg)'/%3E%3Cellipse cx='142.1' cy='11' rx='0.6' ry='1.4' fill='%23fff' opacity='0.65'/%3E%3C/svg%3E");
 }
 
-.christmas-ornament-green::before {
-  content: '';
-  position: absolute;
-  top: -20%;
-  left: 35%;
-  width: 30%;
-  height: 20%;
-  background: linear-gradient(to bottom, #fbbf24 0%, #d97706 100%);
-  border-radius: 2px 2px 0 0;
-  box-shadow: 0 0 4px rgba(251, 191, 36, 0.6);
-}
-
-.christmas-ornament-green::after {
-  content: '';
-  position: absolute;
-  top: 15%;
-  left: 20%;
-  width: 25%;
-  height: 25%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.8) 0%, transparent 70%);
-  border-radius: 50%;
-}
-
-/* Estrella dorada navideña */
-.christmas-star {
-  --star-size: 12px;
-  position: fixed;
-  top: -50px;
-  z-index: 2;
-  pointer-events: none;
-  width: var(--star-size);
-  height: var(--star-size);
-  background: linear-gradient(135deg, #fef08a 0%, #fbbf24 50%, #d97706 100%);
-  clip-path: polygon(
-    50% 0%,
-    61% 35%,
-    98% 35%,
-    68% 57%,
-    79% 91%,
-    50% 70%,
-    21% 91%,
-    32% 57%,
-    2% 35%,
-    39% 35%
-  );
-  box-shadow:
-    0 0 10px #fbbf24,
-    0 0 20px rgba(251, 191, 36, 0.6),
-    0 0 30px rgba(251, 191, 36, 0.3);
-  animation: star-twinkle 3s ease-in-out infinite;
+@keyframes titilar-muelle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 
 /* === PASCUA - Elementos flotantes === */
@@ -3036,11 +3015,7 @@ h1, h2, h3, h4, h5, h6 {
   .confetti-piece,
   .carnival-streamer,
   .carnival-mask,
-  .snowflake,
-  .snowflake-star,
-  .christmas-ornament,
-  .christmas-ornament-green,
-  .christmas-star,
+  .hielo,
   .easter-element,
   .easter-egg,
   .bubble,
@@ -3060,6 +3035,15 @@ h1, h2, h3, h4, h5, h6 {
   .campeones-flag {
     animation: none;
     display: none;
+  }
+
+  /* Lo que no cae se queda puesto, solo quieto: un pescado colgado sin
+     mecerse sigue siendo un pescado colgado, y las luces encendidas del todo
+     siguen siendo las luces del muelle. Quitarlos dejaría el tema sin
+     decoración a quien solo pidió que no se moviera. */
+  .pescados-muelle .cuelga,
+  .luces-muelle i {
+    animation: none;
   }
 }
 

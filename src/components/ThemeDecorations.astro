@@ -67,37 +67,38 @@
       }
     },
     christmas: {
-      count: 30,
+      // El hielo picado de la cava, en tres distancias. En El Mosquero no
+      // nieva: lo que vuela en el puesto es el hielo sobre el que se expone
+      // el pescado. Menos piezas en el teléfono, que es por donde entra casi
+      // toda la clientela.
+      count: window.innerWidth < 480 ? 12 : 22,
       create: (i) => {
-        const element = document.createElement('div');
-        // Variedad de elementos: copos (60%), esferas rojas (15%), esferas verdes (15%), estrellas (10%)
-        const type = i % 10;
-        if (type < 6) {
-          // Copos de nieve (tipos variados)
-          element.className = i % 3 === 0 ? 'snowflake-star' : 'snowflake';
-          const size = 6 + Math.random() * 10;
-          element.style.setProperty('--snow-size', `${size}px`);
-        } else if (type < 7) {
-          // Esferas rojas
-          element.className = 'christmas-ornament';
-          const size = 8 + Math.random() * 6;
-          element.style.setProperty('--ornament-size', `${size}px`);
-        } else if (type < 8) {
-          // Esferas verdes
-          element.className = 'christmas-ornament-green';
-          const size = 8 + Math.random() * 6;
-          element.style.setProperty('--ornament-size', `${size}px`);
+        const element = document.createElement('span');
+        const entre = (a, b) => a + Math.random() * (b - a);
+
+        // Dos de cada cinco lejos, dos en medio, uno cerca
+        const plano = i % 5;
+        let tam, dur, ritmo;
+        if (plano < 2) {
+          element.className = 'hielo hielo-lejos';
+          tam = entre(1.8, 2.8); dur = entre(21, 27); ritmo = entre(5, 6.5);
+        } else if (plano < 4) {
+          element.className = 'hielo';
+          tam = entre(3.4, 5.2); dur = entre(14, 19); ritmo = entre(3.5, 5.5);
         } else {
-          // Estrellas doradas
-          element.className = 'christmas-star';
-          const size = 10 + Math.random() * 8;
-          element.style.setProperty('--star-size', `${size}px`);
+          element.className = 'hielo hielo-cerca';
+          tam = entre(7.5, 10.5); dur = entre(11, 15); ritmo = entre(3.8, 6);
         }
-        element.style.left = `${Math.random() * 100}%`;
-        element.style.opacity = `${0.6 + Math.random() * 0.4}`;
-        const duration = 8 + Math.random() * 10;
-        const delay = Math.random() * 6;
-        element.style.animation = `snowfall ${duration}s linear ${delay}s infinite, snow-sway 3s ease-in-out ${delay}s infinite`;
+
+        element.style.left = `${entre(0, 100).toFixed(1)}%`;
+        element.style.setProperty('--tam', `${tam.toFixed(1)}px`);
+        element.style.setProperty('--dur', `${dur.toFixed(1)}s`);
+        // Espera negativa: al abrir la página ya está cayendo, en vez de
+        // soltarse todo desde arriba a la vez.
+        element.style.setProperty('--espera', `${(-Math.random() * dur).toFixed(1)}s`);
+        element.style.setProperty('--giro', `${entre(-32, 32).toFixed(0)}px`);
+        element.style.setProperty('--vaiven', `${entre(4, 14).toFixed(0)}px`);
+        element.style.setProperty('--ritmo', `${ritmo.toFixed(1)}s`);
         return element;
       }
     },

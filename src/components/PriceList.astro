@@ -49,7 +49,7 @@ const categoryIcons: Record<string, string> = {
 
     <div class="space-y-6 md:space-y-10">
       {categories.map((category) => (
-        <div class="bg-ocean-50/50 rounded-xl md:rounded-2xl p-4 md:p-6 lg:p-8">
+        <div class="bloque-categoria bg-ocean-50/50 rounded-xl md:rounded-2xl p-4 md:p-6 lg:p-8">
           <h3 class="text-lg md:text-xl lg:text-2xl font-display font-semibold text-ocean-800 mb-4 md:mb-6 flex items-center gap-2 md:gap-3">
             <span class="text-xl md:text-2xl">{categoryIcons[category.name] || '🐠'}</span>
             {category.name}
