@@ -1,5 +1,5 @@
 import type { CalcEntry, ClientData, DispatcherTab, SubClient, SavedSession } from './types';
-import { LS_KEYS, DEFAULT_SUBCLIENT_NAME, DEFAULT_SUBCLIENT_COUNT, DISPATCHERS } from './constants';
+import { LS_KEYS, DEFAULT_SUBCLIENT_NAME, DEFAULT_SUBCLIENT_COUNT, DISPATCHERS, RETIRED_DISPATCHERS } from './constants';
 
 interface LegacyCalcEntry {
   id: number;
@@ -102,13 +102,33 @@ export function migrateToDispatchers(): void {
   if (existing !== null) {
     try {
       const tabs: DispatcherTab[] = JSON.parse(existing);
+
+      /* Retirar a quien ya no trabaja aquí.
+         Sacarlo de DISPATCHERS no bastaba: su pestaña sigue guardada en el
+         localStorage de cada máquina, y el bucle de más abajo —el que
+         conserva al final a los que no están en la lista— la habría
+         mantenido viva. Sin esto, quitarlo del código no se notaba en
+         ninguna máquina donde ya estuviera.
+
+         Sus sub-clientes CON apuntes se pasan al primer despachador en vez
+         de borrarse: eso es trabajo a medio hacer, no un registro. Las
+         sesiones ya cerradas no se tocan. */
+      const retirados = tabs.filter(t => RETIRED_DISPATCHERS.has(t.dispatcher));
+      const vivos = tabs.filter(t => !RETIRED_DISPATCHERS.has(t.dispatcher));
+      if (retirados.length > 0 && vivos.length > 0) {
+        const conApuntes = retirados.flatMap(t =>
+          t.clients.filter(c => c.entries.length > 0)
+        );
+        if (conApuntes.length > 0) vivos[0].clients.push(...conApuntes);
+      }
+
       const ordered: DispatcherTab[] = [];
       for (const d of DISPATCHERS) {
-        const found = tabs.find(t => t.dispatcher === d.name);
+        const found = vivos.find(t => t.dispatcher === d.name);
         if (found) ordered.push(found);
       }
       // Agregar cualquier dispatcher que no esté en DISPATCHERS al final
-      for (const t of tabs) {
+      for (const t of vivos) {
         if (!ordered.some(o => o.id === t.id)) ordered.push(t);
       }
       if (ordered.length > 0) {

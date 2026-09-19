@@ -4,9 +4,18 @@ export const DISPATCHERS: readonly Dispatcher[] = [
   { name: 'Carlos', bg: 'bg-red-100', text: 'text-red-700', ring: 'ring-red-300', badge: 'bg-red-100 text-red-600', strip: 'bg-red-400' },
   { name: 'Luis', bg: 'bg-amber-100', text: 'text-amber-700', ring: 'ring-amber-300', badge: 'bg-amber-50 text-amber-600', strip: 'bg-amber-400' },
   { name: 'Pedro', bg: 'bg-teal-100', text: 'text-teal-700', ring: 'ring-teal-300', badge: 'bg-teal-50 text-teal-600', strip: 'bg-teal-400' },
-  { name: 'Johan', bg: 'bg-violet-100', text: 'text-violet-700', ring: 'ring-violet-300', badge: 'bg-violet-50 text-violet-600', strip: 'bg-violet-400' },
   { name: 'Pa', bg: 'bg-blue-100', text: 'text-blue-700', ring: 'ring-blue-300', badge: 'bg-blue-50 text-blue-600', strip: 'bg-blue-400' },
 ] as const;
+
+/**
+ * Despachadores que ya no trabajan aquí.
+ *
+ * No basta con sacarlos de DISPATCHERS: la pestaña de cada uno vive en el
+ * localStorage de cada máquina, y useLocalStorage lee lo guardado sin volver
+ * a mirar la lista. Se conservan aquí por nombre para poder limpiarlos de lo
+ * ya guardado (ver migration.ts) y excluirlos de los rankings.
+ */
+export const RETIRED_DISPATCHERS: ReadonlySet<string> = new Set(['Johan']);
 
 export const LS_KEYS = {
   DISPATCHERS: 'rpym_calc_dispatchers',
@@ -35,6 +44,6 @@ export const DEFAULT_SUBCLIENT_COUNT = 5;
 /** @deprecated */
 export const DEFAULT_CLIENT_NAME = (index: number) => `Cliente ${index + 1}`;
 /** @deprecated */
-export const DEFAULT_DISPATCHER: readonly string[] = ['Carlos', 'Luis', 'Pedro', 'Johan', 'Pa'];
+export const DEFAULT_DISPATCHER: readonly string[] = ['Carlos', 'Luis', 'Pedro', 'Pa'];
 /** @deprecated */
 export const DEFAULT_CLIENTS_COUNT = 5;

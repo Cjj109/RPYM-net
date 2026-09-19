@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { formatUSD, formatBs } from '../../lib/format';
 import type { SavedSession, DiscardedSession } from './types';
-import { DISPATCHERS } from './constants';
+import { DISPATCHERS, RETIRED_DISPATCHERS } from './constants';
 
 interface HistoryPanelProps {
   sessions: SavedSession[];
@@ -138,19 +138,25 @@ export function HistoryPanel({ sessions, discardedSessions = [], onRemoveSession
         /* Vista Ranking — Podio visual grande */
         (() => {
           const BG_GRADIENT: Record<string, string> = {
-            Luis: 'from-amber-400 to-amber-500', Pedro: 'from-teal-400 to-teal-500', Johan: 'from-violet-400 to-violet-500',
+            Luis: 'from-amber-400 to-amber-500', Pedro: 'from-teal-400 to-teal-500',
           };
           const BG_LIGHT: Record<string, string> = {
-            Luis: 'bg-amber-100', Pedro: 'bg-teal-100', Johan: 'bg-violet-100',
+            Luis: 'bg-amber-100', Pedro: 'bg-teal-100',
           };
           const TEXT_COLOR: Record<string, string> = {
-            Luis: 'text-amber-700', Pedro: 'text-teal-700', Johan: 'text-violet-700',
+            Luis: 'text-amber-700', Pedro: 'text-teal-700',
           };
           const BORDER_COLOR: Record<string, string> = {
-            Luis: 'border-amber-300', Pedro: 'border-teal-300', Johan: 'border-violet-300',
+            Luis: 'border-amber-300', Pedro: 'border-teal-300',
           };
 
-          const EXCLUDED = new Set(['Carlos', 'Pa']);
+          /* Los retirados salen del ranking igual que Carlos y Pa. El ranking
+             se arma recorriendo las sesiones guardadas (s.dispatcher), no la
+             lista de despachadores, así que sin esto un retirado seguiría
+             apareciendo en el podio —y encima sin color, porque ya no está en
+             los mapas de arriba—. Sus sesiones no se borran: son operaciones
+             que ocurrieron de verdad. */
+          const EXCLUDED = new Set(['Carlos', 'Pa', ...RETIRED_DISPATCHERS]);
 
           // --- Datos del día ---
           const daySessions = sessions.filter(s => dateKey(s.timestamp) === selectedDateKey && !EXCLUDED.has(s.dispatcher || ''));

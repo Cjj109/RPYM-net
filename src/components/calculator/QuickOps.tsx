@@ -25,7 +25,6 @@ const DISP_HEX: Record<string, string> = {
   Carlos: '#ef4444',
   Luis:   '#f59e0b',
   Pedro:  '#14b8a6',
-  Johan:  '#8b5cf6',
   Pa:     '#3b82f6',
 };
 
